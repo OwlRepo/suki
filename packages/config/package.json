@@ -1,0 +1,12 @@
+{
+  "name": "@suki/config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./tsconfig/base.json",
+  "exports": {
+    "./base": "./tsconfig/base.json",
+    "./nextjs": "./tsconfig/nextjs.json",
+    "./nestjs": "./tsconfig/nestjs.json"
+  },
+  "files": ["tsconfig"]
+}

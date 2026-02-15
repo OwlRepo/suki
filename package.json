@@ -1,0 +1,40 @@
+{
+  "name": "suki-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "bun run db:setup && turbo run dev",
+    "dev:web": "turbo run dev --filter=@suki/web",
+    "dev:api": "turbo run dev --filter=@suki/api",
+    "build": "bun run db:setup && turbo run build",
+    "build:web": "turbo run build --filter=@suki/web...",
+    "build:api": "turbo run build --filter=@suki/api...",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "turbo run db:generate --filter=@suki/database",
+    "db:setup": "turbo run db:setup --filter=@suki/database",
+    "db:migrate": "turbo run db:migrate --filter=@suki/database",
+    "db:studio": "turbo run db:studio --filter=@suki/database",
+    "db:seed": "turbo run db:seed --filter=@suki/database",
+    "db:reset": "turbo run db:reset --filter=@suki/database",
+    "setup:cursor": "bun run scripts/setup-cursor-integration.ts",
+    "update:cursor-indexes": "bun run scripts/update-cursor-indexes.ts",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "husky": "^9.1.7",
+    "turbo": "^2.0.0",
+    "typescript": "^5.6.2"
+  },
+  "packageManager": "bun@1.0.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["tsconfig.json", ".env"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "build/**",
+        "apps/api/dist/**",
+        "apps/web/.next/**",
+        "packages/database/dist/**",
+        "packages/types/dist/**",
+        "packages/ui/dist/**"
+      ],
+      "env": ["NODE_ENV"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    },
+    "clean": {
+      "cache": false
+    },
+    "db:generate": {
+      "cache": false,
+      "outputs": ["**/drizzle/**"]
+    },
+    "db:setup": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false,
+      "dependsOn": ["db:generate"]
+    },
+    "db:studio": {
+      "cache": false,
+      "persistent": true
+    },
+    "db:seed": {
+      "cache": false,
+      "dependsOn": ["db:migrate"]
+    },
+    "db:reset": {
+      "cache": false
+    }
+  }
+}

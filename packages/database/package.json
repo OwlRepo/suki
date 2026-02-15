@@ -1,0 +1,31 @@
+{
+  "name": "@suki/database",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts",
+    "clean": "rm -rf dist drizzle",
+    "db:generate": "drizzle-kit generate",
+    "db:setup": "bun run scripts/setup.ts",
+    "db:migrate": "bun run scripts/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "bun run scripts/seed.ts",
+    "db:reset": "bun run scripts/reset.ts"
+  },
+  "dependencies": {
+    "@suki/types": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@suki/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "drizzle-kit": "^0.31.8",
+    "dotenv": "^17.2.3",
+    "typescript": "^5.6.2"
+  }
+}
