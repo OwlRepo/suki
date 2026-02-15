@@ -17,9 +17,9 @@ This script will:
 1. Detect project type (monorepo, frontend, backend, fullstack)
 2. Detect tech stack from `package.json` files
 3. Detect file structure from directories
-4. Update `CURSOR_INTEGRATION.md` with detection results
+4. Update `CURSOR_INTEGRATION.mdc` with detection results
 5. Generate/update all `.cursor/` files accordingly
-6. Generate `CURSOR_USAGE_GUIDE.md` with project-tailored examples and workflows
+6. Generate `CURSOR_USAGE_GUIDE.mdc` with project-tailored examples and workflows
 
 ### Manual Regeneration
 
@@ -46,7 +46,7 @@ File indexes are automatically updated on every commit via git hooks:
 - **Location**: `scripts/update-cursor-indexes.ts`
 - **Usage**: `bun run scripts/update-cursor-indexes.ts [--dry-run]`
 - **Features**:
-  - Maps file paths to index files (components → components-index.md, etc.)
+  - Maps file paths to index files (components → components-index.mdc, etc.)
   - Handles file operations: Added, Modified, Deleted, Renamed
   - Supports monorepo structure (checks `apps/`, `packages/`)
   - Updates timestamps in index files
@@ -180,7 +180,7 @@ Analyze directory structure to identify:
 - Replace hardcoded tech stack references with detected stack
 - Replace hardcoded module names with detected modules
 - Adapt file indexes based on actual project structure
-- Generate only relevant architecture docs (e.g., skip routing.md for backend-only projects)
+- Generate only relevant architecture docs (e.g., skip routing.mdc for backend-only projects)
 - Adapt patterns to match detected frameworks and libraries
 - **For Monorepos**:
   - Use workspace paths (`apps/frontend/src/`, `apps/backend/src/`, `packages/shared/src/`)
@@ -192,12 +192,12 @@ Analyze directory structure to identify:
 
 **IMPORTANT**: The system is designed for **fully automated development with a mandatory planning gate**. Users do NOT need to:
 
-- Reference command files (`commands/*.md`)
-- Mention specific rules (`rules/*.md`)
+- Reference command files (`commands/*.mdc`)
+- Mention specific rules (`rules/*.mdc`)
 - Reference documentation files
 - Intervene unless AI hallucinates or many files need review
 
-The `entry-point.md` automatically:
+The `entry-point.mdc` automatically:
 
 - Detects intent from keywords, file references, and context
 - Finds relevant files using file-index
@@ -294,14 +294,14 @@ Use this split to keep planning and execution efficient:
 
 ### Architecture Documentation (Adaptive - Generate Only Relevant Files)
 
-1. **architecture/overview.md** (Always generate)
+1. **architecture/overview.mdc** (Always generate)
    - System architecture with mermaid diagrams (application flow, module relationships, data flow)
    - Key architectural decisions
    - Directory structure
    - Development patterns
    - **Adapt**: Include detected project type, tech stack, and modules
 
-2. **architecture/tech-stack.md** (Always generate)
+2. **architecture/tech-stack.mdc** (Always generate)
    - **Adapt**: Complete technology stack based on detected dependencies
    - **Frontend**: Framework, build tool, state management, routing, UI library, data fetching, language
    - **Backend**: Runtime, framework, database, ORM/ODM, API style, authentication
@@ -310,7 +310,7 @@ Use this split to keep planning and execution efficient:
    - Package management (npm, yarn, pnpm, pip, go mod, etc.)
    - Environment variables
 
-3. **architecture/routing.md** (Generate for Frontend/Full-Stack only)
+3. **architecture/routing.mdc** (Generate for Frontend/Full-Stack only)
    - **Adapt**: Routing patterns based on detected framework
    - **React**: TanStack Router, React Router, Next.js routing
    - **Vue**: Vue Router patterns
@@ -320,7 +320,7 @@ Use this split to keep planning and execution efficient:
    - Route parameters and search params
    - **Skip**: For backend-only projects
 
-4. **architecture/state-management.md** (Generate for Frontend/Full-Stack only)
+4. **architecture/state-management.mdc** (Generate for Frontend/Full-Stack only)
    - **Adapt**: State management patterns based on detected library
    - **React**: Zustand, Redux, Context API, Jotai, etc.
    - **Vue**: Pinia, Vuex, etc.
@@ -331,7 +331,7 @@ Use this split to keep planning and execution efficient:
    - DevTools integration
    - **Skip**: For backend-only projects
 
-5. **architecture/data-fetching.md** (Generate for Frontend/Full-Stack only)
+5. **architecture/data-fetching.mdc** (Generate for Frontend/Full-Stack only)
    - **Adapt**: Data fetching patterns based on detected library
    - **React**: TanStack Query, SWR, Apollo, etc.
    - **Vue**: Vue Query, Apollo, etc.
@@ -341,7 +341,7 @@ Use this split to keep planning and execution efficient:
    - Error handling
    - **Skip**: For backend-only projects
 
-6. **architecture/api-integration.md** (Generate for Frontend/Full-Stack or Backend)
+6. **architecture/api-integration.mdc** (Generate for Frontend/Full-Stack or Backend)
    - **Frontend**: HTTP client configuration (Axios, Fetch, etc.)
    - **Backend**: API patterns (REST, GraphQL, gRPC)
    - Request/response patterns
@@ -349,7 +349,7 @@ Use this split to keep planning and execution efficient:
    - Authentication headers/tokens
    - **Adapt**: Based on detected HTTP client or API framework
 
-7. **architecture/component-patterns.md** (Generate for Frontend/Full-Stack only)
+7. **architecture/component-patterns.mdc** (Generate for Frontend/Full-Stack only)
    - **Adapt**: Component architecture based on detected framework
    - **React**: Component patterns, hooks, JSX patterns
    - **Vue**: Component patterns, Composition API, templates
@@ -359,14 +359,14 @@ Use this split to keep planning and execution efficient:
    - Table/list patterns
    - **Skip**: For backend-only projects
 
-8. **architecture/module-structure.md** (Always generate)
+8. **architecture/module-structure.mdc** (Always generate)
    - **Adapt**: List all detected modules/features from directory structure
    - Module organization
    - Module-specific patterns
    - **Frontend**: Feature modules, page modules, etc.
    - **Backend**: Domain modules, service modules, etc.
 
-9. **architecture/database.md** (Generate for Backend/Full-Stack only)
+9. **architecture/database.mdc** (Generate for Backend/Full-Stack only)
    - **Adapt**: Database patterns based on detected database and ORM/ODM
    - Database type (PostgreSQL, MySQL, MongoDB, Redis, etc.)
    - ORM/ODM patterns (Prisma, Sequelize, Mongoose, SQLAlchemy, etc.)
@@ -374,7 +374,7 @@ Use this split to keep planning and execution efficient:
    - Query patterns
    - **Skip**: For frontend-only projects
 
-10. **architecture/service-patterns.md** (Generate for Backend/Full-Stack only)
+10. **architecture/service-patterns.mdc** (Generate for Backend/Full-Stack only)
     - **Adapt**: Service layer patterns based on detected framework
     - Service structure
     - Business logic patterns
@@ -383,7 +383,7 @@ Use this split to keep planning and execution efficient:
 
 ### File Indexes (Adaptive - Generate Based on Project Structure)
 
-1. **file-index/src-index.md** (Always generate)
+1. **file-index/src-index.mdc** (Always generate)
    - **Adapt**: Complete directory tree based on actual project structure
    - **Frontend**: `src/` or `app/` directory tree
    - **Backend**: `src/`, `app/`, `lib/`, or framework-specific directories
@@ -391,7 +391,7 @@ Use this split to keep planning and execution efficient:
    - Directory structure with descriptions
    - File organization patterns
 
-2. **file-index/components-index.md** (Generate for Frontend/Full-Stack only)
+2. **file-index/components-index.mdc** (Generate for Frontend/Full-Stack only)
    - **Adapt**: Component categorization based on detected structure
    - **React**: Components categorized (UI, dialogs, forms, layouts, inputs, etc.)
    - **Vue**: Components categorized similarly
@@ -400,14 +400,14 @@ Use this split to keep planning and execution efficient:
    - Usage patterns
    - **Skip**: For backend-only projects
 
-3. **file-index/hooks-index.md** (Generate for React Frontend/Full-Stack only)
+3. **file-index/hooks-index.mdc** (Generate for React Frontend/Full-Stack only)
    - **Adapt**: Hooks categorized based on detected patterns
    - Query hooks, mutation hooks, socket hooks, custom hooks
    - Hook purposes and usage patterns
    - Data fetching hooks
    - **Skip**: For non-React projects or backend-only projects
 
-4. **file-index/routes-index.md** (Generate for Frontend/Full-Stack only)
+4. **file-index/routes-index.mdc** (Generate for Frontend/Full-Stack only)
    - **Adapt**: Routes based on detected routing system
    - **React**: Routes with paths, purposes, auth requirements, related components
    - **Vue**: Vue Router routes
@@ -416,7 +416,7 @@ Use this split to keep planning and execution efficient:
    - Module routes
    - **Skip**: For backend-only projects
 
-5. **file-index/stores-index.md** (Generate for Frontend/Full-Stack only)
+5. **file-index/stores-index.mdc** (Generate for Frontend/Full-Stack only)
    - **Adapt**: State management stores based on detected library
    - **Zustand**: Stores with state structures, actions, usage patterns
    - **Redux**: Stores, slices, reducers
@@ -426,14 +426,14 @@ Use this split to keep planning and execution efficient:
    - State management patterns
    - **Skip**: For backend-only projects or projects without state management
 
-6. **file-index/utils-index.md** (Always generate)
+6. **file-index/utils-index.mdc** (Always generate)
    - **Adapt**: Utility functions based on detected patterns
    - **Frontend**: env, formatting, validation, data processing, helpers
    - **Backend**: helpers, validators, formatters, middleware, etc.
    - Utility purposes
    - Usage examples
 
-7. **file-index/controllers-index.md** (Generate for Backend/Full-Stack only)
+7. **file-index/controllers-index.mdc** (Generate for Backend/Full-Stack only)
    - **Adapt**: Controllers/routes based on detected framework
    - **Express**: Route handlers
    - **Django**: Views
@@ -442,13 +442,13 @@ Use this split to keep planning and execution efficient:
    - Controller purposes and endpoints
    - **Skip**: For frontend-only projects
 
-8. **file-index/services-index.md** (Generate for Backend/Full-Stack only)
+8. **file-index/services-index.mdc** (Generate for Backend/Full-Stack only)
    - **Adapt**: Services based on detected patterns
    - Service purposes
    - Business logic patterns
    - **Skip**: For frontend-only projects
 
-9. **file-index/models-index.md** (Generate for Backend/Full-Stack only)
+9. **file-index/models-index.mdc** (Generate for Backend/Full-Stack only)
    - **Adapt**: Models/schemas based on detected ORM/ODM
    - **Prisma**: Models
    - **Sequelize**: Models
@@ -459,59 +459,59 @@ Use this split to keep planning and execution efficient:
 
 ### Debugging Files (4 files)
 
-1. **debugging/workflow.md**
+1. **debugging/workflow.mdc**
    - Step-by-step debugging process (reproduce → identify → RCA → fix → test)
    - Debugging methodology
    - Tools and techniques
 
-2. **debugging/root-cause-analysis.md**
+2. **debugging/root-cause-analysis.mdc**
    - RCA template (problem, affected areas, root cause, impact, solution)
    - Analysis framework
    - Documentation format
 
-3. **debugging/common-issues.md**
+3. **debugging/common-issues.mdc**
    - Known issues database with solutions and prevention strategies
    - Common bugs and fixes
    - Prevention tips
 
-4. **debugging/fix-plan-template.md**
+4. **debugging/fix-plan-template.mdc**
    - Standardized fix plan format (problem, root cause, solution steps, files, expected outcome, testing)
    - Plan structure
    - Implementation checklist
 
 ### Rules System (6 files)
 
-1. **rules/bug-fix.md**
+1. **rules/bug-fix.mdc**
    - Bug fixing guidelines (reproduce first, use RCA, test thoroughly, follow patterns)
    - Bug fix workflow
    - Quality standards
 
-2. **rules/feature-implementation.md**
+2. **rules/feature-implementation.mdc**
    - Feature rules (follow architecture, use patterns, create types, error handling, tests)
    - Implementation standards
    - Code quality requirements
 
-3. **rules/enhancement.md**
+3. **rules/enhancement.mdc**
    - Enhancement guidelines (understand current, identify improvements, maintain compatibility, document)
    - Enhancement process
    - Backward compatibility
 
-4. **rules/refactoring.md**
+4. **rules/refactoring.mdc**
    - Refactoring rules (maintain functionality, follow style, update related files, test)
    - Refactoring standards
    - Safety guidelines
 
-5. **rules/code-review.md**
+5. **rules/code-review.mdc**
    - Review guidelines (check patterns, error handling, performance, accessibility)
    - Review checklist
    - Quality criteria
 
-6. **rules/testing.md**
+6. **rules/testing.mdc**
    - Testing rules (happy paths, error cases, edge cases, integration)
    - Testing standards
    - Coverage requirements
 
-7. **rules/automation-guidelines.md** - NEW
+7. **rules/automation-guidelines.mdc** - NEW
    - When to proceed automatically vs ask questions
    - When to pause for review
    - Quality gates and verification
@@ -522,34 +522,34 @@ Use this split to keep planning and execution efficient:
 
 **Note**: Command files are optional templates for structured requests. The system works automatically without referencing them - users can simply describe what they need and the entry-point automatically detects intent and applies appropriate rules.
 
-1. **commands/bug-report.md**
+1. **commands/bug-report.mdc**
    - Bug reporting template (description, steps, expected/actual, environment) - Optional
    - Report format
    - Required information
 
-2. **commands/new-feature.md**
+2. **commands/new-feature.mdc**
    - Feature implementation template (description, requirements, acceptance criteria) - Optional
    - Feature specification format
    - Implementation checklist
 
-3. **commands/enhancement.md**
+3. **commands/enhancement.mdc**
    - Enhancement template (current behavior, desired improvement, benefits) - Optional
    - Enhancement request format
    - Evaluation criteria
 
-4. **commands/refactor.md**
+4. **commands/refactor.mdc**
    - Refactoring template (code, reason, scope) - Optional
    - Refactoring request format
    - Scope definition
 
-5. **commands/code-review.md**
+5. **commands/code-review.mdc**
    - Code review template (files, focus areas) - Optional
    - Review request format
    - Review checklist
 
 ### Core Files (4 files)
 
-1. **entry-point.md** - PRIMARY ENTRY POINT (Always check first)
+1. **entry-point.mdc** - PRIMARY ENTRY POINT (Always check first)
    - **Fully automatic** - No need to reference command files or rules
    - Automatically analyzes prompts to identify intent (bug/feature/enhancement/refactor/review)
    - Automatically finds relevant files mentioned in prompts using file-index
@@ -558,25 +558,25 @@ Use this split to keep planning and execution efficient:
    - Shows active rules in execution plan
    - Works without users needing to mention command files or rules
 
-2. **README.md**
+2. **README.mdc**
    - System overview
    - Usage instructions
    - File descriptions
 
-3. **CURSOR_USAGE_GUIDE.md**
+3. **CURSOR_USAGE_GUIDE.mdc**
    - Full step-by-step usage handbook for daily Cursor workflows
    - Beginner-friendly instructions and safety checklists
    - Project-tailored prompt examples based on detected stack and file structure
    - Team onboarding, troubleshooting matrix, and ROI tracking templates
 
 4. **maintenance/** (3 files)
-   - **update-workflow.md**: When and how to update files
-   - **update-checklist.md**: Maintenance checklist
-   - **auto-update-guide.md**: AI auto-update instructions
+   - **update-workflow.mdc**: When and how to update files
+   - **update-checklist.mdc**: Maintenance checklist
+   - **auto-update-guide.mdc**: AI auto-update instructions
 
 ### Guide Generation Rules (Dynamic Tailoring)
 
-When generating `CURSOR_USAGE_GUIDE.md`, always tailor content to the detected project:
+When generating `CURSOR_USAGE_GUIDE.mdc`, always tailor content to the detected project:
 
 1. **Inject detected context**:
    - project type (frontend/backend/full-stack/monorepo)
@@ -596,43 +596,43 @@ When generating `CURSOR_USAGE_GUIDE.md`, always tailor content to the detected p
 
 **New Files Added**:
 
-- **Frontend**: Component → Update `file-index/components-index.md`, `file-index/src-index.md`
-- **Frontend**: Hook → Update `file-index/hooks-index.md`, `file-index/src-index.md`
-- **Frontend**: Route → Update `file-index/routes-index.md`, `file-index/src-index.md`
-- **Frontend**: Store → Update `file-index/stores-index.md`, `file-index/src-index.md`
-- **Backend**: Controller → Update `file-index/controllers-index.md`, `file-index/src-index.md`
-- **Backend**: Service → Update `file-index/services-index.md`, `file-index/src-index.md`
-- **Backend**: Model → Update `file-index/models-index.md`, `file-index/src-index.md`
-- **All**: Utility → Update `file-index/utils-index.md`, `file-index/src-index.md`
+- **Frontend**: Component → Update `file-index/components-index.mdc`, `file-index/src-index.mdc`
+- **Frontend**: Hook → Update `file-index/hooks-index.mdc`, `file-index/src-index.mdc`
+- **Frontend**: Route → Update `file-index/routes-index.mdc`, `file-index/src-index.mdc`
+- **Frontend**: Store → Update `file-index/stores-index.mdc`, `file-index/src-index.mdc`
+- **Backend**: Controller → Update `file-index/controllers-index.mdc`, `file-index/src-index.mdc`
+- **Backend**: Service → Update `file-index/services-index.mdc`, `file-index/src-index.mdc`
+- **Backend**: Model → Update `file-index/models-index.mdc`, `file-index/src-index.mdc`
+- **All**: Utility → Update `file-index/utils-index.mdc`, `file-index/src-index.mdc`
 
 **New Features**:
 
-- New module → Update `architecture/module-structure.md`, relevant file-index files
+- New module → Update `architecture/module-structure.mdc`, relevant file-index files
 - New pattern → Update relevant `architecture/` files
-- **Frontend**: New component pattern → Update `architecture/component-patterns.md`
-- **Frontend**: New route pattern → Update `architecture/routing.md`
-- **Frontend**: New state pattern → Update `architecture/state-management.md`
-- **Backend**: New service pattern → Update `architecture/service-patterns.md`
-- **Backend**: New database pattern → Update `architecture/database.md`
-- **All**: New API pattern → Update `architecture/api-integration.md`
+- **Frontend**: New component pattern → Update `architecture/component-patterns.mdc`
+- **Frontend**: New route pattern → Update `architecture/routing.mdc`
+- **Frontend**: New state pattern → Update `architecture/state-management.mdc`
+- **Backend**: New service pattern → Update `architecture/service-patterns.mdc`
+- **Backend**: New database pattern → Update `architecture/database.mdc`
+- **All**: New API pattern → Update `architecture/api-integration.mdc`
 
 **Breaking Changes**:
 
-- Architecture change → Update `architecture/overview.md`
-- Tech stack change → Update `architecture/tech-stack.md`
+- Architecture change → Update `architecture/overview.mdc`
+- Tech stack change → Update `architecture/tech-stack.mdc`
 - Pattern change → Update relevant `architecture/` files
-- Add to `debugging/common-issues.md` if migration needed
+- Add to `debugging/common-issues.mdc` if migration needed
 
 **Bug Fixes**:
 
-- Common bug → Add to `debugging/common-issues.md`
-- New bug pattern → Update `debugging/workflow.md` if needed
+- Common bug → Add to `debugging/common-issues.mdc`
+- New bug pattern → Update `debugging/workflow.mdc` if needed
 
 **Code Changes**:
 
 - File renamed → Update relevant `file-index/` files
 - File deleted → Remove from `file-index/` files
-- File moved → Update `file-index/src-index.md`
+- File moved → Update `file-index/src-index.mdc`
 
 ### Maintenance Workflow
 
@@ -641,60 +641,60 @@ When generating `CURSOR_USAGE_GUIDE.md`, always tailor content to the detected p
 3. **Update Files**: Apply changes to relevant documentation
 4. **Verify**: Check that updates are complete and accurate
 
-See `maintenance/update-workflow.md` for detailed workflow.
+See `maintenance/update-workflow.mdc` for detailed workflow.
 
 ## Directory Structure
 
 ```text
 .cursor/
-├── README.md                          # System overview
-├── CURSOR_INTEGRATION.md             # This file (master prompt)
-├── CURSOR_USAGE_GUIDE.md             # Project-tailored usage handbook
-├── entry-point.md                    # Prompt routing system
+├── README.mdc                          # System overview
+├── CURSOR_INTEGRATION.mdc             # This file (master prompt)
+├── CURSOR_USAGE_GUIDE.mdc             # Project-tailored usage handbook
+├── entry-point.mdc                    # Prompt routing system
 ├── architecture/                     # Adaptive architecture docs (8-10 files)
-│   ├── overview.md                   # Always generated
-│   ├── tech-stack.md                # Always generated
-│   ├── routing.md                    # Frontend/Full-Stack only
-│   ├── state-management.md          # Frontend/Full-Stack only
-│   ├── data-fetching.md             # Frontend/Full-Stack only
-│   ├── api-integration.md           # Always generated
-│   ├── component-patterns.md        # Frontend/Full-Stack only
-│   ├── module-structure.md          # Always generated
-│   ├── database.md                  # Backend/Full-Stack only
-│   └── service-patterns.md          # Backend/Full-Stack only
+│   ├── overview.mdc                   # Always generated
+│   ├── tech-stack.mdc                # Always generated
+│   ├── routing.mdc                    # Frontend/Full-Stack only
+│   ├── state-management.mdc          # Frontend/Full-Stack only
+│   ├── data-fetching.mdc             # Frontend/Full-Stack only
+│   ├── api-integration.mdc           # Always generated
+│   ├── component-patterns.mdc        # Frontend/Full-Stack only
+│   ├── module-structure.mdc          # Always generated
+│   ├── database.mdc                  # Backend/Full-Stack only
+│   └── service-patterns.mdc          # Backend/Full-Stack only
 ├── file-index/                       # Adaptive file indexes (6-9 files)
-│   ├── src-index.md                 # Always generated
-│   ├── components-index.md          # Frontend/Full-Stack only
-│   ├── hooks-index.md               # React Frontend/Full-Stack only
-│   ├── routes-index.md              # Frontend/Full-Stack only
-│   ├── stores-index.md              # Frontend/Full-Stack only
-│   ├── utils-index.md               # Always generated
-│   ├── controllers-index.md         # Backend/Full-Stack only
-│   ├── services-index.md            # Backend/Full-Stack only
-│   └── models-index.md             # Backend/Full-Stack only
+│   ├── src-index.mdc                 # Always generated
+│   ├── components-index.mdc          # Frontend/Full-Stack only
+│   ├── hooks-index.mdc               # React Frontend/Full-Stack only
+│   ├── routes-index.mdc              # Frontend/Full-Stack only
+│   ├── stores-index.mdc              # Frontend/Full-Stack only
+│   ├── utils-index.mdc               # Always generated
+│   ├── controllers-index.mdc         # Backend/Full-Stack only
+│   ├── services-index.mdc            # Backend/Full-Stack only
+│   └── models-index.mdc             # Backend/Full-Stack only
 ├── debugging/                        # 4 debugging files
-│   ├── workflow.md
-│   ├── root-cause-analysis.md
-│   ├── common-issues.md
-│   └── fix-plan-template.md
+│   ├── workflow.mdc
+│   ├── root-cause-analysis.mdc
+│   ├── common-issues.mdc
+│   └── fix-plan-template.mdc
 ├── rules/                           # 7 rule files
-│   ├── bug-fix.md
-│   ├── feature-implementation.md
-│   ├── enhancement.md
-│   ├── refactoring.md
-│   ├── code-review.md
-│   ├── testing.md
-│   └── automation-guidelines.md
+│   ├── bug-fix.mdc
+│   ├── feature-implementation.mdc
+│   ├── enhancement.mdc
+│   ├── refactoring.mdc
+│   ├── code-review.mdc
+│   ├── testing.mdc
+│   └── automation-guidelines.mdc
 ├── commands/                        # 5 command templates
-│   ├── bug-report.md
-│   ├── new-feature.md
-│   ├── enhancement.md
-│   ├── refactor.md
-│   └── code-review.md
+│   ├── bug-report.mdc
+│   ├── new-feature.mdc
+│   ├── enhancement.mdc
+│   ├── refactor.mdc
+│   └── code-review.mdc
 └── maintenance/                     # 3 maintenance files
-    ├── update-workflow.md
-    ├── update-checklist.md
-    └── auto-update-guide.md
+    ├── update-workflow.mdc
+    ├── update-checklist.mdc
+    └── auto-update-guide.mdc
 ```
 
 ## Key Principles
@@ -730,19 +730,19 @@ data and store it in IndexedDB for the live-data-table component
 
 1. ✅ **Detects Intent**: Keywords "need", "handle", "store" → Feature/Enhancement intent
 2. ✅ **Finds Files**:
-   - `usePaginatedTableSocket` → Found in `file-index/hooks-index.md`
-   - `live-data-table` → Found in `file-index/components-index.md`
-   - `IndexedDB` → Found in `file-index/utils-index.md`
+   - `usePaginatedTableSocket` → Found in `file-index/hooks-index.mdc`
+   - `live-data-table` → Found in `file-index/components-index.mdc`
+   - `IndexedDB` → Found in `file-index/utils-index.mdc`
 3. ✅ **Applies Rules**:
-   - `rules/feature-implementation.md`
-   - `rules/enhancement.md`
-   - `rules/testing.md`
+   - `rules/feature-implementation.mdc`
+   - `rules/enhancement.mdc`
+   - `rules/testing.mdc`
 4. ✅ **Includes Documentation**:
-   - `architecture/data-fetching.md`
-   - `architecture/component-patterns.md`
-   - `file-index/hooks-index.md`
-   - `file-index/components-index.md`
-   - `file-index/utils-index.md`
+   - `architecture/data-fetching.mdc`
+   - `architecture/component-patterns.mdc`
+   - `file-index/hooks-index.mdc`
+   - `file-index/components-index.mdc`
+   - `file-index/utils-index.mdc`
 5. ✅ **Creates Plan**: Comprehensive implementation plan with all details
 
 **Result**: User gets complete plan without mentioning any command files or rules!
@@ -957,8 +957,8 @@ System is successful when:
 
 ### How to Use in a New Project
 
-1. **Copy this file** to `.cursor/CURSOR_INTEGRATION.md` in your new project
-2. **Run the command**: "Analyze the codebase and regenerate all `.cursor/` files according to `@.cursor/CURSOR_INTEGRATION.md`"
+1. **Copy this file** to `.cursor/CURSOR_INTEGRATION.mdc` in your new project
+2. **Run the command**: "Analyze the codebase and regenerate all `.cursor/` files according to `@.cursor/CURSOR_INTEGRATION.mdc`"
 3. **The system will automatically**:
    - Detect project type (frontend/backend/full-stack)
    - Detect tech stack from dependencies
@@ -984,9 +984,9 @@ System is successful when:
 
 ### What Gets Generated
 
-- **Always Generated**: `overview.md`, `tech-stack.md`, `module-structure.md`, `src-index.md`, `utils-index.md`, `CURSOR_USAGE_GUIDE.md`
-- **Frontend Only**: `routing.md`, `state-management.md`, `data-fetching.md`, `component-patterns.md`, `components-index.md`, `hooks-index.md`, `routes-index.md`, `stores-index.md`
-- **Backend Only**: `database.md`, `service-patterns.md`, `controllers-index.md`, `services-index.md`, `models-index.md`
+- **Always Generated**: `overview.mdc`, `tech-stack.mdc`, `module-structure.mdc`, `src-index.mdc`, `utils-index.mdc`, `CURSOR_USAGE_GUIDE.mdc`
+- **Frontend Only**: `routing.mdc`, `state-management.mdc`, `data-fetching.mdc`, `component-patterns.mdc`, `components-index.mdc`, `hooks-index.mdc`, `routes-index.mdc`, `stores-index.mdc`
+- **Backend Only**: `database.mdc`, `service-patterns.mdc`, `controllers-index.mdc`, `services-index.mdc`, `models-index.mdc`
 - **Full-Stack**: All files from both frontend and backend
 
 ### Example: Using in a Backend Project
@@ -994,17 +994,17 @@ System is successful when:
 **Backend Project (Node.js/Express)**:
 
 - System detects: Backend project, Node.js, Express, MongoDB, Mongoose
-- Generates: `overview.md`, `tech-stack.md`, `api-integration.md`, `database.md`, `service-patterns.md`, `module-structure.md`
-- Generates indexes: `src-index.md`, `controllers-index.md`, `services-index.md`, `models-index.md`, `utils-index.md`
-- Skips: `routing.md`, `state-management.md`, `component-patterns.md`, `components-index.md`, etc.
+- Generates: `overview.mdc`, `tech-stack.mdc`, `api-integration.mdc`, `database.mdc`, `service-patterns.mdc`, `module-structure.mdc`
+- Generates indexes: `src-index.mdc`, `controllers-index.mdc`, `services-index.mdc`, `models-index.mdc`, `utils-index.mdc`
+- Skips: `routing.mdc`, `state-management.mdc`, `component-patterns.mdc`, `components-index.mdc`, etc.
 
 ### Example: Using in a Vue Frontend Project
 
 **Vue Frontend Project**:
 
 - System detects: Frontend project, Vue 3, Vue Router, Pinia, Vite
-- Generates: `overview.md`, `tech-stack.md`, `routing.md`, `state-management.md`, `data-fetching.md`, `component-patterns.md`, `api-integration.md`, `module-structure.md`
-- Generates indexes: `src-index.md`, `components-index.md`, `routes-index.md`, `stores-index.md` (Pinia stores), `utils-index.md`
+- Generates: `overview.mdc`, `tech-stack.mdc`, `routing.mdc`, `state-management.mdc`, `data-fetching.mdc`, `component-patterns.mdc`, `api-integration.mdc`, `module-structure.mdc`
+- Generates indexes: `src-index.mdc`, `components-index.mdc`, `routes-index.mdc`, `stores-index.mdc` (Pinia stores), `utils-index.mdc`
 - Adapts: Patterns to Vue-specific (Composition API, Vue Router, Pinia)
 
 ### Example: Using in a Python/Django Backend Project
@@ -1012,6 +1012,6 @@ System is successful when:
 **Python/Django Backend Project**:
 
 - System detects: Backend project, Python, Django, PostgreSQL, Django REST Framework
-- Generates: `overview.md`, `tech-stack.md`, `api-integration.md`, `database.md`, `service-patterns.md`, `module-structure.md`
-- Generates indexes: `src-index.md`, `controllers-index.md` (Django views), `services-index.md`, `models-index.md` (Django models), `utils-index.md`
+- Generates: `overview.mdc`, `tech-stack.mdc`, `api-integration.mdc`, `database.mdc`, `service-patterns.mdc`, `module-structure.mdc`
+- Generates indexes: `src-index.mdc`, `controllers-index.mdc` (Django views), `services-index.mdc`, `models-index.mdc` (Django models), `utils-index.mdc`
 - Adapts: Patterns to Django-specific (views, models, serializers, URLs)
