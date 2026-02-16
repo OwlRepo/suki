@@ -6,6 +6,7 @@ import {
   UseGuards,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { BillingService } from "./billing.service";
 import { PaymongoService } from "./paymongo.service";
@@ -65,5 +66,30 @@ export class BillingController {
       description: `Suki ${planType} plan`,
     });
     return result;
+  }
+
+  @Post("dev-switch-plan")
+  @UseGuards(ClerkAuthGuard)
+  async devSwitchPlan(
+    @Body() body: { planType: string },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    const isDev =
+      process.env.NODE_ENV === "development" ||
+      process.env.ENABLE_DEV_TOOLS === "true";
+    if (!isDev) {
+      throw new ForbiddenException("Dev plan switch is only available in development");
+    }
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    const planType = (body.planType ?? "starter") as "starter" | "growth" | "ai_pro";
+    if (!["starter", "growth", "ai_pro"].includes(planType)) {
+      throw new BadRequestException("planType must be starter, growth, or ai_pro");
+    }
+    const sub = await this.billingService.createOrUpdateSubscriptionFromCheckout(
+      orgId,
+      planType,
+      undefined,
+    );
+    return { subscription: sub, planType };
   }
 }
