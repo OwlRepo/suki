@@ -24,7 +24,9 @@
     "db:reset": "turbo run db:reset --filter=@suki/database",
     "setup:cursor": "bun run scripts/setup-cursor-integration.ts",
     "update:cursor-indexes": "bun run scripts/update-cursor-indexes.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "turbo run test",
+    "test:e2e": "bun run --cwd apps/web test:e2e"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

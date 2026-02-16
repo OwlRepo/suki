@@ -1,9 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["tsconfig.json", ".env"],
+  "globalDependencies": [
+    "tsconfig.json",
+    ".env"
+  ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "outputs": [
         "dist/**",
         ".next/**",
@@ -14,15 +19,21 @@
         "packages/types/dist/**",
         "packages/ui/dist/**"
       ],
-      "env": ["NODE_ENV"]
+      "env": [
+        "NODE_ENV"
+      ]
     },
-"dev": {
-    "dependsOn": ["^build"],
-    "cache": false,
-    "persistent": true
-  },
+    "dev": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": false,
+      "persistent": true
+    },
     "typecheck": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "outputs": []
     },
     "lint": {
@@ -33,14 +44,18 @@
     },
     "db:generate": {
       "cache": false,
-      "outputs": ["**/drizzle/**"]
+      "outputs": [
+        "**/drizzle/**"
+      ]
     },
     "db:setup": {
       "cache": false
     },
     "db:migrate": {
       "cache": false,
-      "dependsOn": ["db:generate"]
+      "dependsOn": [
+        "db:generate"
+      ]
     },
     "db:studio": {
       "cache": false,
@@ -48,10 +63,15 @@
     },
     "db:seed": {
       "cache": false,
-      "dependsOn": ["db:migrate"]
+      "dependsOn": [
+        "db:migrate"
+      ]
     },
     "db:reset": {
       "cache": false
+    },
+    "test": {
+      "outputs": []
     }
   }
 }

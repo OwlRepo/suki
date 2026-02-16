@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Cursor Index Updater
- * Updates .cursor/file-index/*.md based on staged or specified file changes.
+ * Updates .cursor/file-index/*.mdc based on staged or specified file changes.
  * Supports monorepo: apps/web, apps/api, packages/*
  */
 
@@ -25,19 +25,19 @@ const INDEX_MAPPING: Array<{
   pattern: RegExp;
   indexFile: string;
 }> = [
-  { pattern: /^apps\/web\/src\/.*\.tsx$/, indexFile: "components-index.md" },
-  { pattern: /^apps\/web\/src\/app\/([^/]+\/)?page\.tsx$/, indexFile: "routes-index.md" },
-  { pattern: /^apps\/web\/src\/app\/layout\.tsx$/, indexFile: "routes-index.md" },
-  { pattern: /^packages\/ui\/src\/.*\.tsx$/, indexFile: "components-index.md" },
-  { pattern: /^apps\/api\/src\/.*\.controller\.ts$/, indexFile: "controllers-index.md" },
-  { pattern: /^apps\/api\/src\/.*\.service\.ts$/, indexFile: "services-index.md" },
-  { pattern: /^packages\/database\/src\/schema\/.*\.ts$/, indexFile: "models-index.md" },
-  { pattern: /^packages\/types\/src\/.*\.ts$/, indexFile: "utils-index.md" },
-  { pattern: /^packages\/database\/.*\.ts$/, indexFile: "utils-index.md" },
-  { pattern: /^apps\/web\/src\/.*\.tsx$/, indexFile: "hooks-index.md" }, // hooks can live alongside components
-  { pattern: /^apps\/web\/src\/.*$/, indexFile: "src-index.md" },
-  { pattern: /^apps\/api\/src\/.*$/, indexFile: "src-index.md" },
-  { pattern: /^packages\/[^/]+\/src\/.*$/, indexFile: "src-index.md" },
+  { pattern: /^apps\/web\/src\/.*\.tsx$/, indexFile: "components-index.mdc" },
+  { pattern: /^apps\/web\/src\/app\/([^/]+\/)?page\.tsx$/, indexFile: "routes-index.mdc" },
+  { pattern: /^apps\/web\/src\/app\/layout\.tsx$/, indexFile: "routes-index.mdc" },
+  { pattern: /^packages\/ui\/src\/.*\.tsx$/, indexFile: "components-index.mdc" },
+  { pattern: /^apps\/api\/src\/.*\.controller\.ts$/, indexFile: "controllers-index.mdc" },
+  { pattern: /^apps\/api\/src\/.*\.service\.ts$/, indexFile: "services-index.mdc" },
+  { pattern: /^packages\/database\/src\/schema\/.*\.ts$/, indexFile: "models-index.mdc" },
+  { pattern: /^packages\/types\/src\/.*\.ts$/, indexFile: "utils-index.mdc" },
+  { pattern: /^packages\/database\/.*\.ts$/, indexFile: "utils-index.mdc" },
+  { pattern: /^apps\/web\/src\/.*\.tsx$/, indexFile: "hooks-index.mdc" }, // hooks can live alongside components
+  { pattern: /^apps\/web\/src\/.*$/, indexFile: "src-index.mdc" },
+  { pattern: /^apps\/api\/src\/.*$/, indexFile: "src-index.mdc" },
+  { pattern: /^packages\/[^/]+\/src\/.*$/, indexFile: "src-index.mdc" },
 ];
 
 function getStagedChanges(): FileChange[] {

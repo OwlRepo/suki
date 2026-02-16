@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { AuthCta } from "@/components/auth-cta";
 
 export default function Home() {
   return (
@@ -11,7 +11,7 @@ export default function Home() {
           Customer engagement for Philippine small business. Capture customers,
           send follow-ups, and grow repeat visits.
         </p>
-        <Button>Click me</Button>
+        <AuthCta />
       </main>
     </div>
   );

@@ -2,7 +2,7 @@
 /**
  * Cursor AI Integration Setup Script
  * Detects project type, tech stack, and file structure.
- * Generates/updates all .cursor/ files per CURSOR_INTEGRATION.md specifications.
+ * Generates/updates all .cursor/ files per CURSOR_INTEGRATION.mdc specifications.
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
@@ -155,7 +155,7 @@ class CursorFileGenerator {
     ensureDir(join(CURSOR_DIR, "architecture"));
 
     write(
-      "architecture/overview.md",
+      "architecture/overview.mdc",
       `# System Architecture Overview
 
 ## Project Type
@@ -260,7 +260,7 @@ suki/
     );
 
     write(
-      "architecture/tech-stack.md",
+      "architecture/tech-stack.mdc",
       `# Technology Stack
 
 ## Summary
@@ -310,7 +310,7 @@ See \`.env.example\` for required variables (DATABASE_URL, Clerk keys, etc.).
 
     if (this.det.frontend) {
       write(
-        "architecture/routing.md",
+        "architecture/routing.mdc",
         `# Routing
 
 ## Next.js App Router
@@ -336,7 +336,7 @@ ClerkProvider wraps the app in providers.tsx. Auth state is managed by Clerk.
       );
 
       write(
-        "architecture/state-management.md",
+        "architecture/state-management.mdc",
         `# State Management
 
 ## Current State
@@ -354,7 +354,7 @@ When adding global state:
       );
 
       write(
-        "architecture/data-fetching.md",
+        "architecture/data-fetching.mdc",
         `# Data Fetching
 
 ## Current Patterns
@@ -372,7 +372,7 @@ When adding global state:
       );
 
       write(
-        "architecture/component-patterns.md",
+        "architecture/component-patterns.mdc",
         `# Component Patterns
 
 ## Framework
@@ -408,7 +408,7 @@ import { Button, Card, Input } from "@suki/ui";
     }
 
     write(
-      "architecture/api-integration.md",
+      "architecture/api-integration.mdc",
       `# API Integration
 
 ## Frontend
@@ -431,7 +431,7 @@ import { Button, Card, Input } from "@suki/ui";
     );
 
     write(
-      "architecture/module-structure.md",
+      "architecture/module-structure.mdc",
       `# Module Structure
 
 ## Workspaces
@@ -455,7 +455,7 @@ import { Button, Card, Input } from "@suki/ui";
 
     if (this.det.backend) {
       write(
-        "architecture/database.md",
+        "architecture/database.mdc",
         `# Database
 
 ## Stack
@@ -486,7 +486,7 @@ const db = getDb();
       );
 
       write(
-        "architecture/service-patterns.md",
+        "architecture/service-patterns.mdc",
         `# Service Patterns
 
 ## NestJS Structure
@@ -513,7 +513,7 @@ HealthController uses getDb() directly. For complex logic, create dedicated serv
     const pkgTypes = walkDir("packages/types/src");
 
     write(
-      "file-index/src-index.md",
+      "file-index/src-index.mdc",
       `# Source Index
 
 Last updated: ${new Date().toISOString()}
@@ -569,7 +569,7 @@ app/
 
     if (this.det.frontend) {
       write(
-        "file-index/components-index.md",
+        "file-index/components-index.mdc",
         `# Components Index
 
 Last updated: ${new Date().toISOString()}
@@ -596,7 +596,7 @@ Last updated: ${new Date().toISOString()}
       );
 
       write(
-        "file-index/hooks-index.md",
+        "file-index/hooks-index.mdc",
         `# Hooks Index
 
 Last updated: ${new Date().toISOString()}
@@ -606,7 +606,7 @@ No custom hooks yet. Add data-fetching or UI hooks as needed.
       );
 
       write(
-        "file-index/routes-index.md",
+        "file-index/routes-index.mdc",
         `# Routes Index
 
 Last updated: ${new Date().toISOString()}
@@ -621,7 +621,7 @@ Last updated: ${new Date().toISOString()}
       );
 
       write(
-        "file-index/stores-index.md",
+        "file-index/stores-index.mdc",
         `# Stores Index
 
 Last updated: ${new Date().toISOString()}
@@ -632,7 +632,7 @@ No state stores yet. Clerk handles auth. Add Zustand/Redux when needed.
     }
 
     write(
-      "file-index/utils-index.md",
+      "file-index/utils-index.mdc",
       `# Utils Index
 
 Last updated: ${new Date().toISOString()}
@@ -649,7 +649,7 @@ Scripts: setup.ts, migrate.ts, seed.ts, reset.ts
 
     if (this.det.backend) {
       write(
-        "file-index/controllers-index.md",
+        "file-index/controllers-index.mdc",
         `# Controllers Index
 
 Last updated: ${new Date().toISOString()}
@@ -662,7 +662,7 @@ Last updated: ${new Date().toISOString()}
       );
 
       write(
-        "file-index/services-index.md",
+        "file-index/services-index.mdc",
         `# Services Index
 
 Last updated: ${new Date().toISOString()}
@@ -672,7 +672,7 @@ No dedicated services yet. Controllers use getDb() directly.
       );
 
       write(
-        "file-index/models-index.md",
+        "file-index/models-index.mdc",
         `# Models Index
 
 Last updated: ${new Date().toISOString()}
@@ -697,18 +697,18 @@ Last updated: ${new Date().toISOString()}
   generateDebugging() {
     ensureDir(join(CURSOR_DIR, "debugging"));
     write(
-      "debugging/workflow.md",
+      "debugging/workflow.mdc",
       `# Debugging Workflow
 
 1. **Reproduce** - Confirm the bug with minimal steps
 2. **Identify** - Isolate the failing component or code path
-3. **RCA** - Root cause analysis (see root-cause-analysis.md)
+3. **RCA** - Root cause analysis (see root-cause-analysis.mdc)
 4. **Fix** - Implement fix following patterns
 5. **Test** - Verify fix and add regression test if applicable
 `
     );
     write(
-      "debugging/root-cause-analysis.md",
+      "debugging/root-cause-analysis.mdc",
       `# Root Cause Analysis Template
 
 ## Problem
@@ -733,14 +733,14 @@ Last updated: ${new Date().toISOString()}
 `
     );
     write(
-      "debugging/common-issues.md",
+      "debugging/common-issues.mdc",
       `# Common Issues
 
 Add known issues and solutions here as they are discovered.
 `
     );
     write(
-      "debugging/fix-plan-template.md",
+      "debugging/fix-plan-template.mdc",
       `# Fix Plan Template
 
 ## Problem
@@ -764,25 +764,25 @@ Add known issues and solutions here as they are discovered.
   generateRules() {
     ensureDir(join(CURSOR_DIR, "rules"));
     const rules = [
-      ["bug-fix.md", "Reproduce first, use RCA, test thoroughly, follow patterns."],
-      ["feature-implementation.md", "Follow architecture, use patterns, create types, error handling, tests."],
-      ["enhancement.md", "Understand current behavior, identify improvements, maintain compatibility."],
-      ["refactoring.md", "Maintain functionality, follow style, update related files, test."],
-      ["code-review.md", "Check patterns, error handling, performance, accessibility."],
-      ["testing.md", "Happy paths, error cases, edge cases, integration."],
+      ["bug-fix.mdc", "Reproduce first, use RCA, test thoroughly, follow patterns."],
+      ["feature-implementation.mdc", "Follow architecture, use patterns, create types, error handling, tests."],
+      ["enhancement.mdc", "Understand current behavior, identify improvements, maintain compatibility."],
+      ["refactoring.mdc", "Maintain functionality, follow style, update related files, test."],
+      ["code-review.mdc", "Check patterns, error handling, performance, accessibility."],
+      ["testing.mdc", "Happy paths, error cases, edge cases, integration."],
       [
-        "automation-guidelines.md",
+        "automation-guidelines.mdc",
         "When to auto vs ask, when to pause, quality gates, hallucination prevention.",
       ],
     ];
     for (const [name, desc] of rules) {
       write(
         `rules/${name}`,
-        `# ${name.replace(".md", "").replace(/-/g, " ")}
+        `# ${name.replace(".mdc", "").replace(".md", "").replace(/-/g, " ")}
 
 ${desc}
 
-See CURSOR_INTEGRATION.md for full specifications.
+See CURSOR_INTEGRATION.mdc for full specifications.
 `
       );
     }
@@ -791,7 +791,7 @@ See CURSOR_INTEGRATION.md for full specifications.
   generateCommands() {
     ensureDir(join(CURSOR_DIR, "commands"));
     write(
-      "commands/bug-report.md",
+      "commands/bug-report.mdc",
       `# Bug Report Template
 
 ## Description
@@ -804,7 +804,7 @@ See CURSOR_INTEGRATION.md for full specifications.
 `
     );
     write(
-      "commands/new-feature.md",
+      "commands/new-feature.mdc",
       `# New Feature Template
 
 ## Description
@@ -814,7 +814,7 @@ See CURSOR_INTEGRATION.md for full specifications.
 ## Acceptance Criteria
 `
     );
-    write("commands/enhancement.md", `# Enhancement Template
+    write("commands/enhancement.mdc", `# Enhancement Template
 
 ## Current Behavior
 
@@ -822,7 +822,7 @@ See CURSOR_INTEGRATION.md for full specifications.
 
 ## Benefits
 `);
-    write("commands/refactor.md", `# Refactor Template
+    write("commands/refactor.mdc", `# Refactor Template
 
 ## Code/Area
 
@@ -830,7 +830,7 @@ See CURSOR_INTEGRATION.md for full specifications.
 
 ## Scope
 `);
-    write("commands/code-review.md", `# Code Review Template
+    write("commands/code-review.mdc", `# Code Review Template
 
 ## Files
 
@@ -840,7 +840,7 @@ See CURSOR_INTEGRATION.md for full specifications.
 
   generateCore() {
     write(
-      "entry-point.md",
+      "entry-point.mdc",
       `# Cursor Entry Point
 
 **Primary entry point** for Cursor AI. Check this file first.
@@ -860,14 +860,14 @@ Just describe what you need. No need to reference command files or rules.
 `
     );
     write(
-      "README.md",
+      "README.mdc",
       `# Cursor Integration
 
 AI-assisted development system for Suki monorepo.
 
 ## Overview
 
-- **entry-point.md**: Primary entry; automatic intent detection and routing
+- **entry-point.mdc**: Primary entry; automatic intent detection and routing
 - **architecture/**: System docs (overview, tech-stack, routing, database, etc.)
 - **file-index/**: File indexes (components, routes, controllers, models, etc.)
 - **rules/**: Bug-fix, feature, enhancement, refactor, testing, code-review
@@ -877,11 +877,11 @@ AI-assisted development system for Suki monorepo.
 
 ## Usage
 
-See CURSOR_USAGE_GUIDE.md for step-by-step workflows.
+See CURSOR_USAGE_GUIDE.mdc for step-by-step workflows.
 `
     );
     write(
-      "CURSOR_USAGE_GUIDE.md",
+      "CURSOR_USAGE_GUIDE.mdc",
       `# Cursor Usage Guide - Suki
 
 ## Project Context
@@ -914,8 +914,8 @@ See CURSOR_USAGE_GUIDE.md for step-by-step workflows.
 
 ## Onboarding
 
-1. Read architecture/overview.md
-2. Read architecture/tech-stack.md
+1. Read architecture/overview.mdc
+2. Read architecture/tech-stack.mdc
 3. Skim file-index for relevant areas
 `
     );
@@ -924,7 +924,7 @@ See CURSOR_USAGE_GUIDE.md for step-by-step workflows.
   generateMaintenance() {
     ensureDir(join(CURSOR_DIR, "maintenance"));
     write(
-      "maintenance/update-workflow.md",
+      "maintenance/update-workflow.mdc",
       `# Update Workflow
 
 1. Detect change (new file, modified, deleted, pattern change)
@@ -934,19 +934,19 @@ See CURSOR_USAGE_GUIDE.md for step-by-step workflows.
 `
     );
     write(
-      "maintenance/update-checklist.md",
+      "maintenance/update-checklist.mdc",
       `# Maintenance Checklist
 
-- [ ] New component -> components-index.md, src-index.md
-- [ ] New route -> routes-index.md
-- [ ] New controller -> controllers-index.md
-- [ ] New service -> services-index.md
-- [ ] New model -> models-index.md
+- [ ] New component -> components-index.mdc, src-index.mdc
+- [ ] New route -> routes-index.mdc
+- [ ] New controller -> controllers-index.mdc
+- [ ] New service -> services-index.mdc
+- [ ] New model -> models-index.mdc
 - [ ] Architecture change -> architecture/
 `
     );
     write(
-      "maintenance/auto-update-guide.md",
+      "maintenance/auto-update-guide.mdc",
       `# Auto-Update Guide
 
 Pre-commit hook runs update-cursor-indexes.ts on staged changes.

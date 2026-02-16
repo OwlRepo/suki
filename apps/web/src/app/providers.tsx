@@ -4,8 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
 
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-const isPlaceholder =
-  !publishableKey || publishableKey.includes("placeholder");
+const hasClerk = publishableKey && !publishableKey.includes("placeholder");
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const content = (
@@ -19,10 +18,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     </ThemeProvider>
   );
 
-  if (isPlaceholder) {
+  if (!hasClerk) {
     return content;
   }
   return (
-    <ClerkProvider publishableKey={publishableKey}>{content}</ClerkProvider>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+    >
+      {content}
+    </ClerkProvider>
   );
 }
