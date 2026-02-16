@@ -52,6 +52,35 @@ export class PromosService {
     return p;
   }
 
+  async update(
+    id: string,
+    organizationId: string,
+    data: {
+      type?: string;
+      value?: string;
+      validityStart?: Date;
+      validityEnd?: Date;
+      messageContent?: string;
+    },
+  ) {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) return null;
+    const db = getDb();
+    const [updated] = await db
+      .update(promos)
+      .set({
+        ...(data.type && { type: data.type as "discount" | "free_addon" | "loyalty" | "reminder" | "other" }),
+        ...(data.value !== undefined && { value: data.value ?? null }),
+        ...(data.validityStart && { validityStart: new Date(data.validityStart) }),
+        ...(data.validityEnd && { validityEnd: new Date(data.validityEnd) }),
+        ...(data.messageContent !== undefined && { messageContent: data.messageContent ?? null }),
+        updatedAt: new Date(),
+      })
+      .where(eq(promos.id, id))
+      .returning();
+    return updated!;
+  }
+
   async updateStatus(id: string, organizationId: string, status: "draft" | "sent" | "scheduled") {
     const existing = await this.findById(id, organizationId);
     if (!existing) return null;

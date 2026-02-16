@@ -23,8 +23,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Link href="/promos" className="text-sm text-muted-foreground hover:text-foreground">
               Promos
             </Link>
+            <Link href="/insights" className="text-sm text-muted-foreground hover:text-foreground">
+              Insights
+            </Link>
+            <Link href="/loyalty" className="text-sm text-muted-foreground hover:text-foreground">
+              Loyalty
+            </Link>
+            <Link href="/imports" className="text-sm text-muted-foreground hover:text-foreground">
+              Import
+            </Link>
             <Link href="/setup" className="text-sm text-muted-foreground hover:text-foreground">
               Setup
+            </Link>
+            <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+              Settings
             </Link>
             <AuthButton />
           </div>

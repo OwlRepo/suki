@@ -60,6 +60,28 @@ export class AppointmentsController {
     return { appointment: appt };
   }
 
+  @Get(":id")
+  async get(@Param("id") id: string, @Tenant("organizationId") orgId?: string) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    const appt = await this.appointmentsService.findById(id, orgId);
+    return { appointment: appt };
+  }
+
+  @Patch(":id")
+  async update(
+    @Param("id") id: string,
+    @Body()
+    body: { scheduledAt?: string; notes?: string },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    const appt = await this.appointmentsService.update(id, orgId, {
+      scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : undefined,
+      notes: body.notes,
+    });
+    return { appointment: appt };
+  }
+
   @Patch(":id/status")
   async updateStatus(
     @Param("id") id: string,

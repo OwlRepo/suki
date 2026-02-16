@@ -45,6 +45,38 @@ export class AppointmentsService {
       .orderBy(desc(appointments.scheduledAt));
   }
 
+  async findById(id: string, organizationId: string) {
+    const db = getDb();
+    const [a] = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.id, id))
+      .limit(1);
+    if (!a) return null;
+    await this.assertBusinessAccess(a.businessId, organizationId);
+    return a;
+  }
+
+  async update(
+    id: string,
+    organizationId: string,
+    data: { scheduledAt?: Date; notes?: string },
+  ) {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) return null;
+    const db = getDb();
+    const [updated] = await db
+      .update(appointments)
+      .set({
+        ...(data.scheduledAt && { scheduledAt: new Date(data.scheduledAt) }),
+        ...(data.notes !== undefined && { notes: data.notes ?? null }),
+        updatedAt: new Date(),
+      })
+      .where(eq(appointments.id, id))
+      .returning();
+    return updated!;
+  }
+
   async updateStatus(
     id: string,
     organizationId: string,

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { HealthModule } from "./health/health.module";
+import { PlanCapacityModule } from "./common/plan-capacity.module";
 import { AuthModule } from "./auth/auth.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { BusinessesModule } from "./businesses/businesses.module";
@@ -14,9 +15,11 @@ import { AdminModule } from "./admin/admin.module";
 import { ImportsModule } from "./imports/imports.module";
 import { ActivityLogModule } from "./activity-log/activity-log.module";
 import { IntakeModule } from "./intake/intake.module";
+import { MessagingModule } from "./messaging/messaging.module";
 
 @Module({
   imports: [
+    PlanCapacityModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [".env", "../../.env"],
@@ -35,6 +38,7 @@ import { IntakeModule } from "./intake/intake.module";
     ImportsModule,
     ActivityLogModule,
     IntakeModule,
+    MessagingModule,
   ],
 })
 export class AppModule {}

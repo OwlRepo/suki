@@ -62,6 +62,30 @@ export class PromosController {
     return { promo };
   }
 
+  @Patch(":id")
+  async update(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      type?: string;
+      value?: string;
+      validityStart?: string;
+      validityEnd?: string;
+      messageContent?: string;
+    },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    const promo = await this.promosService.update(id, orgId, {
+      type: body.type,
+      value: body.value,
+      validityStart: body.validityStart ? new Date(body.validityStart) : undefined,
+      validityEnd: body.validityEnd ? new Date(body.validityEnd) : undefined,
+      messageContent: body.messageContent,
+    });
+    return { promo };
+  }
+
   @Patch(":id/send")
   async send(@Param("id") id: string, @Tenant("organizationId") orgId?: string) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
