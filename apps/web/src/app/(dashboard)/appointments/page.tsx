@@ -165,6 +165,20 @@ function AppointmentsPageContent() {
     }
   };
 
+  const handleReminderSent = async (id: string) => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await apiRequest(`/appointments/${id}/reminder-sent`, {
+        method: "PATCH",
+        token,
+      });
+      loadAppointments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to mark reminder");
+    }
+  };
+
   const getCustomerName = (customerId: string) =>
     customers.find((c) => c.id === customerId)?.name ?? "—";
 
@@ -292,13 +306,23 @@ function AppointmentsPageContent() {
                 </Button>
                 {a.status === "scheduled" && (
                   <>
+                    <Button size="sm" variant="outline" onClick={() => handleReminderSent(a.id)}>
+                      Reminder sent
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => handleStatus(a.id, "completed")}>
                       Complete
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleStatus(a.id, "missed")}>
                       Missed
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleStatus(a.id, "cancelled")}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        if (confirm("Cancel this appointment?")) handleStatus(a.id, "cancelled");
+                      }}
+                    >
                       Cancel
                     </Button>
                   </>

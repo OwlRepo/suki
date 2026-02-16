@@ -37,7 +37,7 @@ function ImportsPageContent() {
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [skipRows, setSkipRows] = useState<Set<number>>(new Set());
-  const [step, setStep] = useState<"paste" | "review" | "done">("paste");
+  const [step, setStep] = useState<"upload" | "paste" | "review" | "done">("upload");
   const [loading, setLoading] = useState(false);
   const [imported, setImported] = useState(0);
 
@@ -94,6 +94,8 @@ function ImportsPageContent() {
 
   const handleCommit = async () => {
     if (!selectedBiz || !parsedRows.length) return;
+    const toImport = parsedRows.filter((r) => !skipRows.has(r.rowIndex)).length;
+    if (toImport > 0 && !confirm(`Import ${toImport} customer(s)? This will add them to your list.`)) return;
     setLoading(true);
     try {
       const token = await getToken();
@@ -122,7 +124,60 @@ function ImportsPageContent() {
     setParseErrors([]);
     setDuplicates([]);
     setSkipRows(new Set());
-    setStep("paste");
+    setStep("upload");
+  };
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.includes(",") ? result.split(",")[1] : result;
+        resolve(base64 ?? "");
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    const isXlsx = name.endsWith(".xlsx") || name.endsWith(".xls");
+    setLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      if (isXlsx) {
+        const base64 = await fileToBase64(file);
+        const res = await apiRequest<{ rows: ParsedRow[]; errors: string[] }>("/imports/parse", {
+          method: "POST",
+          token,
+          body: JSON.stringify({ xlsxBase64: base64 }),
+        });
+        setParsedRows(res.rows);
+        setParseErrors(res.errors);
+        if (res.rows.length) {
+          const dupRes = await apiRequest<{ duplicates: DuplicateMatch[] }>("/imports/duplicates", {
+            method: "POST",
+            token,
+            body: JSON.stringify({ businessId: selectedBiz, rows: res.rows }),
+          });
+          setDuplicates(dupRes.duplicates);
+          setSkipRows(new Set());
+        }
+        setStep("review");
+      } else {
+        const text = await file.text();
+        setCsvText(text);
+        setStep("paste");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to read file");
+    } finally {
+      setLoading(false);
+      e.target.value = "";
+    }
   };
 
   if (!syncData) return <p className="text-muted-foreground">Loading...</p>;
@@ -139,8 +194,13 @@ function ImportsPageContent() {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Import customers</h1>
-        <p className="mt-2 text-muted-foreground">Successfully imported {imported} customers.</p>
-        <Button className="mt-4" onClick={reset}>
+        <p className="mt-4 text-base text-green-600 font-medium">
+          Successfully imported {imported} customer{imported !== 1 ? "s" : ""}.
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          They are now in your customer list.
+        </p>
+        <Button className="mt-6 min-h-[44px] text-base" onClick={reset}>
           Import more
         </Button>
       </div>
@@ -164,21 +224,69 @@ function ImportsPageContent() {
         </select>
       </div>
 
-      <p className="mt-2 text-sm text-muted-foreground">
-        Paste CSV with columns: name, mobile (optional), notes (optional). First row = headers.
+      <p className="mt-2 text-base text-muted-foreground">
+        Upload a CSV or Excel file, or paste CSV text. We will check for duplicates before importing.
       </p>
+
+      {step === "upload" && (
+        <div className="mt-6 space-y-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <label
+              htmlFor="file-upload"
+              className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-input p-4 text-center transition-colors hover:bg-muted/50"
+            >
+              <span className="text-base font-medium text-foreground">
+                {loading ? "Processing…" : "Choose CSV or Excel file"}
+              </span>
+              <span className="mt-1 text-sm text-muted-foreground">
+                .csv, .xlsx supported
+              </span>
+              <input
+                id="file-upload"
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileSelect}
+                disabled={loading}
+                className="sr-only"
+              />
+            </label>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">or</span>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setStep("paste")}
+            className="min-h-[44px] text-base"
+          >
+            Paste CSV instead
+          </Button>
+        </div>
+      )}
 
       {step === "paste" && (
         <div className="mt-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStep("upload")}
+            className="mb-2 text-sm text-muted-foreground"
+          >
+            Back to file upload
+          </Button>
           <textarea
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
             placeholder="name,mobile,notes&#10;Alice,555-1234,VIP&#10;Bob,555-5678,"
             rows={10}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
+            className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-base"
           />
-          <Button className="mt-2" onClick={handleParse} disabled={loading}>
-            {loading ? "Parsing..." : "Parse & detect duplicates"}
+          <Button
+            className="mt-2 min-h-[44px] text-base"
+            onClick={handleParse}
+            disabled={loading || !csvText.trim()}
+          >
+            {loading ? "Checking for duplicates…" : "Parse and check duplicates"}
           </Button>
         </div>
       )}

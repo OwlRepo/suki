@@ -20,6 +20,7 @@ interface Promo {
   value?: string | null;
   validityStart: string;
   validityEnd: string;
+  audienceFilter?: { minVisits?: number; maxInactiveDays?: number } | null;
   messageContent?: string | null;
   status: string;
   createdAt: string;
@@ -48,10 +49,13 @@ function PromosPageContent() {
     validityStart: "",
     validityEnd: "",
     messageContent: "",
+    minVisits: "",
+    maxInactiveDays: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAiGenerate, setShowAiGenerate] = useState(false);
+  const [sendConfirmId, setSendConfirmId] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -103,6 +107,8 @@ function PromosPageContent() {
       validityStart: "",
       validityEnd: "",
       messageContent: "",
+      minVisits: "",
+      maxInactiveDays: "",
     });
     setEditingId(null);
     setShowForm(false);
@@ -117,6 +123,8 @@ function PromosPageContent() {
       validityStart: p.validityStart.slice(0, 16),
       validityEnd: p.validityEnd.slice(0, 16),
       messageContent: p.messageContent ?? "",
+      minVisits: p.audienceFilter?.minVisits != null ? String(p.audienceFilter.minVisits) : "",
+      maxInactiveDays: p.audienceFilter?.maxInactiveDays != null ? String(p.audienceFilter.maxInactiveDays) : "",
     });
     setShowForm(true);
   };
@@ -131,6 +139,14 @@ function PromosPageContent() {
       if (!token) return;
       const start = formData.validityStart || new Date().toISOString().slice(0, 16);
       const end = formData.validityEnd || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+      const audienceFilter =
+        formData.minVisits || formData.maxInactiveDays
+          ? {
+              minVisits: formData.minVisits ? parseInt(formData.minVisits, 10) : undefined,
+              maxInactiveDays: formData.maxInactiveDays ? parseInt(formData.maxInactiveDays, 10) : undefined,
+            }
+          : undefined;
+
       if (editingId) {
         await apiRequest(`/promos/${editingId}`, {
           method: "PATCH",
@@ -140,6 +156,7 @@ function PromosPageContent() {
             value: formData.value || undefined,
             validityStart: new Date(start).toISOString(),
             validityEnd: new Date(end).toISOString(),
+            audienceFilter,
             messageContent: formData.messageContent || undefined,
           }),
         });
@@ -153,6 +170,7 @@ function PromosPageContent() {
             value: formData.value || undefined,
             validityStart: new Date(start).toISOString(),
             validityEnd: new Date(end).toISOString(),
+            audienceFilter,
             messageContent: formData.messageContent || undefined,
           }),
         });
@@ -191,11 +209,16 @@ function PromosPageContent() {
     }
   };
 
+  const handleSendConfirm = (id: string) => {
+    setSendConfirmId(id);
+  };
+
   const handleSend = async (id: string) => {
     try {
       const token = await getToken();
       if (!token) return;
       await apiRequest(`/promos/${id}/send`, { method: "PATCH", token });
+      setSendConfirmId(null);
       loadPromos();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to send");
@@ -279,6 +302,28 @@ function PromosPageContent() {
                 value={formData.validityEnd}
                 onChange={(e) => setFormData((d) => ({ ...d, validityEnd: e.target.value }))}
                 required
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Minimum visits (targeting)</label>
+              <Input
+                type="number"
+                min={0}
+                value={formData.minVisits}
+                onChange={(e) => setFormData((d) => ({ ...d, minVisits: e.target.value }))}
+                placeholder="e.g. 5"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Inactive days (targeting)</label>
+              <Input
+                type="number"
+                min={0}
+                value={formData.maxInactiveDays}
+                onChange={(e) => setFormData((d) => ({ ...d, maxInactiveDays: e.target.value }))}
+                placeholder="e.g. 30"
               />
             </div>
           </div>
@@ -369,9 +414,25 @@ function PromosPageContent() {
                   Edit
                 </Button>
                 {p.status === "draft" && (
-                  <Button size="sm" onClick={() => handleSend(p.id)}>
-                    Mark as sent
-                  </Button>
+                  <>
+                    {sendConfirmId === p.id ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          Confirm marking as sent?
+                        </span>
+                        <Button size="sm" onClick={() => handleSend(p.id)}>
+                          Yes, mark as sent
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setSendConfirmId(null)}>
+                          Cancel
+                        </Button>
+                      </span>
+                    ) : (
+                      <Button size="sm" onClick={() => handleSendConfirm(p.id)}>
+                        Mark as sent
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </li>

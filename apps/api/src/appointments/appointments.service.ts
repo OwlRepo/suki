@@ -98,6 +98,22 @@ export class AppointmentsService {
     return updated!;
   }
 
+  async markReminderSent(id: string, organizationId: string) {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) return null;
+    const db = getDb();
+    const suffix = `[Reminder sent on ${new Date().toISOString().slice(0, 10)}]`;
+    const newNotes = existing.notes
+      ? `${existing.notes}\n${suffix}`
+      : suffix;
+    const [updated] = await db
+      .update(appointments)
+      .set({ notes: newNotes, updatedAt: new Date() })
+      .where(eq(appointments.id, id))
+      .returning();
+    return updated!;
+  }
+
   private async assertBusinessAccess(businessId: string, organizationId: string) {
     const db = getDb();
     const [biz] = await db

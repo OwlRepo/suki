@@ -38,6 +38,7 @@ export class PromosController {
       value?: string;
       validityStart: string;
       validityEnd: string;
+      audienceFilter?: { minVisits?: number; maxInactiveDays?: number };
       messageContent?: string;
     },
     @Tenant("organizationId") orgId?: string,
@@ -50,6 +51,7 @@ export class PromosController {
       value: body.value,
       validityStart: new Date(body.validityStart),
       validityEnd: new Date(body.validityEnd),
+      audienceFilter: body.audienceFilter ?? undefined,
       messageContent: body.messageContent,
     });
     return { promo };
@@ -71,6 +73,7 @@ export class PromosController {
       value?: string;
       validityStart?: string;
       validityEnd?: string;
+      audienceFilter?: { minVisits?: number; maxInactiveDays?: number };
       messageContent?: string;
     },
     @Tenant("organizationId") orgId?: string,
@@ -81,6 +84,7 @@ export class PromosController {
       value: body.value,
       validityStart: body.validityStart ? new Date(body.validityStart) : undefined,
       validityEnd: body.validityEnd ? new Date(body.validityEnd) : undefined,
+      audienceFilter: body.audienceFilter,
       messageContent: body.messageContent,
     });
     return { promo };

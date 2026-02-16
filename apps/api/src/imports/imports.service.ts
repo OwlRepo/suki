@@ -1,8 +1,9 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
 import { parse } from "csv-parse/sync";
+import * as XLSX from "xlsx";
 import { getDb } from "@suki/database";
 import { customers, businesses } from "@suki/database";
-import { eq, and, ilike } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export interface ParsedRow {
   name: string;
@@ -50,6 +51,89 @@ export class ImportsService {
       errors.push(e instanceof Error ? e.message : "Failed to parse CSV");
     }
     return { rows, errors };
+  }
+
+  async parseXlsx(base64: string): Promise<{ rows: ParsedRow[]; errors: string[] }> {
+    const errors: string[] = [];
+    const rows: ParsedRow[] = [];
+    try {
+      const buffer = Buffer.from(base64, "base64");
+      const workbook = XLSX.read(buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        errors.push("No sheet found in file");
+        return { rows, errors };
+      }
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: "",
+      }) as (string | number)[][];
+      if (!data.length) {
+        errors.push("File is empty");
+        return { rows, errors };
+      }
+      const headers = (data[0] ?? []).map((h) => String(h ?? "").trim());
+      const nameCol = this.findColumnArr(headers, ["name", "customer", "customer_name"]);
+      const mobileCol = this.findColumnArr(headers, ["mobile", "phone", "contact"]);
+      const notesCol = this.findColumnArr(headers, ["notes", "note"]);
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i] ?? [];
+        const getVal = (idx: number | null) =>
+          idx != null && row[idx] != null ? String(row[idx]).trim() : "";
+        const name = nameCol != null ? getVal(nameCol) : getVal(0);
+        if (!name) {
+          errors.push(`Row ${i + 2}: missing name`);
+          continue;
+        }
+        rows.push({
+          name,
+          mobile: mobileCol != null ? getVal(mobileCol) || undefined : undefined,
+          notes: notesCol != null ? getVal(notesCol) || undefined : undefined,
+          rowIndex: i + 2,
+        });
+      }
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : "Failed to parse Excel file");
+    }
+    return { rows, errors };
+  }
+
+  async parseOcr(_base64Image: string): Promise<{
+    configured: boolean;
+    message?: string;
+    rows: ParsedRow[];
+    errors: string[];
+  }> {
+    const hasOcr = !!(
+      process.env.OCR_API_URL ||
+      process.env.TESSERACT_PATH ||
+      process.env.GOOGLE_VISION_API_KEY
+    );
+    if (!hasOcr) {
+      return {
+        configured: false,
+        message:
+          "OCR is not configured. Please use CSV paste or Excel file upload instead.",
+        rows: [],
+        errors: [],
+      };
+    }
+    return {
+      configured: true,
+      message: "OCR scan not yet implemented. Use CSV or Excel upload.",
+      rows: [],
+      errors: [],
+    };
+  }
+
+  private findColumnArr(arr: string[], names: string[]): number | null {
+    const lower = arr.map((a) => a.toLowerCase());
+    for (const n of names) {
+      const idx = lower.findIndex((k) => k.includes(n) || n.includes(k));
+      if (idx >= 0) return idx;
+    }
+    return null;
   }
 
   async detectDuplicates(

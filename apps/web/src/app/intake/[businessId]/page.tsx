@@ -44,8 +44,10 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   if (done) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-2xl font-semibold text-foreground">Thank you</h1>
-        <p className="mt-2 text-muted-foreground">
+        <h1 className="text-2xl font-semibold text-foreground">
+          Thank you
+        </h1>
+        <p className="mt-4 text-base text-muted-foreground">
           Your information has been recorded. We will be in touch.
         </p>
       </div>
@@ -54,36 +56,55 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
-      <h1 className="text-2xl font-semibold text-foreground text-center">
+      <h1 className="text-center text-2xl font-semibold text-foreground">
         Customer intake
       </h1>
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+      <p className="mt-2 text-center text-base text-muted-foreground">
+        Enter your details to join our list.
+      </p>
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <div>
-          <label className="mb-1 block text-sm font-medium text-foreground">
-            Name
+          <label
+            htmlFor="intake-name"
+            className="mb-1 block text-base font-medium text-foreground"
+          >
+            Your name
           </label>
           <Input
+            id="intake-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
+            placeholder="e.g. Maria Santos"
             required
-            className="w-full"
+            className="min-h-[44px] w-full text-base"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-foreground">
-            Mobile (optional)
+          <label
+            htmlFor="intake-mobile"
+            className="mb-1 block text-base font-medium text-foreground"
+          >
+            Mobile number (optional)
           </label>
           <Input
+            id="intake-mobile"
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
             placeholder="09XX XXX XXXX"
-            className="w-full"
+            className="min-h-[44px] w-full text-base"
           />
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" className="w-full" disabled={submitting}>
-          {submitting ? "Submitting..." : "Submit"}
+        {error && (
+          <p className="text-base text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+        <Button
+          type="submit"
+          className="min-h-[44px] w-full text-base"
+          disabled={submitting}
+        >
+          {submitting ? "Submitting…" : "Submit"}
         </Button>
       </form>
     </div>

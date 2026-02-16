@@ -34,6 +34,7 @@ interface Business {
 interface BillingStatus {
   status: string;
   planType: string;
+  readOnly?: boolean;
   subscription: { planType?: string; status?: string; currentPeriodEnd?: string } | null;
 }
 
@@ -41,10 +42,14 @@ function UpgradeButton({
   planType,
   currentPlan,
   getToken,
+  onSuccess,
+  readOnly,
 }: {
   planType: string;
   currentPlan: string;
   getToken: () => Promise<string | null>;
+  onSuccess?: () => void;
+  readOnly?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
   const prices: Record<string, number> = { growth: 499, ai_pro: 999 };
@@ -53,6 +58,9 @@ function UpgradeButton({
   const isUpgrade =
     (planType === "ai_pro" && currentPlan !== "ai_pro") ||
     (planType === "growth" && currentPlan === "starter");
+  const isDowngrade =
+    (planType === "starter" && currentPlan !== "starter") ||
+    (planType === "growth" && currentPlan === "ai_pro");
 
   const handleUpgrade = async () => {
     setLoading(true);
@@ -72,15 +80,35 @@ function UpgradeButton({
     }
   };
 
+  const handleDowngrade = async () => {
+    if (!confirm(`Switch to ${planType}? You may lose access to some features.`)) return;
+    setLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await apiRequest("/billing/downgrade", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ planType }),
+      });
+      onSuccess?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Downgrade failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (isCurrent) return null;
+  if (readOnly && isUpgrade) return null;
   return (
     <Button
       size="sm"
       variant={isUpgrade ? "default" : "outline"}
-      onClick={handleUpgrade}
+      onClick={isDowngrade ? handleDowngrade : handleUpgrade}
       disabled={loading}
     >
-      {loading ? "..." : `${planType} – ₱${price}/mo`}
+      {loading ? "..." : isDowngrade ? `Switch to ${planType}` : `${planType} – ₱${price}/mo`}
     </Button>
   );
 }
@@ -247,6 +275,14 @@ function SettingsPageContent() {
         )}
       </section>
 
+      {billing?.readOnly && (
+        <div className="mt-6 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+          <p className="text-base font-medium text-foreground">
+            Read-only mode — Your subscription needs attention. Update billing to make changes.
+          </p>
+        </div>
+      )}
+
       <section className="mt-8 space-y-4">
         <h2 className="text-lg font-medium">Billing</h2>
         <div className="rounded-lg border border-border bg-card p-4 max-w-md">
@@ -264,12 +300,14 @@ function SettingsPageContent() {
             </p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
-            {(["growth", "ai_pro"] as const).map((plan) => (
+            {(["starter", "growth", "ai_pro"] as const).map((plan) => (
               <UpgradeButton
                 key={plan}
                 planType={plan}
                 currentPlan={effectivePlan}
                 getToken={getToken}
+                onSuccess={refetchBilling}
+                readOnly={billing?.readOnly}
               />
             ))}
           </div>

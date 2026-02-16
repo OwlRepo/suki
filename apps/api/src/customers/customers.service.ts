@@ -1,7 +1,13 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { customers, businesses } from "@suki/database";
-import { eq, and, ilike, sql, desc } from "drizzle-orm";
+import { eq, and, ilike, like, or, sql, desc, gte, lt, isNull } from "drizzle-orm";
+
+function parseTags(tags: string | null | undefined): string | null {
+  if (!tags || typeof tags !== "string") return null;
+  const trimmed = tags.trim();
+  return trimmed ? trimmed : null;
+}
 
 @Injectable()
 export class CustomersService {
@@ -13,6 +19,7 @@ export class CustomersService {
       mobile?: string;
       notes?: string;
       preferences?: string;
+      tags?: string;
     },
   ) {
     await this.assertBusinessAccess(businessId, organizationId);
@@ -25,6 +32,7 @@ export class CustomersService {
         mobile: data.mobile?.trim() || null,
         notes: data.notes?.trim() || null,
         preferences: data.preferences?.trim() || null,
+        tags: parseTags(data.tags),
       })
       .returning();
     return c!;
@@ -33,16 +41,28 @@ export class CustomersService {
   async list(
     businessId: string,
     organizationId: string,
-    opts?: { search?: string; limit?: number; offset?: number },
+    opts?: { search?: string; tag?: string; limit?: number; offset?: number },
   ) {
     await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
-    const conditions = opts?.search?.trim()
+    let conditions = opts?.search?.trim()
       ? and(
           eq(customers.businessId, businessId),
           ilike(customers.name, `%${opts.search.trim()}%`),
         )
       : eq(customers.businessId, businessId);
+    if (opts?.tag?.trim()) {
+      const tag = opts.tag.trim();
+      conditions = and(
+        conditions,
+        or(
+          eq(customers.tags, tag),
+          like(customers.tags, tag + ",%"),
+          like(customers.tags, "%," + tag),
+          like(customers.tags, "%,%" + tag + ",%"),
+        ),
+      );
+    }
     const limit = Math.min(opts?.limit ?? 50, 100);
     const offset = opts?.offset ?? 0;
     const list = await db
@@ -74,7 +94,7 @@ export class CustomersService {
   async update(
     id: string,
     organizationId: string,
-    data: { name?: string; mobile?: string; notes?: string; preferences?: string },
+    data: { name?: string; mobile?: string; notes?: string; preferences?: string; tags?: string },
   ) {
     const existing = await this.findById(id, organizationId);
     if (!existing) return null;
@@ -88,6 +108,7 @@ export class CustomersService {
         ...(data.preferences !== undefined && {
           preferences: data.preferences?.trim() || null,
         }),
+        ...(data.tags !== undefined && { tags: parseTags(data.tags) }),
         updatedAt: new Date(),
       })
       .where(eq(customers.id, id))
@@ -101,6 +122,31 @@ export class CustomersService {
     const db = getDb();
     await db.delete(customers).where(eq(customers.id, id));
     return true;
+  }
+
+  async countByFilter(
+    businessId: string,
+    organizationId: string,
+    opts?: { minVisits?: number; maxInactiveDays?: number },
+  ): Promise<number> {
+    await this.assertBusinessAccess(businessId, organizationId);
+    const db = getDb();
+    const base = eq(customers.businessId, businessId);
+    const parts: ReturnType<typeof eq>[] = [base];
+    if (opts?.minVisits != null && opts.minVisits > 0) {
+      parts.push(gte(customers.visitCount, opts.minVisits));
+    }
+    if (opts?.maxInactiveDays != null && opts.maxInactiveDays >= 0) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - opts.maxInactiveDays);
+      parts.push(or(lt(customers.lastVisitAt, cutoff), isNull(customers.lastVisitAt))!);
+    }
+    const conditions = parts.length > 1 ? and(...parts) : base;
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(customers)
+      .where(conditions);
+    return row?.count ?? 0;
   }
 
   async stampVisit(id: string, organizationId: string) {

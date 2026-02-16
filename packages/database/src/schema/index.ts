@@ -76,6 +76,7 @@ export const customers = pgTable("customers", {
   mobile: text("mobile"),
   notes: text("notes"),
   preferences: text("preferences"),
+  tags: text("tags"), // Comma-separated retention tags, e.g. "vip,frequent"
   visitCount: integer("visit_count").notNull().default(0),
   lastVisitAt: timestamp("last_visit_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

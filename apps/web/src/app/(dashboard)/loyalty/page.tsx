@@ -25,6 +25,7 @@ function LoyaltyPageContent() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBiz, setSelectedBiz] = useState<string>("");
   const [threshold, setThreshold] = useState(5);
+  const [tagFilter, setTagFilter] = useState("");
   const [customers, setCustomers] = useState<LoyaltyCustomer[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,13 +49,15 @@ function LoyaltyPageContent() {
     (async () => {
       const token = await getToken();
       if (!token) return;
+      let url = `/loyalty/status?businessId=${selectedBiz}&threshold=${threshold}`;
+      if (tagFilter.trim()) url += `&tag=${encodeURIComponent(tagFilter.trim())}`;
       const res = await apiRequest<{ customers: LoyaltyCustomer[]; threshold: number }>(
-        `/loyalty/status?businessId=${selectedBiz}&threshold=${threshold}`,
+        url,
         { token },
       );
       setCustomers(res.customers);
     })();
-  }, [selectedBiz, threshold, getToken]);
+  }, [selectedBiz, threshold, tagFilter, getToken]);
 
   if (loading) return <p className="text-muted-foreground">Loading...</p>;
   if (!businesses.length) {
@@ -95,6 +98,13 @@ function LoyaltyPageContent() {
             ))}
           </select>
         </div>
+        <input
+          type="text"
+          placeholder="Filter by tag"
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
+          className="rounded-md border border-input bg-background px-3 py-2 text-base"
+        />
       </div>
 
       <p className="mt-4 text-sm text-muted-foreground">

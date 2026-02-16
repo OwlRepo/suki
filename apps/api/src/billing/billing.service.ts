@@ -77,4 +77,46 @@ export class BillingService {
       .returning();
     return created!;
   }
+
+  async downgradePlan(organizationId: string, planType: PlanType) {
+    const db = getDb();
+    const [existing] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, organizationId))
+      .orderBy(desc(subscriptions.currentPeriodEnd))
+      .limit(1);
+
+    if (!existing) {
+      const now = new Date();
+      const periodEnd = new Date(now);
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+      const [created] = await db
+        .insert(subscriptions)
+        .values({
+          organizationId,
+          planType,
+          status: "active",
+          paymongoSubscriptionId: null,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+        })
+        .returning();
+      return created!;
+    }
+
+    const now = new Date();
+    const [updated] = await db
+      .update(subscriptions)
+      .set({
+        planType,
+        status: "active",
+        currentPeriodStart: now,
+        currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        updatedAt: now,
+      })
+      .where(eq(subscriptions.id, existing.id))
+      .returning();
+    return updated!;
+  }
 }

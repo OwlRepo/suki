@@ -16,11 +16,24 @@ export class ImportsController {
 
   @Post("parse")
   async parse(
-    @Body() body: { csv: string },
+    @Body() body: { csv?: string; xlsxBase64?: string },
     @Tenant("organizationId") _orgId?: string,
   ) {
+    if (body.xlsxBase64) {
+      const { rows, errors } = await this.importsService.parseXlsx(body.xlsxBase64);
+      return { rows, errors };
+    }
     const { rows, errors } = await this.importsService.parseCsv(body.csv ?? "");
     return { rows, errors };
+  }
+
+  @Post("parse-ocr")
+  async parseOcr(
+    @Body() body: { imageBase64: string },
+    @Tenant("organizationId") _orgId?: string,
+  ) {
+    const result = await this.importsService.parseOcr(body.imageBase64 ?? "");
+    return result;
   }
 
   @Post("duplicates")

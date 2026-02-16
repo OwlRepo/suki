@@ -7,6 +7,7 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { IntakeQRBlock } from "@/components/intake-qr-block";
 
 interface Business {
   id: string;
@@ -18,6 +19,7 @@ interface Customer {
   id: string;
   name: string;
   mobile?: string;
+  tags?: string | null;
   visitCount: number;
   lastVisitAt?: string;
   createdAt: string;
@@ -31,9 +33,11 @@ function CustomersPageContent() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newMobile, setNewMobile] = useState("");
+  const [newTags, setNewTags] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,6 +63,7 @@ function CustomersPageContent() {
         if (!token) return;
         const params = new URLSearchParams({ businessId: selectedBiz });
         if (search) params.set("search", search);
+        if (tagFilter.trim()) params.set("tag", tagFilter.trim());
         const res = await apiRequest<{ customers: Customer[]; total: number }>(
           `/customers?${params}`,
           { token },
@@ -70,7 +75,7 @@ function CustomersPageContent() {
         setTotal(0);
       }
     })();
-  }, [selectedBiz, search, getToken]);
+  }, [selectedBiz, search, tagFilter, getToken]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,10 +90,12 @@ function CustomersPageContent() {
           businessId: selectedBiz,
           name: newName.trim(),
           mobile: newMobile.trim() || undefined,
+          tags: newTags.trim() || undefined,
         }),
       });
       setNewName("");
       setNewMobile("");
+      setNewTags("");
       setShowAdd(false);
       const params = new URLSearchParams({ businessId: selectedBiz });
       const res = await apiRequest<{ customers: Customer[]; total: number }>(
@@ -99,6 +106,28 @@ function CustomersPageContent() {
       setTotal(res.total);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Remove customer "${name}"? This cannot be undone.`)) return;
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await apiRequest(`/customers/${id}`, { method: "DELETE", token });
+      if (selectedBiz) {
+        const params = new URLSearchParams({ businessId: selectedBiz });
+        if (search) params.set("search", search);
+        if (tagFilter.trim()) params.set("tag", tagFilter.trim());
+        const res = await apiRequest<{ customers: Customer[]; total: number }>(
+          `/customers?${params}`,
+          { token },
+        );
+        setCustomers(res.customers);
+        setTotal(res.total);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove customer");
     }
   };
 
@@ -154,11 +183,25 @@ function CustomersPageContent() {
             placeholder="Search by name"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-48"
+            className="w-40"
+          />
+          <Input
+            placeholder="Filter by tag (e.g. vip)"
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            className="w-40"
           />
           <Button onClick={() => setShowAdd(true)}>Add customer</Button>
         </div>
       </div>
+
+      {selectedBiz && (
+        <IntakeQRBlock
+          businessId={selectedBiz}
+          businessName={businesses.find((b) => b.id === selectedBiz)?.name ?? ""}
+          className="mt-4"
+        />
+      )}
 
       {showAdd && (
         <form
@@ -176,6 +219,12 @@ function CustomersPageContent() {
             placeholder="Mobile"
             value={newMobile}
             onChange={(e) => setNewMobile(e.target.value)}
+            className="w-40"
+          />
+          <Input
+            placeholder="Tags (e.g. vip,frequent)"
+            value={newTags}
+            onChange={(e) => setNewTags(e.target.value)}
             className="w-40"
           />
           <Button type="submit">Save</Button>
@@ -207,14 +256,29 @@ function CustomersPageContent() {
                   {c.lastVisitAt &&
                     ` · Last: ${new Date(c.lastVisitAt).toLocaleDateString()}`}
                 </span>
+                {c.tags && (
+                  <span className="ml-2 rounded bg-muted px-2 py-0.5 text-xs">
+                    {c.tags}
+                  </span>
+                )}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleStampVisit(c.id)}
-              >
-                Record visit
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleStampVisit(c.id)}
+                >
+                  Record visit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => handleDelete(c.id, c.name)}
+                >
+                  Remove
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

@@ -24,6 +24,7 @@ export class CustomersController {
   async list(
     @Query("businessId") businessId: string,
     @Query("search") search?: string,
+    @Query("tag") tag?: string,
     @Query("limit") limit?: string,
     @Query("offset") offset?: string,
     @Tenant("organizationId") orgId?: string,
@@ -31,14 +32,32 @@ export class CustomersController {
     if (!businessId || !orgId) throw new BadRequestException("businessId required");
     return this.customersService.list(businessId, orgId, {
       search,
+      tag,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });
   }
 
+  @Get("audience-count")
+  async audienceCount(
+    @Query("businessId") businessId: string,
+    @Query("minVisits") minVisitsStr?: string,
+    @Query("maxInactiveDays") maxInactiveDaysStr?: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!businessId || !orgId) throw new BadRequestException("businessId required");
+    const minVisits = minVisitsStr ? parseInt(minVisitsStr, 10) : undefined;
+    const maxInactiveDays = maxInactiveDaysStr ? parseInt(maxInactiveDaysStr, 10) : undefined;
+    const count = await this.customersService.countByFilter(businessId, orgId, {
+      minVisits: minVisits != null && !isNaN(minVisits) ? minVisits : undefined,
+      maxInactiveDays: maxInactiveDays != null && !isNaN(maxInactiveDays) ? maxInactiveDays : undefined,
+    });
+    return { count };
+  }
+
   @Post()
   async create(
-    @Body() body: { businessId: string; name: string; mobile?: string; notes?: string; preferences?: string },
+    @Body() body: { businessId: string; name: string; mobile?: string; notes?: string; preferences?: string; tags?: string },
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!body.businessId || !body.name?.trim() || !orgId) {
@@ -52,6 +71,7 @@ export class CustomersController {
         mobile: body.mobile,
         notes: body.notes,
         preferences: body.preferences,
+        tags: body.tags,
       },
     );
     return { customer };
@@ -68,7 +88,7 @@ export class CustomersController {
   @Patch(":id")
   async update(
     @Param("id") id: string,
-    @Body() body: { name?: string; mobile?: string; notes?: string; preferences?: string },
+    @Body() body: { name?: string; mobile?: string; notes?: string; preferences?: string; tags?: string },
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");

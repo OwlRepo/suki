@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
@@ -10,30 +10,70 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 
 const BUSINESS_TYPES = [
-  "salon",
-  "clinic",
-  "restaurant",
-  "retail",
-  "spa",
-  "gym",
-  "other",
+  { value: "salon", label: "Salon / Hair & Beauty" },
+  { value: "clinic", label: "Clinic / Healthcare" },
+  { value: "restaurant", label: "Restaurant / Cafe" },
+  { value: "retail", label: "Retail / Shop" },
+  { value: "spa", label: "Spa / Wellness" },
+  { value: "gym", label: "Gym / Fitness" },
+  { value: "other", label: "Other business" },
 ];
+
+const MODULE_LABELS: Record<string, string> = {
+  crm: "Customer list — Add and manage your customers",
+  appointments: "Appointments — Schedule and track bookings",
+  loyalty: "Loyalty — Reward regular visitors",
+  promos: "Promotions — Send offers and follow-ups",
+  insights: "Customer insights — See who comes back and when",
+  ai_messaging: "AI-assisted messages — Write better promos with AI help",
+};
+
+type Step = "questions" | "recommendations";
 
 function SetupPageContent() {
   const router = useRouter();
   const { getToken } = useAuth();
   const { data: syncData, loading: syncLoading } = useAuthSync();
+  const [step, setStep] = useState<Step>("questions");
   const [name, setName] = useState("");
   const [businessType, setBusinessType] = useState("");
+  const [recommendedModules, setRecommendedModules] = useState<string[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (step === "recommendations" && businessType) {
+      setRecommendationsLoading(true);
+      (async () => {
+        try {
+          const token = await getToken();
+          if (!token) return;
+          const res = await apiRequest<{ recommendedModules: string[] }>(
+            `/organizations/me/recommendations?businessType=${encodeURIComponent(businessType)}`,
+            { token },
+          );
+          setRecommendedModules(res.recommendedModules ?? []);
+        } catch {
+          setRecommendedModules([]);
+        } finally {
+          setRecommendationsLoading(false);
+        }
+      })();
+    }
+  }, [step, businessType, getToken]);
+
+  const handleQuestionsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !businessType) {
-      setError("Please enter business name and select type");
+      setError("Please enter your business name and select a type.");
       return;
     }
+    setError(null);
+    setStep("recommendations");
+  };
+
+  const handleCreateBusiness = async () => {
     setSubmitting(true);
     setError(null);
     try {
@@ -46,71 +86,164 @@ function SetupPageContent() {
       });
       router.push("/dashboard");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create business");
-    } finally {
+      setError(e instanceof Error ? e.message : "Failed to create business. Please try again.");
       setSubmitting(false);
     }
   };
 
+  const handleBack = () => {
+    setStep("questions");
+    setError(null);
+  };
+
   if (syncLoading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="flex min-h-[240px] items-center justify-center">
+        <p className="text-base text-muted-foreground">Loading…</p>
       </div>
     );
   }
   if (!syncData) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-muted-foreground">
-          Sign in with Clerk to set up your business.
+      <div className="flex min-h-[240px] items-center justify-center">
+        <p className="text-base text-muted-foreground">
+          Sign in to set up your business.
         </p>
       </div>
     );
   }
 
-  return (
-    <div className="mx-auto max-w-md">
-      <h1 className="text-2xl font-semibold text-foreground">Business setup</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Set up your business profile to get started.
-      </p>
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-foreground">
-            Business name
-          </label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="My Business"
-            className="w-full"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-foreground">
-            Business type
-          </label>
-          <select
-            value={businessType}
-            onChange={(e) => setBusinessType(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Select type</option>
-            {BUSINESS_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </option>
+  if (step === "questions") {
+    return (
+      <div className="mx-auto max-w-md">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Step 1 of 2
+        </p>
+        <h1 className="text-2xl font-semibold text-foreground">
+          Business setup
+        </h1>
+        <p className="mt-2 text-base text-muted-foreground">
+          Tell us about your business so we can suggest the right tools.
+        </p>
+        <form onSubmit={handleQuestionsSubmit} className="mt-6 space-y-5">
+          <div>
+            <label
+              htmlFor="business-name"
+              className="mb-1 block text-base font-medium text-foreground"
+            >
+              Business name
+            </label>
+            <Input
+              id="business-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. My Salon"
+              className="min-h-[44px] w-full text-base"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="business-type"
+              className="mb-1 block text-base font-medium text-foreground"
+            >
+              Type of business
+            </label>
+            <select
+              id="business-type"
+              value={businessType}
+              onChange={(e) => setBusinessType(e.target.value)}
+              className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+            >
+              <option value="">Select your business type</option>
+              {BUSINESS_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {error && (
+            <p className="text-base text-destructive" role="alert">
+              {error}
+            </p>
+          )}
+          <Button type="submit" size="lg" className="min-h-[44px] w-full text-base">
+            Continue
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  if (step === "recommendations") {
+    const typeLabel =
+      BUSINESS_TYPES.find((t) => t.value === businessType)?.label ?? businessType;
+
+    return (
+      <div className="mx-auto max-w-md">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Step 2 of 2
+        </p>
+        <h1 className="text-2xl font-semibold text-foreground">
+          Recommended for {name.trim()}
+        </h1>
+        <p className="mt-2 text-base text-muted-foreground">
+          For a {typeLabel}, we suggest these features:
+        </p>
+
+        {recommendationsLoading ? (
+          <p className="mt-6 text-base text-muted-foreground">Loading recommendations…</p>
+        ) : (
+          <ul className="mt-6 space-y-3" role="list">
+            {recommendedModules.map((m) => (
+              <li
+                key={m}
+                className="flex items-start gap-3 rounded-lg border border-border bg-card p-4"
+              >
+                <span className="text-base text-foreground">
+                  {MODULE_LABELS[m] ?? m}
+                </span>
+              </li>
             ))}
-          </select>
+            {recommendedModules.length === 0 && (
+              <p className="text-base text-muted-foreground">
+                No specific recommendations. You can explore all features after setup.
+              </p>
+            )}
+          </ul>
+        )}
+
+        {error && (
+          <p className="mt-4 text-base text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row-reverse sm:justify-between">
+          <Button
+            size="lg"
+            onClick={handleCreateBusiness}
+            disabled={submitting || recommendationsLoading}
+            className="min-h-[44px] flex-1 text-base sm:flex-none"
+          >
+            {submitting ? "Creating…" : "Create business"}
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={handleBack}
+            disabled={submitting}
+            className="min-h-[44px] flex-1 text-base sm:flex-none"
+          >
+            Back
+          </Button>
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Creating..." : "Create business"}
-        </Button>
-      </form>
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return null;
 }
 
 export default function SetupPage() {

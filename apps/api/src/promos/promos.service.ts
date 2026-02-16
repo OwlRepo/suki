@@ -60,6 +60,7 @@ export class PromosService {
       value?: string;
       validityStart?: Date;
       validityEnd?: Date;
+      audienceFilter?: Record<string, unknown>;
       messageContent?: string;
     },
   ) {
@@ -73,6 +74,7 @@ export class PromosService {
         ...(data.value !== undefined && { value: data.value ?? null }),
         ...(data.validityStart && { validityStart: new Date(data.validityStart) }),
         ...(data.validityEnd && { validityEnd: new Date(data.validityEnd) }),
+        ...(data.audienceFilter !== undefined && { audienceFilter: data.audienceFilter ?? null }),
         ...(data.messageContent !== undefined && { messageContent: data.messageContent ?? null }),
         updatedAt: new Date(),
       })

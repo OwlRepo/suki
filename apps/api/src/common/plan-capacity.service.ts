@@ -35,4 +35,17 @@ export class PlanCapacityService {
     const plan = await this.getActivePlan(organizationId);
     return this.hasModuleAccess(plan, module);
   }
+
+  /** True when subscription is past_due or cancelled (grace / read-only mode). */
+  async isReadOnly(organizationId: string): Promise<boolean> {
+    const db = getDb();
+    const [sub] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, organizationId))
+      .orderBy(sql`${subscriptions.currentPeriodEnd} desc`)
+      .limit(1);
+    if (!sub) return false;
+    return ["past_due", "cancelled"].includes(sub.status as string);
+  }
 }

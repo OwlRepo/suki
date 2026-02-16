@@ -92,4 +92,14 @@ export class AppointmentsController {
     const appt = await this.appointmentsService.updateStatus(id, orgId, body.status);
     return { appointment: appt };
   }
+
+  @Patch(":id/reminder-sent")
+  async markReminderSent(
+    @Param("id") id: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    const appt = await this.appointmentsService.markReminderSent(id, orgId);
+    return { appointment: appt, message: "Reminder marked as sent" };
+  }
 }

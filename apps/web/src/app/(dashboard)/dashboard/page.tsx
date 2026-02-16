@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { IntakeQRBlock } from "@/components/intake-qr-block";
 
 interface Summary {
   businesses: number;
@@ -23,11 +24,34 @@ interface Metrics {
   repeatVisits: number;
 }
 
+interface Usage {
+  activeCustomers: number;
+  newCustomersThisMonth: number;
+  visitsThisMonth: number;
+  promosSentThisMonth: number;
+  month: string;
+}
+
+interface Activity {
+  type: string;
+  description: string;
+  at: string;
+  businessName?: string;
+}
+
+interface Business {
+  id: string;
+  name: string;
+}
+
 function DashboardPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [businessId, setBusinessId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
@@ -39,9 +63,10 @@ function DashboardPageContent() {
         if (!token) return;
         const [summaryRes, businessesRes] = await Promise.all([
           apiRequest<Summary>("/admin/summary", { token }),
-          apiRequest<{ businesses: { id: string; name: string }[] }>("/businesses", { token }),
+          apiRequest<{ businesses: Business[] }>("/businesses", { token }),
         ]);
         setSummary(summaryRes);
+        setBusinesses(businessesRes.businesses);
         if (businessesRes.businesses.length) {
           setBusinessId(businessesRes.businesses[0].id);
         }
@@ -57,13 +82,36 @@ function DashboardPageContent() {
       const token = await getToken();
       if (!token) return;
       const now = new Date();
-      const res = await apiRequest<{ metrics: Metrics }>(
-        `/insights/monthly?businessId=${businessId}&year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
-        { token },
-      );
-      setMetrics(res.metrics);
+      try {
+        const res = await apiRequest<{ metrics: Metrics }>(
+          `/insights/monthly?businessId=${businessId}&year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
+          { token },
+        );
+        setMetrics(res.metrics);
+      } catch {
+        setMetrics(null);
+      }
     })();
   }, [businessId, getToken]);
+
+  useEffect(() => {
+    if (!syncData) return;
+    (async () => {
+      const token = await getToken();
+      if (!token) return;
+      try {
+        const [usageRes, activityRes] = await Promise.all([
+          apiRequest<Usage>(`/admin/usage${businessId ? `?businessId=${businessId}` : ""}`, { token }),
+          apiRequest<{ activities: Activity[] }>("/admin/activity?limit=15", { token }),
+        ]);
+        setUsage(usageRes);
+        setActivities(activityRes.activities ?? []);
+      } catch {
+        setUsage(null);
+        setActivities([]);
+      }
+    })();
+  }, [syncData, businessId, getToken]);
 
   if (loading) return <p className="text-muted-foreground">Loading...</p>;
 
@@ -75,6 +123,34 @@ function DashboardPageContent() {
       <p className="mt-2 text-muted-foreground">
         Overview of your business and engagement metrics.
       </p>
+
+      {businessId && businesses.length > 0 && (
+        <div className="mt-6">
+          {businesses.length > 1 && (
+            <div className="mb-2">
+              <label htmlFor="dashboard-business" className="sr-only">
+                Select business for intake link
+              </label>
+              <select
+                id="dashboard-business"
+                value={businessId}
+                onChange={(e) => setBusinessId(e.target.value)}
+                className="rounded-md border border-input bg-background px-3 py-2 text-base"
+              >
+                {businesses.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <IntakeQRBlock
+            businessId={businessId}
+            businessName={businesses.find((b) => b.id === businessId)?.name ?? ""}
+          />
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-4">
         <Link href="/setup">
@@ -110,23 +186,55 @@ function DashboardPageContent() {
         </div>
       </div>
 
-      {metrics && (
+      {(usage || metrics) && (
         <div className="mt-8">
-          <h2 className="text-lg font-medium">This month</h2>
-          <div className="mt-2 grid gap-4 sm:grid-cols-3">
+          <h2 className="text-base font-medium text-foreground">This month</h2>
+          <p className="text-sm text-muted-foreground">
+            {usage?.month ? `Data for ${usage.month}` : "Monthly usage"}
+          </p>
+          <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-sm text-muted-foreground">Active customers</p>
+              <p className="mt-1 text-xl font-semibold">{usage?.activeCustomers ?? metrics?.repeatCustomers ?? "—"}</p>
+            </div>
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="text-sm text-muted-foreground">New customers</p>
-              <p className="mt-1 text-xl font-semibold">{metrics.newCustomers}</p>
+              <p className="mt-1 text-xl font-semibold">{usage?.newCustomersThisMonth ?? metrics?.newCustomers ?? "—"}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">Repeat visits</p>
-              <p className="mt-1 text-xl font-semibold">{metrics.repeatVisits}</p>
+              <p className="text-sm text-muted-foreground">Visits</p>
+              <p className="mt-1 text-xl font-semibold">{usage?.visitsThisMonth ?? metrics?.repeatVisits ?? "—"}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">Repeat customers</p>
-              <p className="mt-1 text-xl font-semibold">{metrics.repeatCustomers}</p>
+              <p className="text-sm text-muted-foreground">Promos sent</p>
+              <p className="mt-1 text-xl font-semibold">{usage?.promosSentThisMonth ?? "—"}</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {activities.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-base font-medium text-foreground">Recent activity</h2>
+          <p className="text-sm text-muted-foreground">
+            Latest customer, appointment, and promo changes
+          </p>
+          <ul className="mt-3 space-y-2" role="list">
+            {activities.slice(0, 15).map((a, i) => (
+              <li
+                key={`${a.type}-${a.at}-${i}`}
+                className="flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2 text-base"
+              >
+                <span className="shrink-0 text-muted-foreground" aria-hidden>
+                  {a.at.slice(0, 10)}
+                </span>
+                <span>{a.description}</span>
+                {a.businessName && (
+                  <span className="shrink-0 text-sm text-muted-foreground">({a.businessName})</span>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
