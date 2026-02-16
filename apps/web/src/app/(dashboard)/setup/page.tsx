@@ -8,6 +8,10 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { OnboardingGuidance } from "@/components/onboarding";
+import { useOnboarding } from "@/contexts/onboarding-context";
+import { ONBOARDING_STEPS } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 const BUSINESS_TYPES = [
   { value: "salon", label: "Salon / Hair & Beauty" },
@@ -33,6 +37,7 @@ type Step = "questions" | "recommendations";
 function SetupPageContent() {
   const router = useRouter();
   const { getToken } = useAuth();
+  const onboarding = useOnboarding();
   const { data: syncData, loading: syncLoading } = useAuthSync();
   const [step, setStep] = useState<Step>("questions");
   const [name, setName] = useState("");
@@ -84,6 +89,8 @@ function SetupPageContent() {
         token,
         body: JSON.stringify({ name: name.trim(), businessType }),
       });
+      onboarding?.advanceStep();
+      recordOnboardingEvent("setup_completed", syncData?.organization?.id ?? null);
       router.push("/dashboard");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create business. Please try again.");
@@ -116,6 +123,7 @@ function SetupPageContent() {
   if (step === "questions") {
     return (
       <div className="mx-auto max-w-md">
+        <OnboardingGuidance step={ONBOARDING_STEPS.businessSetup} screen="setup" showSkip={false} />
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Step 1 of 2
         </p>
@@ -123,7 +131,7 @@ function SetupPageContent() {
           Business setup
         </h1>
         <p className="mt-2 text-base text-muted-foreground">
-          Tell us about your business so we can suggest the right tools.
+          Tell us about your business so we can suggest the right tools. You can edit this anytime.
         </p>
         <form onSubmit={handleQuestionsSubmit} className="mt-6 space-y-5">
           <div>

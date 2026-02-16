@@ -7,6 +7,14 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import {
+  PracticeDayBanner,
+  OnboardingGuidance,
+  TooltipBadge,
+} from "@/components/onboarding";
+import { useOnboarding } from "@/contexts/onboarding-context";
+import { ONBOARDING_STEPS } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 interface Business {
   id: string;
@@ -30,6 +38,7 @@ interface DuplicateMatch {
 function ImportsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
+  const onboarding = useOnboarding();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBiz, setSelectedBiz] = useState<string>("");
   const [csvText, setCsvText] = useState("");
@@ -110,6 +119,8 @@ function ImportsPageContent() {
         }),
       });
       setImported(res.imported);
+      onboarding?.advanceStep();
+      recordOnboardingEvent("import_completed", syncData?.organization?.id ?? null);
       setStep("done");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Import failed");
@@ -208,9 +219,20 @@ function ImportsPageContent() {
   }
 
   return (
-    <div>
+    <div className="space-y-8">
+      <div>
+      <PracticeDayBanner />
+      <OnboardingGuidance
+        step={ONBOARDING_STEPS.importCustomers}
+        screen="import"
+        onComplete={() => {}}
+      />
+      </div>
+      <div>
       <div className="flex flex-wrap items-center gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">Import customers</h1>
+        <h1 className="text-2xl font-semibold text-foreground">
+          <TooltipBadge screen="import">Import customers</TooltipBadge>
+        </h1>
         <select
           value={selectedBiz}
           onChange={(e) => setSelectedBiz(e.target.value)}
@@ -224,12 +246,12 @@ function ImportsPageContent() {
         </select>
       </div>
 
-      <p className="mt-2 text-base text-muted-foreground">
-        Upload a CSV or Excel file, or paste CSV text. We will check for duplicates before importing.
+      <p className="mt-6 text-base text-muted-foreground">
+        Upload a CSV or Excel file, or paste CSV text. We will check for duplicates before importing. Import in small batches first, then review before continuing. Your existing records are safe.
       </p>
 
       {step === "upload" && (
-        <div className="mt-6 space-y-4">
+        <div className="mt-8 space-y-4">
           <div className="rounded-lg border border-border bg-card p-4">
             <label
               htmlFor="file-upload"
@@ -358,6 +380,7 @@ function ImportsPageContent() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

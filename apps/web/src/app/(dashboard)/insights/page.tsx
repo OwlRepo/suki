@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { TooltipBadge } from "@/components/onboarding";
 
 interface Business {
   id: string;
@@ -77,7 +77,9 @@ function InsightsPageContent() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">Insights</h1>
+        <h1 className="text-2xl font-semibold text-foreground">
+          <TooltipBadge screen="insights">Insights</TooltipBadge>
+        </h1>
         <select
           value={selectedBiz}
           onChange={(e) => setSelectedBiz(e.target.value)}

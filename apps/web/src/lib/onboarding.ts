@@ -1,0 +1,284 @@
+/**
+ * Onboarding configuration and sample data for Practice Day mode.
+ * Designed for middle-aged, non-technical Philippine small business owners.
+ */
+
+export const PRACTICE_SAMPLE_LABEL = "Practice Sample";
+
+// Sample customers with common Philippine names
+export const SAMPLE_CUSTOMERS = [
+  { id: "sample-1", name: "Maria Santos", mobile: "0917-123-4567", visitCount: 3, lastVisitAt: new Date().toISOString(), tags: "frequent", isPracticeSample: true },
+  { id: "sample-2", name: "Juan dela Cruz", mobile: "0922-555-1234", visitCount: 1, lastVisitAt: new Date(Date.now() - 86400000).toISOString(), tags: null, isPracticeSample: true },
+  { id: "sample-3", name: "Ana Reyes", mobile: "0918-777-8888", visitCount: 5, lastVisitAt: new Date().toISOString(), tags: "vip,frequent", isPracticeSample: true },
+  { id: "sample-4", name: "Pedro Garcia", mobile: "0933-111-2222", visitCount: 0, lastVisitAt: null, tags: null, isPracticeSample: true },
+  { id: "sample-5", name: "Liza Fernandez", mobile: "0919-444-5555", visitCount: 2, lastVisitAt: new Date(Date.now() - 2 * 86400000).toISOString(), tags: null, isPracticeSample: true },
+  { id: "sample-6", name: "Ramon Torres", mobile: "0928-999-0000", visitCount: 7, lastVisitAt: new Date().toISOString(), tags: "vip", isPracticeSample: true },
+  { id: "sample-7", name: "Carla Mendoza", mobile: "0916-333-4444", visitCount: 1, lastVisitAt: null, tags: null, isPracticeSample: true },
+  { id: "sample-8", name: "Roberto Villanueva", mobile: "0927-666-7777", visitCount: 4, lastVisitAt: new Date(Date.now() - 86400000).toISOString(), tags: "frequent", isPracticeSample: true },
+];
+
+// Sample appointments for today and tomorrow
+function sampleAppointments() {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const d = (d: Date, h: number, m: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0);
+  return [
+    { id: "sample-a1", customerId: "sample-1", customerName: "Maria Santos", scheduledAt: d(today, 9, 0).toISOString(), status: "scheduled", notes: null, isPracticeSample: true },
+    { id: "sample-a2", customerId: "sample-3", customerName: "Ana Reyes", scheduledAt: d(today, 11, 30).toISOString(), status: "scheduled", notes: null, isPracticeSample: true },
+    { id: "sample-a3", customerId: "sample-6", customerName: "Ramon Torres", scheduledAt: d(today, 14, 0).toISOString(), status: "scheduled", notes: "Regular cut", isPracticeSample: true },
+    { id: "sample-a4", customerId: "sample-2", customerName: "Juan dela Cruz", scheduledAt: d(tomorrow, 10, 0).toISOString(), status: "scheduled", notes: null, isPracticeSample: true },
+    { id: "sample-a5", customerId: "sample-5", customerName: "Liza Fernandez", scheduledAt: d(tomorrow, 15, 0).toISOString(), status: "scheduled", notes: null, isPracticeSample: true },
+  ];
+}
+
+export const SAMPLE_APPOINTMENTS = sampleAppointments();
+
+// Sample promos
+export const SAMPLE_PROMOS = [
+  { id: "sample-p1", type: "discount", value: "20% off", validityStart: new Date().toISOString(), validityEnd: new Date(Date.now() + 7 * 86400000).toISOString(), status: "draft", messageContent: "Weekday special: 20% off for regulars", isPracticeSample: true },
+  { id: "sample-p2", type: "reminder", value: "Birthday offer", validityStart: new Date().toISOString(), validityEnd: new Date(Date.now() + 30 * 86400000).toISOString(), status: "draft", messageContent: "Happy birthday! Free add-on on your next visit.", isPracticeSample: true },
+  { id: "sample-p3", type: "discount", value: "10% referral", validityStart: new Date().toISOString(), validityEnd: new Date(Date.now() + 14 * 86400000).toISOString(), status: "draft", messageContent: "Refer a friend, both get 10% off", isPracticeSample: true },
+];
+
+// Sample loyalty setup
+export const SAMPLE_LOYALTY = {
+  threshold: 5,
+  reward: "Visit 5 times, get 1 free",
+  isPracticeSample: true,
+};
+
+// Onboarding steps with guidance copy
+export const ONBOARDING_STEPS = {
+  businessSetup: 1,
+  firstDashboard: 2,
+  customersPage: 3,
+  recordVisit: 4,
+  appointmentsOverview: 5,
+  promos: 6,
+  loyalty: 7,
+  importCustomers: 8,
+} as const;
+
+export type OnboardingStepId = (typeof ONBOARDING_STEPS)[keyof typeof ONBOARDING_STEPS];
+
+export const STEP_GUIDANCE: Record<number, { message: string; expectedAction: string; successFeedback: string }> = {
+  1: {
+    message: "Let's set up your business in a few short steps. You can edit this anytime.",
+    expectedAction: "Enter business name, service type, hours, and contact details",
+    successFeedback: "Great. Your business profile is ready.",
+  },
+  2: {
+    message: "This is your daily home screen. Start with the first card only.",
+    expectedAction: "Tap the highlighted first card (e.g., Add first customer)",
+    successFeedback: "Nice start. You finished your first daily task.",
+  },
+  3: {
+    message: "Add one customer the same way you write in your notebook.",
+    expectedAction: "Create one customer record (name + mobile at minimum)",
+    successFeedback: "Customer saved. You can update details anytime.",
+  },
+  4: {
+    message: "Now record today's visit so you can track repeat customers.",
+    expectedAction: "Add one visit/service entry for the customer",
+    successFeedback: "Visit recorded. This helps with follow-up and loyalty.",
+  },
+  5: {
+    message: "Appointments help you see your day at a glance. Let's add one booking.",
+    expectedAction: "Create one appointment for today or tomorrow",
+    successFeedback: "Appointment added. Your schedule is now active.",
+  },
+  6: {
+    message: "Create one simple offer your regular customers will understand quickly.",
+    expectedAction: "Select a promo template and save one promo",
+    successFeedback: "Promo ready. You can turn it on or off anytime.",
+  },
+  7: {
+    message: "Loyalty rewards repeat visits. Start with one easy rule.",
+    expectedAction: "Enable one loyalty rule (e.g., visit count reward)",
+    successFeedback: "Loyalty is active. Returning customers can now earn rewards.",
+  },
+  8: {
+    message: "Already have a customer list? Import in small batches to stay safe.",
+    expectedAction: "Upload a small sample file and preview before final import",
+    successFeedback: "Import complete. Review added customers before continuing.",
+  },
+};
+
+// Prerequisites: task is unlocked when all conditions are met
+export interface ChecklistRequires {
+  business?: number;
+  customer?: number;
+  appointment?: number;
+  promo?: number;
+}
+
+// First 7 days checklist — each item has a link and optional prerequisites
+export interface ChecklistItem {
+  label: string;
+  href?: string;
+  /** Task is blocked until these counts are met. Sequential within each day. */
+  requires?: ChecklistRequires;
+  /** Shown when locked, e.g. "Complete Business Setup first" */
+  lockedMessage?: string;
+}
+
+export const CHECKLIST_DAYS: Record<number, ChecklistItem[]> = {
+  1: [
+    { label: "Complete Business Setup", href: "/setup" },
+    {
+      label: "Add 1 customer",
+      href: "/customers",
+      requires: { business: 1 },
+      lockedMessage: "Complete Business Setup first",
+    },
+    {
+      label: "Record 1 visit",
+      href: "/customers",
+      requires: { customer: 1 },
+      lockedMessage: "Add at least 1 customer first",
+    },
+  ],
+  2: [
+    {
+      label: "Add 2 more customers",
+      href: "/customers",
+      requires: { business: 1 },
+      lockedMessage: "Complete Business Setup first",
+    },
+    {
+      label: "Add 1 appointment",
+      href: "/appointments",
+      requires: { customer: 1 },
+      lockedMessage: "Add at least 1 customer first",
+    },
+    { label: "Check Dashboard once in the morning", href: "/dashboard" },
+  ],
+  3: [
+    {
+      label: "Record visits for all customers served today",
+      href: "/customers",
+      requires: { customer: 1 },
+      lockedMessage: "Add at least 1 customer first",
+    },
+    {
+      label: "Edit one customer record (practice correction)",
+      href: "/customers",
+      requires: { customer: 1 },
+      lockedMessage: "Add at least 1 customer first",
+    },
+    {
+      label: "Mark one appointment as completed",
+      href: "/appointments",
+      requires: { appointment: 1 },
+      lockedMessage: "Add at least 1 appointment first",
+    },
+  ],
+  4: [
+    {
+      label: "Create 1 simple promo",
+      href: "/promos",
+      requires: { business: 1 },
+      lockedMessage: "Complete Business Setup first",
+    },
+    {
+      label: "Mention promo to at least 3 customers",
+      href: "/customers",
+      requires: { promo: 1, customer: 1 },
+      lockedMessage: "Create a promo and add customers first",
+    },
+    { label: "Check Dashboard end-of-day", href: "/dashboard" },
+  ],
+  5: [
+    {
+      label: "Enable loyalty rule",
+      href: "/loyalty",
+      requires: { business: 1 },
+      lockedMessage: "Complete Business Setup first",
+    },
+    {
+      label: "Record at least 3 visits",
+      href: "/customers",
+      requires: { customer: 1 },
+      lockedMessage: "Add at least 1 customer first",
+    },
+    {
+      label: "Confirm points/stamps are updating correctly",
+      href: "/loyalty",
+      requires: { customer: 1 },
+      lockedMessage: "Add customers and record visits first",
+    },
+  ],
+  6: [
+    {
+      label: "Import a small batch of existing customers (or add 3 manually)",
+      href: "/imports",
+      requires: { business: 1 },
+      lockedMessage: "Complete Business Setup first",
+    },
+    {
+      label: "Check for duplicates",
+      href: "/imports",
+      requires: { business: 1 },
+      lockedMessage: "Complete Business Setup first",
+    },
+    {
+      label: "Fix one customer detail to build confidence",
+      href: "/customers",
+      requires: { customer: 1 },
+      lockedMessage: "Add at least 1 customer first",
+    },
+  ],
+  7: [
+    {
+      label: "Review Insights (basic counts only)",
+      href: "/insights",
+      requires: { business: 1 },
+      lockedMessage: "Complete Business Setup first",
+    },
+    {
+      label: "Identify busiest day/time from the week",
+      href: "/insights",
+      requires: { business: 1 },
+      lockedMessage: "Complete Business Setup first",
+    },
+    { label: "Set one routine: Update app before closing each day", href: "/dashboard" },
+  ],
+};
+
+/** Check if a checklist item is unlocked given account counts */
+export function isChecklistItemUnlocked(
+  item: ChecklistItem,
+  counts: { businesses: number; customers: number; appointments: number; promos: number },
+): boolean {
+  if (!item.requires) return true;
+  const r = item.requires;
+  if (r.business != null && counts.businesses < r.business) return false;
+  if (r.customer != null && counts.customers < r.customer) return false;
+  if (r.appointment != null && counts.appointments < r.appointment) return false;
+  if (r.promo != null && counts.promos < r.promo) return false;
+  return true;
+}
+
+// Tooltip copy for key screens
+export const TOOLTIP_COPY = {
+  dashboard: "This is your daily control panel. Start with the top task.",
+  customers: "Save every customer once, then just update when they return.",
+  appointments: "Use this to see today and tomorrow at a glance.",
+  promos: "Keep offers simple so customers understand quickly.",
+  insights: "These numbers show what happened this week in plain terms.",
+  loyalty: "Reward repeat visits with one easy rule your staff can explain.",
+  import: "Import in small batches first, then review before continuing.",
+};
+
+// Reassurance messages
+export const REASSURANCE_MESSAGES = [
+  "You can edit this later.",
+  "Nothing is final until you confirm.",
+  "Your existing records are safe.",
+  "Saved successfully.",
+  "If this looks wrong, you can undo this step.",
+  "You are in Practice Day. Real data is not affected.",
+  "You can skip this now and return anytime.",
+  "Only you and your team can see this business data.",
+];

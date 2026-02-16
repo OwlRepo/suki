@@ -7,6 +7,14 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import {
+  PracticeDayBanner,
+  OnboardingGuidance,
+  TooltipBadge,
+} from "@/components/onboarding";
+import { useOnboarding } from "@/contexts/onboarding-context";
+import { ONBOARDING_STEPS, SAMPLE_APPOINTMENTS, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 interface Business {
   id: string;
@@ -33,6 +41,8 @@ interface Appointment {
 function AppointmentsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
+  const onboarding = useOnboarding();
+  const orgId = syncData?.organization?.id ?? null;
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBiz, setSelectedBiz] = useState<string>("");
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -142,6 +152,10 @@ function AppointmentsPageContent() {
         });
       }
       resetForm();
+      if (!editingId) {
+        onboarding?.advanceStep();
+        recordOnboardingEvent("appointment_created", orgId);
+      }
       loadAppointments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -180,7 +194,12 @@ function AppointmentsPageContent() {
   };
 
   const getCustomerName = (customerId: string) =>
-    customers.find((c) => c.id === customerId)?.name ?? "—";
+    customers.find((c) => c.id === customerId)?.name ??
+    (SAMPLE_APPOINTMENTS.find((a) => a.customerId === customerId)?.customerName ?? "—");
+
+  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
+  const displayAppointments = showPracticeData ? SAMPLE_APPOINTMENTS : appointments;
+  const displayCustomers = showPracticeData ? SAMPLE_CUSTOMERS : customers;
 
   if (loading) return <p className="text-muted-foreground">Loading...</p>;
   if (!businesses.length) {
@@ -193,9 +212,20 @@ function AppointmentsPageContent() {
   }
 
   return (
-    <div>
+    <div className="space-y-8">
+      <div>
+      <PracticeDayBanner />
+      <OnboardingGuidance
+        step={ONBOARDING_STEPS.appointmentsOverview}
+        screen="appointments"
+        onComplete={() => {}}
+      />
+      </div>
+      <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">Appointments</h1>
+        <h1 className="text-2xl font-semibold text-foreground">
+          <TooltipBadge screen="appointments">Appointments</TooltipBadge>
+        </h1>
         <div className="flex flex-wrap gap-2">
           <select
             value={selectedBiz}
@@ -231,7 +261,7 @@ function AppointmentsPageContent() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="mt-4 space-y-4 rounded-md border border-border bg-card p-4"
+          className="mt-8 space-y-4 rounded-md border border-border bg-card p-4"
         >
           <h2 className="text-lg font-medium">{editingId ? "Reschedule" : "New appointment"}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -245,7 +275,7 @@ function AppointmentsPageContent() {
                 disabled={!!editingId}
               >
                 <option value="">Select customer</option>
-                {customers.map((c) => (
+                {(showPracticeData ? displayCustomers : customers).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -262,6 +292,7 @@ function AppointmentsPageContent() {
               />
             </div>
           </div>
+          <p className="text-sm text-muted-foreground">Nothing is final until you confirm.</p>
           <div>
             <label className="mb-1 block text-sm font-medium">Notes</label>
             <Input
@@ -282,16 +313,21 @@ function AppointmentsPageContent() {
         </form>
       )}
 
-      <div className="mt-6">
-        <p className="text-sm text-muted-foreground">{appointments.length} appointment{appointments.length !== 1 ? "s" : ""}</p>
-        <ul className="mt-2 divide-y divide-border">
-          {appointments.map((a) => (
+      <div className="mt-8">
+        <p className="text-sm text-muted-foreground">{displayAppointments.length} appointment{displayAppointments.length !== 1 ? "s" : ""}</p>
+        <ul className="mt-4 divide-y divide-border">
+          {displayAppointments.map((a) => (
             <li
               key={a.id}
-              className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0"
+              className="flex flex-wrap items-center justify-between gap-2 py-5 first:pt-0"
             >
               <div>
                 <span className="font-medium">{getCustomerName(a.customerId)}</span>
+                {"isPracticeSample" in a && (a as { isPracticeSample?: boolean }).isPracticeSample && (
+                  <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                    {PRACTICE_SAMPLE_LABEL}
+                  </span>
+                )}
                 <span className={`ml-2 rounded px-2 py-0.5 text-xs capitalize ${a.status === "completed" ? "bg-muted" : a.status === "cancelled" ? "bg-destructive/10" : "bg-primary/10"}`}>
                   {a.status}
                 </span>
@@ -301,10 +337,12 @@ function AppointmentsPageContent() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => handleEdit(a)}>
-                  Reschedule
-                </Button>
-                {a.status === "scheduled" && (
+                {!("isPracticeSample" in a && (a as { isPracticeSample?: boolean }).isPracticeSample) && "businessId" in a && (
+                  <Button size="sm" variant="outline" onClick={() => handleEdit(a as Appointment)}>
+                    Reschedule
+                  </Button>
+                )}
+                {a.status === "scheduled" && !("isPracticeSample" in a && (a as { isPracticeSample?: boolean }).isPracticeSample) && (
                   <>
                     <Button size="sm" variant="outline" onClick={() => handleReminderSent(a.id)}>
                       Reminder sent
@@ -331,9 +369,10 @@ function AppointmentsPageContent() {
             </li>
           ))}
         </ul>
-        {appointments.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">No appointments. Create one to get started.</p>
+        {displayAppointments.length === 0 && (
+          <p className="py-8 text-center text-muted-foreground">No appointments. Create one to get started. Your schedule is now active when you add your first.</p>
         )}
+      </div>
       </div>
     </div>
   );

@@ -8,6 +8,15 @@ import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
+import {
+  PracticeDayBanner,
+  OnboardingGuidance,
+  OnboardingChecklist,
+  TooltipBadge,
+} from "@/components/onboarding";
+import { useOnboarding } from "@/contexts/onboarding-context";
+import { ONBOARDING_STEPS } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 interface Summary {
   businesses: number;
@@ -47,6 +56,7 @@ interface Business {
 function DashboardPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
+  const onboarding = useOnboarding();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
@@ -54,6 +64,12 @@ function DashboardPageContent() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [businessId, setBusinessId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (syncData) {
+      recordOnboardingEvent("dashboard_viewed", syncData.organization?.id ?? null);
+    }
+  }, [syncData]);
 
   useEffect(() => {
     if (!syncData) return;
@@ -116,16 +132,34 @@ function DashboardPageContent() {
   if (loading) return <p className="text-muted-foreground">Loading...</p>;
 
   const s = summary ?? { businesses: 0, customers: 0, appointments: 0, promos: 0 };
+  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
+  const summaryDisplay = showPracticeData
+    ? { businesses: 1, customers: 8, appointments: 5, promos: 3 }
+    : s;
+  const highlightFirstCard =
+    onboarding?.currentStep === ONBOARDING_STEPS.firstDashboard && !onboarding.onboardingCompletedAt;
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+    <div className="space-y-8">
+      <div>
+        <PracticeDayBanner />
+        <OnboardingChecklist />
+        <OnboardingGuidance
+          step={ONBOARDING_STEPS.firstDashboard}
+          screen="dashboard"
+          onComplete={() => {}}
+        />
+      </div>
+      <div>
+      <h1 className="text-2xl font-semibold text-foreground">
+        <TooltipBadge screen="dashboard">Dashboard</TooltipBadge>
+      </h1>
       <p className="mt-2 text-muted-foreground">
         Overview of your business and engagement metrics.
       </p>
 
       {businessId && businesses.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-8">
           {businesses.length > 1 && (
             <div className="mb-2">
               <label htmlFor="dashboard-business" className="sr-only">
@@ -152,12 +186,24 @@ function DashboardPageContent() {
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap gap-4">
+      <div className="mt-8 flex flex-wrap gap-4">
         <Link href="/setup">
           <Button>Business setup</Button>
         </Link>
-        <Link href="/customers">
-          <Button variant="outline">Customers</Button>
+        <Link
+          href="/customers"
+          onClick={() => {
+            if (highlightFirstCard && onboarding) {
+              onboarding.advanceStep();
+            }
+          }}
+        >
+          <Button
+            variant={highlightFirstCard ? "default" : "outline"}
+            className={highlightFirstCard ? "ring-2 ring-primary ring-offset-2" : ""}
+          >
+            Add first customer
+          </Button>
         </Link>
         <Link href="/appointments">
           <Button variant="outline">Appointments</Button>
@@ -167,32 +213,52 @@ function DashboardPageContent() {
         </Link>
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Businesses</p>
-          <p className="mt-1 text-2xl font-semibold">{s.businesses}</p>
+          <p className="mt-1 text-2xl font-semibold">{summaryDisplay.businesses}</p>
+          {showPracticeData && (
+            <span className="mt-1 inline-block text-xs text-amber-600 dark:text-amber-400">
+              Practice Sample
+            </span>
+          )}
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Customers</p>
-          <p className="mt-1 text-2xl font-semibold">{s.customers}</p>
+          <p className="mt-1 text-2xl font-semibold">{summaryDisplay.customers}</p>
+          {showPracticeData && (
+            <span className="mt-1 inline-block text-xs text-amber-600 dark:text-amber-400">
+              Practice Sample
+            </span>
+          )}
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Appointments</p>
-          <p className="mt-1 text-2xl font-semibold">{s.appointments}</p>
+          <p className="mt-1 text-2xl font-semibold">{summaryDisplay.appointments}</p>
+          {showPracticeData && (
+            <span className="mt-1 inline-block text-xs text-amber-600 dark:text-amber-400">
+              Practice Sample
+            </span>
+          )}
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Promos</p>
-          <p className="mt-1 text-2xl font-semibold">{s.promos}</p>
+          <p className="mt-1 text-2xl font-semibold">{summaryDisplay.promos}</p>
+          {showPracticeData && (
+            <span className="mt-1 inline-block text-xs text-amber-600 dark:text-amber-400">
+              Practice Sample
+            </span>
+          )}
         </div>
       </div>
 
       {(usage || metrics) && (
-        <div className="mt-8">
+        <div className="mt-10">
           <h2 className="text-base font-medium text-foreground">This month</h2>
           <p className="text-sm text-muted-foreground">
             {usage?.month ? `Data for ${usage.month}` : "Monthly usage"}
           </p>
-          <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="text-sm text-muted-foreground">Active customers</p>
               <p className="mt-1 text-xl font-semibold">{usage?.activeCustomers ?? metrics?.repeatCustomers ?? "—"}</p>
@@ -214,7 +280,7 @@ function DashboardPageContent() {
       )}
 
       {activities.length > 0 && (
-        <div className="mt-8">
+        <div className="mt-10">
           <h2 className="text-base font-medium text-foreground">Recent activity</h2>
           <p className="text-sm text-muted-foreground">
             Latest customer, appointment, and promo changes
@@ -243,6 +309,7 @@ function DashboardPageContent() {
           Set up your first business to see metrics and manage customers.
         </p>
       )}
+      </div>
     </div>
   );
 }

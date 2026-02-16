@@ -7,6 +7,14 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import {
+  PracticeDayBanner,
+  OnboardingGuidance,
+  TooltipBadge,
+} from "@/components/onboarding";
+import { useOnboarding } from "@/contexts/onboarding-context";
+import { ONBOARDING_STEPS, SAMPLE_PROMOS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 interface Business {
   id: string;
@@ -37,6 +45,7 @@ const PROMO_TYPES = [
 function PromosPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
+  const onboarding = useOnboarding();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBiz, setSelectedBiz] = useState<string>("");
   const [promos, setPromos] = useState<Promo[]>([]);
@@ -175,6 +184,10 @@ function PromosPageContent() {
           }),
         });
       }
+      if (!editingId) {
+        onboarding?.advanceStep();
+        recordOnboardingEvent("promo_created", syncData?.organization?.id ?? null);
+      }
       resetForm();
       loadPromos();
     } catch (err) {
@@ -225,8 +238,11 @@ function PromosPageContent() {
     }
   };
 
+  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
+  const displayPromos = showPracticeData ? SAMPLE_PROMOS : promos;
+
   if (loading) return <p className="text-muted-foreground">Loading...</p>;
-  if (!businesses.length) {
+  if (!businesses.length && !showPracticeData) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Promos</h1>
@@ -236,9 +252,20 @@ function PromosPageContent() {
   }
 
   return (
-    <div>
+    <div className="space-y-8">
+      <div>
+        <PracticeDayBanner />
+        <OnboardingGuidance
+          step={ONBOARDING_STEPS.promos}
+          screen="promos"
+          onComplete={() => {}}
+        />
+      </div>
+      <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">Promos</h1>
+        <h1 className="text-2xl font-semibold text-foreground">
+          <TooltipBadge screen="promos">Promos</TooltipBadge>
+        </h1>
         <div className="flex gap-2">
           <select
             value={selectedBiz}
@@ -260,7 +287,7 @@ function PromosPageContent() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="mt-4 space-y-4 rounded-md border border-border bg-card p-4"
+          className="mt-8 space-y-4 rounded-md border border-border bg-card p-4"
         >
           <h2 className="text-lg font-medium">{editingId ? "Edit promo" : "New promo"}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -381,9 +408,9 @@ function PromosPageContent() {
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2">
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : editingId ? "Update" : "Create"}
-            </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Saving..." : onboarding?.practiceMode ? "Practice save" : editingId ? "Update" : "Create"}
+          </Button>
             <Button type="button" variant="outline" onClick={resetForm}>
               Cancel
             </Button>
@@ -391,16 +418,21 @@ function PromosPageContent() {
         </form>
       )}
 
-      <div className="mt-6">
-        <p className="text-sm text-muted-foreground">{promos.length} promo{promos.length !== 1 ? "s" : ""}</p>
-        <ul className="mt-2 divide-y divide-border">
-          {promos.map((p) => (
+      <div className="mt-8">
+        <p className="text-sm text-muted-foreground">{displayPromos.length} promo{displayPromos.length !== 1 ? "s" : ""}</p>
+        <ul className="mt-4 divide-y divide-border">
+          {displayPromos.map((p) => (
             <li
               key={p.id}
-              className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0"
+              className="flex flex-wrap items-center justify-between gap-2 py-5 first:pt-0"
             >
               <div>
                 <span className="font-medium capitalize">{p.type.replace("_", " ")}</span>
+                {"isPracticeSample" in p && (p as { isPracticeSample?: boolean }).isPracticeSample && (
+                  <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                    {PRACTICE_SAMPLE_LABEL}
+                  </span>
+                )}
                 {p.value && <span className="ml-2 text-muted-foreground">{p.value}</span>}
                 <span className={`ml-2 rounded px-2 py-0.5 text-xs ${p.status === "sent" ? "bg-muted" : "bg-primary/10"}`}>
                   {p.status}
@@ -410,10 +442,12 @@ function PromosPageContent() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => handleEdit(p)}>
-                  Edit
-                </Button>
-                {p.status === "draft" && (
+                {!("isPracticeSample" in p && (p as { isPracticeSample?: boolean }).isPracticeSample) && "createdAt" in p && (
+                  <Button size="sm" variant="outline" onClick={() => handleEdit(p as Promo)}>
+                    Edit
+                  </Button>
+                )}
+                {p.status === "draft" && !("isPracticeSample" in p && (p as { isPracticeSample?: boolean }).isPracticeSample) && (
                   <>
                     {sendConfirmId === p.id ? (
                       <span className="flex flex-wrap items-center gap-2">
@@ -438,9 +472,10 @@ function PromosPageContent() {
             </li>
           ))}
         </ul>
-        {promos.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">No promos yet. Create one to get started.</p>
+        {displayPromos.length === 0 && (
+          <p className="py-8 text-center text-muted-foreground">No promos yet. Create one to get started. You can turn it on or off anytime.</p>
         )}
+      </div>
       </div>
     </div>
   );

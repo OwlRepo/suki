@@ -8,6 +8,14 @@ import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
+import {
+  PracticeDayBanner,
+  OnboardingGuidance,
+  TooltipBadge,
+} from "@/components/onboarding";
+import { useOnboarding } from "@/contexts/onboarding-context";
+import { ONBOARDING_STEPS, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
+import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 interface Business {
   id: string;
@@ -28,6 +36,8 @@ interface Customer {
 function CustomersPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
+  const onboarding = useOnboarding();
+  const orgId = syncData?.organization?.id ?? null;
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBiz, setSelectedBiz] = useState<string>("");
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -93,6 +103,8 @@ function CustomersPageContent() {
           tags: newTags.trim() || undefined,
         }),
       });
+      onboarding?.advanceStep();
+      if (total === 0) recordOnboardingEvent("first_customer_added", orgId);
       setNewName("");
       setNewMobile("");
       setNewTags("");
@@ -136,6 +148,10 @@ function CustomersPageContent() {
       const token = await getToken();
       if (!token) return;
       await apiRequest(`/customers/${id}/visit`, { method: "POST", token });
+      if (onboarding?.currentStep === ONBOARDING_STEPS.recordVisit) {
+        onboarding.advanceStep();
+      }
+      recordOnboardingEvent("visit_recorded", orgId);
       if (selectedBiz) {
         const params = new URLSearchParams({ businessId: selectedBiz });
         const res = await apiRequest<{ customers: Customer[]; total: number }>(
@@ -163,10 +179,32 @@ function CustomersPageContent() {
     );
   }
 
+  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
+  const displayCustomers = showPracticeData ? SAMPLE_CUSTOMERS : customers;
+  const displayTotal = showPracticeData ? SAMPLE_CUSTOMERS.length : total;
+
   return (
-    <div>
+    <div className="space-y-8">
+      <div>
+      <PracticeDayBanner />
+      <OnboardingGuidance
+        step={ONBOARDING_STEPS.customersPage}
+        screen="customers"
+        onComplete={() => {}}
+      />
+      {onboarding?.currentStep === ONBOARDING_STEPS.recordVisit && customers.length > 0 && (
+        <OnboardingGuidance
+          step={ONBOARDING_STEPS.recordVisit}
+          screen="customers"
+          onComplete={() => {}}
+        />
+      )}
+      </div>
+      <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">Customers</h1>
+        <h1 className="text-2xl font-semibold text-foreground">
+          <TooltipBadge screen="customers">Customers</TooltipBadge>
+        </h1>
         <div className="flex gap-2">
           <select
             value={selectedBiz}
@@ -199,15 +237,18 @@ function CustomersPageContent() {
         <IntakeQRBlock
           businessId={selectedBiz}
           businessName={businesses.find((b) => b.id === selectedBiz)?.name ?? ""}
-          className="mt-4"
+          className="mt-8"
         />
       )}
 
       {showAdd && (
         <form
           onSubmit={handleAdd}
-          className="mt-4 flex gap-2 rounded-md border border-border bg-card p-4"
+          className="mt-8 flex flex-wrap gap-2 rounded-md border border-border bg-card p-4"
         >
+          <p className="w-full basis-full text-sm text-muted-foreground">
+            You can edit this later.
+          </p>
           <Input
             placeholder="Name"
             value={newName}
@@ -227,32 +268,39 @@ function CustomersPageContent() {
             onChange={(e) => setNewTags(e.target.value)}
             className="w-40"
           />
-          <Button type="submit">Save</Button>
+          <Button type="submit">
+            {onboarding?.practiceMode ? "Practice save" : "Save"}
+          </Button>
           <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>
             Cancel
           </Button>
         </form>
       )}
 
-      <div className="mt-4">
+      <div className="mt-8">
         <p className="text-sm text-muted-foreground">
-          {total} customer{total !== 1 ? "s" : ""}
+          {displayTotal} customer{displayTotal !== 1 ? "s" : ""}
         </p>
-        <ul className="mt-2 divide-y divide-border">
-          {customers.map((c) => (
+        <ul className="mt-4 divide-y divide-border">
+          {displayCustomers.map((c) => (
             <li
               key={c.id}
-              className="flex items-center justify-between py-3 first:pt-0"
+              className="flex items-center justify-between py-5 first:pt-0"
             >
               <div>
                 <span className="font-medium">{c.name}</span>
+                {"isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample && (
+                  <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                    {PRACTICE_SAMPLE_LABEL}
+                  </span>
+                )}
                 {c.mobile && (
                   <span className="ml-2 text-sm text-muted-foreground">
                     {c.mobile}
                   </span>
                 )}
                 <span className="ml-2 text-sm text-muted-foreground">
-                  Visits: {c.visitCount}
+                  Visits: {"visitCount" in c ? c.visitCount : 0}
                   {c.lastVisitAt &&
                     ` · Last: ${new Date(c.lastVisitAt).toLocaleDateString()}`}
                 </span>
@@ -263,28 +311,43 @@ function CustomersPageContent() {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleStampVisit(c.id)}
-                >
-                  Record visit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-destructive hover:bg-destructive/10"
-                  onClick={() => handleDelete(c.id, c.name)}
-                >
-                  Remove
-                </Button>
+                {"isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      onboarding?.advanceStep();
+                    }}
+                  >
+                    Practice: Record visit
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleStampVisit(c.id)}
+                  >
+                    Record visit
+                  </Button>
+                )}
+                {!("isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDelete(c.id, c.name)}
+                  >
+                    Remove
+                  </Button>
+                )}
               </div>
             </li>
           ))}
         </ul>
-        {customers.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">No customers yet.</p>
+        {displayCustomers.length === 0 && (
+          <p className="py-8 text-center text-muted-foreground">No customers yet. You can edit details anytime.</p>
         )}
+      </div>
       </div>
     </div>
   );
