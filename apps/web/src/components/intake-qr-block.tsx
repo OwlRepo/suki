@@ -97,19 +97,21 @@ export function IntakeQRBlock({
       <p className="mt-1 text-base text-muted-foreground">
         {helperText}
       </p>
-      <div className="mt-4 flex flex-wrap items-start gap-4">
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-stretch">
         {qrDataUrl && (
-          <div className="rounded border border-border bg-white p-2">
-            <img
-              src={qrDataUrl}
-              alt="QR code for customer intake form"
-              width={200}
-              height={200}
-              className="block"
-            />
+          <div className="shrink-0">
+            <div className="rounded border border-border bg-white p-2 shadow-sm">
+              <img
+                src={qrDataUrl}
+                alt="QR code for customer intake form"
+                width={200}
+                height={200}
+                className="block"
+              />
+            </div>
           </div>
         )}
-        <div className="flex flex-1 flex-col gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="rounded border border-input bg-muted/30 px-3 py-2 font-mono text-sm text-foreground break-all">
             {intakeUrl || "Loading…"}
           </div>
@@ -132,6 +134,12 @@ export function IntakeQRBlock({
                 Print QR code
               </Button>
             )}
+          </div>
+          <div className="flex-1 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+            <p className="text-xs font-medium text-foreground">How to use</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Print the QR and place at your counter, or copy the link and share via SMS, WhatsApp, or email. Customers tap or scan to register—no paperwork.
+            </p>
           </div>
         </div>
       </div>
