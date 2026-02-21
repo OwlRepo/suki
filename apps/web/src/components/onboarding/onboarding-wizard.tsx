@@ -47,10 +47,13 @@ export function OnboardingWizard() {
   const [importNotes, setImportNotes] = useState("");
 
   useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H1",location:"onboarding-wizard.tsx:isCompleteEffect",message:"isComplete effect evaluated",data:{isComplete,currentStep,progressStep:progress?.currentStep ?? null,businessesCount:businesses.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (isComplete) {
       router.replace("/dashboard?welcome=1");
     }
-  }, [isComplete, router]);
+  }, [isComplete, router, currentStep, progress?.currentStep, businesses.length]);
 
   const isLegacyUser =
     !loading &&
@@ -61,9 +64,12 @@ export function OnboardingWizard() {
 
   useEffect(() => {
     if (isLegacyUser) {
+      // #region agent log
+      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H2",location:"onboarding-wizard.tsx:isLegacyUserEffect",message:"legacy user auto-complete path triggered",data:{isLegacyUser,currentStep,progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null,businessesCount:businesses.length},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       markComplete();
     }
-  }, [isLegacyUser, markComplete]);
+  }, [isLegacyUser, markComplete, currentStep, progress?.currentStep, progress?.completedSteps?.length, businesses.length]);
 
   const step = Math.max(1, Math.min(currentStep, FINAL_WIZARD_STEP));
   const activeBiz = workspace?.businesses.find(
@@ -101,6 +107,16 @@ export function OnboardingWizard() {
     },
     [advanceStep]
   );
+
+  const handleBusinessCreated = useCallback(async () => {
+    // #region agent log
+    fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H3",location:"onboarding-wizard.tsx:handleBusinessCreated:beforeAdvance",message:"business created callback invoked",data:{currentStep,progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null,businessesCount:businesses.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    await advanceStep(2);
+    // #region agent log
+    fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H3",location:"onboarding-wizard.tsx:handleBusinessCreated:afterAdvance",message:"business created callback finished advanceStep(2)",data:{currentStep,progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null,businessesCount:businesses.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [advanceStep, businesses.length, currentStep, progress?.completedSteps?.length, progress?.currentStep]);
 
   const handleContinue = async () => {
     if (step < FINAL_WIZARD_STEP) {
@@ -288,7 +304,7 @@ export function OnboardingWizard() {
       {step === 1 ? (
         <OnboardingSetupStep
           onComplete={handleContinue}
-          onBusinessCreated={() => advanceStep(2)}
+          onBusinessCreated={handleBusinessCreated}
         />
       ) : (
         <div className="space-y-6 rounded-lg border border-border bg-card p-6">

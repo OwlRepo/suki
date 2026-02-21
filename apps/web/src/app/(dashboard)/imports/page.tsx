@@ -11,16 +11,9 @@ import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { ListSkeleton } from "@/components/ui/skeleton";
-import {
-  PracticeDayBanner,
-  OnboardingGuidance,
-  TooltipBadge,
-} from "@/components/onboarding";
 import { fromError } from "@/lib/ui-feedback";
 import { AiQuotaBanner } from "@/components/ai-quota-banner";
-import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { ONBOARDING_STEPS } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 interface Business {
@@ -61,7 +54,6 @@ interface DryRunResult {
 function ImportsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
-  const onboarding = useOnboarding();
   const workspace = useWorkspace();
   const selectedBiz = workspace?.activeBusinessId ?? "";
   const businesses = workspace?.businesses ?? [];
@@ -218,7 +210,6 @@ function ImportsPageContent() {
       });
       setImported(res.imported);
       setReport(res.report ?? null);
-      onboarding?.advanceStep();
       recordOnboardingEvent("import_completed", syncData?.organization?.id ?? null);
       setStep("done");
     } catch (err) {
@@ -366,14 +357,10 @@ function ImportsPageContent() {
   if (!syncData) {
     return (
       <div className="space-y-8">
-        <div className="empty:hidden">
-          <PracticeDayBanner />
-          <OnboardingGuidance step={ONBOARDING_STEPS.importCustomers} screen="import" onComplete={() => {}} />
-        </div>
         <div>
           <AiQuotaBanner />
           <PageHeader
-            title={<TooltipBadge screen="import">Import customers</TooltipBadge>}
+            title="Import customers"
             plainLanguageDescription="Add customers from a file or another CRM. Your existing data stays safe."
             whatThisPageIsFor="Bring in customer names and numbers from spreadsheets or HubSpot, Pipedrive."
             whatToDoNext="Upload a file or paste CSV, then review and confirm. Download a sample file first if needed."
@@ -485,18 +472,10 @@ function ImportsPageContent() {
 
   return (
     <div className="space-y-8">
-      <div className="empty:hidden">
-        <PracticeDayBanner />
-        <OnboardingGuidance
-          step={ONBOARDING_STEPS.importCustomers}
-          screen="import"
-          onComplete={() => {}}
-        />
-      </div>
       <div>
         <AiQuotaBanner />
         <PageHeader
-          title={<TooltipBadge screen="import">Import customers</TooltipBadge>}
+          title="Import customers"
           plainLanguageDescription="Add customers from a file or another CRM. Your existing data stays safe."
           whatThisPageIsFor="Bring in customer names and numbers from spreadsheets or HubSpot, Pipedrive."
           whatToDoNext="Upload a file or paste CSV, then review and confirm. Download a sample file first if needed."

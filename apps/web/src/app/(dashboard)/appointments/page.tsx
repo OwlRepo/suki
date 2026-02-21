@@ -13,14 +13,7 @@ import { PageSection } from "@/components/ui/page-section";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
-import {
-  PracticeDayBanner,
-  OnboardingGuidance,
-  TooltipBadge,
-} from "@/components/onboarding";
-import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { ONBOARDING_STEPS, SAMPLE_APPOINTMENTS, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 import { fromError } from "@/lib/ui-feedback";
 
@@ -49,7 +42,6 @@ interface Appointment {
 function AppointmentsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
-  const onboarding = useOnboarding();
   const workspace = useWorkspace();
   const orgId = syncData?.organization?.id ?? null;
   const selectedBiz = workspace?.activeBusinessId ?? "";
@@ -179,7 +171,6 @@ function AppointmentsPageContent() {
       }
       resetForm();
       if (!editingId) {
-        onboarding?.advanceStep();
         recordOnboardingEvent("appointment_created", orgId);
       }
       loadAppointments();
@@ -226,12 +217,7 @@ function AppointmentsPageContent() {
   };
 
   const getCustomerName = (customerId: string) =>
-    customers.find((c) => c.id === customerId)?.name ??
-    (SAMPLE_APPOINTMENTS.find((a) => a.customerId === customerId)?.customerName ?? "—");
-
-  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
-  const displayAppointments = showPracticeData ? SAMPLE_APPOINTMENTS : appointments;
-  const displayCustomers = showPracticeData ? SAMPLE_CUSTOMERS : customers;
+    customers.find((c) => c.id === customerId)?.name ?? "—";
 
   if (!workspace?.loading && !businesses.length) {
     return (
@@ -244,20 +230,11 @@ function AppointmentsPageContent() {
 
   return (
     <div className="space-y-8">
-      <div className="empty:hidden">
-        <PracticeDayBanner />
-        <OnboardingGuidance
-          step={ONBOARDING_STEPS.appointmentsOverview}
-          screen="appointments"
-          onComplete={() => {}}
-        />
-      </div>
-      <div className="space-y-8">
         <PageHeader
-          title={<TooltipBadge screen="appointments">Appointments</TooltipBadge>}
+          title="Appointments"
           plainLanguageDescription="Appointments help you plan your day — but you can use the app without them."
           whatThisPageIsFor="Schedule visits and keep each appointment status up to date."
-          whatToDoNext={displayAppointments.length === 0 ? "Create your first appointment." : "Update the next appointment status."}
+          whatToDoNext={appointments.length === 0 ? "Create your first appointment." : "Update the next appointment status."}
           actions={
             <div className="flex flex-wrap gap-2">
               <Input
@@ -282,7 +259,7 @@ function AppointmentsPageContent() {
         <PrimaryPageAction
           primaryAction={
             <Button onClick={() => { resetForm(); setShowForm(true); }} size="lg">
-              {displayAppointments.length === 0 ? "Create first appointment" : "New appointment"}
+              {appointments.length === 0 ? "Create first appointment" : "New appointment"}
             </Button>
           }
           hintText="Pick a customer first, then choose a time preset or exact date and time."
@@ -314,7 +291,7 @@ function AppointmentsPageContent() {
                 aria-label="Select customer"
               >
                 <option value="">Select customer</option>
-                {(showPracticeData ? displayCustomers : customers).map((c) => (
+                {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -379,24 +356,19 @@ function AppointmentsPageContent() {
       )}
 
       <PageSection>
-        <p className="text-sm text-muted-foreground">{displayAppointments.length} appointment{displayAppointments.length !== 1 ? "s" : ""}</p>
+        <p className="text-sm text-muted-foreground">{appointments.length} appointment{appointments.length !== 1 ? "s" : ""}</p>
         {!syncReady || workspace?.loading || (!!selectedBiz && appointmentsLoading) ? (
           <ListSkeleton rowCount={5} className="mt-4" />
         ) : (
           <>
         <ul className="mt-4 divide-y divide-border">
-          {displayAppointments.map((a) => (
+          {appointments.map((a) => (
             <li
               key={a.id}
               className="flex flex-wrap items-center justify-between gap-2 py-5 first:pt-0"
             >
               <div>
                 <span className="font-medium">{getCustomerName(a.customerId)}</span>
-                {"isPracticeSample" in a && (a as { isPracticeSample?: boolean }).isPracticeSample && (
-                  <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
-                    {PRACTICE_SAMPLE_LABEL}
-                  </span>
-                )}
                 <span className={`ml-2 rounded px-2 py-0.5 text-xs capitalize ${a.status === "completed" ? "bg-muted" : a.status === "cancelled" ? "bg-destructive/10" : "bg-primary/10"}`}>
                   {a.status}
                 </span>
@@ -406,8 +378,6 @@ function AppointmentsPageContent() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {!("isPracticeSample" in a && (a as { isPracticeSample?: boolean }).isPracticeSample) && "businessId" in a && (
-                  <>
                     {a.status === "scheduled" && (
                       <Button size="sm" variant="outline" onClick={() => handleReminderSent(a.id)}>
                         Reminder sent
@@ -436,13 +406,11 @@ function AppointmentsPageContent() {
                         Reschedule
                       </Button>
                     )}
-                  </>
-                )}
               </div>
             </li>
           ))}
         </ul>
-        {displayAppointments.length === 0 && (
+        {appointments.length === 0 && (
           <EmptyState
             what="No appointments yet"
             why="Appointments help you plan your day — but you can use the app without them."
@@ -456,7 +424,6 @@ function AppointmentsPageContent() {
           </>
         )}
       </PageSection>
-      </div>
     </div>
   );
 }

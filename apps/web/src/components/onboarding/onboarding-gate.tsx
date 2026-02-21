@@ -62,10 +62,23 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     }
   }, [syncLoading, organizationId, loading, isComplete, isLegacyUser, progress, pathname, router]);
 
+  const shouldRedirect =
+    !isComplete &&
+    !isLegacyUser &&
+    (!progress || !isPathAllowedForStep(Math.max(1, Math.min(progress.currentStep, 8)), pathname));
+
   if (syncLoading || !organizationId || loading) {
     return (
       <div className="flex min-h-[240px] items-center justify-center">
         <p className="text-base text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (shouldRedirect) {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center">
+        <p className="text-base text-muted-foreground">Redirecting to onboarding…</p>
       </div>
     );
   }

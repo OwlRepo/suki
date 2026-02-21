@@ -8,10 +8,7 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
-import { OnboardingGuidance } from "@/components/onboarding";
-import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { ONBOARDING_STEPS } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 const BUSINESS_TYPES = [
@@ -49,7 +46,6 @@ type Step = "questions" | "recommendations";
 function SetupPageContent() {
   const router = useRouter();
   const { getToken } = useAuth();
-  const onboarding = useOnboarding();
   const workspace = useWorkspace();
   const { data: syncData, loading: syncLoading } = useAuthSync();
   const [step, setStep] = useState<Step>("questions");
@@ -108,9 +104,8 @@ function SetupPageContent() {
         }),
       });
       await workspace?.refetch?.();
-      onboarding?.advanceStep();
       recordOnboardingEvent("setup_completed", syncData?.organization?.id ?? null);
-      router.push("/dashboard?welcome=1");
+      router.push("/onboarding");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create business. Please try again.";
       if (msg === "PLAN_BUSINESS_LIMIT_REACHED") {
@@ -147,7 +142,6 @@ function SetupPageContent() {
   if (step === "questions") {
     return (
       <div className="mx-auto max-w-md">
-        <OnboardingGuidance step={ONBOARDING_STEPS.businessSetup} screen="setup" showSkip={false} />
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Step 1 of 2
         </p>

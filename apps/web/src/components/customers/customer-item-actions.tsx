@@ -9,8 +9,6 @@ interface CustomerItemActionsProps {
   onRecordVisit: () => void;
   onRemove: () => void;
   onViewMessages?: () => void;
-  isPracticeSample?: boolean;
-  onPracticeAdvance?: () => void;
 }
 
 /**
@@ -20,8 +18,6 @@ export function CustomerItemActions({
   onRecordVisit,
   onRemove,
   onViewMessages,
-  isPracticeSample = false,
-  onPracticeAdvance,
 }: CustomerItemActionsProps) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [confirmingRemove, setConfirmingRemove] = React.useState(false);
@@ -51,14 +47,6 @@ export function CustomerItemActions({
         }}
         onCancel={() => setConfirmingRemove(false)}
       />
-    );
-  }
-
-  if (isPracticeSample && onPracticeAdvance) {
-    return (
-      <Button size="sm" variant="outline" onClick={onPracticeAdvance}>
-        Practice: Record visit
-      </Button>
     );
   }
 

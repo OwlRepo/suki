@@ -13,15 +13,8 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
-import {
-  PracticeDayBanner,
-  OnboardingGuidance,
-  TooltipBadge,
-} from "@/components/onboarding";
 import { AiQuotaBanner } from "@/components/ai-quota-banner";
-import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { ONBOARDING_STEPS, SAMPLE_PROMOS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 import { fromError } from "@/lib/ui-feedback";
 
@@ -60,7 +53,6 @@ const PROMO_TYPES = [
 function PromosPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
-  const onboarding = useOnboarding();
   const workspace = useWorkspace();
   const selectedBiz = workspace?.activeBusinessId ?? "";
   const businesses = workspace?.businesses ?? [];
@@ -200,7 +192,6 @@ function PromosPageContent() {
         });
       }
       if (!editingId) {
-        onboarding?.advanceStep();
         recordOnboardingEvent("promo_created", syncData?.organization?.id ?? null);
       }
       resetForm();
@@ -257,10 +248,7 @@ function PromosPageContent() {
     }
   };
 
-  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
-  const displayPromos = showPracticeData ? SAMPLE_PROMOS : promos;
-
-  if (!workspace?.loading && !businesses.length && !showPracticeData) {
+  if (!workspace?.loading && !businesses.length) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Promos</h1>
@@ -271,21 +259,12 @@ function PromosPageContent() {
 
   return (
     <div className="space-y-8">
-      <div className="empty:hidden">
-        <PracticeDayBanner />
-        <OnboardingGuidance
-          step={ONBOARDING_STEPS.promos}
-          screen="promos"
-          onComplete={() => {}}
-        />
-      </div>
-      <div className="space-y-8">
         <AiQuotaBanner />
         <PageHeader
-          title={<TooltipBadge screen="promos">Send Offers to Customers</TooltipBadge>}
+          title="Send Offers to Customers"
           plainLanguageDescription="Create offers and messages your customers will receive."
           whatThisPageIsFor="Prepare simple customer offers and send them when ready."
-          whatToDoNext={displayPromos.length === 0 ? "Create your first offer from a template." : "Review a draft and mark it as sent."}
+          whatToDoNext={promos.length === 0 ? "Create your first offer from a template." : "Review a draft and mark it as sent."}
         />
         <PrimaryPageAction
           primaryAction={
@@ -460,7 +439,7 @@ function PromosPageContent() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2">
           <Button type="submit" disabled={submitting}>
-            {submitting ? "Saving..." : onboarding?.practiceMode ? "Practice save" : editingId ? "Update" : "Create"}
+            {submitting ? "Saving..." : editingId ? "Update" : "Create"}
           </Button>
             <Button type="button" variant="outline" onClick={resetForm}>
               Cancel
@@ -470,24 +449,19 @@ function PromosPageContent() {
       )}
 
       <PageSection>
-        <p className="text-sm text-muted-foreground">{displayPromos.length} promo{displayPromos.length !== 1 ? "s" : ""}</p>
-        {!showPracticeData && (!syncReady || workspace?.loading || (!!selectedBiz && promosLoading)) ? (
+        <p className="text-sm text-muted-foreground">{promos.length} promo{promos.length !== 1 ? "s" : ""}</p>
+        {!syncReady || workspace?.loading || (!!selectedBiz && promosLoading) ? (
           <ListSkeleton rowCount={5} className="mt-4" />
         ) : (
           <>
         <ul className="mt-4 divide-y divide-border">
-          {displayPromos.map((p) => (
+          {promos.map((p) => (
             <li
               key={p.id}
               className="flex flex-wrap items-center justify-between gap-2 py-5 first:pt-0"
             >
               <div>
                 <span className="font-medium capitalize">{p.type.replace("_", " ")}</span>
-                {"isPracticeSample" in p && (p as { isPracticeSample?: boolean }).isPracticeSample && (
-                  <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
-                    {PRACTICE_SAMPLE_LABEL}
-                  </span>
-                )}
                 {p.value && <span className="ml-2 text-muted-foreground">{p.value}</span>}
                 <span className={`ml-2 rounded px-2 py-0.5 text-xs ${p.status === "sent" ? "bg-muted" : "bg-primary/10"}`}>
                   {p.status}
@@ -497,12 +471,10 @@ function PromosPageContent() {
                 </p>
               </div>
               <div className="flex gap-2">
-                {!("isPracticeSample" in p && (p as { isPracticeSample?: boolean }).isPracticeSample) && "createdAt" in p && (
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(p as Promo)}>
-                    Edit
-                  </Button>
-                )}
-                {p.status === "draft" && !("isPracticeSample" in p && (p as { isPracticeSample?: boolean }).isPracticeSample) && (
+                <Button size="sm" variant="outline" onClick={() => handleEdit(p as Promo)}>
+                  Edit
+                </Button>
+                {p.status === "draft" && (
                   <>
                     {sendConfirmId === p.id ? (
                       <span className="flex flex-wrap items-center gap-2">
@@ -527,7 +499,7 @@ function PromosPageContent() {
             </li>
           ))}
         </ul>
-        {displayPromos.length === 0 && (
+        {promos.length === 0 && (
           <EmptyState
             what="No offers yet"
             why="Offers help bring back customers and encourage repeat visits."
@@ -541,7 +513,6 @@ function PromosPageContent() {
           </>
         )}
       </PageSection>
-      </div>
     </div>
   );
 }

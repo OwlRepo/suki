@@ -11,7 +11,6 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { MetricGridSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
-import { TooltipBadge } from "@/components/onboarding";
 
 interface Business {
   id: string;
@@ -78,7 +77,7 @@ function InsightsPageContent() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title={<TooltipBadge screen="insights">Business Summary</TooltipBadge>}
+        title="Business Summary"
         plainLanguageDescription="Meaningful numbers without intimidation. New customers are first-time visitors. Repeat customers are people who came back."
         whatThisPageIsFor="Understand customer growth and repeat behavior for the selected month."
         whatToDoNext="Review this month first, then use 'View past months' only if needed."

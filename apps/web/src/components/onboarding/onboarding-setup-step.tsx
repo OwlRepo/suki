@@ -45,9 +45,12 @@ export function OnboardingSetupStep({
 
   useEffect(() => {
     if (alreadyHasBusiness) {
+      // #region agent log
+      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H4",location:"onboarding-setup-step.tsx:alreadyHasBusinessEffect",message:"alreadyHasBusiness effect invoked onBusinessCreated",data:{alreadyHasBusiness,businessesCount:workspace?.businesses?.length ?? 0},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       onBusinessCreated();
     }
-  }, [alreadyHasBusiness, onBusinessCreated]);
+  }, [alreadyHasBusiness, onBusinessCreated, workspace?.businesses?.length]);
 
   if (alreadyHasBusiness) {
     return (
@@ -78,7 +81,13 @@ export function OnboardingSetupStep({
           workflowProfile,
         }),
       });
+      // #region agent log
+      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H5",location:"onboarding-setup-step.tsx:handleCreateBusiness:afterCreate",message:"business create API succeeded",data:{alreadyHasBusiness,businessesCount:workspace?.businesses?.length ?? 0},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       await workspace?.refetch?.();
+      // #region agent log
+      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H5",location:"onboarding-setup-step.tsx:handleCreateBusiness:afterRefetch",message:"workspace refetch finished, invoking onBusinessCreated",data:{alreadyHasBusiness,businessesCount:workspace?.businesses?.length ?? 0},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       onBusinessCreated();
     } catch (e) {
       const msg =

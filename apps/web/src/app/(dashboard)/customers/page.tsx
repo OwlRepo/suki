@@ -17,15 +17,8 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
-import {
-  PracticeDayBanner,
-  OnboardingGuidance,
-  TooltipBadge,
-} from "@/components/onboarding";
 import { AiQuotaBanner } from "@/components/ai-quota-banner";
-import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { ONBOARDING_STEPS, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 import { fromError } from "@/lib/ui-feedback";
 
@@ -48,7 +41,6 @@ interface Customer {
 function CustomersPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
-  const onboarding = useOnboarding();
   const workspace = useWorkspace();
   const orgId = syncData?.organization?.id ?? null;
   const selectedBiz = workspace?.activeBusinessId ?? "";
@@ -111,7 +103,6 @@ function CustomersPageContent() {
           tags: data.tags?.trim() || undefined,
         }),
       });
-      onboarding?.advanceStep();
       if (total === 0) recordOnboardingEvent("first_customer_added", orgId);
       setShowAdd(false);
       setFeedback({ type: "success", message: "Customer added. You can edit details anytime." });
@@ -160,9 +151,6 @@ function CustomersPageContent() {
       const token = await getToken();
       if (!token) return;
       await apiRequest(`/customers/${id}/visit`, { method: "POST", token });
-      if (onboarding?.currentStep === ONBOARDING_STEPS.recordVisit) {
-        onboarding.advanceStep();
-      }
       recordOnboardingEvent("visit_recorded", orgId);
       if (selectedBiz) {
         const params = new URLSearchParams({ businessId: selectedBiz });
@@ -192,34 +180,14 @@ function CustomersPageContent() {
     );
   }
 
-  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
-  const displayCustomers = showPracticeData ? SAMPLE_CUSTOMERS : customers;
-  const displayTotal = showPracticeData ? SAMPLE_CUSTOMERS.length : total;
-
   return (
     <div className="space-y-8">
-      <div className="empty:hidden">
-        <PracticeDayBanner />
-        <OnboardingGuidance
-          step={ONBOARDING_STEPS.customersPage}
-          screen="customers"
-          onComplete={() => {}}
-        />
-        {onboarding?.currentStep === ONBOARDING_STEPS.recordVisit && customers.length > 0 && (
-          <OnboardingGuidance
-            step={ONBOARDING_STEPS.recordVisit}
-            screen="customers"
-            onComplete={() => {}}
-          />
-        )}
-      </div>
-      <div className="space-y-8">
         <AiQuotaBanner />
         <PageHeader
-          title={<TooltipBadge screen="customers">Customers</TooltipBadge>}
+          title="Customers"
           plainLanguageDescription="This is your customer list. Add people here and track their visits."
           whatThisPageIsFor="Keep customer details and visit history in one place."
-          whatToDoNext={displayTotal === 0 ? "Add your first customer." : "Record a visit for a recent customer."}
+          whatToDoNext={total === 0 ? "Add your first customer." : "Record a visit for a recent customer."}
           actions={
             <div className="flex flex-wrap gap-2">
               <Input
@@ -273,7 +241,6 @@ function CustomersPageContent() {
           onClose={() => setShowAdd(false)}
           onSubmit={handleAdd}
           loading={addLoading}
-          practiceMode={onboarding?.practiceMode ?? false}
         />
 
         <CustomerMessageHistoryModal
@@ -285,25 +252,20 @@ function CustomersPageContent() {
 
       <PageSection>
         <p className="text-sm text-muted-foreground">
-          {displayTotal} customer{displayTotal !== 1 ? "s" : ""}
+          {total} customer{total !== 1 ? "s" : ""}
         </p>
         {!syncReady || workspace?.loading || (!!selectedBiz && customersLoading) ? (
           <ListSkeleton rowCount={6} className="mt-4" />
         ) : (
           <>
         <ul className="mt-4 divide-y divide-border">
-          {displayCustomers.map((c) => (
+          {customers.map((c) => (
             <li
               key={c.id}
               className="flex items-center justify-between py-5 first:pt-0"
             >
               <div>
                 <span className="font-medium">{c.name}</span>
-                {"isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample && (
-                  <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
-                    {PRACTICE_SAMPLE_LABEL}
-                  </span>
-                )}
                 {c.mobile && (
                   <span className="ml-2 text-sm text-muted-foreground">
                     {c.mobile}
@@ -323,18 +285,12 @@ function CustomersPageContent() {
               <CustomerItemActions
                 onRecordVisit={() => handleStampVisit(c.id)}
                 onRemove={() => handleDelete(c.id)}
-                onViewMessages={
-                  !("isPracticeSample" in c) || !(c as { isPracticeSample?: boolean }).isPracticeSample
-                    ? () => setMessageHistoryFor({ id: c.id, name: c.name })
-                    : undefined
-                }
-                isPracticeSample={"isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample}
-                onPracticeAdvance={onboarding?.advanceStep}
+                onViewMessages={() => setMessageHistoryFor({ id: c.id, name: c.name })}
               />
             </li>
           ))}
         </ul>
-        {displayCustomers.length === 0 && (
+        {customers.length === 0 && (
           <EmptyState
             what="No customers yet"
             why="Adding customers here helps you track visits, appointments, and repeat business."
@@ -348,7 +304,6 @@ function CustomersPageContent() {
           </>
         )}
       </PageSection>
-      </div>
     </div>
   );
 }

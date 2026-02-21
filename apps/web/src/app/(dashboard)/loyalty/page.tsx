@@ -12,15 +12,7 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
-import {
-  PracticeDayBanner,
-  OnboardingGuidance,
-  TooltipBadge,
-} from "@/components/onboarding";
-import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { ONBOARDING_STEPS, SAMPLE_LOYALTY, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
-import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 interface Business {
   id: string;
@@ -38,7 +30,6 @@ interface LoyaltyCustomer {
 function LoyaltyPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
-  const onboarding = useOnboarding();
   const workspace = useWorkspace();
   const selectedBiz = workspace?.activeBusinessId ?? "";
   const businesses = workspace?.businesses ?? [];
@@ -54,7 +45,7 @@ function LoyaltyPageContent() {
   }, [syncData]);
 
   useEffect(() => {
-    if (!selectedBiz || (onboarding?.practiceMode && !onboarding.onboardingCompletedAt)) return;
+    if (!selectedBiz) return;
     setLoyaltyLoading(true);
     (async () => {
       const token = await getToken();
@@ -73,22 +64,7 @@ function LoyaltyPageContent() {
     })();
   }, [selectedBiz, threshold, tagFilter, getToken]);
 
-  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
-  const displayCustomers = showPracticeData
-    ? SAMPLE_CUSTOMERS.filter((c) => c.visitCount >= SAMPLE_LOYALTY.threshold).map((c) => ({
-        id: c.id,
-        name: c.name,
-        visitCount: c.visitCount,
-        lastVisitAt: c.lastVisitAt ?? null,
-        eligible: c.visitCount >= SAMPLE_LOYALTY.threshold,
-      }))
-    : customers;
-  const displayThreshold = showPracticeData ? SAMPLE_LOYALTY.threshold : threshold;
-  const displayBusinesses = showPracticeData && !businesses.length
-    ? [{ id: "practice", name: "Practice business" }]
-    : businesses;
-
-  if (!workspace?.loading && !businesses.length && !showPracticeData) {
+  if (!workspace?.loading && !businesses.length) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Loyalty</h1>
@@ -99,32 +75,19 @@ function LoyaltyPageContent() {
 
   const handleThresholdChange = (value: number) => {
     setThreshold(value);
-    if (onboarding?.currentStep === ONBOARDING_STEPS.loyalty) {
-      onboarding.advanceStep();
-      recordOnboardingEvent("loyalty_enabled", syncData?.organization?.id ?? null);
-    }
   };
 
   return (
     <div className="space-y-8">
-      <div className="empty:hidden">
-        <PracticeDayBanner />
-        <OnboardingGuidance
-          step={ONBOARDING_STEPS.loyalty}
-          screen="loyalty"
-          onComplete={() => {}}
-        />
-      </div>
-      <div className="space-y-8">
         <PageHeader
-          title={<TooltipBadge screen="loyalty">Loyalty</TooltipBadge>}
+          title="Loyalty"
           plainLanguageDescription="Regular customers appear here automatically when they meet the visit threshold."
           whatThisPageIsFor="See who qualifies for rewards. No configuration needed."
           whatToDoNext="Adjust the visit threshold below to change who counts as a regular."
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <select
-                value={showPracticeData ? displayThreshold : threshold}
+                value={threshold}
                 onChange={(e) => handleThresholdChange(parseInt(e.target.value, 10))}
                 className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
                 aria-label="Visit threshold"
@@ -148,21 +111,16 @@ function LoyaltyPageContent() {
         />
 
         <PrimaryPageAction
-          hintText={`After ${displayThreshold} visits, customers become regulars. Example: Every 6th visit gets ₱100 off.`}
+          hintText={`After ${threshold} visits, customers become regulars. Example: Every 6th visit gets ₱100 off.`}
         />
-        {showPracticeData && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            {PRACTICE_SAMPLE_LABEL}: {SAMPLE_LOYALTY.reward}
-          </p>
-        )}
 
       <PageSection>
-        {!showPracticeData && (!syncReady || workspace?.loading || (!!selectedBiz && loyaltyLoading)) ? (
+        {!syncReady || workspace?.loading || (!!selectedBiz && loyaltyLoading) ? (
           <ListSkeleton rowCount={5} className="mt-0" />
         ) : (
           <>
         <ul className="divide-y divide-border">
-          {displayCustomers.map((c) => (
+          {customers.map((c) => (
             <li key={c.id} className="flex items-center justify-between py-5 first:pt-0">
               <div>
                 <span className="font-medium">{c.name}</span>
@@ -183,7 +141,7 @@ function LoyaltyPageContent() {
             </li>
           ))}
         </ul>
-        {displayCustomers.length === 0 && (
+        {customers.length === 0 && (
           <EmptyState
             what="No regular customers yet"
             why="Regular customers will appear here automatically once they reach the visit threshold. Keep recording visits."
@@ -197,7 +155,6 @@ function LoyaltyPageContent() {
           </>
         )}
       </PageSection>
-      </div>
     </div>
   );
 }

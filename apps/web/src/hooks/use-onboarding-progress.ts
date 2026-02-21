@@ -70,6 +70,9 @@ export function useOnboardingProgress() {
 
   const advanceStep = useCallback(
     async (toStep?: number) => {
+      // #region agent log
+      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H3",location:"use-onboarding-progress.ts:advanceStep",message:"advanceStep invoked",data:{toStep:toStep ?? null,progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null,hasProgress:!!progress},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (!progress) return;
       const next = toStep ?? Math.min(progress.currentStep + 1, ONBOARDING_COMPLETE_STEP);
       const stepId = `step_${next}`;
@@ -83,6 +86,9 @@ export function useOnboardingProgress() {
   );
 
   const markComplete = useCallback(async () => {
+    // #region agent log
+    fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H2",location:"use-onboarding-progress.ts:markComplete",message:"markComplete invoked",data:{progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     await updateProgress({
       currentStep: ONBOARDING_COMPLETE_STEP,
       completedSteps: [...new Set([...(progress?.completedSteps ?? []), "complete"])],

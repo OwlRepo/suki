@@ -10,8 +10,6 @@ interface CustomerFormModalProps {
   onClose: () => void;
   onSubmit: (data: { name: string; mobile?: string; tags?: string }) => void;
   loading?: boolean;
-  /** For practice mode - changes button label */
-  practiceMode?: boolean;
 }
 
 /**
@@ -23,7 +21,6 @@ export function CustomerFormModal({
   onClose,
   onSubmit,
   loading = false,
-  practiceMode = false,
 }: CustomerFormModalProps) {
   const [name, setName] = React.useState("");
   const [mobile, setMobile] = React.useState("");
@@ -130,7 +127,7 @@ export function CustomerFormModal({
           )}
           <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={loading || !name.trim() || !mobile.trim()} className="min-h-[44px]">
-              {loading ? "Saving…" : practiceMode ? "Practice save" : "Save customer"}
+              {loading ? "Saving…" : "Save customer"}
             </Button>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
