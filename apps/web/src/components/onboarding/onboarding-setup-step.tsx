@@ -86,9 +86,8 @@ export function OnboardingSetupStep({
       // #endregion
       await workspace?.refetch?.();
       // #region agent log
-      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H5",location:"onboarding-setup-step.tsx:handleCreateBusiness:afterRefetch",message:"workspace refetch finished, invoking onBusinessCreated",data:{alreadyHasBusiness,businessesCount:workspace?.businesses?.length ?? 0},timestamp:Date.now()})}).catch(()=>{});
+      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H5",location:"onboarding-setup-step.tsx:handleCreateBusiness:afterRefetch",message:"workspace refetch finished",data:{alreadyHasBusiness,businessesCount:workspace?.businesses?.length ?? 0},timestamp:Date.now()})}).catch(()=>{});
       // #endregion
-      onBusinessCreated();
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : "Failed to create business. Please try again.";

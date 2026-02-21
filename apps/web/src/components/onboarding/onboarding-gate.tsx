@@ -18,7 +18,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const { progress, loading, isComplete, markComplete, fetchProgress } = useOnboardingProgress();
   const { summary } = useAccountSummary();
   const workspace = useWorkspace();
-  const { data: syncData, loading: syncLoading } = useAuthSync();
+  const { data: syncData, loading: syncLoading, error: syncError, retry: retrySync } = useAuthSync();
   const backfillAttempted = useRef(false);
   const hasRetriedProgressRef = useRef(false);
   const organizationId = syncData?.organization?.id ?? null;
@@ -62,23 +62,26 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     }
   }, [syncLoading, organizationId, loading, isComplete, isLegacyUser, progress, pathname, router]);
 
-  const shouldRedirect =
-    !isComplete &&
-    !isLegacyUser &&
-    (!progress || !isPathAllowedForStep(Math.max(1, Math.min(progress.currentStep, 8)), pathname));
-
   if (syncLoading || !organizationId || loading) {
+    if (syncError && !syncLoading) {
+      return (
+        <div className="flex min-h-[240px] flex-col items-center justify-center gap-4">
+          <p className="text-base text-muted-foreground">
+            Something went wrong while loading your account.
+          </p>
+          <button
+            type="button"
+            onClick={retrySync}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-[240px] items-center justify-center">
         <p className="text-base text-muted-foreground">Loading…</p>
-      </div>
-    );
-  }
-
-  if (shouldRedirect) {
-    return (
-      <div className="flex min-h-[240px] items-center justify-center">
-        <p className="text-base text-muted-foreground">Redirecting to onboarding…</p>
       </div>
     );
   }

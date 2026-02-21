@@ -55,22 +55,6 @@ export function OnboardingWizard() {
     }
   }, [isComplete, router, currentStep, progress?.currentStep, businesses.length]);
 
-  const isLegacyUser =
-    !loading &&
-    progress &&
-    progress.currentStep === 0 &&
-    progress.completedSteps.length === 0 &&
-    businesses.length > 0;
-
-  useEffect(() => {
-    if (isLegacyUser) {
-      // #region agent log
-      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H2",location:"onboarding-wizard.tsx:isLegacyUserEffect",message:"legacy user auto-complete path triggered",data:{isLegacyUser,currentStep,progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null,businessesCount:businesses.length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      markComplete();
-    }
-  }, [isLegacyUser, markComplete, currentStep, progress?.currentStep, progress?.completedSteps?.length, businesses.length]);
-
   const step = Math.max(1, Math.min(currentStep, FINAL_WIZARD_STEP));
   const activeBiz = workspace?.businesses.find(
     (b) => b.id === workspace?.activeBusinessId
@@ -281,7 +265,7 @@ export function OnboardingWizard() {
     [step]
   );
 
-  if (loading || isComplete || isLegacyUser) {
+  if (loading || isComplete) {
     return (
       <div className="flex min-h-[320px] items-center justify-center">
         <p className="text-base text-muted-foreground">Loading…</p>
