@@ -8,11 +8,18 @@ export class DealStagesService {
   async list(businessId: string, organizationId: string) {
     await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
-    return db
+    const rows = await db
       .select()
       .from(dealStages)
       .where(eq(dealStages.businessId, businessId))
       .orderBy(dealStages.sortOrder);
+    // Deduplicate by name (keep first occurrence) — guard against any legacy duplicates
+    const seen = new Set<string>();
+    return rows.filter((r) => {
+      if (seen.has(r.name)) return false;
+      seen.add(r.name);
+      return true;
+    });
   }
 
   async create(organizationId: string, data: { businessId: string; name: string; sortOrder?: number }) {
@@ -36,10 +43,11 @@ export class DealStagesService {
     const existing = await db
       .select()
       .from(dealStages)
-      .where(eq(dealStages.businessId, businessId));
+      .where(eq(dealStages.businessId, businessId))
+      .orderBy(dealStages.sortOrder);
     if (existing.length > 0) return existing;
     const defaults = ["New", "Qualified", "Proposal", "Negotiation", "Won", "Lost"];
-    const inserted = await db
+    await db
       .insert(dealStages)
       .values(
         defaults.map((name, i) => ({
@@ -48,8 +56,13 @@ export class DealStagesService {
           sortOrder: i,
         })),
       )
-      .returning();
-    return inserted;
+      .onConflictDoNothing({ target: [dealStages.businessId, dealStages.name] });
+    const list = await db
+      .select()
+      .from(dealStages)
+      .where(eq(dealStages.businessId, businessId))
+      .orderBy(dealStages.sortOrder);
+    return list;
   }
 
   private async assertBusinessAccess(businessId: string, organizationId: string) {

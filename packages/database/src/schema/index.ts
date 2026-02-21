@@ -6,6 +6,7 @@ import {
   jsonb,
   timestamp,
   pgEnum,
+  unique,
 } from "drizzle-orm/pg-core";
 
 // Enums
@@ -121,16 +122,20 @@ export const deals = pgTable("deals", {
 });
 
 // Deal stages — configurable pipeline stages per business (Full mode)
-export const dealStages = pgTable("deal_stages", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  businessId: uuid("business_id")
-    .notNull()
-    .references(() => businesses.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const dealStages = pgTable(
+  "deal_stages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [unique("deal_stages_business_id_name_unique").on(t.businessId, t.name)],
+);
 
 // Activities — CRM interactions: calls, meetings, emails, notes (Full mode)
 export const activities = pgTable("activities", {
