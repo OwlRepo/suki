@@ -15,15 +15,7 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
-import {
-  PracticeDayBanner,
-  OnboardingGuidance,
-  OnboardingChecklist,
-  TooltipBadge,
-} from "@/components/onboarding";
-import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { ONBOARDING_STEPS } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
 interface Summary {
@@ -61,7 +53,6 @@ function DashboardPageContent() {
   const searchParams = useSearchParams();
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
-  const onboarding = useOnboarding();
   const workspace = useWorkspace();
   const showWelcome = searchParams?.get("welcome") === "1";
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -171,29 +162,13 @@ function DashboardPageContent() {
     appointments: 0,
     promos: 0,
   };
-  const showPracticeData =
-    onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
-  const summaryDisplay = showPracticeData
-    ? { businesses: 1, customers: 8, appointments: 5, promos: 3 }
-    : s;
-  const highlightFirstCard =
-    onboarding?.currentStep === ONBOARDING_STEPS.firstDashboard &&
-    !onboarding.onboardingCompletedAt;
+  const summaryDisplay = s;
 
   return (
     <div className="space-y-8">
-      <div className="empty:hidden">
-        <PracticeDayBanner />
-        <OnboardingChecklist />
-        <OnboardingGuidance
-          step={ONBOARDING_STEPS.firstDashboard}
-          screen="dashboard"
-          onComplete={() => {}}
-        />
-      </div>
       <div className="space-y-8">
         <PageHeader
-          title={<TooltipBadge screen="dashboard">Dashboard</TooltipBadge>}
+          title="Dashboard"
           plainLanguageDescription="Welcome back. Here's what needs your attention today."
           whatThisPageIsFor="Check today's priorities, then take one clear next step."
           whatToDoNext={
@@ -225,20 +200,9 @@ function DashboardPageContent() {
             </p>
             <PrimaryPageAction className="mt-4">
               {summaryDisplay.customers === 0 ? (
-                <Link
-                  href="/customers"
-                  onClick={() => {
-                    if (highlightFirstCard && onboarding)
-                      onboarding.advanceStep();
-                  }}
-                >
+                <Link href="/customers">
                   <Button
                     size="lg"
-                    className={
-                      highlightFirstCard
-                        ? "ring-2 ring-primary ring-offset-2"
-                        : ""
-                    }
                   >
                     Add your first customer
                   </Button>
@@ -285,11 +249,7 @@ function DashboardPageContent() {
               <MetricCard
                 label="Total customers"
                 value={summaryDisplay.customers}
-                suffix={
-                  showPracticeData
-                    ? "Practice Sample · People currently saved in your customer list."
-                    : "People currently saved in your customer list."
-                }
+                suffix="People currently saved in your customer list."
               />
               <MetricCard
                 label="Visits this month"
@@ -299,15 +259,9 @@ function DashboardPageContent() {
               <MetricCard
                 label="Upcoming appointments"
                 value={
-                  showPracticeData
-                    ? summaryDisplay.appointments
-                    : upcomingAppointments
+                  upcomingAppointments
                 }
-                suffix={
-                  showPracticeData
-                    ? "Practice Sample · Scheduled appointments still ahead."
-                    : "Scheduled appointments still ahead."
-                }
+                suffix="Scheduled appointments still ahead."
               />
             </div>
           )}

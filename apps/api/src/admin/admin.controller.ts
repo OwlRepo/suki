@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards, UnauthorizedException } from "@nestjs/common";
-import { sql, inArray, eq, desc, and, gte, lte } from "drizzle-orm";
+import { sql, inArray, eq, desc, and, gte, gt, lte } from "drizzle-orm";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { Tenant } from "../common/tenant.decorator";
 import { getDb } from "@suki/database";
@@ -18,12 +18,27 @@ export class AdminController {
       .where(eq(businesses.organizationId, orgId));
     const bizIds = bizList.map((b) => b.id);
     if (bizIds.length === 0) {
-      return { businesses: 0, customers: 0, appointments: 0, promos: 0 };
+      return {
+        businesses: 0,
+        customers: 0,
+        appointments: 0,
+        promos: 0,
+        customersWithVisits: 0,
+      };
     }
     const custRes = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(customers)
       .where(inArray(customers.businessId, bizIds));
+    const visitsRes = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(customers)
+      .where(
+        and(
+          inArray(customers.businessId, bizIds),
+          gt(customers.visitCount, 0),
+        ),
+      );
     const apptRes = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(appointments)
@@ -37,6 +52,7 @@ export class AdminController {
       customers: custRes[0]?.count ?? 0,
       appointments: apptRes[0]?.count ?? 0,
       promos: promoRes[0]?.count ?? 0,
+      customersWithVisits: visitsRes[0]?.count ?? 0,
     };
   }
 

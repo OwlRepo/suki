@@ -2,12 +2,11 @@
 
 import { useMemo } from "react";
 import { AuthButton } from "@/components/auth-button";
-import { DashboardOnboardingWrapper, NavLinkWithLock } from "@/components/onboarding";
+import { DashboardOnboardingWrapper } from "@/components/onboarding";
 import { PipelineNavLink } from "@/components/pipeline-nav-link";
 import { WorkspaceDropdown } from "@/components/workspace-dropdown";
 import { NavGroupDropdown } from "@/components/nav-group-dropdown";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { ONBOARDING_STEPS } from "@/lib/onboarding";
 import Link from "next/link";
 
 export function DashboardNav({ children }: { children: React.ReactNode }) {
@@ -38,65 +37,13 @@ export function DashboardNav({ children }: { children: React.ReactNode }) {
   );
 
   const growthItems = [
-    {
-      href: "/promos",
-      label: "Promos",
-      kind: "custom" as const,
-      element: (
-        <NavLinkWithLock
-          href="/promos"
-          unlockAfterStep={ONBOARDING_STEPS.appointmentsOverview}
-          lockMessage="Unlocks after you add your first appointment."
-        >
-          Promos
-        </NavLinkWithLock>
-      ),
-    },
-    {
-      href: "/insights",
-      label: "Business Summary",
-      kind: "custom" as const,
-      element: (
-        <NavLinkWithLock
-          href="/insights"
-          unlockAfterStep={ONBOARDING_STEPS.importCustomers}
-          lockMessage="Unlocks after you have a week of data."
-        >
-          Business Summary
-        </NavLinkWithLock>
-      ),
-    },
-    {
-      href: "/loyalty",
-      label: "Loyalty",
-      kind: "custom" as const,
-      element: (
-        <NavLinkWithLock
-          href="/loyalty"
-          unlockAfterStep={ONBOARDING_STEPS.promos}
-          lockMessage="Unlocks after you create your first promo."
-        >
-          Loyalty
-        </NavLinkWithLock>
-      ),
-    },
+    { href: "/promos", label: "Promos" },
+    { href: "/insights", label: "Business Summary" },
+    { href: "/loyalty", label: "Loyalty" },
   ];
 
   const adminItems = [
-    {
-      href: "/imports",
-      label: "Import",
-      kind: "custom" as const,
-      element: (
-        <NavLinkWithLock
-          href="/imports"
-          unlockAfterStep={ONBOARDING_STEPS.loyalty}
-          lockMessage="Unlocks after you enable loyalty."
-        >
-          Import
-        </NavLinkWithLock>
-      ),
-    },
+    { href: "/imports", label: "Import" },
     { href: "/setup", label: "Setup" },
     { href: "/settings", label: "Settings" },
   ];

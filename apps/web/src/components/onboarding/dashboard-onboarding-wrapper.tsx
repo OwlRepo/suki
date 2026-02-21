@@ -6,6 +6,7 @@ import { OnboardingProvider } from "@/contexts/onboarding-context";
 import { WorkspaceProvider } from "@/contexts/workspace-context";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { OnboardingGate } from "./onboarding-gate";
 
 export function DashboardOnboardingWrapper({ children }: { children: ReactNode }) {
   const { getToken } = useAuth();
@@ -15,7 +16,7 @@ export function DashboardOnboardingWrapper({ children }: { children: ReactNode }
 
   const content = (
     <WorkspaceProvider getToken={getToken} enabled={!!organizationId}>
-      {children}
+      <OnboardingGate>{children}</OnboardingGate>
     </WorkspaceProvider>
   );
 

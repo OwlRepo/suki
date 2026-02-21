@@ -14,6 +14,7 @@ import { apiRequest } from "@/lib/api";
 export interface WorkspaceBusiness {
   id: string;
   name: string;
+  businessType?: string;
   crmMode: "lite" | "full";
   workflowProfile: string;
 }
@@ -60,12 +61,19 @@ export function WorkspaceProvider({
       }
       const res = await apiRequest<{
         activeBusinessId: string | null;
-        businesses: Array<{ id: string; name: string; crmMode: string; workflowProfile: string }>;
+        businesses: Array<{
+          id: string;
+          name: string;
+          businessType?: string;
+          crmMode: string;
+          workflowProfile: string;
+        }>;
       }>("/users/me/workspace", { token });
       setBusinesses(
         res.businesses.map((b) => ({
           id: b.id,
           name: b.name,
+          businessType: b.businessType,
           crmMode: (b.crmMode as "lite" | "full") || "lite",
           workflowProfile: b.workflowProfile || "general",
         })),

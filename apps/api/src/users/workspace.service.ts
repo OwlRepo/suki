@@ -38,6 +38,7 @@ export class WorkspaceService {
       .select({
         id: businesses.id,
         name: businesses.name,
+        businessType: businesses.businessType,
         crmMode: businesses.crmMode,
         workflowProfile: businesses.workflowProfile,
       })
