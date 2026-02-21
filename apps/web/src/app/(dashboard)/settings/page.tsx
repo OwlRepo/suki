@@ -1,10 +1,21 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@suki/ui";
+import { SettingsSectionCard } from "@/components/ui/settings-section-card";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
@@ -23,6 +34,66 @@ import {
   setDevMockFailure,
   clearDevOverrides,
 } from "@/lib/dev-store";
+
+/** Searchable section IDs for settings. Used for quick-jump and filtering. */
+const SETTINGS_SECTION_IDS = [
+  "organization",
+  "businesses",
+  "automation",
+  "messaging",
+  "billing",
+  "ai-usage",
+  "dev-tools",
+] as const;
+
+/** Index of searchable terms per section. Lowercase for matching. */
+const SETTINGS_SEARCH_INDEX: Record<
+  (typeof SETTINGS_SECTION_IDS)[number],
+  string[]
+> = {
+  organization: ["organization", "workspace", "name", "email", "receipt"],
+  businesses: ["businesses", "business", "crm", "customers", "appointments"],
+  automation: [
+    "automation",
+    "reminders",
+    "appointment",
+    "inactivity",
+    "winback",
+    "follow-up",
+    "sms",
+    "email",
+    "channel",
+  ],
+  messaging: [
+    "messaging",
+    "sms",
+    "add-on",
+    "usage",
+    "text",
+    "credits",
+    "buy",
+  ],
+  billing: [
+    "billing",
+    "plan",
+    "subscription",
+    "upgrade",
+    "downgrade",
+    "basic",
+    "grow",
+    "pro",
+    "payment",
+  ],
+  "ai-usage": [
+    "ai",
+    "usage",
+    "tokens",
+    "quota",
+    "limit",
+    "soft cap",
+  ],
+  "dev-tools": ["dev", "developer", "simulation", "mock", "api"],
+};
 
 type PlanType = "starter" | "growth" | "ai_pro";
 
@@ -120,7 +191,12 @@ function UpgradeButton({
   };
 
   const handleDowngrade = async () => {
-    if (!confirm(`Switch to ${planType}? You may lose access to some features.`)) return;
+    const planLabel = PLAN_LABELS[planType] ?? planType;
+    const message =
+      `Switching to ${planLabel} will reduce your plan features. ` +
+      `You may lose access to advanced CRM, automation, and AI features. ` +
+      `Are you sure you want to switch to ${planLabel}?`;
+    if (!confirm(message)) return;
     setLoading(true);
     try {
       const token = await getToken();
@@ -142,10 +218,11 @@ function UpgradeButton({
   if (readOnly && isUpgrade) return null;
   return (
     <Button
-      size="sm"
+      size="lg"
       variant={isUpgrade ? "default" : "outline"}
       onClick={isDowngrade ? handleDowngrade : handleUpgrade}
       disabled={loading}
+      className="min-h-[48px]"
     >
       {loading ? "..." : isDowngrade ? `Switch to ${PLAN_LABELS[planType] ?? planType}` : `${PLAN_LABELS[planType] ?? planType} – ₱${price}/mo`}
     </Button>
@@ -158,7 +235,7 @@ function SettingsPageContent() {
   const { data: syncData } = useAuthSync();
   const workspace = useWorkspace();
   const flags = useFeatureFlags();
-  const [org, setOrg] = useState<Organization | null>(null);
+  const [, setOrg] = useState<Organization | null>(null);
   const [orgName, setOrgName] = useState("");
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
@@ -188,11 +265,40 @@ function SettingsPageContent() {
   const [aiPoliciesLoading, setAiPoliciesLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [smsUsage, setSmsUsage] = useState<SmsUsage | null>(null);
-  const [automationSettingsByBiz, setAutomationSettingsByBiz] = useState<Record<string, { autoSendChannel: "sms" | "email" }>>({});
-  const [channelLoading, setChannelLoading] = useState<string | null>(null);
+  interface AutomationSettingsApi {
+    appointmentRemindersEnabled: boolean;
+    appointmentReminder72hEnabled: boolean;
+    inactivityWinbackEnabled: boolean;
+    inactivityDays: number;
+    autoSendChannel: "sms" | "email";
+  }
+  const automationDefaults: AutomationSettingsApi = {
+    appointmentRemindersEnabled: true,
+    appointmentReminder72hEnabled: false,
+    inactivityWinbackEnabled: true,
+    inactivityDays: 60,
+    autoSendChannel: "sms",
+  };
+  const [automationSettingsByBiz, setAutomationSettingsByBiz] = useState<Record<string, AutomationSettingsApi>>({});
+  const [automationSavingByBiz, setAutomationSavingByBiz] = useState<Record<string, boolean>>({});
+  const [inactivityDraftByBiz, setInactivityDraftByBiz] = useState<Record<string, string>>({});
   const [addonLoading, setAddonLoading] = useState(false);
+  const [settingsSearch, setSettingsSearch] = useState("");
 
   const effectivePlan = simulatedPlan ?? (billing?.planType as PlanType | undefined) ?? "starter";
+
+  const visibleSections = useMemo(() => {
+    const q = settingsSearch.trim().toLowerCase();
+    if (!q) return new Set(SETTINGS_SECTION_IDS);
+    const matched = new Set<(typeof SETTINGS_SECTION_IDS)[number]>();
+    for (const id of SETTINGS_SECTION_IDS) {
+      const terms = SETTINGS_SEARCH_INDEX[id] ?? [];
+      if (terms.some((t) => t.includes(q) || q.includes(t))) {
+        matched.add(id);
+      }
+    }
+    return matched;
+  }, [settingsSearch]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -286,15 +392,24 @@ function SettingsPageContent() {
         if (!token) return;
         const results = await Promise.all(
           businesses.map(async (b) => {
-            const s = await apiRequest<{ autoSendChannel: "sms" | "email" }>(
+            const s = await apiRequest<AutomationSettingsApi>(
               `/automation/settings?businessId=${encodeURIComponent(b.id)}`,
               { token },
-            ).catch(() => ({ autoSendChannel: "sms" as const }));
-            return { id: b.id, autoSendChannel: s.autoSendChannel ?? "sms" };
+            ).catch(() => automationDefaults);
+            return {
+              id: b.id,
+              ...automationDefaults,
+              ...s,
+              appointmentRemindersEnabled: s?.appointmentRemindersEnabled ?? automationDefaults.appointmentRemindersEnabled,
+              appointmentReminder72hEnabled: s?.appointmentReminder72hEnabled ?? automationDefaults.appointmentReminder72hEnabled,
+              inactivityWinbackEnabled: s?.inactivityWinbackEnabled ?? automationDefaults.inactivityWinbackEnabled,
+              inactivityDays: typeof s?.inactivityDays === "number" ? s.inactivityDays : automationDefaults.inactivityDays,
+              autoSendChannel: (s?.autoSendChannel as "sms" | "email") ?? automationDefaults.autoSendChannel,
+            };
           }),
         );
-        const map: Record<string, { autoSendChannel: "sms" | "email" }> = {};
-        for (const r of results) map[r.id] = { autoSendChannel: r.autoSendChannel };
+        const map: Record<string, AutomationSettingsApi> = {};
+        for (const r of results) map[r.id] = r as AutomationSettingsApi;
         setAutomationSettingsByBiz(map);
       } catch {
         // ignore
@@ -370,16 +485,88 @@ function SettingsPageContent() {
     }
   };
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  const updateAutomationSettings = async (
+    businessId: string,
+    patch: Partial<AutomationSettingsApi>,
+  ) => {
+    setAutomationSavingByBiz((p) => ({ ...p, [businessId]: true }));
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await apiRequest<AutomationSettingsApi>("/automation/settings", {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({ businessId, ...patch }),
+      });
+      setAutomationSettingsByBiz((prev) => ({
+        ...prev,
+        [businessId]: {
+          ...automationDefaults,
+          ...prev[businessId],
+          ...res,
+        } as AutomationSettingsApi,
+      }));
+      setFeedback({ type: "success", message: "Automation settings updated." });
+      setTimeout(() => setFeedback(null), 4000);
+    } catch (err) {
+      setFeedback({ type: "error", message: fromError(err, "Failed to update. Please try again.") });
+    } finally {
+      setAutomationSavingByBiz((p) => ({ ...p, [businessId]: false }));
+    }
+  };
+
+  if (loading) return <p className="text-muted-foreground text-base">Loading settings…</p>;
+
+  const sectionLabels: Record<(typeof SETTINGS_SECTION_IDS)[number], string> = {
+    organization: "Organization",
+    businesses: "Businesses",
+    automation: "Automation",
+    messaging: "Messaging & SMS",
+    billing: "Billing",
+    "ai-usage": "AI Usage",
+    "dev-tools": "Dev Tools",
+  };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Settings"
-        plainLanguageDescription="Manage your organization, businesses, billing, and AI."
-        whatThisPageIsFor="Change your workspace name, business details, plan, and AI preferences."
-        whatToDoNext="Edit any section below. Changes save when you click Save."
+        plainLanguageDescription="Manage your organization, businesses, billing, and automation."
+        whatThisPageIsFor="Change your workspace name, business details, plan, reminders, and AI."
+        whatToDoNext="Use the search below to find a setting, or open any section to edit."
       />
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
+        <input
+          type="search"
+          value={settingsSearch}
+          onChange={(e) => setSettingsSearch(e.target.value)}
+          placeholder="Search settings (e.g. billing, reminders, SMS)"
+          aria-label="Search settings"
+          className="w-full max-w-md min-h-[48px] pl-10 pr-4 text-base rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        />
+      </div>
+
+      {settingsSearch.trim() && (
+        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <p className="text-sm font-medium text-foreground mb-2">Jump to</p>
+          <div className="flex flex-wrap gap-2">
+            {SETTINGS_SECTION_IDS.filter((id) => visibleSections.has(id)).map((id) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                className="min-h-[44px] inline-flex items-center px-4 rounded-md border border-border bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {sectionLabels[id]}
+              </a>
+            ))}
+          </div>
+          {visibleSections.size === 0 && (
+            <p className="text-sm text-muted-foreground">No settings match &quot;{settingsSearch}&quot;. Try a different search.</p>
+          )}
+        </div>
+      )}
 
       {feedback && (
         <StatusBanner
@@ -402,358 +589,482 @@ function SettingsPageContent() {
         />
       )}
 
-      <section className="mt-8 space-y-4">
-        <div>
-          <h2 className="text-lg font-medium">Organization</h2>
-          <p className="text-sm text-muted-foreground">Your workspace name. This appears in emails and receipts. You can change it anytime.</p>
-        </div>
-        <form onSubmit={handleSaveOrg} className="flex gap-2">
-          <Input
-            value={orgName}
-            onChange={(e) => setOrgName(e.target.value)}
-            placeholder="Organization name"
-            className="max-w-md"
-          />
-          <Button type="submit" disabled={savingOrg} className="min-h-[44px]">
-            {savingOrg ? "Saving..." : "Save"}
-          </Button>
-        </form>
-      </section>
+      <div className="space-y-5">
+        <SettingsSectionCard
+          id="organization"
+          title="Organization"
+          description="Your workspace name. Appears in emails and receipts. You can change it anytime."
+          visible={visibleSections.has("organization")}
+        >
+          <form onSubmit={handleSaveOrg} className="flex flex-wrap items-center gap-3">
+            <Input
+              value={orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+              placeholder="Organization name"
+              className="max-w-md min-h-[48px] text-base"
+            />
+            <Button type="submit" disabled={savingOrg} size="lg" className="min-h-[48px] px-6">
+              {savingOrg ? "Saving…" : "Save"}
+            </Button>
+          </form>
+        </SettingsSectionCard>
 
-      <section className="mt-8 space-y-4">
-        <div>
-          <h2 className="text-lg font-medium">Businesses</h2>
-          <p className="text-sm text-muted-foreground">Each business has its own customers and appointments. Edit names or switch CRM mode here.</p>
-        </div>
-        <ul className="divide-y divide-border">
-          {businesses.map((b) => (
-            <li key={b.id} className="flex items-center justify-between py-3 first:pt-0">
-              {editingBiz === b.id ? (
-                <div className="flex gap-2">
-                  <Input
-                    value={editBizName}
-                    onChange={(e) => setEditBizName(e.target.value)}
-                    placeholder="Business name"
-                    className="w-64"
-                  />
-                  <Button size="sm" onClick={() => handleSaveBiz(b.id)}>
-                    Save
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditingBiz(null)}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <span className="font-medium">{b.name}</span>
-                      <span className="ml-2 text-sm text-muted-foreground capitalize">
-                        {b.businessType}
-                      </span>
-                    </div>
-                    {(effectivePlan === "growth" || effectivePlan === "ai_pro") &&
-                      flags.crm_mode_toggle_enabled && (
-                        <select
-                          value={b.crmMode ?? "lite"}
-                          onChange={(e) =>
-                            handleCrmModeChange(b.id, e.target.value as "lite" | "full")
-                          }
-                          className="rounded-md border border-input bg-background px-2 py-1 text-sm"
-                        >
-                          <option value="lite">CRM Lite</option>
-                          <option value="full">CRM Full</option>
-                        </select>
-                      )}
-                  </div>
-                  <Button size="sm" variant="outline" onClick={() => { setEditingBiz(b.id); setEditBizName(b.name); }}>
-                    Edit
-                  </Button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-        {businesses.length === 0 && (
-          <p className="text-muted-foreground">No businesses yet. Create one in Setup.</p>
-        )}
-      </section>
-
-      {billing?.readOnly && (
-        <div className="mt-6 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
-          <p className="text-base font-medium text-foreground">
-            Read-only mode — Your subscription needs attention. Update billing to make changes.
-          </p>
-        </div>
-      )}
-
-      {aiUsage && (
-        <section className="mt-8 space-y-4">
-          <div>
-            <h2 className="text-lg font-medium">AI Usage & Quotas</h2>
-            <p className="text-sm text-muted-foreground">AI helps you write messages and summaries. Turn it on to get better promos and faster workflows.</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4 max-w-lg">
-            <p className="text-sm text-muted-foreground">Plan: {aiUsage.plan}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Tokens: {aiUsage.tokensUsed.toLocaleString()} / {aiUsage.tokensLimit > 0 ? aiUsage.tokensLimit.toLocaleString() : "0"}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Requests: {aiUsage.requestsUsed} / {aiUsage.requestsLimit}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Quota resets: {aiUsage.resetDate}
-            </p>
-            {aiUsage.projectedDaysToLimit != null && aiUsage.projectedDaysToLimit > 0 && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                Projected days to limit: ~{aiUsage.projectedDaysToLimit} (at current pace)
-              </p>
-            )}
-            {aiUsage.allowedFeatures.length > 0 && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Allowed features: {aiUsage.allowedFeatures.join(", ")}
-              </p>
-            )}
-            {aiBreakdown?.items && aiBreakdown.items.length > 0 && (
-              <div className="mt-3">
-                <p className="text-xs font-medium text-foreground">Top features this month</p>
-                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                  {aiBreakdown.items.slice(0, 5).map((i) => (
-                    <li key={i.key}>{i.key}: {i.tokens.toLocaleString()} tokens, {i.requests} requests</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {aiUsage.tokensLimit === 0 && (
-              <p className="mt-2 text-sm text-amber-600">
-                Upgrade to Growth or AI Pro for AI features.
-              </p>
-            )}
-            {aiUsage.tokensLimit > 0 && (aiUsage.tokensUsed / aiUsage.tokensLimit) >= 0.7 && effectivePlan !== "ai_pro" && (
-              <p className="mt-2 text-sm text-amber-600">
-                Approaching limit. Consider upgrading for higher allowance.
-              </p>
-            )}
-            {aiUsage.tokensLimit > 0 && (
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium">AI enabled</label>
-                  <input
-                    type="checkbox"
-                    checked={aiUsage.aiEnabled}
-                    disabled={aiPoliciesLoading}
-                    onChange={async (e) => {
-                      setAiPoliciesLoading(true);
-                      try {
-                        const token = await getToken();
-                        if (!token) return;
-                        await apiRequest("/ai/usage/policies", {
-                          method: "PATCH",
-                          token,
-                          body: JSON.stringify({ aiEnabled: e.target.checked }),
-                        });
-                        setAiUsage((p) => p ? { ...p, aiEnabled: e.target.checked } : null);
-                        setFeedback({ type: "success", message: "AI settings updated." });
-                        setTimeout(() => setFeedback(null), 4000);
-                      } catch (err) {
-                        setFeedback({ type: "error", message: fromError(err, "Failed to update AI settings. Please try again.") });
-                      } finally {
-                        setAiPoliciesLoading(false);
-                      }
-                    }}
-                    className="rounded"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium">Soft cap (%):</label>
-                  <Input
-                    type="number"
-                    min={50}
-                    max={100}
-                    defaultValue={aiUsage.softCapPct ?? 90}
-                    disabled={aiPoliciesLoading}
-                    className="w-20"
-                    onBlur={async (e) => {
-                      const v = parseInt(e.target.value, 10);
-                      if (isNaN(v) || v < 50 || v > 100) return;
-                      setAiPoliciesLoading(true);
-                      try {
-                        const token = await getToken();
-                        if (!token) return;
-                        await apiRequest("/ai/usage/policies", {
-                          method: "PATCH",
-                          token,
-                          body: JSON.stringify({ softCapPct: v }),
-                        });
-                        setAiUsage((p) => p ? { ...p, softCapPct: v } : null);
-                      } catch (err) {
-                        setFeedback({ type: "error", message: fromError(err, "Failed to update soft cap. Please try again.") });
-                      } finally {
-                        setAiPoliciesLoading(false);
-                      }
-                    }}
-                  />
-                  <span className="text-xs text-muted-foreground">(warn at this %)</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      <section className="mt-8 space-y-4">
-        <div>
-          <h2 className="text-lg font-medium">Billing</h2>
-          <p className="text-sm text-muted-foreground">Upgrade or switch plans. You can change or cancel anytime. No lock-in.</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4 max-w-md">
-          <p className="text-sm text-muted-foreground">Plan</p>
-          <p className="mt-1 font-medium">
-            {PLAN_LABELS[effectivePlan] ?? effectivePlan}
-            {simulatedPlan && (
-              <span className="ml-2 text-xs text-amber-600">(simulated)</span>
-            )}
-          </p>
-          <p className="text-sm text-muted-foreground">Status: {billing?.status ?? "none"}</p>
-          {billing?.subscription?.currentPeriodEnd && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Current period ends: {new Date(billing.subscription.currentPeriodEnd).toLocaleDateString()}
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(["starter", "growth", "ai_pro"] as const).map((plan) => (
-              <UpgradeButton
-                key={plan}
-                planType={plan}
-                currentPlan={effectivePlan}
-                getToken={getToken}
-                onSuccess={() => {
-                  refetchBilling();
-                  refetchSmsUsage();
-                }}
-                onError={(msg) => {
-                  setFeedback({ type: "error", message: msg });
-                  setTimeout(() => setFeedback(null), 6000);
-                }}
-                readOnly={billing?.readOnly}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {(effectivePlan === "growth" || effectivePlan === "ai_pro") && (
-        <section className="mt-8 space-y-4">
-          <div>
-            <h2 className="text-lg font-medium">Messaging & SMS</h2>
-            <p className="text-sm text-muted-foreground">SMS usage, channel preference, and add-on packs.</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4 max-w-lg space-y-4">
-            {smsUsage != null && (
-              <div>
-                <p className="text-sm font-medium">SMS usage this month</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {smsUsage.used} / {smsUsage.total} used
-                  {smsUsage.total > 0 && ` (${smsUsage.included} included${smsUsage.addon > 0 ? ` + ${smsUsage.addon} add-on` : ""})`}
-                </p>
-                <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      smsUsage.at100Pct ? "bg-destructive" : smsUsage.at80Pct ? "bg-amber-500" : "bg-primary"
-                    }`}
-                    style={{ width: `${smsUsage.total > 0 ? Math.min(100, (smsUsage.used / smsUsage.total) * 100) : 0}%` }}
-                  />
-                </div>
-                {smsUsage.at80Pct && !smsUsage.at100Pct && (
-                  <p className="mt-1 text-xs text-amber-600">Approaching limit. Consider buying an add-on.</p>
-                )}
-              </div>
-            )}
-            <div>
-              <p className="text-sm font-medium">Buy +300 SMS for ₱300</p>
-              <p className="text-xs text-muted-foreground">One-time purchase. No auto-charge.</p>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={addonLoading || billing?.readOnly}
-                className="mt-2"
-                onClick={async () => {
-                  setAddonLoading(true);
-                  try {
-                    const token = await getToken();
-                    if (!token) return;
-                    const res = await apiRequest<{ checkoutUrl: string }>("/billing/sms-addon/purchase", {
-                      method: "POST",
-                      token,
-                      body: JSON.stringify({ confirm: true }),
-                    });
-                    if (res?.checkoutUrl) window.location.href = res.checkoutUrl;
-                  } catch (err) {
-                    setFeedback({ type: "error", message: fromError(err, "Add-on purchase unavailable.") });
-                    setTimeout(() => setFeedback(null), 6000);
-                  } finally {
-                    setAddonLoading(false);
-                  }
-                }}
-              >
-                {addonLoading ? "Redirecting..." : "Buy +300 SMS pack"}
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {(effectivePlan === "growth" || effectivePlan === "ai_pro") && businesses.length > 0 && (
-        <section className="mt-8 space-y-4">
-          <div>
-            <h2 className="text-lg font-medium">Auto-message channel</h2>
-            <p className="text-sm text-muted-foreground">Choose SMS or Email for automated appointment messages per business.</p>
-          </div>
-          <ul className="divide-y divide-border">
+        <SettingsSectionCard
+          id="businesses"
+          title="Businesses"
+          description="Each business has its own customers and appointments. Edit names or switch CRM mode here."
+          visible={visibleSections.has("businesses")}
+        >
+          <ul className="space-y-4 divide-y divide-border">
             {businesses.map((b) => (
-              <li key={b.id} className="flex items-center justify-between py-3 first:pt-0">
-                <span className="font-medium">{b.name}</span>
-                <select
-                  value={automationSettingsByBiz[b.id]?.autoSendChannel ?? "sms"}
-                  disabled={channelLoading === b.id}
-                  onChange={async (e) => {
-                    const ch = e.target.value as "sms" | "email";
-                    setChannelLoading(b.id);
-                    try {
-                      const token = await getToken();
-                      if (!token) return;
-                      await apiRequest("/automation/settings", {
-                        method: "PATCH",
-                        token,
-                        body: JSON.stringify({ businessId: b.id, autoSendChannel: ch }),
-                      });
-                      setAutomationSettingsByBiz((prev) => ({
-                        ...prev,
-                        [b.id]: { autoSendChannel: ch },
-                      }));
-                      setFeedback({ type: "success", message: "Channel updated." });
-                      setTimeout(() => setFeedback(null), 4000);
-                    } catch (err) {
-                      setFeedback({ type: "error", message: fromError(err, "Failed to update channel.") });
-                    } finally {
-                      setChannelLoading(null);
-                    }
-                  }}
-                  className="rounded-md border border-input bg-background px-2 py-1 text-sm"
-                >
-                  <option value="sms">SMS</option>
-                  <option value="email">Email</option>
-                </select>
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-4 py-4 first:pt-0">
+                {editingBiz === b.id ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Input
+                      value={editBizName}
+                      onChange={(e) => setEditBizName(e.target.value)}
+                      placeholder="Business name"
+                      className="min-w-[200px] min-h-[48px] text-base"
+                    />
+                    <Button size="lg" onClick={() => handleSaveBiz(b.id)} className="min-h-[48px]">
+                      Save
+                    </Button>
+                    <Button size="lg" variant="outline" onClick={() => setEditingBiz(null)} className="min-h-[48px]">
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div>
+                        <span className="font-medium text-base">{b.name}</span>
+                        <span className="ml-2 text-sm text-muted-foreground capitalize">
+                          {b.businessType}
+                        </span>
+                      </div>
+                      {(effectivePlan === "growth" || effectivePlan === "ai_pro") &&
+                        flags.crm_mode_toggle_enabled && (
+                          <Select
+                            value={b.crmMode ?? "lite"}
+                            onValueChange={(v) => handleCrmModeChange(b.id, v as "lite" | "full")}
+                          >
+                            <SelectTrigger size="lg" className="min-w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="lite" size="lg">CRM Lite</SelectItem>
+                              <SelectItem value="full" size="lg">CRM Full</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                    </div>
+                    <Button size="lg" variant="outline" onClick={() => { setEditingBiz(b.id); setEditBizName(b.name); }} className="min-h-[48px]">
+                      Edit
+                    </Button>
+                  </>
+                )}
               </li>
             ))}
           </ul>
-        </section>
-      )}
+          {businesses.length === 0 && (
+            <p className="text-base text-muted-foreground">No businesses yet. Create one in Setup.</p>
+          )}
+        </SettingsSectionCard>
+
+        {billing?.readOnly && (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
+            <p className="text-base font-medium text-foreground">
+              Read-only mode — Your subscription needs attention. Update billing to make changes.
+            </p>
+          </div>
+        )}
+
+        {(effectivePlan === "growth" || effectivePlan === "ai_pro") && businesses.length > 0 && (
+          <SettingsSectionCard
+            id="automation"
+            title="Automation Controls"
+            description="Choose how Suki sends automated reminders and follow-ups for each business."
+            visible={visibleSections.has("automation")}
+          >
+            <ul className="space-y-6">
+              {businesses.map((b) => {
+                const s = automationSettingsByBiz[b.id] ?? automationDefaults;
+                const saving = automationSavingByBiz[b.id];
+                const draft = inactivityDraftByBiz[b.id];
+                const inactivityVal = draft !== undefined ? draft : String(s.inactivityDays);
+                return (
+                  <li key={b.id} className="rounded-lg border border-border bg-muted/30 p-5 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-base">{b.name}</span>
+                      {saving && <span className="text-sm text-muted-foreground">Saving…</span>}
+                    </div>
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <Label className="text-base">Send reminders by SMS or email</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Choose how customers receive appointment reminders.
+                        </p>
+                        <Select
+                          value={s.autoSendChannel}
+                          disabled={saving}
+                          onValueChange={(value) =>
+                            updateAutomationSettings(b.id, {
+                              autoSendChannel: value as "sms" | "email",
+                            })
+                          }
+                        >
+                          <SelectTrigger size="lg" className="min-w-[160px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sms" size="lg">SMS</SelectItem>
+                            <SelectItem value="email" size="lg">Email</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-6">
+                        <div className="space-y-1 min-w-0">
+                          <Label htmlFor={`${b.id}-appt-reminders`} className="text-base">
+                            Send appointment reminders
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Automatically remind customers 24 hours before their appointment.
+                          </p>
+                        </div>
+                        <Switch
+                          id={`${b.id}-appt-reminders`}
+                          size="lg"
+                          checked={s.appointmentRemindersEnabled}
+                          disabled={saving}
+                          onCheckedChange={(checked) =>
+                            updateAutomationSettings(b.id, {
+                              appointmentRemindersEnabled: checked,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-start justify-between gap-6">
+                        <div className="space-y-1 min-w-0">
+                          <Label htmlFor={`${b.id}-72h-reminder`} className="text-base">
+                            Also send 3-day reminder
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            {s.appointmentRemindersEnabled
+                              ? "Sends an extra reminder 3 days before the appointment."
+                              : "Turn on appointment reminders above to use this."}
+                          </p>
+                        </div>
+                        <Switch
+                          id={`${b.id}-72h-reminder`}
+                          size="lg"
+                          checked={s.appointmentReminder72hEnabled}
+                          disabled={saving || !s.appointmentRemindersEnabled}
+                          onCheckedChange={(checked) =>
+                            updateAutomationSettings(b.id, {
+                              appointmentReminder72hEnabled: checked,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-start justify-between gap-6">
+                        <div className="space-y-1 min-w-0">
+                          <Label htmlFor={`${b.id}-inactivity-winback`} className="text-base">
+                            Reach out to inactive customers
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Automatically send a gentle reminder to customers who haven&apos;t visited in a while.
+                          </p>
+                        </div>
+                        <Switch
+                          id={`${b.id}-inactivity-winback`}
+                          size="lg"
+                          checked={s.inactivityWinbackEnabled}
+                          disabled={saving}
+                          onCheckedChange={(checked) =>
+                            updateAutomationSettings(b.id, {
+                              inactivityWinbackEnabled: checked,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`${b.id}-inactivity-days`} className="text-base">
+                          How many days of no visits before outreach?
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Send a gentle reminder after this many days of inactivity (1–365 days). Enter 60 for about 2 months.
+                        </p>
+                        <Input
+                          id={`${b.id}-inactivity-days`}
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={inactivityVal}
+                          disabled={saving}
+                          onChange={(e) => setInactivityDraftByBiz((p) => ({ ...p, [b.id]: e.target.value }))}
+                          onBlur={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (!Number.isNaN(v) && v >= 1 && v <= 365) {
+                              updateAutomationSettings(b.id, { inactivityDays: v });
+                              setInactivityDraftByBiz((p) => {
+                                const next = { ...p };
+                                delete next[b.id];
+                                return next;
+                              });
+                            } else {
+                              setInactivityDraftByBiz((p) => ({
+                                ...p,
+                                [b.id]: String(s.inactivityDays),
+                              }));
+                            }
+                          }}
+                          className="w-28 min-h-[48px] text-base"
+                        />
+                        {draft !== undefined && (Number.isNaN(parseInt(draft, 10)) || parseInt(draft, 10) < 1 || parseInt(draft, 10) > 365) && (
+                          <p className="text-sm text-amber-600">Enter a number between 1 and 365.</p>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </SettingsSectionCard>
+        )}
+
+        {(effectivePlan === "growth" || effectivePlan === "ai_pro") && (
+          <SettingsSectionCard
+            id="messaging"
+            title="Messaging & SMS"
+            description="SMS usage, add-on packs, and text credits."
+            visible={visibleSections.has("messaging")}
+          >
+            <div className="space-y-6 max-w-lg">
+              {smsUsage != null && (
+                <div>
+                  <p className="text-base font-medium text-foreground">SMS usage this month</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {smsUsage.used} / {smsUsage.total} used
+                    {smsUsage.total > 0 && ` (${smsUsage.included} included${smsUsage.addon > 0 ? ` + ${smsUsage.addon} add-on` : ""})`}
+                  </p>
+                  <div className="mt-3 h-3 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        smsUsage.at100Pct ? "bg-destructive" : smsUsage.at80Pct ? "bg-amber-500" : "bg-primary"
+                      }`}
+                      style={{ width: `${smsUsage.total > 0 ? Math.min(100, (smsUsage.used / smsUsage.total) * 100) : 0}%` }}
+                    />
+                  </div>
+                  {smsUsage.at80Pct && !smsUsage.at100Pct && (
+                    <p className="mt-2 text-sm text-amber-600">Approaching limit. Consider buying an add-on below.</p>
+                  )}
+                </div>
+              )}
+              <div>
+                <p className="text-base font-medium text-foreground">Buy +300 SMS for ₱300</p>
+                <p className="mt-1 text-sm text-muted-foreground">One-time purchase. No auto-charge.</p>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  disabled={addonLoading || billing?.readOnly}
+                  className="mt-3 min-h-[48px]"
+                  onClick={async () => {
+                    setAddonLoading(true);
+                    try {
+                      const token = await getToken();
+                      if (!token) return;
+                      const res = await apiRequest<{ checkoutUrl: string }>("/billing/sms-addon/purchase", {
+                        method: "POST",
+                        token,
+                        body: JSON.stringify({ confirm: true }),
+                      });
+                      if (res?.checkoutUrl) window.location.href = res.checkoutUrl;
+                    } catch (err) {
+                      setFeedback({ type: "error", message: fromError(err, "Add-on purchase unavailable.") });
+                      setTimeout(() => setFeedback(null), 6000);
+                    } finally {
+                      setAddonLoading(false);
+                    }
+                  }}
+                >
+                  {addonLoading ? "Redirecting…" : "Buy +300 SMS pack"}
+                </Button>
+              </div>
+            </div>
+          </SettingsSectionCard>
+        )}
+
+        <SettingsSectionCard
+          id="billing"
+          title="Billing"
+          description="Upgrade or switch plans. You can change or cancel anytime. No lock-in."
+          visible={visibleSections.has("billing")}
+        >
+          <div className="space-y-4 max-w-md">
+            <p className="text-sm text-muted-foreground">Current plan</p>
+            <p className="text-lg font-semibold">
+              {PLAN_LABELS[effectivePlan] ?? effectivePlan}
+              {simulatedPlan && (
+                <span className="ml-2 text-sm text-amber-600">(simulated)</span>
+              )}
+            </p>
+            <p className="text-sm text-muted-foreground">Status: {billing?.status ?? "none"}</p>
+            {billing?.subscription?.currentPeriodEnd && (
+              <p className="text-sm text-muted-foreground">
+                Current period ends: {new Date(billing.subscription.currentPeriodEnd).toLocaleDateString()}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3">
+              {(["starter", "growth", "ai_pro"] as const).map((plan) => (
+                <UpgradeButton
+                  key={plan}
+                  planType={plan}
+                  currentPlan={effectivePlan}
+                  getToken={getToken}
+                  onSuccess={() => {
+                    refetchBilling();
+                    refetchSmsUsage();
+                  }}
+                  onError={(msg) => {
+                    setFeedback({ type: "error", message: msg });
+                    setTimeout(() => setFeedback(null), 6000);
+                  }}
+                  readOnly={billing?.readOnly}
+                />
+              ))}
+            </div>
+          </div>
+        </SettingsSectionCard>
+
+        {aiUsage && (
+          <SettingsSectionCard
+            id="ai-usage"
+            title="AI Usage & Quotas"
+            description="AI helps you write messages and summaries. Turn it on for better promos and faster workflows."
+            visible={visibleSections.has("ai-usage")}
+          >
+            <div className="space-y-4 max-w-lg">
+              <p className="text-sm text-muted-foreground">Plan: {aiUsage.plan}</p>
+              <p className="text-sm text-muted-foreground">
+                Tokens: {aiUsage.tokensUsed.toLocaleString()} / {aiUsage.tokensLimit > 0 ? aiUsage.tokensLimit.toLocaleString() : "0"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Requests: {aiUsage.requestsUsed} / {aiUsage.requestsLimit}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Quota resets: {aiUsage.resetDate}
+              </p>
+              {aiUsage.projectedDaysToLimit != null && aiUsage.projectedDaysToLimit > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Projected days to limit: ~{aiUsage.projectedDaysToLimit} (at current pace)
+                </p>
+              )}
+              {aiUsage.allowedFeatures.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Allowed features: {aiUsage.allowedFeatures.join(", ")}
+                </p>
+              )}
+              {aiBreakdown?.items && aiBreakdown.items.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-foreground">Top features this month</p>
+                  <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    {aiBreakdown.items.slice(0, 5).map((i) => (
+                      <li key={i.key}>{i.key}: {i.tokens.toLocaleString()} tokens, {i.requests} requests</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {aiUsage.tokensLimit === 0 && (
+                <p className="text-sm text-amber-600">
+                  Upgrade to Growth or AI Pro for AI features.
+                </p>
+              )}
+              {aiUsage.tokensLimit > 0 && (aiUsage.tokensUsed / aiUsage.tokensLimit) >= 0.7 && effectivePlan !== "ai_pro" && (
+                <p className="text-sm text-amber-600">
+                  Approaching limit. Consider upgrading for higher allowance.
+                </p>
+              )}
+              {aiUsage.tokensLimit > 0 && (
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div className="flex items-center gap-4">
+                    <Label htmlFor="ai-enabled" className="text-base">AI enabled</Label>
+                    <Switch
+                      id="ai-enabled"
+                      size="lg"
+                      checked={aiUsage.aiEnabled}
+                      disabled={aiPoliciesLoading}
+                      onCheckedChange={async (checked) => {
+                        setAiPoliciesLoading(true);
+                        try {
+                          const token = await getToken();
+                          if (!token) return;
+                          await apiRequest("/ai/usage/policies", {
+                            method: "PATCH",
+                            token,
+                            body: JSON.stringify({ aiEnabled: checked }),
+                          });
+                          setAiUsage((p) => p ? { ...p, aiEnabled: checked } : null);
+                          setFeedback({ type: "success", message: "AI settings updated." });
+                          setTimeout(() => setFeedback(null), 4000);
+                        } catch (err) {
+                          setFeedback({ type: "error", message: fromError(err, "Failed to update AI settings. Please try again.") });
+                        } finally {
+                          setAiPoliciesLoading(false);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="soft-cap" className="text-base">Soft cap (50–100%)</Label>
+                    <p className="text-sm text-muted-foreground">Show a warning when usage reaches this percentage of your limit.</p>
+                    <Input
+                      id="soft-cap"
+                      type="number"
+                      min={50}
+                      max={100}
+                      defaultValue={aiUsage.softCapPct ?? 90}
+                      disabled={aiPoliciesLoading}
+                      className="w-24 min-h-[48px] text-base"
+                      onBlur={async (e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (isNaN(v) || v < 50 || v > 100) return;
+                        setAiPoliciesLoading(true);
+                        try {
+                          const token = await getToken();
+                          if (!token) return;
+                          await apiRequest("/ai/usage/policies", {
+                            method: "PATCH",
+                            token,
+                            body: JSON.stringify({ softCapPct: v }),
+                          });
+                          setAiUsage((p) => p ? { ...p, softCapPct: v } : null);
+                        } catch (err) {
+                          setFeedback({ type: "error", message: fromError(err, "Failed to update soft cap. Please try again.") });
+                        } finally {
+                          setAiPoliciesLoading(false);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </SettingsSectionCard>
+        )}
 
       {isDevMode && (
-        <section className="mt-8 space-y-4">
-          <h2 className="text-lg font-medium">Dev Tools</h2>
-          <div className="rounded-lg border border-amber-500/50 bg-amber-500/5 p-4 max-w-2xl space-y-6">
+        <SettingsSectionCard
+          id="dev-tools"
+          title="Dev Tools"
+          description="Plan simulation, API overrides, and debug helpers. Development only."
+          collapsedByDefault
+          visible={visibleSections.has("dev-tools")}
+        >
+          <div className="space-y-6 max-w-2xl">
             <div>
               <p className="text-sm font-medium text-foreground">Plan simulation (UI only)</p>
               <p className="text-xs text-muted-foreground mb-2">
@@ -896,8 +1207,9 @@ function SettingsPageContent() {
               </Button>
             </div>
           </div>
-        </section>
+        </SettingsSectionCard>
       )}
+      </div>
     </div>
   );
 }

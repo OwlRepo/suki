@@ -1,0 +1,1 @@
+CREATE INDEX "message_events_provider_message_id_idx" ON "message_events" USING btree ("provider_message_id");

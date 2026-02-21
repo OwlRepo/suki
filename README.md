@@ -105,6 +105,8 @@ cp .env.example .env
 - `OPENAI_API_KEY` — AI message generation (Promos flow)
 - `PAYMONGO_SECRET_KEY` / `PAYMONGO_PUBLIC_KEY` / `PAYMONGO_WEBHOOK_SECRET` — Billing
 - `PII_ENCRYPTION_KEY_BASE64` — 32-byte key (base64) for PII at rest; generate with `openssl rand -base64 32`
+- **Twilio (SMS)** — `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and either `TWILIO_MESSAGING_SERVICE_SID` or `TWILIO_PHONE_NUMBER`. For delivery status webhooks, set `TWILIO_STATUS_CALLBACK_URL` to `{API_URL}/messaging/webhooks/twilio/status` and configure it in the Twilio Console (Phone Numbers or Messaging Service).
+- **Resend (Email)** — `RESEND_API_KEY`, `RESEND_FROM_EMAIL`. For delivery webhooks, set `RESEND_WEBHOOK_SECRET` and configure the webhook in Resend dashboard to `POST {API_URL}/messaging/webhooks/resend` with events: `email.sent`, `email.delivered`, `email.bounced`, `email.complained`, `email.failed`.
 
 ### 3. Database setup
 

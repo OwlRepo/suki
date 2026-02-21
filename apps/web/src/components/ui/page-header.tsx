@@ -36,7 +36,7 @@ export function PageHeader({
     <div
       className={cn(
         "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
-        className
+        className,
       )}
     >
       <div className="space-y-1 min-w-0">
@@ -48,13 +48,17 @@ export function PageHeader({
         )}
         {whatThisPageIsFor && (
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">What this page is for: </span>
+            <span className="font-medium text-foreground">
+              What this page is for:{" "}
+            </span>
             {whatThisPageIsFor}
           </p>
         )}
         {whatToDoNext && (
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">What to do next: </span>
+            <span className="font-medium text-foreground">
+              What to do next:{" "}
+            </span>
             {whatToDoNext}
           </p>
         )}

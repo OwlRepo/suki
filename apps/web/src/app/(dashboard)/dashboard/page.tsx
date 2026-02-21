@@ -230,12 +230,17 @@ function DashboardPageContent() {
                 <Link
                   href="/customers"
                   onClick={() => {
-                    if (highlightFirstCard && onboarding) onboarding.advanceStep();
+                    if (highlightFirstCard && onboarding)
+                      onboarding.advanceStep();
                   }}
                 >
                   <Button
                     size="lg"
-                    className={highlightFirstCard ? "ring-2 ring-primary ring-offset-2" : ""}
+                    className={
+                      highlightFirstCard
+                        ? "ring-2 ring-primary ring-offset-2"
+                        : ""
+                    }
                   >
                     Add your first customer
                   </Button>

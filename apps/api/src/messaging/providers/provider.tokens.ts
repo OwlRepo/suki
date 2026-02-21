@@ -1,0 +1,2 @@
+export const SMS_PROVIDER = "SMS_PROVIDER";
+export const EMAIL_PROVIDER = "EMAIL_PROVIDER";

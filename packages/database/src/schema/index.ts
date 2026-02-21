@@ -451,6 +451,7 @@ export const messageEvents = pgTable(
       t.customerId,
       t.createdAt,
     ),
+    index("message_events_provider_message_id_idx").on(t.providerMessageId),
   ],
 );
 

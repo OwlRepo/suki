@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { businesses, customers, messageEvents } from "@suki/database";
 import { eq, and } from "drizzle-orm";
@@ -6,8 +6,9 @@ import type { AutomationKey, MessagePurpose } from "@suki/types";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { AutomationPolicyService } from "../automation/automation-policy.service";
 import { SmsMeteringService } from "./sms-metering.service";
-import { NoopSmsProvider } from "./providers/sms.provider";
-import { NoopEmailProvider } from "./providers/email.provider";
+import type { ISmsProvider } from "./providers/sms.provider";
+import type { IEmailProvider } from "./providers/email.provider";
+import { SMS_PROVIDER, EMAIL_PROVIDER } from "./providers/provider.tokens";
 
 const SMS_STOP = " Reply STOP to opt out.";
 const AUTO_FOOTER = " Sent automatically by Suki";
@@ -48,8 +49,8 @@ export class MessageDispatchService {
     private readonly planCapacity: PlanCapacityService,
     private readonly policy: AutomationPolicyService,
     private readonly smsMetering: SmsMeteringService,
-    private readonly smsProvider: NoopSmsProvider,
-    private readonly emailProvider: NoopEmailProvider,
+    @Inject(SMS_PROVIDER) private readonly smsProvider: ISmsProvider,
+    @Inject(EMAIL_PROVIDER) private readonly emailProvider: IEmailProvider,
   ) {}
 
   async dispatch(input: DispatchInput): Promise<DispatchResult> {
@@ -169,7 +170,7 @@ export class MessageDispatchService {
             providerMessageId: smsResult.providerMessageId ?? null,
             sentAt: new Date(),
             deliveryStatus: "sent",
-            provider: "noop",
+            provider: "twilio",
           })
           .where(eq(messageEvents.id, messageEventId));
         await this.smsMetering.consume(
@@ -194,7 +195,7 @@ export class MessageDispatchService {
               sentAt: new Date(),
               retryCount: 1,
               deliveryStatus: "sent",
-              provider: "noop",
+              provider: "twilio",
             })
             .where(eq(messageEvents.id, messageEventId));
           await this.smsMetering.consume(
@@ -267,7 +268,7 @@ export class MessageDispatchService {
             providerMessageId: emailResult.providerMessageId ?? null,
             sentAt: new Date(),
             deliveryStatus: "sent",
-            provider: "noop",
+            provider: "resend",
           })
           .where(eq(messageEvents.id, messageEventId));
         result = {

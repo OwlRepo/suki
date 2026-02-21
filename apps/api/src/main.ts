@@ -1,5 +1,6 @@
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
 
@@ -15,11 +16,31 @@ function validateEnv() {
   if (process.env.PAYMONGO_SECRET_KEY?.includes("placeholder") || !process.env.PAYMONGO_SECRET_KEY) {
     console.warn("[Suki API] PayMongo not configured. Billing checkout will be unavailable.");
   }
+  const twilioOk =
+    process.env.TWILIO_ACCOUNT_SID?.trim() &&
+    process.env.TWILIO_AUTH_TOKEN?.trim() &&
+    (process.env.TWILIO_MESSAGING_SERVICE_SID?.trim() || process.env.TWILIO_PHONE_NUMBER?.trim()) &&
+    !String(process.env.TWILIO_ACCOUNT_SID).toLowerCase().includes("placeholder");
+  const resendOk =
+    process.env.RESEND_API_KEY?.trim() &&
+    process.env.RESEND_FROM_EMAIL?.trim() &&
+    !String(process.env.RESEND_API_KEY).toLowerCase().includes("placeholder");
+  if (
+    (process.env.FF_auto_messaging_enabled === "true" || process.env.FF_auto_followups_scheduler_enabled === "true") &&
+    !twilioOk &&
+    !resendOk
+  ) {
+    console.warn(
+      "[Suki API] Messaging flags enabled but Twilio/Resend not configured. Auto-sends will use noop (no real delivery).",
+    );
+  }
 }
 
 async function bootstrap() {
   validateEnv();
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(
