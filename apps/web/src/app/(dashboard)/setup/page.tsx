@@ -10,6 +10,7 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { OnboardingGuidance } from "@/components/onboarding";
 import { useOnboarding } from "@/contexts/onboarding-context";
+import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
@@ -49,6 +50,7 @@ function SetupPageContent() {
   const router = useRouter();
   const { getToken } = useAuth();
   const onboarding = useOnboarding();
+  const workspace = useWorkspace();
   const { data: syncData, loading: syncLoading } = useAuthSync();
   const [step, setStep] = useState<Step>("questions");
   const [name, setName] = useState("");
@@ -105,6 +107,7 @@ function SetupPageContent() {
           workflowProfile,
         }),
       });
+      await workspace?.refetch?.();
       onboarding?.advanceStep();
       recordOnboardingEvent("setup_completed", syncData?.organization?.id ?? null);
       router.push("/dashboard");
