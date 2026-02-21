@@ -143,16 +143,21 @@ export default function Home() {
           <p className="max-w-md text-base font-medium text-foreground">
             What to do next: Get started in minutes.
           </p>
-          <PrimaryPageAction className="w-full max-w-sm sm:max-w-xs justify-center">
-            <LandingCta singlePrimary />
-          </PrimaryPageAction>
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-            <Button variant="outline" size="lg" className="min-h-[44px]" asChild>
-              <Link href="/sign-up">Book Full CRM Demo</Link>
-            </Button>
-            <Link href="#migration" className="text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
-              Migrating from another CRM?
-            </Link>
+          <div className="flex flex-col items-center gap-4 pt-2">
+            <PrimaryPageAction className="w-full max-w-sm sm:max-w-xs [&>div]:justify-center">
+              <LandingCta singlePrimary />
+            </PrimaryPageAction>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full">
+              <Button variant="outline" size="lg" className="min-h-[44px]" asChild>
+                <Link href="/sign-up">Book Full CRM Demo</Link>
+              </Button>
+              <Link
+                href="#migration"
+                className="text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline whitespace-nowrap"
+              >
+                Migrating from another CRM?
+              </Link>
+            </div>
           </div>
         </section>
 
