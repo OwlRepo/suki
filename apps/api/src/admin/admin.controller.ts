@@ -182,12 +182,32 @@ export class AdminController {
       .from(customers)
       .where(inArray(customers.businessId, targetBizIds));
 
-    return {
+    let upcomingAppointments: number | undefined;
+    if (businessId && targetBizIds.includes(businessId)) {
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const upcomingRes = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.businessId, businessId),
+            gte(appointments.scheduledAt, startOfToday),
+            eq(appointments.status, "scheduled"),
+          ),
+        );
+      upcomingAppointments = upcomingRes[0]?.count ?? 0;
+    }
+
+    const result: Record<string, unknown> = {
       activeCustomers: totalCust[0]?.count ?? 0,
       newCustomersThisMonth: newCustomers,
       visitsThisMonth: visitsCount,
       promosSentThisMonth: promosSentCount,
       month: `${year}-${String(month).padStart(2, "0")}`,
     };
+    if (upcomingAppointments !== undefined) {
+      result.upcomingAppointments = upcomingAppointments;
+    }
+    return result;
   }
 }

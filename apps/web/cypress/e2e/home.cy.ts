@@ -5,7 +5,7 @@ describe("Home page", () => {
 
   it("shows Suki branding and hero", () => {
     cy.contains("Suki").should("be.visible");
-    cy.contains("Grow repeat visits without adding complexity").should(
+    cy.contains("Fix CRM chaos without adding complexity").should(
       "be.visible"
     );
     cy.contains("Customer engagement for Philippine small business").should(
@@ -13,12 +13,12 @@ describe("Home page", () => {
     );
   });
 
-  it("shows conversion CTAs", () => {
-    cy.contains("a", /Start free|Sign in|Go to Dashboard/).should("be.visible");
+  it("shows one dominant primary CTA for conversion", () => {
+    cy.contains("a", /Start Free with CRM Lite|Go to Dashboard/).should("be.visible");
   });
 
   it("shows key landing sections", () => {
-    cy.contains("Common problems, practical solutions").should("be.visible");
+    cy.contains("Most CRMs fail").should("be.visible");
     cy.contains("How it works").should("be.visible");
     cy.contains("AI that assists").should("be.visible");
     cy.contains("Before and after").should("be.visible");

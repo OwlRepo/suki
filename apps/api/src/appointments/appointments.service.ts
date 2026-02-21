@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { appointments, businesses } from "@suki/database";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
 @Injectable()
 export class AppointmentsService {
@@ -31,18 +31,29 @@ export class AppointmentsService {
   async list(
     businessId: string,
     organizationId: string,
-    opts?: { from?: Date; to?: Date },
+    opts?: { from?: Date; to?: Date; limit?: number; offset?: number },
   ) {
     await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
     const conditions = [eq(appointments.businessId, businessId)];
     if (opts?.from) conditions.push(gte(appointments.scheduledAt, opts.from));
     if (opts?.to) conditions.push(lte(appointments.scheduledAt, opts.to));
-    return db
+    const baseQuery = db
       .select()
       .from(appointments)
       .where(and(...conditions))
       .orderBy(desc(appointments.scheduledAt));
+    if (opts?.limit != null || opts?.offset != null) {
+      const limit = opts?.limit ?? 50;
+      const offset = opts?.offset ?? 0;
+      const [items, countResult] = await Promise.all([
+        baseQuery.limit(limit).offset(offset),
+        db.select({ count: sql<number>`count(*)::int` }).from(appointments).where(and(...conditions)),
+      ]);
+      const total = countResult[0]?.count ?? 0;
+      return { items, total, hasMore: offset + items.length < total, limit, offset };
+    }
+    return baseQuery;
   }
 
   async findById(id: string, organizationId: string) {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AuthCta } from "@/components/auth-cta";
 import { LandingCta } from "@/components/landing-cta";
 import { Button } from "@/components/ui/button";
+import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 
 const PAIN_SOLUTIONS = [
   {
@@ -128,48 +129,47 @@ export default function Home() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
-        {/* Hero */}
-        <section className="flex flex-col items-center gap-6 text-center">
+        {/* Hero — what/why/next above the fold */}
+        <section className="flex flex-col items-center gap-6 py-6 sm:py-10 text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             CRM for growing service businesses
           </p>
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl max-w-2xl">
             Fix CRM chaos without adding complexity
           </h1>
-          <p className="max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            One workspace across pages, cleaner customer records, and a Lite-to-Full
-            path that scales with your business.
+          <p className="max-w-lg text-lg text-muted-foreground leading-relaxed">
+            <strong className="text-foreground">What it does:</strong> One workspace, cleaner customer records, and a path that scales. <strong className="text-foreground">Why it matters:</strong> Less manual work, fewer mistakes, faster decisions.
           </p>
-          <ul className="mt-4 flex flex-col gap-2 text-left text-sm text-muted-foreground sm:text-base max-w-md mx-auto">
-            <li>• Reduce repetitive manual updates</li>
-            <li>• Keep customer and visit history accurate</li>
-            <li>• Upgrade to Full CRM without data rework</li>
-          </ul>
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
-            <LandingCta />
-            <Button variant="outline" asChild>
+          <p className="max-w-md text-base font-medium text-foreground">
+            What to do next: Get started in minutes.
+          </p>
+          <PrimaryPageAction className="w-full max-w-sm sm:max-w-xs justify-center">
+            <LandingCta singlePrimary />
+          </PrimaryPageAction>
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+            <Button variant="outline" size="sm" asChild>
               <Link href="/sign-up">Book Full CRM Demo</Link>
             </Button>
-            <Link href="#migration" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="#migration" className="text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
               Migrating from another CRM?
             </Link>
           </div>
         </section>
 
         {/* Problem to value */}
-        <section className="mt-20 sm:mt-28">
-          <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
+        <section className="mt-16 sm:mt-24 space-y-6">
+          <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl max-w-2xl mx-auto">
             Most CRMs fail at adoption, data quality, and workflow speed
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
+          <p className="mx-auto max-w-xl text-center text-muted-foreground leading-relaxed">
             Suki is built to solve those first—one workspace across pages, cleaner
             records, and automation that reduces repetitive admin work
           </p>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+          <div className="pt-6 grid gap-6 sm:grid-cols-2">
             {PAIN_SOLUTIONS.map(({ pain, solution, outcome }) => (
               <div
                 key={pain}
-                className="rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm"
+                className="flex flex-col rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm"
               >
                 <p className="font-medium text-foreground">Pain: {pain}</p>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -184,23 +184,23 @@ export default function Home() {
         </section>
 
         {/* How it works */}
-        <section className="mt-20 sm:mt-28">
+        <section className="mt-16 sm:mt-24 space-y-6">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             How it works
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
             Fits into daily operations—no behavior change required
           </p>
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+          <div className="pt-6 grid gap-6 sm:grid-cols-3">
             {HOW_IT_WORKS.map(({ step, title, description }) => (
-              <div key={step} className="flex flex-col">
-                <span className="text-4xl font-bold text-muted-foreground/50">
+              <div key={step} className="flex flex-col rounded-lg border border-border bg-card p-5">
+                <span className="text-4xl font-bold text-muted-foreground/50" aria-hidden>
                   {step}
                 </span>
-                <h3 className="mt-2 text-lg font-semibold text-foreground">
+                <h3 className="mt-3 text-lg font-semibold text-foreground">
                   {title}
                 </h3>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                   {description}
                 </p>
               </div>
@@ -209,7 +209,7 @@ export default function Home() {
         </section>
 
         {/* Lite to Full path */}
-        <section className="mt-20 sm:mt-28" id="lite-full">
+        <section className="mt-16 sm:mt-24 space-y-6" id="lite-full">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Start with Lite. Switch to Full when operations get complex
           </h2>
@@ -217,7 +217,7 @@ export default function Home() {
             Your records stay compatible across both modes—no data reset, no forced
             re-import. Full mode toggle available on Growth and AI Pro plans.
           </p>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2">
+          <div className="pt-6 grid gap-6 sm:grid-cols-2">
             <div className="rounded-lg border border-border bg-card p-5">
               <h3 className="font-semibold text-foreground">CRM Lite</h3>
               <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-muted-foreground">
@@ -241,14 +241,14 @@ export default function Home() {
         </section>
 
         {/* Migration trust */}
-        <section className="mt-20 sm:mt-28" id="migration">
+        <section className="mt-16 sm:mt-24 space-y-6" id="migration">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Moving from Salesforce, HubSpot, Dynamics, Zoho, or Pipedrive?
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
             Import with confidence using validation and dry-run before final cutover
           </p>
-          <div className="mx-auto mt-10 max-w-2xl grid gap-4 sm:grid-cols-2">
+          <div className="mx-auto pt-6 max-w-2xl grid gap-6 sm:grid-cols-2">
             <div className="rounded-lg border border-border bg-card p-4">
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>• Field mapping templates</li>
@@ -275,14 +275,14 @@ export default function Home() {
         </section>
 
         {/* On-prem trust */}
-        <section className="mt-20 sm:mt-28" id="onprem">
+        <section className="mt-16 sm:mt-24 space-y-6" id="onprem">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Need self-hosted deployment on your local network?
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
             Ideal for organizations with strict compliance or internal IT governance needs
           </p>
-          <ul className="mx-auto mt-10 max-w-xl list-inside list-disc space-y-2 text-muted-foreground">
+          <ul className="mx-auto pt-6 max-w-xl list-inside list-disc space-y-2 text-muted-foreground">
             <li>Signed licensing with entitlement controls</li>
             <li>Signed update packages with rollback support</li>
             <li>Offline/air-gapped deployment path available</li>
@@ -296,7 +296,7 @@ export default function Home() {
         </section>
 
         {/* AI that stays in control */}
-        <section className="mt-20 sm:mt-28">
+        <section className="mt-16 sm:mt-24">
           <div className="rounded-xl border border-border bg-muted/30 p-6 sm:p-8">
             <h2 className="text-xl font-semibold text-foreground sm:text-2xl">
               AI that assists—you stay in control
@@ -311,11 +311,11 @@ export default function Home() {
         </section>
 
         {/* Before vs After */}
-        <section className="mt-20 sm:mt-28">
+        <section className="mt-16 sm:mt-24 space-y-6">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Before and after
           </h2>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2">
+          <div className="pt-6 grid gap-6 sm:grid-cols-2">
             <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
               <h3 className="font-semibold text-muted-foreground">Before</h3>
               <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-card-foreground">
@@ -336,14 +336,14 @@ export default function Home() {
         </section>
 
         {/* Suki vs generic CRM */}
-        <section className="mt-20 sm:mt-28">
+        <section className="mt-16 sm:mt-24 space-y-6">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Suki vs generic CRM
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
             Built for real workflows, not dashboards
           </p>
-          <div className="mt-10 overflow-x-auto">
+          <div className="pt-6 overflow-x-auto">
             <table className="w-full min-w-[400px] border-collapse rounded-lg border border-border">
               <thead>
                 <tr className="bg-muted/50">
@@ -376,14 +376,14 @@ export default function Home() {
         </section>
 
         {/* Pricing */}
-        <section className="mt-20 sm:mt-28" id="pricing">
+        <section className="mt-16 sm:mt-24 space-y-6" id="pricing">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Plans that grow with your business
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
             Start simple. Upgrade only when needed. No surprise charges.
           </p>
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+          <div className="pt-6 grid gap-6 sm:grid-cols-3">
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
@@ -413,7 +413,7 @@ export default function Home() {
         </section>
 
         {/* Trust & FAQ */}
-        <section className="mt-20 sm:mt-28">
+        <section className="mt-16 sm:mt-24 space-y-6">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Your data is safe
           </h2>
@@ -421,7 +421,7 @@ export default function Home() {
             Your business owns the data. Nothing is deleted if you stop. View and
             export anytime. Works on any device.
           </p>
-          <div className="mx-auto mt-10 max-w-2xl space-y-4">
+          <div className="mx-auto pt-6 max-w-2xl space-y-4">
             {FAQ.map(({ q, a }) => (
               <div key={q} className="rounded-lg border border-border bg-muted/20 p-4">
                 <p className="font-medium text-foreground">{q}</p>
@@ -432,23 +432,23 @@ export default function Home() {
         </section>
 
         {/* Final CTA */}
-        <section className="mt-20 sm:mt-28 flex flex-col items-center gap-6 rounded-xl border border-border bg-muted/30 p-8 text-center">
-          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
+        <section className="mt-16 sm:mt-24 flex flex-col items-center gap-6 rounded-xl border border-border bg-muted/30 p-8 sm:p-10 text-center">
+          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl max-w-xl">
             Choose the path that fits your stage today
           </h2>
-          <p className="max-w-lg text-muted-foreground">
+          <p className="max-w-lg text-muted-foreground leading-relaxed">
             No replatforming when you scale from Lite to Full.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <LandingCta />
-            <Button variant="outline" asChild>
-              <Link href="/sign-up">Book Full CRM Strategy Call</Link>
-            </Button>
-          </div>
+          <PrimaryPageAction className="justify-center">
+            <LandingCta singlePrimary />
+          </PrimaryPageAction>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/sign-up">Book Full CRM Strategy Call</Link>
+          </Button>
         </section>
       </main>
 
-      <footer className="mt-20 border-t border-border py-8">
+      <footer className="mt-16 sm:mt-24 border-t border-border py-8">
         <div className="mx-auto max-w-5xl px-4 text-center text-sm text-muted-foreground sm:px-6">
           Suki — Customer engagement for Philippine small business.
         </div>

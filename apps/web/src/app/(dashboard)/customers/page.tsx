@@ -7,7 +7,12 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { CustomerFormModal } from "@/components/customers/customer-form-modal";
+import { CustomerItemActions } from "@/components/customers/customer-item-actions";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSection } from "@/components/ui/page-section";
+import { StatusBanner } from "@/components/ui/status-banner";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -48,9 +53,8 @@ function CustomersPageContent() {
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newMobile, setNewMobile] = useState("");
-  const [newTags, setNewTags] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,9 +84,10 @@ function CustomersPageContent() {
     })();
   }, [selectedBiz, search, tagFilter, getToken]);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName.trim() || !selectedBiz) return;
+  const handleAdd = async (data: { name: string; mobile?: string; tags?: string }) => {
+    if (!selectedBiz) return;
+    setAddLoading(true);
+    setFeedback(null);
     try {
       const token = await getToken();
       if (!token) return;
@@ -91,18 +96,19 @@ function CustomersPageContent() {
         token,
         body: JSON.stringify({
           businessId: selectedBiz,
-          name: newName.trim(),
-          mobile: newMobile.trim() || undefined,
-          tags: newTags.trim() || undefined,
+          name: data.name.trim(),
+          mobile: data.mobile?.trim() || undefined,
+          tags: data.tags?.trim() || undefined,
         }),
       });
       onboarding?.advanceStep();
       if (total === 0) recordOnboardingEvent("first_customer_added", orgId);
-      setNewName("");
-      setNewMobile("");
-      setNewTags("");
       setShowAdd(false);
+      setFeedback({ type: "success", message: "Customer saved. You can edit details anytime." });
+      setTimeout(() => setFeedback(null), 4000);
       const params = new URLSearchParams({ businessId: selectedBiz });
+      if (search) params.set("search", search);
+      if (tagFilter.trim()) params.set("tag", tagFilter.trim());
       const res = await apiRequest<{ customers: Customer[]; total: number }>(
         `/customers?${params}`,
         { token },
@@ -110,12 +116,13 @@ function CustomersPageContent() {
       setCustomers(res.customers);
       setTotal(res.total);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed");
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to save customer" });
+    } finally {
+      setAddLoading(false);
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Remove customer "${name}"? This cannot be undone.`)) return;
+  const handleDelete = async (id: string) => {
     try {
       const token = await getToken();
       if (!token) return;
@@ -131,8 +138,10 @@ function CustomersPageContent() {
         setCustomers(res.customers);
         setTotal(res.total);
       }
+      setFeedback({ type: "success", message: "Customer removed." });
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to remove customer");
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to remove customer" });
     }
   };
 
@@ -147,14 +156,18 @@ function CustomersPageContent() {
       recordOnboardingEvent("visit_recorded", orgId);
       if (selectedBiz) {
         const params = new URLSearchParams({ businessId: selectedBiz });
+        if (search) params.set("search", search);
+        if (tagFilter.trim()) params.set("tag", tagFilter.trim());
         const res = await apiRequest<{ customers: Customer[]; total: number }>(
           `/customers?${params}`,
           { token },
         );
         setCustomers(res.customers);
       }
+      setFeedback({ type: "success", message: "Visit recorded." });
+      setTimeout(() => setFeedback(null), 3000);
     } catch {
-      alert("Failed to record visit");
+      setFeedback({ type: "error", message: "Failed to record visit" });
     }
   };
 
@@ -179,88 +192,75 @@ function CustomersPageContent() {
   return (
     <div className="space-y-8">
       <div>
-      <PracticeDayBanner />
-      <OnboardingGuidance
-        step={ONBOARDING_STEPS.customersPage}
-        screen="customers"
-        onComplete={() => {}}
-      />
-      {onboarding?.currentStep === ONBOARDING_STEPS.recordVisit && customers.length > 0 && (
+        <PracticeDayBanner />
         <OnboardingGuidance
-          step={ONBOARDING_STEPS.recordVisit}
+          step={ONBOARDING_STEPS.customersPage}
           screen="customers"
           onComplete={() => {}}
         />
-      )}
-      </div>
-      <div>
-      <AiQuotaBanner />
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">
-          <TooltipBadge screen="customers">Customers</TooltipBadge>
-        </h1>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Search by name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-40"
+        {onboarding?.currentStep === ONBOARDING_STEPS.recordVisit && customers.length > 0 && (
+          <OnboardingGuidance
+            step={ONBOARDING_STEPS.recordVisit}
+            screen="customers"
+            onComplete={() => {}}
           />
-          <Input
-            placeholder="Filter by tag (e.g. vip)"
-            value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
-            className="w-40"
-          />
-          <Button onClick={() => setShowAdd(true)}>Add customer</Button>
-        </div>
+        )}
       </div>
+      <div className="space-y-8">
+        <AiQuotaBanner />
+        <PageHeader
+          title={<TooltipBadge screen="customers">Customers</TooltipBadge>}
+          description="This is your customer list. Add people here and track their visits."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Input
+                placeholder="Search by name"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-40"
+                aria-label="Search by name"
+              />
+              <Input
+                placeholder="Find customer by label (VIP, Regular)"
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                className="w-48"
+                aria-label="Filter by label"
+              />
+              <Button onClick={() => setShowAdd(true)}>Add customer</Button>
+            </div>
+          }
+        />
+
+        {feedback && (
+          <StatusBanner
+            variant={feedback.type}
+            message={feedback.message}
+            onDismiss={() => setFeedback(null)}
+          />
+        )}
 
       {selectedBiz && (
-        <IntakeQRBlock
-          businessId={selectedBiz}
-          businessName={businesses.find((b) => b.id === selectedBiz)?.name ?? ""}
-          className="mt-8"
-        />
+        <PageSection>
+          <IntakeQRBlock
+            businessId={selectedBiz}
+            businessName={businesses.find((b) => b.id === selectedBiz)?.name ?? ""}
+            heading="Let customers add themselves"
+            helperText="Share this QR or link so customers can register without paperwork."
+            showPrintButton
+          />
+        </PageSection>
       )}
 
-      {showAdd && (
-        <form
+        <CustomerFormModal
+          open={showAdd}
+          onClose={() => setShowAdd(false)}
           onSubmit={handleAdd}
-          className="mt-8 flex flex-wrap gap-2 rounded-md border border-border bg-card p-4"
-        >
-          <p className="w-full basis-full text-sm text-muted-foreground">
-            You can edit this later.
-          </p>
-          <Input
-            placeholder="Name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            required
-            className="flex-1"
-          />
-          <Input
-            placeholder="Mobile"
-            value={newMobile}
-            onChange={(e) => setNewMobile(e.target.value)}
-            className="w-40"
-          />
-          <Input
-            placeholder="Tags (e.g. vip,frequent)"
-            value={newTags}
-            onChange={(e) => setNewTags(e.target.value)}
-            className="w-40"
-          />
-          <Button type="submit">
-            {onboarding?.practiceMode ? "Practice save" : "Save"}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>
-            Cancel
-          </Button>
-        </form>
-      )}
+          loading={addLoading}
+          practiceMode={onboarding?.practiceMode ?? false}
+        />
 
-      <div className="mt-8">
+      <PageSection>
         <p className="text-sm text-muted-foreground">
           {displayTotal} customer{displayTotal !== 1 ? "s" : ""}
         </p>
@@ -293,44 +293,19 @@ function CustomersPageContent() {
                   </span>
                 )}
               </div>
-              <div className="flex gap-2">
-                {"isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      onboarding?.advanceStep();
-                    }}
-                  >
-                    Practice: Record visit
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleStampVisit(c.id)}
-                  >
-                    Record visit
-                  </Button>
-                )}
-                {!("isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDelete(c.id, c.name)}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
+              <CustomerItemActions
+                onRecordVisit={() => handleStampVisit(c.id)}
+                onRemove={() => handleDelete(c.id)}
+                isPracticeSample={"isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample}
+                onPracticeAdvance={onboarding?.advanceStep}
+              />
             </li>
           ))}
         </ul>
         {displayCustomers.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">No customers yet. You can edit details anytime.</p>
+          <p className="py-8 text-center text-helper">No customers yet. Add your first to get started — you can edit details anytime.</p>
         )}
-      </div>
+      </PageSection>
       </div>
     </div>
   );

@@ -8,12 +8,24 @@ interface IntakeQRBlockProps {
   businessId: string;
   businessName: string;
   className?: string;
+  /** Override heading (default: "Customer intake link") */
+  heading?: string;
+  /** Override helper text (default: "Share this link or QR code so customers can add themselves to your list.") */
+  helperText?: string;
+  /** Override copy button label (default: "Copy link") */
+  copyLabel?: string;
+  /** Show Print QR code button */
+  showPrintButton?: boolean;
 }
 
 export function IntakeQRBlock({
   businessId,
   businessName,
   className = "",
+  heading = "Customer intake link",
+  helperText = "Share this link or QR code so customers can add themselves to your list.",
+  copyLabel = "Copy link",
+  showPrintButton = false,
 }: IntakeQRBlockProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -33,6 +45,23 @@ export function IntakeQRBlock({
       .then(setQrDataUrl)
       .catch(() => {});
   }, [intakeUrl]);
+
+  const handlePrint = () => {
+    if (!qrDataUrl) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`
+      <html><head><title>QR Code</title></head>
+      <body style="margin:1rem;text-align:center;font-family:sans-serif;">
+        <h2 style="margin-bottom:0.5rem;">Customer intake</h2>
+        <p style="color:#666;margin-bottom:1rem;">Share or print this QR code for customers to register.</p>
+        <img src="${qrDataUrl}" alt="QR code" width="200" height="200" />
+        <p style="margin-top:1rem;font-size:12px;color:#888;">${intakeUrl}</p>
+        <script>window.onload=function(){window.print();window.close();}</script>
+      </body></html>
+    `);
+    w.document.close();
+  };
 
   const handleCopy = async () => {
     if (!intakeUrl) return;
@@ -63,10 +92,10 @@ export function IntakeQRBlock({
         id="intake-qr-heading"
         className="text-base font-medium text-foreground"
       >
-        Customer intake link
+        {heading}
       </h2>
       <p className="mt-1 text-base text-muted-foreground">
-        Share this link or QR code so customers can add themselves to your list.
+        {helperText}
       </p>
       <div className="mt-4 flex flex-wrap items-start gap-4">
         {qrDataUrl && (
@@ -84,14 +113,26 @@ export function IntakeQRBlock({
           <div className="rounded border border-input bg-muted/30 px-3 py-2 font-mono text-sm text-foreground break-all">
             {intakeUrl || "Loading…"}
           </div>
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={handleCopy}
-            className="min-h-[44px] text-base"
-          >
-            {copied ? "Copied" : "Copy link"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handleCopy}
+              className="min-h-[44px] text-base"
+            >
+              {copied ? "Copied" : copyLabel}
+            </Button>
+            {showPrintButton && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={handlePrint}
+                className="min-h-[44px] text-base"
+              >
+                Print QR code
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

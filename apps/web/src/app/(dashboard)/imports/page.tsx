@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { StatusBanner } from "@/components/ui/status-banner";
 import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
@@ -85,6 +86,7 @@ function ImportsPageContent() {
     createdAt: string;
   }>>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
   const [batchDetail, setBatchDetail] = useState<{
     id: string;
     errorDetails: Array<{ rowIndex: number; message: string }>;
@@ -123,7 +125,7 @@ function ImportsPageContent() {
       }
       setStep("review");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Fetch failed");
+      setStatus({ type: "error", message: err instanceof Error ? err.message : "Fetch failed" });
     } finally {
       setLoading(false);
     }
@@ -153,7 +155,7 @@ function ImportsPageContent() {
       }
       setStep("review");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Parse failed");
+      setStatus({ type: "error", message: err instanceof Error ? err.message : "Parse failed" });
     } finally {
       setLoading(false);
     }
@@ -186,7 +188,7 @@ function ImportsPageContent() {
       setDryRunResult(res);
       setStep("dryrun");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Dry run failed");
+      setStatus({ type: "error", message: err instanceof Error ? err.message : "Dry run failed" });
     } finally {
       setLoading(false);
     }
@@ -216,7 +218,7 @@ function ImportsPageContent() {
       recordOnboardingEvent("import_completed", syncData?.organization?.id ?? null);
       setStep("done");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Import failed");
+      setStatus({ type: "error", message: err instanceof Error ? err.message : "Import failed" });
     } finally {
       setLoading(false);
     }
@@ -235,7 +237,7 @@ function ImportsPageContent() {
       setReport(null);
       reset();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Rollback failed");
+      setStatus({ type: "error", message: err instanceof Error ? err.message : "Rollback failed" });
     } finally {
       setLoading(false);
     }
@@ -299,6 +301,7 @@ function ImportsPageContent() {
     setSkipRows(new Set());
     setReport(null);
     setDryRunResult(null);
+    setStatus(null);
     setStep("source");
     fetchBatches();
   };
@@ -349,7 +352,7 @@ function ImportsPageContent() {
         setStep("paste");
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to read file");
+      setStatus({ type: "error", message: err instanceof Error ? err.message : "Failed to read file" });
     } finally {
       setLoading(false);
       e.target.value = "";
@@ -399,7 +402,11 @@ function ImportsPageContent() {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Import customers</h1>
-        <h3 className="mt-4 font-medium text-foreground">Dry-run preview</h3>
+        <p className="mt-2 text-sm font-medium text-foreground">Step 3: Confirm</p>
+        <p className="mt-2 text-base text-muted-foreground">
+          Your existing customers are safe. This will only add new customers to your list.
+        </p>
+        <h3 className="mt-6 font-medium text-foreground">Dry-run preview</h3>
         {dryRunResult && (
           <div className="mt-2 rounded-lg border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">
@@ -425,27 +432,80 @@ function ImportsPageContent() {
     );
   }
 
+  const stepOrder = [
+    { key: "upload", label: "Step 1: Upload" },
+    { key: "review", label: "Step 2: Review" },
+    { key: "confirm", label: "Step 3: Confirm" },
+  ];
+  const stepToIndex: Record<string, number> = {
+    source: 0,
+    upload: 0,
+    paste: 0,
+    review: 1,
+    dryrun: 2,
+  };
+  const currentStepIndex = stepToIndex[step] ?? 0;
+
   return (
     <div className="space-y-8">
       <div>
-      <PracticeDayBanner />
-      <OnboardingGuidance
-        step={ONBOARDING_STEPS.importCustomers}
-        screen="import"
-        onComplete={() => {}}
-      />
+        <PracticeDayBanner />
+        <OnboardingGuidance
+          step={ONBOARDING_STEPS.importCustomers}
+          screen="import"
+          onComplete={() => {}}
+        />
       </div>
       <div>
-      <AiQuotaBanner />
-      <div className="flex flex-wrap items-center gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">
-          <TooltipBadge screen="import">Import customers</TooltipBadge>
-        </h1>
-      </div>
+        <AiQuotaBanner />
+        <div className="flex flex-wrap items-center gap-4">
+          <h1 className="text-2xl font-semibold text-foreground">
+            <TooltipBadge screen="import">Import customers</TooltipBadge>
+          </h1>
+        </div>
 
-      <p className="mt-6 text-base text-muted-foreground">
-        Upload a CSV or Excel file, or paste CSV text. We will check for duplicates before importing. Import in small batches first, then review before continuing. Your existing records are safe.
-      </p>
+        <p className="mt-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-base text-foreground">
+          <strong>Your existing customers are safe.</strong> Nothing will be deleted. We add new customers and check for duplicates before importing.
+        </p>
+
+        <p className="mt-4 text-base text-muted-foreground">
+          Upload a CSV or Excel file, or paste CSV text. We check for duplicates before importing. Start with a small batch, review the list, then confirm.
+        </p>
+
+        {status && (
+          <StatusBanner
+            variant={status.type}
+            message={status.message}
+            onDismiss={() => setStatus(null)}
+            className="mt-4"
+          />
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" role="navigation" aria-label="Import steps">
+          {stepOrder.map((s, i) => (
+            <span key={s.key} className="flex items-center gap-2">
+              <span className={i <= currentStepIndex ? "font-medium text-foreground" : "text-muted-foreground"}>
+                {s.label}
+              </span>
+              {i < stepOrder.length - 1 && <span className="text-muted-foreground">→</span>}
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-4 flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const a = document.createElement("a");
+              a.href = "/sample-customers.csv";
+              a.download = "sample-customers.csv";
+              a.click();
+            }}
+          >
+            Download sample file
+          </Button>
+        </div>
 
       {batches.length > 0 && (
         <div className="mt-6 rounded-lg border border-border bg-card p-4">

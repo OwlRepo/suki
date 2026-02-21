@@ -11,9 +11,20 @@ describe("Dashboard", () => {
 
   it("shows dashboard with summary and navigation when Clerk configured", function () {
     skipWhenNoClerk(this);
+    cy.intercept("GET", "**/admin/summary", { businesses: 1, customers: 0, appointments: 0, promos: 0 });
+    cy.intercept("GET", "**/businesses", { businesses: [{ id: "b1", name: "Test Biz" }] });
+    cy.intercept("GET", "**/admin/usage*", {
+      activeCustomers: 0,
+      newCustomersThisMonth: 0,
+      visitsThisMonth: 0,
+      promosSentThisMonth: 0,
+      month: "2025-02",
+      upcomingAppointments: 0,
+    });
+    cy.intercept("GET", "**/admin/activity*", { activities: [] });
     cy.visit("/dashboard");
     cy.contains("h1", "Dashboard").should("be.visible");
-    cy.contains("Overview of your business").should("be.visible");
+    cy.contains("Welcome back").should("be.visible");
     cy.contains("Business setup").should("be.visible");
     cy.contains("Customers").should("be.visible");
   });
@@ -28,14 +39,14 @@ describe("Dashboard", () => {
       visitsThisMonth: 4,
       promosSentThisMonth: 1,
       month: "2025-02",
+      upcomingAppointments: 3,
     }).as("usage");
     cy.intercept("GET", "**/admin/activity*", { activities: [] }).as("activity");
     cy.visit("/dashboard");
     cy.wait(["@summary", "@businesses", "@usage", "@activity"]);
-    cy.contains("Businesses").should("be.visible");
-    cy.contains("Customers").should("be.visible");
-    cy.contains("Appointments").should("be.visible");
-    cy.contains("Promos").should("be.visible");
+    cy.contains("Total customers").should("be.visible");
+    cy.contains("Visits this month").should("be.visible");
+    cy.contains("Upcoming appointments").should("be.visible");
   });
 
   it("shows This month usage section when data available", function () {
@@ -48,13 +59,30 @@ describe("Dashboard", () => {
       visitsThisMonth: 12,
       promosSentThisMonth: 3,
       month: "2025-02",
+      upcomingAppointments: 2,
     });
     cy.intercept("GET", "**/admin/activity*", { activities: [] });
     cy.visit("/dashboard");
-    cy.contains("This month", { timeout: 5000 }).should("be.visible");
-    cy.contains("Active customers").should("be.visible");
-    cy.contains("New customers").should("be.visible");
-    cy.contains("Visits").should("be.visible");
+    cy.contains("Metrics", { timeout: 5000 }).should("be.visible");
+    cy.contains("Total customers").should("be.visible");
+    cy.contains("Visits this month").should("be.visible");
+  });
+
+  it("shows Next step CTA: Add your first customer when no customers", function () {
+    skipWhenNoClerk(this);
+    cy.intercept("GET", "**/admin/summary", { businesses: 1, customers: 0, appointments: 0, promos: 0 });
+    cy.intercept("GET", "**/businesses", { businesses: [{ id: "b1", name: "Test Biz" }] });
+    cy.intercept("GET", "**/admin/usage*", {
+      activeCustomers: 0,
+      newCustomersThisMonth: 0,
+      visitsThisMonth: 0,
+      promosSentThisMonth: 0,
+      month: "2025-02",
+      upcomingAppointments: 0,
+    });
+    cy.intercept("GET", "**/admin/activity*", { activities: [] });
+    cy.visit("/dashboard");
+    cy.contains("Add your first customer").should("be.visible");
   });
 
   it("shows Recent activity when activities exist", function () {
@@ -67,6 +95,7 @@ describe("Dashboard", () => {
       visitsThisMonth: 0,
       promosSentThisMonth: 0,
       month: "2025-02",
+      upcomingAppointments: 0,
     });
     cy.intercept("GET", "**/admin/activity*", {
       activities: [

@@ -7,6 +7,9 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSection } from "@/components/ui/page-section";
+import { StatusBanner } from "@/components/ui/status-banner";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -35,6 +38,12 @@ interface Promo {
   status: string;
   createdAt: string;
 }
+
+const MESSAGE_TEMPLATES = [
+  { id: "we_miss_you", label: "We miss you", message: "Hi! We haven't seen you in a while. Come back and get 20% off your next visit. We'd love to see you again!", value: "20%" },
+  { id: "come_back_save", label: "Come back & save", message: "Thanks for being a loyal customer! Here's 15% off your next visit. Show this message when you come in.", value: "15%" },
+  { id: "thank_you", label: "Thank you for visiting", message: "Thank you for visiting us today! We hope to see you again soon.", value: "" },
+] as const;
 
 const PROMO_TYPES = [
   { value: "discount", label: "Discount" },
@@ -72,6 +81,7 @@ function PromosPageContent() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [planType, setPlanType] = useState<string>("starter");
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const loadPromos = async () => {
     if (!selectedBiz) return;
@@ -185,6 +195,8 @@ function PromosPageContent() {
       }
       resetForm();
       loadPromos();
+      setFeedback({ type: "success", message: editingId ? "Offer updated." : "Offer created." });
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -228,8 +240,10 @@ function PromosPageContent() {
       await apiRequest(`/promos/${id}/send`, { method: "PATCH", token });
       setSendConfirmId(null);
       loadPromos();
+      setFeedback({ type: "success", message: "Offer marked as sent." });
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to send");
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to send" });
     }
   };
 
@@ -256,25 +270,57 @@ function PromosPageContent() {
           onComplete={() => {}}
         />
       </div>
-      <div>
-      <AiQuotaBanner />
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">
-          <TooltipBadge screen="promos">Promos</TooltipBadge>
-        </h1>
-        <div className="flex gap-2">
-          <Button onClick={() => { resetForm(); setShowForm(true); }}>
-            Create promo
-          </Button>
-        </div>
-      </div>
+      <div className="space-y-8">
+        <AiQuotaBanner />
+        <PageHeader
+          title={<TooltipBadge screen="promos">Send Offers to Customers</TooltipBadge>}
+          description="Create offers and messages your customers will receive."
+          actions={
+            <Button onClick={() => { resetForm(); setShowForm(true); }}>
+              Create promo
+            </Button>
+          }
+        />
+
+        {feedback && (
+          <StatusBanner
+            variant={feedback.type}
+            message={feedback.message}
+            onDismiss={() => setFeedback(null)}
+          />
+        )}
 
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="mt-8 space-y-4 rounded-md border border-border bg-card p-4"
+          className="space-y-4 rounded-md border border-border bg-card p-4"
         >
           <h2 className="text-lg font-medium">{editingId ? "Edit promo" : "New promo"}</h2>
+          {!editingId && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">Start from a template</label>
+              <div className="flex flex-wrap gap-2">
+                {MESSAGE_TEMPLATES.map((t) => (
+                  <Button
+                    key={t.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFormData((d) => ({
+                        ...d,
+                        messageContent: t.message,
+                        value: t.value,
+                        type: t.value ? "discount" : d.type,
+                      }));
+                    }}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Type</label>
@@ -344,10 +390,16 @@ function PromosPageContent() {
             <textarea
               value={formData.messageContent}
               onChange={(e) => setFormData((d) => ({ ...d, messageContent: e.target.value }))}
-              placeholder="Optional message"
-              rows={2}
+              placeholder="e.g. Hi! Come back and get 20% off your next visit."
+              rows={3}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
+            {formData.messageContent && (
+              <div className="mt-2 rounded-md border border-border bg-muted/30 p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-1">This is what your customer will receive.</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{formData.messageContent}</p>
+              </div>
+            )}
             {planType === "ai_pro" ? (
               <div className="mt-2">
                 {!showAiGenerate ? (
@@ -403,7 +455,7 @@ function PromosPageContent() {
         </form>
       )}
 
-      <div className="mt-8">
+      <PageSection>
         <p className="text-sm text-muted-foreground">{displayPromos.length} promo{displayPromos.length !== 1 ? "s" : ""}</p>
         <ul className="mt-4 divide-y divide-border">
           {displayPromos.map((p) => (
@@ -437,10 +489,10 @@ function PromosPageContent() {
                     {sendConfirmId === p.id ? (
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="text-sm text-muted-foreground">
-                          Confirm marking as sent?
+                          This will be sent to your target customers. Continue?
                         </span>
                         <Button size="sm" onClick={() => handleSend(p.id)}>
-                          Yes, mark as sent
+                          Yes, send
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => setSendConfirmId(null)}>
                           Cancel
@@ -458,9 +510,9 @@ function PromosPageContent() {
           ))}
         </ul>
         {displayPromos.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">No promos yet. Create one to get started. You can turn it on or off anytime.</p>
+          <p className="py-8 text-center text-helper">No offers yet. Create one to get started — you can turn it on or off anytime.</p>
         )}
-      </div>
+      </PageSection>
       </div>
     </div>
   );

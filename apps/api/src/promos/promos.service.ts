@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { promos, businesses } from "@suki/database";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 @Injectable()
 export class PromosService {
@@ -34,14 +34,30 @@ export class PromosService {
     return p!;
   }
 
-  async list(businessId: string, organizationId: string) {
+  async list(
+    businessId: string,
+    organizationId: string,
+    opts?: { limit?: number; offset?: number },
+  ) {
     await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
-    return db
+    const condition = eq(promos.businessId, businessId);
+    const baseQuery = db
       .select()
       .from(promos)
-      .where(eq(promos.businessId, businessId))
+      .where(condition)
       .orderBy(desc(promos.createdAt));
+    if (opts?.limit != null || opts?.offset != null) {
+      const limit = opts?.limit ?? 50;
+      const offset = opts?.offset ?? 0;
+      const [items, countResult] = await Promise.all([
+        baseQuery.limit(limit).offset(offset),
+        db.select({ count: sql<number>`count(*)::int` }).from(promos).where(condition),
+      ]);
+      const total = countResult[0]?.count ?? 0;
+      return { items, total, hasMore: offset + items.length < total, limit, offset };
+    }
+    return baseQuery;
   }
 
   async findById(id: string, organizationId: string) {

@@ -24,14 +24,29 @@ export class AppointmentsController {
     @Query("businessId") businessId: string,
     @Query("from") from?: string,
     @Query("to") to?: string,
+    @Query("limit") limitStr?: string,
+    @Query("offset") offsetStr?: string,
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!businessId || !orgId) throw new BadRequestException("businessId required");
-    const list = await this.appointmentsService.list(businessId, orgId, {
+    const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+    const offset = offsetStr ? parseInt(offsetStr, 10) : undefined;
+    const result = await this.appointmentsService.list(businessId, orgId, {
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
+      limit: limit && Number.isFinite(limit) ? limit : undefined,
+      offset: offset && Number.isFinite(offset) ? offset : undefined,
     });
-    return { appointments: list };
+    if (Array.isArray(result)) {
+      return { appointments: result };
+    }
+    return {
+      appointments: result.items,
+      total: result.total,
+      hasMore: result.hasMore,
+      limit: result.limit,
+      offset: result.offset,
+    };
   }
 
   @Post()

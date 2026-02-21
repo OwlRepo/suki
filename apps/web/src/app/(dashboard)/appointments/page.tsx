@@ -7,6 +7,10 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSection } from "@/components/ui/page-section";
+import { StatusBanner } from "@/components/ui/status-banner";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -56,11 +60,13 @@ function AppointmentsPageContent() {
     customerId: "",
     scheduledAt: "",
     notes: "",
+    remindersOn: true,
   });
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const loadCustomers = async () => {
     if (!selectedBiz) return;
@@ -100,10 +106,26 @@ function AppointmentsPageContent() {
   }, [selectedBiz, dateFrom, dateTo]);
 
   const resetForm = () => {
-    setFormData({ customerId: "", scheduledAt: "", notes: "" });
+    const today = new Date();
+    const defaultTime = new Date(today);
+    defaultTime.setHours(14, 0, 0, 0); // 2pm default
+    setFormData({
+      customerId: "",
+      scheduledAt: defaultTime.toISOString().slice(0, 16),
+      notes: "",
+      remindersOn: true,
+    });
     setEditingId(null);
     setShowForm(false);
     setError(null);
+  };
+
+  const applyTimePreset = (preset: "morning" | "afternoon" | "evening") => {
+    const d = formData.scheduledAt ? new Date(formData.scheduledAt) : new Date();
+    if (preset === "morning") d.setHours(9, 0, 0, 0);
+    else if (preset === "afternoon") d.setHours(14, 0, 0, 0);
+    else d.setHours(18, 0, 0, 0);
+    setFormData((prev) => ({ ...prev, scheduledAt: d.toISOString().slice(0, 16) }));
   };
 
   const handleEdit = (a: Appointment) => {
@@ -112,6 +134,7 @@ function AppointmentsPageContent() {
       customerId: a.customerId,
       scheduledAt: a.scheduledAt.slice(0, 16),
       notes: a.notes ?? "",
+      remindersOn: true,
     });
     setShowForm(true);
   };
@@ -151,6 +174,8 @@ function AppointmentsPageContent() {
         recordOnboardingEvent("appointment_created", orgId);
       }
       loadAppointments();
+      setFeedback({ type: "success", message: editingId ? "Appointment updated." : "Appointment created." });
+      setTimeout(() => setFeedback(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -168,8 +193,10 @@ function AppointmentsPageContent() {
         body: JSON.stringify({ status }),
       });
       loadAppointments();
+      setFeedback({ type: "success", message: "Status updated." });
+      setTimeout(() => setFeedback(null), 3000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update status");
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to update status" });
     }
   };
 
@@ -182,8 +209,10 @@ function AppointmentsPageContent() {
         token,
       });
       loadAppointments();
+      setFeedback({ type: "success", message: "Reminder marked as sent." });
+      setTimeout(() => setFeedback(null), 3000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to mark reminder");
+      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to mark reminder" });
     }
   };
 
@@ -208,43 +237,54 @@ function AppointmentsPageContent() {
   return (
     <div className="space-y-8">
       <div>
-      <PracticeDayBanner />
-      <OnboardingGuidance
-        step={ONBOARDING_STEPS.appointmentsOverview}
-        screen="appointments"
-        onComplete={() => {}}
-      />
+        <PracticeDayBanner />
+        <OnboardingGuidance
+          step={ONBOARDING_STEPS.appointmentsOverview}
+          screen="appointments"
+          onComplete={() => {}}
+        />
       </div>
-      <div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">
-          <TooltipBadge screen="appointments">Appointments</TooltipBadge>
-        </h1>
-        <div className="flex flex-wrap gap-2">
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            placeholder="From"
-            className="w-36"
+      <div className="space-y-8">
+        <PageHeader
+          title={<TooltipBadge screen="appointments">Appointments</TooltipBadge>}
+          description="Appointments help you plan your day — but you can use the app without them."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                placeholder="From"
+                className="w-36"
+                aria-label="From date"
+              />
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                placeholder="To"
+                className="w-36"
+                aria-label="To date"
+              />
+              <Button onClick={() => { resetForm(); setShowForm(true); }}>
+                {displayAppointments.length === 0 ? "Create first appointment" : "New appointment"}
+              </Button>
+            </div>
+          }
+        />
+
+        {feedback && (
+          <StatusBanner
+            variant={feedback.type}
+            message={feedback.message}
+            onDismiss={() => setFeedback(null)}
           />
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            placeholder="To"
-            className="w-36"
-          />
-          <Button onClick={() => { resetForm(); setShowForm(true); }}>
-            New appointment
-          </Button>
-        </div>
-      </div>
+        )}
 
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="mt-8 space-y-4 rounded-md border border-border bg-card p-4"
+          className="space-y-4 rounded-md border border-border bg-card p-4"
         >
           <h2 className="text-lg font-medium">{editingId ? "Reschedule" : "New appointment"}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -253,9 +293,10 @@ function AppointmentsPageContent() {
               <select
                 value={formData.customerId}
                 onChange={(e) => setFormData((d) => ({ ...d, customerId: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[40px]"
                 required
                 disabled={!!editingId}
+                aria-label="Select customer"
               >
                 <option value="">Select customer</option>
                 {(showPracticeData ? displayCustomers : customers).map((c) => (
@@ -267,14 +308,40 @@ function AppointmentsPageContent() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Date & time</label>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => applyTimePreset("morning")}>
+                  Morning
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => applyTimePreset("afternoon")}>
+                  Afternoon
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => applyTimePreset("evening")}>
+                  Evening
+                </Button>
+              </div>
               <Input
                 type="datetime-local"
                 value={formData.scheduledAt}
                 onChange={(e) => setFormData((d) => ({ ...d, scheduledAt: e.target.value }))}
                 required
+                className="mt-2"
               />
             </div>
           </div>
+          {!editingId && (
+            <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3">
+              <input
+                type="checkbox"
+                id="reminders-on"
+                checked={formData.remindersOn}
+                onChange={(e) => setFormData((d) => ({ ...d, remindersOn: e.target.checked }))}
+                className="mt-1 rounded"
+              />
+              <label htmlFor="reminders-on" className="text-sm text-foreground">
+                We&apos;ll remind the customer so you don&apos;t have to.
+              </label>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">Nothing is final until you confirm.</p>
           <div>
             <label className="mb-1 block text-sm font-medium">Notes</label>
@@ -296,7 +363,7 @@ function AppointmentsPageContent() {
         </form>
       )}
 
-      <div className="mt-8">
+      <PageSection>
         <p className="text-sm text-muted-foreground">{displayAppointments.length} appointment{displayAppointments.length !== 1 ? "s" : ""}</p>
         <ul className="mt-4 divide-y divide-border">
           {displayAppointments.map((a) => (
@@ -319,33 +386,37 @@ function AppointmentsPageContent() {
                   {a.notes && ` · ${a.notes}`}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {!("isPracticeSample" in a && (a as { isPracticeSample?: boolean }).isPracticeSample) && "businessId" in a && (
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(a as Appointment)}>
-                    Reschedule
-                  </Button>
-                )}
-                {a.status === "scheduled" && !("isPracticeSample" in a && (a as { isPracticeSample?: boolean }).isPracticeSample) && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => handleReminderSent(a.id)}>
-                      Reminder sent
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleStatus(a.id, "completed")}>
-                      Complete
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleStatus(a.id, "missed")}>
-                      Missed
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        if (confirm("Cancel this appointment?")) handleStatus(a.id, "cancelled");
+                    {a.status === "scheduled" && (
+                      <Button size="sm" variant="outline" onClick={() => handleReminderSent(a.id)}>
+                        Reminder sent
+                      </Button>
+                    )}
+                    <select
+                      value={a.status}
+                      onChange={(e) => {
+                        const v = e.target.value as "scheduled" | "completed" | "missed" | "cancelled";
+                        if (v === "cancelled") {
+                          if (confirm("Cancel this appointment?")) handleStatus(a.id, v);
+                        } else {
+                          handleStatus(a.id, v);
+                        }
                       }}
+                      className="rounded-md border border-input bg-background px-3 py-1.5 text-sm capitalize min-h-[32px]"
+                      aria-label="Change status"
                     >
-                      Cancel
-                    </Button>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="completed">Completed</option>
+                      <option value="missed">Missed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                    {a.status === "scheduled" && (
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(a as Appointment)}>
+                        Reschedule
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
@@ -353,9 +424,17 @@ function AppointmentsPageContent() {
           ))}
         </ul>
         {displayAppointments.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">No appointments. Create one to get started. Your schedule is now active when you add your first.</p>
+          <EmptyState
+            what="No appointments yet"
+            why="Appointments help you plan your day — but you can use the app without them."
+            nextAction={
+              <Button onClick={() => { resetForm(); setShowForm(true); }}>
+                Create first appointment
+              </Button>
+            }
+          />
         )}
-      </div>
+      </PageSection>
       </div>
     </div>
   );

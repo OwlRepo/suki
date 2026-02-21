@@ -5,6 +5,8 @@ import { useAuth } from "@clerk/nextjs";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSection } from "@/components/ui/page-section";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -96,51 +98,53 @@ function LoyaltyPageContent() {
   return (
     <div className="space-y-8">
       <div>
-      <PracticeDayBanner />
-      <OnboardingGuidance
-        step={ONBOARDING_STEPS.loyalty}
-        screen="loyalty"
-        onComplete={() => {}}
-      />
-      </div>
-      <div>
-      <div className="flex flex-wrap items-center gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">
-          <TooltipBadge screen="loyalty">Loyalty</TooltipBadge>
-        </h1>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground">Visit threshold:</label>
-          <select
-            value={showPracticeData ? displayThreshold : threshold}
-            onChange={(e) => handleThresholdChange(parseInt(e.target.value, 10))}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            {[3, 5, 10, 15, 20].map((t) => (
-              <option key={t} value={t}>
-                {t}+ visits
-              </option>
-            ))}
-          </select>
-        </div>
-        <input
-          type="text"
-          placeholder="Filter by tag"
-          value={tagFilter}
-          onChange={(e) => setTagFilter(e.target.value)}
-          className="rounded-md border border-input bg-background px-3 py-2 text-base"
+        <PracticeDayBanner />
+        <OnboardingGuidance
+          step={ONBOARDING_STEPS.loyalty}
+          screen="loyalty"
+          onComplete={() => {}}
         />
       </div>
+      <div className="space-y-8">
+        <PageHeader
+          title={<TooltipBadge screen="loyalty">Loyalty</TooltipBadge>}
+          description="Automatic rewards, not configuration. Regular customers appear here when they meet the threshold."
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={showPracticeData ? displayThreshold : threshold}
+                onChange={(e) => handleThresholdChange(parseInt(e.target.value, 10))}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[40px]"
+                aria-label="Visit threshold"
+              >
+                {[3, 5, 10, 15, 20].map((t) => (
+                  <option key={t} value={t}>
+                    {t}+ visits
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                placeholder="Filter by label (e.g. VIP)"
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                className="rounded-md border border-input bg-background px-3 py-2 text-base min-h-[40px] w-40"
+                aria-label="Filter by label"
+              />
+            </div>
+          }
+        />
 
-      <p className="mt-6 text-sm text-muted-foreground">
-        Customers with {displayThreshold}+ visits qualify as loyal. Reward repeat visits with one easy rule your staff can explain.
-      </p>
-      {showPracticeData && (
-        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-          {PRACTICE_SAMPLE_LABEL}: {SAMPLE_LOYALTY.reward}
+        <p className="text-helper">
+          After {displayThreshold} visits, customers become regulars. Example: Every 6th visit gets ₱100 off.
         </p>
-      )}
+        {showPracticeData && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {PRACTICE_SAMPLE_LABEL}: {SAMPLE_LOYALTY.reward}
+          </p>
+        )}
 
-      <div className="mt-8">
+      <PageSection>
         <ul className="divide-y divide-border">
           {displayCustomers.map((c) => (
             <li key={c.id} className="flex items-center justify-between py-5 first:pt-0">
@@ -164,11 +168,11 @@ function LoyaltyPageContent() {
           ))}
         </ul>
         {displayCustomers.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">
-            No customers meet the threshold yet. Returning customers can now earn rewards when you enable a rule.
+          <p className="py-8 text-center text-helper">
+            Regular customers will appear here automatically when they meet the threshold.
           </p>
         )}
-      </div>
+      </PageSection>
       </div>
     </div>
   );

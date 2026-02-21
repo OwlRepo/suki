@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
+import { MetricCard } from "@/components/ui/metric-card";
+import { StatusBanner } from "@/components/ui/status-banner";
+import { PrimaryPageAction } from "@/components/ui/primary-page-action";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageSection } from "@/components/ui/page-section";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -40,6 +46,7 @@ interface Usage {
   visitsThisMonth: number;
   promosSentThisMonth: number;
   month: string;
+  upcomingAppointments?: number;
 }
 
 interface Activity {
@@ -50,14 +57,17 @@ interface Activity {
 }
 
 function DashboardPageContent() {
+  const searchParams = useSearchParams();
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const onboarding = useOnboarding();
   const workspace = useWorkspace();
+  const showWelcome = searchParams?.get("welcome") === "1";
   const [summary, setSummary] = useState<Summary | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   const businessId = workspace?.activeBusinessId ?? "";
@@ -65,7 +75,10 @@ function DashboardPageContent() {
 
   useEffect(() => {
     if (syncData) {
-      recordOnboardingEvent("dashboard_viewed", syncData.organization?.id ?? null);
+      recordOnboardingEvent(
+        "dashboard_viewed",
+        syncData.organization?.id ?? null,
+      );
     }
   }, [syncData]);
 
@@ -75,7 +88,9 @@ function DashboardPageContent() {
       try {
         const token = await getToken();
         if (!token) return;
-        const summaryRes = await apiRequest<Summary>("/admin/summary", { token });
+        const summaryRes = await apiRequest<Summary>("/admin/summary", {
+          token,
+        });
         setSummary(summaryRes);
       } finally {
         setLoading(false);
@@ -108,8 +123,13 @@ function DashboardPageContent() {
       if (!token) return;
       try {
         const [usageRes, activityRes] = await Promise.all([
-          apiRequest<Usage>(`/admin/usage${businessId ? `?businessId=${businessId}` : ""}`, { token }),
-          apiRequest<{ activities: Activity[] }>("/admin/activity?limit=15", { token }),
+          apiRequest<Usage>(
+            `/admin/usage${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ""}`,
+            { token },
+          ),
+          apiRequest<{ activities: Activity[] }>("/admin/activity?limit=15", {
+            token,
+          }),
         ]);
         setUsage(usageRes);
         setActivities(activityRes.activities ?? []);
@@ -120,15 +140,47 @@ function DashboardPageContent() {
     })();
   }, [syncData, businessId, getToken]);
 
-  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
+  // upcomingAppointments comes from usage when businessId is set; otherwise fetch separately
+  useEffect(() => {
+    if (usage?.upcomingAppointments !== undefined) {
+      setUpcomingAppointments(usage.upcomingAppointments);
+      return;
+    }
+    if (!businessId) return;
+    (async () => {
+      const token = await getToken();
+      if (!token) return;
+      try {
+        const from = new Date();
+        from.setHours(0, 0, 0, 0);
+        const res = await apiRequest<{ appointments: unknown[] }>(
+          `/appointments?businessId=${businessId}&from=${from.toISOString()}`,
+          { token },
+        );
+        setUpcomingAppointments(res.appointments?.length ?? 0);
+      } catch {
+        setUpcomingAppointments(0);
+      }
+    })();
+  }, [businessId, getToken, usage?.upcomingAppointments]);
 
-  const s = summary ?? { businesses: 0, customers: 0, appointments: 0, promos: 0 };
-  const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
+  if (loading || workspace?.loading)
+    return <p className="text-muted-foreground">Loading...</p>;
+
+  const s = summary ?? {
+    businesses: 0,
+    customers: 0,
+    appointments: 0,
+    promos: 0,
+  };
+  const showPracticeData =
+    onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
   const summaryDisplay = showPracticeData
     ? { businesses: 1, customers: 8, appointments: 5, promos: 3 }
     : s;
   const highlightFirstCard =
-    onboarding?.currentStep === ONBOARDING_STEPS.firstDashboard && !onboarding.onboardingCompletedAt;
+    onboarding?.currentStep === ONBOARDING_STEPS.firstDashboard &&
+    !onboarding.onboardingCompletedAt;
 
   return (
     <div className="space-y-8">
@@ -141,146 +193,157 @@ function DashboardPageContent() {
           onComplete={() => {}}
         />
       </div>
-      <div>
-      <h1 className="text-2xl font-semibold text-foreground">
-        <TooltipBadge screen="dashboard">Dashboard</TooltipBadge>
-      </h1>
-      <p className="mt-2 text-muted-foreground">
-        Overview of your business and engagement metrics.
-      </p>
+      <div className="space-y-8">
+        <PageHeader
+          title={<TooltipBadge screen="dashboard">Dashboard</TooltipBadge>}
+          description="Welcome back. Here's what needs your attention today."
+        />
 
-      {businessId && businesses.length > 0 && (
-        <div className="mt-8">
-          <IntakeQRBlock
-            businessId={businessId}
-            businessName={businesses.find((b) => b.id === businessId)?.name ?? ""}
+        {showWelcome && (
+          <StatusBanner
+            variant="success"
+            message="You're ready. Start by adding your first customer."
+            onDismiss={() => window.history.replaceState({}, "", "/dashboard")}
           />
-        </div>
-      )}
+        )}
 
-      <div className="mt-8 flex flex-wrap gap-4">
-        <Link href="/setup">
-          <Button>Business setup</Button>
-        </Link>
-        <Link
-          href="/customers"
-          onClick={() => {
-            if (highlightFirstCard && onboarding) {
-              onboarding.advanceStep();
-            }
-          }}
-        >
-          <Button
-            variant={highlightFirstCard ? "default" : "outline"}
-            className={highlightFirstCard ? "ring-2 ring-primary ring-offset-2" : ""}
-          >
-            Add first customer
-          </Button>
-        </Link>
-        <Link href="/appointments">
-          <Button variant="outline">Appointments</Button>
-        </Link>
-        <Link href="/promos">
-          <Button variant="outline">Promos</Button>
-        </Link>
-      </div>
-
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Businesses</p>
-          <p className="mt-1 text-2xl font-semibold">{summaryDisplay.businesses}</p>
-          {showPracticeData && (
-            <span className="mt-1 inline-block text-xs text-amber-600 dark:text-amber-400">
-              Practice Sample
-            </span>
-          )}
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Customers</p>
-          <p className="mt-1 text-2xl font-semibold">{summaryDisplay.customers}</p>
-          {showPracticeData && (
-            <span className="mt-1 inline-block text-xs text-amber-600 dark:text-amber-400">
-              Practice Sample
-            </span>
-          )}
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Appointments</p>
-          <p className="mt-1 text-2xl font-semibold">{summaryDisplay.appointments}</p>
-          {showPracticeData && (
-            <span className="mt-1 inline-block text-xs text-amber-600 dark:text-amber-400">
-              Practice Sample
-            </span>
-          )}
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Promos</p>
-          <p className="mt-1 text-2xl font-semibold">{summaryDisplay.promos}</p>
-          {showPracticeData && (
-            <span className="mt-1 inline-block text-xs text-amber-600 dark:text-amber-400">
-              Practice Sample
-            </span>
-          )}
-        </div>
-      </div>
-
-      {(usage || metrics) && (
-        <div className="mt-10">
-          <h2 className="text-base font-medium text-foreground">This month</h2>
-          <p className="text-sm text-muted-foreground">
-            {usage?.month ? `Data for ${usage.month}` : "Monthly usage"}
-          </p>
-          <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">Active customers</p>
-              <p className="mt-1 text-xl font-semibold">{usage?.activeCustomers ?? metrics?.repeatCustomers ?? "—"}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">New customers</p>
-              <p className="mt-1 text-xl font-semibold">{usage?.newCustomersThisMonth ?? metrics?.newCustomers ?? "—"}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">Visits</p>
-              <p className="mt-1 text-xl font-semibold">{usage?.visitsThisMonth ?? metrics?.repeatVisits ?? "—"}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">Promos sent</p>
-              <p className="mt-1 text-xl font-semibold">{usage?.promosSentThisMonth ?? "—"}</p>
-            </div>
+        {businessId && businesses.length > 0 && (
+          <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-5">
+            <h2 className="text-base font-medium text-foreground">Next step</h2>
+            <p className="mt-1 text-helper">
+              {summaryDisplay.customers === 0
+                ? "Add your first customer to get started."
+                : summaryDisplay.appointments === 0
+                  ? "Schedule your first appointment to plan your day."
+                  : "Record a customer visit to keep your list up to date."}
+            </p>
+            <PrimaryPageAction className="mt-4">
+              {summaryDisplay.customers === 0 ? (
+                <Link
+                  href="/customers"
+                  onClick={() => {
+                    if (highlightFirstCard && onboarding)
+                      onboarding.advanceStep();
+                  }}
+                >
+                  <Button
+                    variant={highlightFirstCard ? "default" : "default"}
+                    className={
+                      highlightFirstCard
+                        ? "ring-2 ring-primary ring-offset-2"
+                        : ""
+                    }
+                  >
+                    Add your first customer
+                  </Button>
+                </Link>
+              ) : summaryDisplay.appointments === 0 ? (
+                <Link href="/appointments">
+                  <Button>Schedule your first appointment</Button>
+                </Link>
+              ) : (
+                <Link href="/customers">
+                  <Button>Record a customer visit</Button>
+                </Link>
+              )}
+            </PrimaryPageAction>
           </div>
-        </div>
-      )}
+        )}
 
-      {activities.length > 0 && (
-        <div className="mt-10">
-          <h2 className="text-base font-medium text-foreground">Recent activity</h2>
-          <p className="text-sm text-muted-foreground">
-            Latest customer, appointment, and promo changes
+        {businessId && businesses.length > 0 && (
+          <PageSection>
+            <IntakeQRBlock
+              businessId={businessId}
+              businessName={
+                businesses.find((b) => b.id === businessId)?.name ?? ""
+              }
+              heading="Let customers add themselves"
+              helperText="Share this QR or link so customers can register without paperwork."
+              showPrintButton
+            />
+          </PageSection>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <Link href="/setup">
+            <Button variant="outline" size="sm">
+              Business setup
+            </Button>
+          </Link>
+          <Link href="/customers">
+            <Button variant="outline" size="sm">
+              Customers
+            </Button>
+          </Link>
+          <Link href="/appointments">
+            <Button variant="outline" size="sm">
+              Appointments
+            </Button>
+          </Link>
+          <Link href="/promos">
+            <Button variant="outline" size="sm">
+              Promos
+            </Button>
+          </Link>
+        </div>
+
+        <PageSection
+          title="Metrics"
+          description={usage?.month ? `Data for ${usage.month}` : undefined}
+        >
+          <div className="grid gap-6 sm:grid-cols-3">
+            <MetricCard
+              label="Total customers"
+              value={summaryDisplay.customers}
+              suffix={showPracticeData ? "Practice Sample" : undefined}
+            />
+            <MetricCard
+              label="Visits this month"
+              value={usage?.visitsThisMonth ?? metrics?.repeatVisits ?? "—"}
+            />
+            <MetricCard
+              label="Upcoming appointments"
+              value={
+                showPracticeData
+                  ? summaryDisplay.appointments
+                  : upcomingAppointments
+              }
+              suffix={showPracticeData ? "Practice Sample" : undefined}
+            />
+          </div>
+        </PageSection>
+
+        {activities.length > 0 && (
+          <PageSection
+            title="Recent activity"
+            description="Latest customer, appointment, and promo changes"
+          >
+            <ul className="mt-3 space-y-2" role="list">
+              {activities.slice(0, 15).map((a, i) => (
+                <li
+                  key={`${a.type}-${a.at}-${i}`}
+                  className="flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2 text-base"
+                >
+                  <span className="shrink-0 text-muted-foreground" aria-hidden>
+                    {a.at.slice(0, 10)}
+                  </span>
+                  <span>{a.description}</span>
+                  {a.businessName && (
+                    <span className="shrink-0 text-sm text-muted-foreground">
+                      ({a.businessName})
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </PageSection>
+        )}
+
+        {s.businesses === 0 && (
+          <p className="mt-6 text-muted-foreground">
+            Set up your first business to see metrics and manage customers.
           </p>
-          <ul className="mt-3 space-y-2" role="list">
-            {activities.slice(0, 15).map((a, i) => (
-              <li
-                key={`${a.type}-${a.at}-${i}`}
-                className="flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2 text-base"
-              >
-                <span className="shrink-0 text-muted-foreground" aria-hidden>
-                  {a.at.slice(0, 10)}
-                </span>
-                <span>{a.description}</span>
-                {a.businessName && (
-                  <span className="shrink-0 text-sm text-muted-foreground">({a.businessName})</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {s.businesses === 0 && (
-        <p className="mt-6 text-muted-foreground">
-          Set up your first business to see metrics and manage customers.
-        </p>
-      )}
+        )}
       </div>
     </div>
   );
@@ -292,10 +355,15 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
         <p className="mt-2 text-muted-foreground">
-          Clerk authentication is not configured. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to view your dashboard.
+          Clerk authentication is not configured. Set
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to view your dashboard.
         </p>
       </div>
     );
   }
-  return <DashboardPageContent />;
+  return (
+    <Suspense fallback={<p className="text-muted-foreground">Loading...</p>}>
+      <DashboardPageContent />
+    </Suspense>
+  );
 }

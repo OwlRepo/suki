@@ -45,7 +45,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 unlockAfterStep={ONBOARDING_STEPS.importCustomers}
                 lockMessage="Unlocks after you have a week of data."
               >
-                Insights
+                Business Summary
               </NavLinkWithLock>
               <NavLinkWithLock
                 href="/loyalty"

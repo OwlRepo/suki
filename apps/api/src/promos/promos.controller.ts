@@ -22,11 +22,27 @@ export class PromosController {
   @Get()
   async list(
     @Query("businessId") businessId: string,
+    @Query("limit") limitStr?: string,
+    @Query("offset") offsetStr?: string,
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!businessId || !orgId) throw new BadRequestException("businessId required");
-    const list = await this.promosService.list(businessId, orgId);
-    return { promos: list };
+    const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+    const offset = offsetStr ? parseInt(offsetStr, 10) : undefined;
+    const result = await this.promosService.list(businessId, orgId, {
+      limit: limit && Number.isFinite(limit) ? limit : undefined,
+      offset: offset && Number.isFinite(offset) ? offset : undefined,
+    });
+    if (Array.isArray(result)) {
+      return { promos: result };
+    }
+    return {
+      promos: result.items,
+      total: result.total,
+      hasMore: result.hasMore,
+      limit: result.limit,
+      offset: result.offset,
+    };
   }
 
   @Post()

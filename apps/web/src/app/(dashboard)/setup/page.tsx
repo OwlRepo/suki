@@ -110,7 +110,7 @@ function SetupPageContent() {
       await workspace?.refetch?.();
       onboarding?.advanceStep();
       recordOnboardingEvent("setup_completed", syncData?.organization?.id ?? null);
-      router.push("/dashboard");
+      router.push("/dashboard?welcome=1");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create business. Please try again.";
       if (msg === "PLAN_BUSINESS_LIMIT_REACHED") {
@@ -155,7 +155,7 @@ function SetupPageContent() {
           Business setup
         </h1>
         <p className="mt-2 text-base text-muted-foreground">
-          Tell us about your business so we can suggest the right tools. You can edit this anytime.
+          This helps us adjust the app for how you work. You can change this anytime.
         </p>
         <form onSubmit={handleQuestionsSubmit} className="mt-6 space-y-5">
           <div>
@@ -221,23 +221,35 @@ function SetupPageContent() {
           Recommended for {name.trim()}
         </h1>
         <p className="mt-2 text-base text-muted-foreground">
-          For a {typeLabel}, we suggest these features:
+          For a {typeLabel}, these features will help most. Others are optional — you can enable them later.
         </p>
 
         {recommendationsLoading ? (
           <p className="mt-6 text-base text-muted-foreground">Loading recommendations…</p>
         ) : (
           <ul className="mt-6 space-y-3" role="list">
-            {recommendedModules.map((m) => (
+            {recommendedModules.slice(0, 3).map((m) => (
               <li
                 key={m}
-                className="flex items-start gap-3 rounded-lg border border-border bg-card p-4"
+                className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4"
               >
-                <span className="text-base text-foreground">
+                <span className="text-base font-medium text-foreground">
                   {MODULE_LABELS[m] ?? m}
                 </span>
               </li>
             ))}
+            {recommendedModules.length > 3 && (
+              <li className="rounded-lg border border-border bg-muted/30 p-4">
+                <span className="text-base text-muted-foreground">
+                  Optional — enable later: {recommendedModules.slice(3).map((m) => MODULE_LABELS[m] ?? m).join(", ")}
+                </span>
+              </li>
+            )}
+            {recommendedModules.length > 0 && recommendedModules.length <= 3 && (
+              <p className="text-sm text-muted-foreground">
+                You can explore more features after setup.
+              </p>
+            )}
             {recommendedModules.length === 0 && (
               <p className="text-base text-muted-foreground">
                 No specific recommendations. You can explore all features after setup.

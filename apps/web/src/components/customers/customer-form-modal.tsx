@@ -1,0 +1,142 @@
+"use client";
+
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@suki/ui";
+import { cn } from "@/lib/utils";
+
+interface CustomerFormModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: { name: string; mobile?: string; tags?: string }) => void;
+  loading?: boolean;
+  /** For practice mode - changes button label */
+  practiceMode?: boolean;
+}
+
+/**
+ * Modal for adding a customer. Required: Name + Mobile.
+ * Optional fields (tags) hidden behind "More options (optional)".
+ */
+export function CustomerFormModal({
+  open,
+  onClose,
+  onSubmit,
+  loading = false,
+  practiceMode = false,
+}: CustomerFormModalProps) {
+  const [name, setName] = React.useState("");
+  const [mobile, setMobile] = React.useState("");
+  const [tags, setTags] = React.useState("");
+  const [showMore, setShowMore] = React.useState(false);
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  React.useEffect(() => {
+    if (!open) {
+      setName("");
+      setMobile("");
+      setTags("");
+      setShowMore(false);
+    }
+  }, [open]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({
+      name: name.trim(),
+      mobile: mobile.trim() || undefined,
+      tags: showMore ? (tags.trim() || undefined) : undefined,
+    });
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="customer-form-title"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="customer-form-title" className="text-lg font-semibold text-foreground">
+          Add customer
+        </h2>
+        <p className="mt-1 text-helper">
+          Add people here and track their visits. You can edit details anytime.
+        </p>
+        <form ref={formRef} onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div>
+            <label htmlFor="customer-name" className="mb-1 block text-sm font-medium">
+              Name <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="customer-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Juan Dela Cruz"
+              required
+              className="w-full"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label htmlFor="customer-mobile" className="mb-1 block text-sm font-medium">
+              Mobile
+            </label>
+            <Input
+              id="customer-mobile"
+              type="tel"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
+              placeholder="e.g. 09XX XXX XXXX"
+              className="w-full"
+            />
+          </div>
+          {showMore ? (
+            <div>
+              <label htmlFor="customer-tags" className="mb-1 block text-sm font-medium">
+                Labels <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <Input
+                id="customer-tags"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="e.g. VIP, Regular"
+                className="w-full"
+              />
+              <button
+                type="button"
+                onClick={() => setShowMore(false)}
+                className="mt-1 text-sm text-muted-foreground hover:text-foreground"
+              >
+                Hide optional fields
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowMore(true)}
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              More options (optional)
+            </button>
+          )}
+          <div className="flex gap-2 pt-2">
+            <Button type="submit" disabled={loading} className="min-h-[44px]">
+              {loading ? "Saving…" : practiceMode ? "Practice save" : "Save customer"}
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

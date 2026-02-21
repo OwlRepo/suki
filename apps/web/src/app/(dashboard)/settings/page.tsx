@@ -280,7 +280,10 @@ function SettingsPageContent() {
       </p>
 
       <section className="mt-8 space-y-4">
-        <h2 className="text-lg font-medium">Organization</h2>
+        <div>
+          <h2 className="text-lg font-medium">Organization</h2>
+          <p className="text-sm text-muted-foreground">Your workspace name. This appears in emails and receipts.</p>
+        </div>
         <form onSubmit={handleSaveOrg} className="flex gap-2">
           <Input
             value={orgName}
@@ -295,7 +298,10 @@ function SettingsPageContent() {
       </section>
 
       <section className="mt-8 space-y-4">
-        <h2 className="text-lg font-medium">Businesses</h2>
+        <div>
+          <h2 className="text-lg font-medium">Businesses</h2>
+          <p className="text-sm text-muted-foreground">Each business has its own customers and appointments.</p>
+        </div>
         <ul className="divide-y divide-border">
           {businesses.map((b) => (
             <li key={b.id} className="flex items-center justify-between py-3 first:pt-0">
@@ -360,7 +366,10 @@ function SettingsPageContent() {
 
       {aiUsage && (
         <section className="mt-8 space-y-4">
-          <h2 className="text-lg font-medium">AI Usage & Quotas</h2>
+          <div>
+            <h2 className="text-lg font-medium">AI Usage & Quotas</h2>
+            <p className="text-sm text-muted-foreground">AI helps you write messages and summaries. Turn it on to get better promos and faster workflows.</p>
+          </div>
           <div className="rounded-lg border border-border bg-card p-4 max-w-lg">
             <p className="text-sm text-muted-foreground">Plan: {aiUsage.plan}</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -468,7 +477,10 @@ function SettingsPageContent() {
       )}
 
       <section className="mt-8 space-y-4">
-        <h2 className="text-lg font-medium">Billing</h2>
+        <div>
+          <h2 className="text-lg font-medium">Billing</h2>
+          <p className="text-sm text-muted-foreground">You can change or cancel anytime. No lock-in.</p>
+        </div>
         <div className="rounded-lg border border-border bg-card p-4 max-w-md">
           <p className="text-sm text-muted-foreground">Plan</p>
           <p className="mt-1 font-medium capitalize">
