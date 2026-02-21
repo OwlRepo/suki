@@ -20,6 +20,7 @@ interface PageHeaderProps {
 
 /**
  * Consistent page header with title, optional description, and actions.
+ * Aligned to dashboard layout (max-w-7xl) for consistent appearance across pages.
  */
 export function PageHeader({
   title,
@@ -31,43 +32,49 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   const supportingDescription = plainLanguageDescription ?? description;
+  const hasGuidance = whatThisPageIsFor != null || whatToDoNext != null;
 
   return (
-    <div
+    <header
       className={cn(
-        "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+        "relative w-full",
+        "flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6",
+        "pb-1",
         className,
       )}
+      role="banner"
     >
-      <div className="space-y-1 min-w-0">
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight">
+      <div className="min-w-0 flex-1 space-y-3 max-w-2xl">
+        <h1 className="text-2xl font-semibold text-foreground tracking-tight sm:text-[1.625rem]">
           {title}
         </h1>
         {supportingDescription && (
-          <p className="text-helper max-w-2xl">{supportingDescription}</p>
-        )}
-        {whatThisPageIsFor && (
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">
-              What this page is for:{" "}
-            </span>
-            {whatThisPageIsFor}
+          <p className="text-base text-muted-foreground leading-relaxed">
+            {supportingDescription}
           </p>
         )}
-        {whatToDoNext && (
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">
-              What to do next:{" "}
-            </span>
-            {whatToDoNext}
-          </p>
+        {hasGuidance && (
+          <div className="flex flex-col gap-1.5 pt-1 border-l-2 border-muted-foreground/30 pl-4">
+            {whatThisPageIsFor != null && (
+              <p className="text-base text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground">What this page is for: </span>
+                <span>{whatThisPageIsFor}</span>
+              </p>
+            )}
+            {whatToDoNext != null && (
+              <p className="text-base text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground">What to do next: </span>
+                <span>{whatToDoNext}</span>
+              </p>
+            )}
+          </div>
         )}
       </div>
-      {actions && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {actions != null && (
+        <div className="flex shrink-0 flex-wrap items-start gap-2 sm:pt-0.5">
           {actions}
         </div>
       )}
-    </div>
+    </header>
   );
 }

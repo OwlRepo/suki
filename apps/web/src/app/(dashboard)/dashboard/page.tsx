@@ -184,7 +184,7 @@ function DashboardPageContent() {
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="empty:hidden">
         <PracticeDayBanner />
         <OnboardingChecklist />
         <OnboardingGuidance

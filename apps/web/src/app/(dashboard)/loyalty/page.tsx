@@ -101,7 +101,7 @@ function LoyaltyPageContent() {
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="empty:hidden">
         <PracticeDayBanner />
         <OnboardingGuidance
           step={ONBOARDING_STEPS.loyalty}
