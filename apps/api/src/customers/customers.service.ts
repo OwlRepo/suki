@@ -166,6 +166,64 @@ export class CustomersService {
     return updated!;
   }
 
+  async findDuplicateCandidates(
+    businessId: string,
+    organizationId: string,
+    opts?: { limit?: number },
+  ) {
+    await this.assertBusinessAccess(businessId, organizationId);
+    const db = getDb();
+    const limit = Math.min(opts?.limit ?? 20, 50);
+    const list = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.businessId, businessId))
+      .orderBy(desc(customers.updatedAt));
+
+    const candidates: Array<{
+      customer: (typeof list)[0];
+      matches: Array<{ customer: (typeof list)[0]; confidence: number }>;
+    }> = [];
+
+    const normalized = (s: string | null | undefined) =>
+      (s ?? "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const seen = new Set<string>();
+    for (const c of list) {
+      if (seen.has(c.id)) continue;
+      const cName = normalized(c.name);
+      const cMobile = normalized(c.mobile);
+      if (!cName && !cMobile) continue;
+
+      const matches: Array<{ customer: (typeof list)[0]; confidence: number }> = [];
+      for (const other of list) {
+        if (other.id === c.id) continue;
+        const oName = normalized(other.name);
+        const oMobile = normalized(other.mobile);
+
+        let score = 0;
+        if (cName && oName && cName === oName) score += 80;
+        else if (cName && oName && cName.includes(oName)) score += 50;
+        else if (cName && oName && oName.includes(cName)) score += 50;
+        if (cMobile && oMobile && cMobile === oMobile) score += 90;
+        else if (cMobile && oMobile && cMobile.replace(/\D/g, "") === oMobile.replace(/\D/g, ""))
+          score += 85;
+
+        if (score >= 50) matches.push({ customer: other, confidence: Math.min(score, 100) });
+      }
+      if (matches.length > 0) {
+        candidates.push({ customer: c, matches });
+        seen.add(c.id);
+        matches.forEach((m) => seen.add(m.customer.id));
+        if (candidates.length >= limit) break;
+      }
+    }
+    return { candidates };
+  }
+
   private async assertBusinessAccess(businessId: string, organizationId: string) {
     const db = getDb();
     const [biz] = await db

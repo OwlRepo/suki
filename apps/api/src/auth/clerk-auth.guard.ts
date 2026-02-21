@@ -28,7 +28,11 @@ export class ClerkAuthGuard implements CanActivate {
     }
     const db = getDb();
     const [user] = await db
-      .select()
+      .select({
+        id: users.id,
+        organizationId: users.organizationId,
+        role: users.role,
+      })
       .from(users)
       .where(eq(users.clerkId, payload.clerkId))
       .limit(1);

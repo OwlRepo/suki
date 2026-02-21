@@ -7,24 +7,16 @@ import {
 import { getDb } from "@suki/database";
 import { aiCredits, businesses } from "@suki/database";
 import { eq, and } from "drizzle-orm";
-import OpenAI from "openai";
+import { AiExecutionService } from "../ai/ai-execution.service";
 
-const CREDITS_PER_GENERATION = 1;
 const DEFAULT_MONTHLY_CREDITS = 100;
 
 @Injectable()
 export class MessagingService {
-  private openai: OpenAI | null = null;
-
-  constructor() {
-    const key = process.env.OPENAI_API_KEY;
-    if (key && !key.includes("placeholder")) {
-      this.openai = new OpenAI({ apiKey: key });
-    }
-  }
+  constructor(private readonly aiExecution: AiExecutionService) {}
 
   hasOpenAi(): boolean {
-    return this.openai !== null;
+    return this.aiExecution.hasOpenAi();
   }
 
   async getCredits(organizationId: string): Promise<{
@@ -45,11 +37,12 @@ export class MessagingService {
 
   async generate(
     organizationId: string,
+    userId: string,
     businessId: string,
     prompt: string,
     context?: Record<string, unknown>,
   ): Promise<{ generatedMessage: string; creditsUsed: number }> {
-    if (!this.openai) {
+    if (!this.aiExecution.hasOpenAi()) {
       throw new ServiceUnavailableException(
         "AI message generation is not configured. Set OPENAI_API_KEY.",
       );
@@ -59,43 +52,22 @@ export class MessagingService {
     }
     await this.assertBusinessAccess(businessId, organizationId);
 
-    const month = this.currentMonth();
-    const row = await this.getOrCreateCreditsRow(organizationId, month);
-    if (row.used + CREDITS_PER_GENERATION > row.allocated) {
-      throw new ForbiddenException(
-        "Insufficient AI credits. Upgrade your plan or wait for next month.",
-      );
-    }
-
     const systemPrompt = this.buildSystemPrompt(context);
-    const completion = await this.openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
+    const { content } = await this.aiExecution.executeWithGuardrails(
+      organizationId,
+      userId,
+      "drafting",
+      [
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt },
       ],
-      max_tokens: 300,
-      temperature: 0.7,
-    });
+      { businessId, maxTokens: 300 },
+    );
 
-    const generatedMessage =
-      completion.choices[0]?.message?.content?.trim() ?? "";
-
-    const db = getDb();
-    await db
-      .update(aiCredits)
-      .set({
-        used: row.used + CREDITS_PER_GENERATION,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(aiCredits.organizationId, organizationId),
-          eq(aiCredits.month, month),
-        ),
-      );
-
-    return { generatedMessage, creditsUsed: CREDITS_PER_GENERATION };
+    return {
+      generatedMessage: content,
+      creditsUsed: 1,
+    };
   }
 
   private currentMonth(): string {

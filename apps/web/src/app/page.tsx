@@ -5,24 +5,24 @@ import { Button } from "@/components/ui/button";
 
 const PAIN_SOLUTIONS = [
   {
-    pain: "Customers don't come back",
-    solution: "Follow-ups and targeted promotions",
+    pain: "Data is messy and duplicates break reporting.",
+    solution: "Built-in dedupe checks, cleaner import validation, structured customer profiles.",
+    outcome: "More reliable segments and campaign targeting.",
   },
   {
-    pain: "Customer info on paper or scattered",
-    solution: "Simple customer list and QR intake",
+    pain: "Teams avoid CRM because updates are manual and slow.",
+    solution: "Simplified workflows, workspace persistence, and automation-ready actions.",
+    outcome: "Higher team adoption with less admin burden.",
   },
   {
-    pain: "No-shows and forgotten reminders",
-    solution: "Appointment reminders and tracking",
+    pain: "Insights are fragmented across tools and tabs.",
+    solution: "Unified dashboard and CRM modules under one business workspace context.",
+    outcome: "Faster decisions from one source of truth.",
   },
   {
-    pain: "Idle hours and lost capacity",
-    solution: "Promotions for slow periods",
-  },
-  {
-    pain: "Owners lack visibility",
-    solution: "Monthly insights and activity dashboard",
+    pain: "Switching CRMs feels risky and disruptive.",
+    solution: "Guided migration with mapping, validation, and dry-run.",
+    outcome: "Safer rollout with fewer go-live surprises.",
   },
 ] as const;
 
@@ -99,20 +99,20 @@ const PLANS = [
 
 const FAQ = [
   {
-    q: "Is this complicated to use?",
-    a: "No. It's designed for daily use—tap-based, mobile-first. Staff use it without training.",
+    q: "Can we switch from Lite to Full without losing data?",
+    a: "Yes. Your records stay compatible across both modes—no data reset, no forced re-import.",
   },
   {
-    q: "Can we change plans later?",
-    a: "Yes, anytime. Upgrade when you need more. No long-term lock-in.",
+    q: "Which CRMs can we migrate from first?",
+    a: "Guided migration supports Salesforce, HubSpot, Dynamics, Zoho, and Pipedrive—with mapping, validation, and dry-run.",
   },
   {
-    q: "Does it work on phones?",
-    a: "Yes. Works on phone, tablet, or computer.",
+    q: "Do you support on-prem and offline environments?",
+    a: "Yes. Self-hosted deployment with signed licensing and offline/air-gapped paths is available for regulated clients.",
   },
   {
-    q: "What happens to our data if we stop?",
-    a: "Your data stays yours. Nothing is deleted. You can view and export it.",
+    q: "How is business/workspace access controlled per user?",
+    a: "Each user has a per-user, server-persisted active workspace. One workspace picker applies across all pages.",
   },
 ] as const;
 
@@ -130,34 +130,53 @@ export default function Home() {
       <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         {/* Hero */}
         <section className="flex flex-col items-center gap-6 text-center">
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            CRM for growing service businesses
+          </p>
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Grow repeat visits without adding complexity
+            Fix CRM chaos without adding complexity
           </h1>
           <p className="max-w-2xl text-lg text-muted-foreground sm:text-xl">
-            Simple CRM for Philippine small businesses. Organize customers, send
-            follow-ups, and see who comes back—with AI that assists, never
-            decides for you.
+            One workspace across pages, cleaner customer records, and a Lite-to-Full
+            path that scales with your business.
           </p>
-          <LandingCta />
+          <ul className="mt-4 flex flex-col gap-2 text-left text-sm text-muted-foreground sm:text-base max-w-md mx-auto">
+            <li>• Reduce repetitive manual updates</li>
+            <li>• Keep customer and visit history accurate</li>
+            <li>• Upgrade to Full CRM without data rework</li>
+          </ul>
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+            <LandingCta />
+            <Button variant="outline" asChild>
+              <Link href="/sign-up">Book Full CRM Demo</Link>
+            </Button>
+            <Link href="#migration" className="text-sm text-muted-foreground hover:text-foreground">
+              Migrating from another CRM?
+            </Link>
+          </div>
         </section>
 
         {/* Problem to value */}
         <section className="mt-20 sm:mt-28">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
-            Common problems, practical solutions
+            Most CRMs fail at adoption, data quality, and workflow speed
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
-            For salons, cafes, spas, carwash, and similar businesses
+            Suki is built to solve those first—one workspace across pages, cleaner
+            records, and automation that reduces repetitive admin work
           </p>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {PAIN_SOLUTIONS.map(({ pain, solution }) => (
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            {PAIN_SOLUTIONS.map(({ pain, solution, outcome }) => (
               <div
                 key={pain}
                 className="rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm"
               >
-                <p className="font-medium text-foreground">{pain}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  → {solution}
+                <p className="font-medium text-foreground">Pain: {pain}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Suki fix: {solution}
+                </p>
+                <p className="mt-2 text-sm font-medium text-foreground">
+                  Outcome: {outcome}
                 </p>
               </div>
             ))}
@@ -186,6 +205,93 @@ export default function Home() {
                 </p>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Lite to Full path */}
+        <section className="mt-20 sm:mt-28" id="lite-full">
+          <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
+            Start with Lite. Switch to Full when operations get complex
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
+            Your records stay compatible across both modes—no data reset, no forced
+            re-import. Full mode toggle available on Growth and AI Pro plans.
+          </p>
+          <div className="mt-10 grid gap-6 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-card p-5">
+              <h3 className="font-semibold text-foreground">CRM Lite</h3>
+              <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                <li>Core customer management</li>
+                <li>Simple campaign and loyalty workflows</li>
+              </ul>
+            </div>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-5">
+              <h3 className="font-semibold text-foreground">CRM Full</h3>
+              <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-foreground">
+                <li>Advanced pipeline and workflow automation</li>
+                <li>Expanded analytics and operations controls</li>
+              </ul>
+            </div>
+          </div>
+          <div className="mt-6 text-center">
+            <Button asChild>
+              <Link href="#pricing">See Plans</Link>
+            </Button>
+          </div>
+        </section>
+
+        {/* Migration trust */}
+        <section className="mt-20 sm:mt-28" id="migration">
+          <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
+            Moving from Salesforce, HubSpot, Dynamics, Zoho, or Pipedrive?
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
+            Import with confidence using validation and dry-run before final cutover
+          </p>
+          <div className="mx-auto mt-10 max-w-2xl grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>• Field mapping templates</li>
+                <li>• Duplicate/conflict preview</li>
+                <li>• Dry-run import report</li>
+                <li>• Post-import reconciliation</li>
+              </ul>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="font-medium text-foreground">How it works</p>
+              <ol className="mt-2 space-y-1 text-sm text-muted-foreground">
+                <li>1. Connect source</li>
+                <li>2. Map and validate</li>
+                <li>3. Dry-run</li>
+                <li>4. Go live with reconciliation report</li>
+              </ol>
+            </div>
+          </div>
+          <div className="mt-6 text-center">
+            <Button variant="outline" asChild>
+              <Link href="/sign-up">Plan My Migration</Link>
+            </Button>
+          </div>
+        </section>
+
+        {/* On-prem trust */}
+        <section className="mt-20 sm:mt-28" id="onprem">
+          <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
+            Need self-hosted deployment on your local network?
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
+            Ideal for organizations with strict compliance or internal IT governance needs
+          </p>
+          <ul className="mx-auto mt-10 max-w-xl list-inside list-disc space-y-2 text-muted-foreground">
+            <li>Signed licensing with entitlement controls</li>
+            <li>Signed update packages with rollback support</li>
+            <li>Offline/air-gapped deployment path available</li>
+            <li>Administrative audit trail for activation and updates</li>
+          </ul>
+          <div className="mt-6 text-center">
+            <Button variant="outline" asChild>
+              <Link href="/sign-up">Talk to Sales for On-Prem</Link>
+            </Button>
           </div>
         </section>
 
@@ -270,7 +376,7 @@ export default function Home() {
         </section>
 
         {/* Pricing */}
-        <section className="mt-20 sm:mt-28">
+        <section className="mt-20 sm:mt-28" id="pricing">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Plans that grow with your business
           </h2>
@@ -328,13 +434,17 @@ export default function Home() {
         {/* Final CTA */}
         <section className="mt-20 sm:mt-28 flex flex-col items-center gap-6 rounded-xl border border-border bg-muted/30 p-8 text-center">
           <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
-            Ready to grow repeat visits?
+            Choose the path that fits your stage today
           </h2>
           <p className="max-w-lg text-muted-foreground">
-            Short setup with simple questions. Migrate existing data. See
-            insights immediately. Start small, grow when ready.
+            No replatforming when you scale from Lite to Full.
           </p>
-          <LandingCta />
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <LandingCta />
+            <Button variant="outline" asChild>
+              <Link href="/sign-up">Book Full CRM Strategy Call</Link>
+            </Button>
+          </div>
         </section>
       </main>
 

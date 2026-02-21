@@ -2,8 +2,9 @@ import { Injectable, ForbiddenException } from "@nestjs/common";
 import { parse } from "csv-parse/sync";
 import * as XLSX from "xlsx";
 import { getDb } from "@suki/database";
-import { customers, businesses } from "@suki/database";
-import { eq, and } from "drizzle-orm";
+import { customers, businesses, importBatches } from "@suki/database";
+import { eq, and, desc } from "drizzle-orm";
+import type { ReconciliationReport } from "./migration-types";
 
 export interface ParsedRow {
   name: string;
@@ -193,24 +194,54 @@ export class ImportsService {
     organizationId: string,
     rows: ParsedRow[],
     skipRows: Set<number>,
+    source: string = "csv",
   ) {
     await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
     const toInsert = rows.filter((r) => !skipRows.has(r.rowIndex));
     const inserted: { id: string; name: string }[] = [];
+    const errors: ReconciliationReport["errors"] = [];
     for (const row of toInsert) {
-      const [c] = await db
-        .insert(customers)
-        .values({
-          businessId,
-          name: row.name,
-          mobile: row.mobile || null,
-          notes: row.notes || null,
-        })
-        .returning();
-      if (c) inserted.push({ id: c.id, name: c.name });
+      try {
+        const [c] = await db
+          .insert(customers)
+          .values({
+            businessId,
+            name: row.name.trim(),
+            mobile: row.mobile?.trim() || null,
+            notes: row.notes?.trim() || null,
+          })
+          .returning();
+        if (c) inserted.push({ id: c.id, name: c.name });
+      } catch (e) {
+        errors.push({
+          rowIndex: row.rowIndex,
+          message: e instanceof Error ? e.message : "Import failed",
+        });
+      }
     }
-    return { imported: inserted.length, customers: inserted };
+    const [batch] = await db
+      .insert(importBatches)
+      .values({
+        businessId,
+        organizationId,
+        source,
+        entityType: "contacts",
+        customerIds: inserted.map((c) => c.id),
+        status: "completed",
+        importedCount: inserted.length,
+        skippedCount: skipRows.size,
+        errorDetails: errors,
+      })
+      .returning();
+    const report: ReconciliationReport = {
+      batchId: batch!.id,
+      imported: inserted.length,
+      skipped: skipRows.size,
+      errors,
+      createdAt: new Date().toISOString(),
+    };
+    return { imported: inserted.length, customers: inserted, report };
   }
 
   private findColumn(row: Record<string, string>, names: string[]): string | null {
@@ -224,6 +255,95 @@ export class ImportsService {
 
   private normalizeMobile(m: string): string {
     return m.replace(/\D/g, "").slice(-10);
+  }
+
+  async listBatches(
+    organizationId: string,
+    businessId?: string,
+  ): Promise<
+    Array<{
+      id: string;
+      businessId: string;
+      source: string;
+      entityType: string;
+      status: string;
+      importedCount: number;
+      skippedCount: number;
+      errorCount: number;
+      createdAt: Date;
+    }>
+  > {
+    const db = getDb();
+    const conditions = [eq(importBatches.organizationId, organizationId)];
+    if (businessId) conditions.push(eq(importBatches.businessId, businessId));
+    const rows = await db
+      .select({
+        id: importBatches.id,
+        businessId: importBatches.businessId,
+        source: importBatches.source,
+        entityType: importBatches.entityType,
+        status: importBatches.status,
+        importedCount: importBatches.importedCount,
+        skippedCount: importBatches.skippedCount,
+        errorDetails: importBatches.errorDetails,
+        createdAt: importBatches.createdAt,
+      })
+      .from(importBatches)
+      .where(and(...conditions))
+      .orderBy(desc(importBatches.createdAt))
+      .limit(50);
+    return rows.map((r) => ({
+      id: r.id,
+      businessId: r.businessId,
+      source: r.source,
+      entityType: r.entityType ?? "contacts",
+      status: r.status,
+      importedCount: r.importedCount,
+      skippedCount: r.skippedCount,
+      errorCount: Array.isArray(r.errorDetails) ? r.errorDetails.length : 0,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  async getBatch(
+    batchId: string,
+    organizationId: string,
+  ): Promise<{
+    id: string;
+    businessId: string;
+    source: string;
+    entityType: string;
+    status: string;
+    importedCount: number;
+    skippedCount: number;
+    errorDetails: Array<{ rowIndex: number; message: string }>;
+    customerIds: string[];
+    createdAt: Date;
+  } | null> {
+    const db = getDb();
+    const [row] = await db
+      .select()
+      .from(importBatches)
+      .where(
+        and(
+          eq(importBatches.id, batchId),
+          eq(importBatches.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (!row) return null;
+    return {
+      id: row.id,
+      businessId: row.businessId,
+      source: row.source,
+      entityType: row.entityType ?? "contacts",
+      status: row.status,
+      importedCount: row.importedCount,
+      skippedCount: row.skippedCount,
+      errorDetails: (row.errorDetails as Array<{ rowIndex: number; message: string }>) ?? [],
+      customerIds: (row.customerIds as string[]) ?? [],
+      createdAt: row.createdAt,
+    };
   }
 
   private async assertBusinessAccess(businessId: string, organizationId: string) {

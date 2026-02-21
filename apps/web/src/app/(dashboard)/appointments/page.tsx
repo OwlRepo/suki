@@ -13,6 +13,7 @@ import {
   TooltipBadge,
 } from "@/components/onboarding";
 import { useOnboarding } from "@/contexts/onboarding-context";
+import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS, SAMPLE_APPOINTMENTS, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
@@ -42,9 +43,10 @@ function AppointmentsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const onboarding = useOnboarding();
+  const workspace = useWorkspace();
   const orgId = syncData?.organization?.id ?? null;
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBiz, setSelectedBiz] = useState<string>("");
+  const selectedBiz = workspace?.activeBusinessId ?? "";
+  const businesses = workspace?.businesses ?? [];
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,14 +61,6 @@ function AppointmentsPageContent() {
   const [dateTo, setDateTo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const loadBusinesses = async () => {
-    const token = await getToken();
-    if (!token) return;
-    const res = await apiRequest<{ businesses: Business[] }>("/businesses", { token });
-    setBusinesses(res.businesses);
-    if (res.businesses.length && !selectedBiz) setSelectedBiz(res.businesses[0].id);
-  };
 
   const loadCustomers = async () => {
     if (!selectedBiz) return;
@@ -92,7 +86,7 @@ function AppointmentsPageContent() {
 
   useEffect(() => {
     if (!syncData) return;
-    loadBusinesses().finally(() => setLoading(false));
+    setLoading(false);
   }, [syncData]);
 
   useEffect(() => {
@@ -201,7 +195,7 @@ function AppointmentsPageContent() {
   const displayAppointments = showPracticeData ? SAMPLE_APPOINTMENTS : appointments;
   const displayCustomers = showPracticeData ? SAMPLE_CUSTOMERS : customers;
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
   if (!businesses.length) {
     return (
       <div>
@@ -227,17 +221,6 @@ function AppointmentsPageContent() {
           <TooltipBadge screen="appointments">Appointments</TooltipBadge>
         </h1>
         <div className="flex flex-wrap gap-2">
-          <select
-            value={selectedBiz}
-            onChange={(e) => setSelectedBiz(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            {businesses.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
           <Input
             type="date"
             value={dateFrom}

@@ -19,7 +19,7 @@ export function LandingCta() {
       <SignedOut>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Button asChild size="lg">
-            <Link href="/sign-up">Start free</Link>
+            <Link href="/sign-up">Start Free with CRM Lite</Link>
           </Button>
           <Button asChild variant="outline" size="lg">
             <Link href="/sign-in">Sign in</Link>

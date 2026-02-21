@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { useWorkspace } from "@/contexts/workspace-context";
 import { hasClerk } from "@/lib/clerk";
 import { isDevMode } from "@/lib/dev-mode";
 import {
@@ -29,6 +31,7 @@ interface Business {
   id: string;
   name: string;
   businessType: string;
+  crmMode?: "lite" | "full";
 }
 
 interface BillingStatus {
@@ -116,6 +119,8 @@ function UpgradeButton({
 function SettingsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
+  const workspace = useWorkspace();
+  const flags = useFeatureFlags();
   const [org, setOrg] = useState<Organization | null>(null);
   const [orgName, setOrgName] = useState("");
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -129,6 +134,21 @@ function SettingsPageContent() {
   const [devApiUrl, setDevApiUrlState] = useState("");
   const [devMockLatencyMs, setDevMockLatencyMsState] = useState(0);
   const [devMockFailure, setDevMockFailureState] = useState(false);
+  const [aiUsage, setAiUsage] = useState<{
+    plan: string;
+    month: string;
+    tokensUsed: number;
+    tokensLimit: number;
+    requestsUsed: number;
+    requestsLimit: number;
+    aiEnabled: boolean;
+    softCapPct: number;
+    allowedFeatures: string[];
+    resetDate: string;
+    projectedDaysToLimit: number | null;
+  } | null>(null);
+  const [aiBreakdown, setAiBreakdown] = useState<{ items: Array<{ key: string; tokens: number; requests: number }> } | null>(null);
+  const [aiPoliciesLoading, setAiPoliciesLoading] = useState(false);
 
   const effectivePlan = simulatedPlan ?? (billing?.planType as PlanType | undefined) ?? "starter";
 
@@ -156,12 +176,28 @@ function SettingsPageContent() {
       try {
         const token = await getToken();
         if (!token) return;
-        const [orgRes, bizRes, billRes] = await Promise.all([
+        const [orgRes, bizRes, billRes, aiRes, breakdownRes] = await Promise.all([
           apiRequest<{ organization: Organization }>("/organizations/me", { token }),
           apiRequest<{ businesses: Business[] }>("/businesses", { token }),
           apiRequest<BillingStatus>("/billing/status", { token }),
+          apiRequest<{
+            plan: string;
+            month: string;
+            tokensUsed: number;
+            tokensLimit: number;
+            requestsUsed: number;
+            requestsLimit: number;
+            aiEnabled: boolean;
+            softCapPct: number;
+            allowedFeatures: string[];
+            resetDate: string;
+            projectedDaysToLimit: number | null;
+          }>("/ai/usage/summary", { token }).catch(() => null),
+          apiRequest<{ items: Array<{ key: string; tokens: number; requests: number }> }>("/ai/usage/breakdown?groupBy=feature", { token }).catch(() => null),
         ]);
         setOrg(orgRes.organization ?? null);
+        setAiUsage(aiRes);
+        setAiBreakdown(breakdownRes ?? null);
         setOrgName(orgRes.organization?.name ?? "");
         setBusinesses(bizRes.businesses);
         setBilling(billRes);
@@ -207,6 +243,30 @@ function SettingsPageContent() {
       setEditingBiz(null);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to save");
+    }
+  };
+
+  const handleCrmModeChange = async (id: string, crmMode: "lite" | "full") => {
+    if (effectivePlan === "starter") return;
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await apiRequest<{ business: Business }>(`/businesses/${id}/crm-mode`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({ crmMode }),
+      });
+      setBusinesses((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, crmMode: res.business.crmMode ?? b.crmMode } : b)),
+      );
+      workspace?.refetch();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to update mode";
+      if (msg === "CRM_FULL_REQUIRES_UPGRADE") {
+        alert("Full CRM mode requires Growth or AI Pro plan. Upgrade in Billing below.");
+      } else {
+        alert(msg);
+      }
     }
   };
 
@@ -256,11 +316,26 @@ function SettingsPageContent() {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <span className="font-medium">{b.name}</span>
-                    <span className="ml-2 text-sm text-muted-foreground capitalize">
-                      {b.businessType}
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <span className="font-medium">{b.name}</span>
+                      <span className="ml-2 text-sm text-muted-foreground capitalize">
+                        {b.businessType}
+                      </span>
+                    </div>
+                    {(effectivePlan === "growth" || effectivePlan === "ai_pro") &&
+                      flags.crm_mode_toggle_enabled && (
+                        <select
+                          value={b.crmMode ?? "lite"}
+                          onChange={(e) =>
+                            handleCrmModeChange(b.id, e.target.value as "lite" | "full")
+                          }
+                          className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                        >
+                          <option value="lite">CRM Lite</option>
+                          <option value="full">CRM Full</option>
+                        </select>
+                      )}
                   </div>
                   <Button size="sm" variant="outline" onClick={() => { setEditingBiz(b.id); setEditBizName(b.name); }}>
                     Edit
@@ -281,6 +356,115 @@ function SettingsPageContent() {
             Read-only mode — Your subscription needs attention. Update billing to make changes.
           </p>
         </div>
+      )}
+
+      {aiUsage && (
+        <section className="mt-8 space-y-4">
+          <h2 className="text-lg font-medium">AI Usage & Quotas</h2>
+          <div className="rounded-lg border border-border bg-card p-4 max-w-lg">
+            <p className="text-sm text-muted-foreground">Plan: {aiUsage.plan}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Tokens: {aiUsage.tokensUsed.toLocaleString()} / {aiUsage.tokensLimit > 0 ? aiUsage.tokensLimit.toLocaleString() : "0"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Requests: {aiUsage.requestsUsed} / {aiUsage.requestsLimit}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Quota resets: {aiUsage.resetDate}
+            </p>
+            {aiUsage.projectedDaysToLimit != null && aiUsage.projectedDaysToLimit > 0 && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Projected days to limit: ~{aiUsage.projectedDaysToLimit} (at current pace)
+              </p>
+            )}
+            {aiUsage.allowedFeatures.length > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Allowed features: {aiUsage.allowedFeatures.join(", ")}
+              </p>
+            )}
+            {aiBreakdown?.items && aiBreakdown.items.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-foreground">Top features this month</p>
+                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                  {aiBreakdown.items.slice(0, 5).map((i) => (
+                    <li key={i.key}>{i.key}: {i.tokens.toLocaleString()} tokens, {i.requests} requests</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {aiUsage.tokensLimit === 0 && (
+              <p className="mt-2 text-sm text-amber-600">
+                Upgrade to Growth or AI Pro for AI features.
+              </p>
+            )}
+            {aiUsage.tokensLimit > 0 && (aiUsage.tokensUsed / aiUsage.tokensLimit) >= 0.7 && effectivePlan !== "ai_pro" && (
+              <p className="mt-2 text-sm text-amber-600">
+                Approaching limit. Consider upgrading for higher allowance.
+              </p>
+            )}
+            {aiUsage.tokensLimit > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">AI enabled</label>
+                  <input
+                    type="checkbox"
+                    checked={aiUsage.aiEnabled}
+                    disabled={aiPoliciesLoading}
+                    onChange={async (e) => {
+                      setAiPoliciesLoading(true);
+                      try {
+                        const token = await getToken();
+                        if (!token) return;
+                        await apiRequest("/ai/usage/policies", {
+                          method: "PATCH",
+                          token,
+                          body: JSON.stringify({ aiEnabled: e.target.checked }),
+                        });
+                        setAiUsage((p) => p ? { ...p, aiEnabled: e.target.checked } : null);
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to update");
+                      } finally {
+                        setAiPoliciesLoading(false);
+                      }
+                    }}
+                    className="rounded"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Soft cap (%):</label>
+                  <Input
+                    type="number"
+                    min={50}
+                    max={100}
+                    defaultValue={aiUsage.softCapPct ?? 90}
+                    disabled={aiPoliciesLoading}
+                    className="w-20"
+                    onBlur={async (e) => {
+                      const v = parseInt(e.target.value, 10);
+                      if (isNaN(v) || v < 50 || v > 100) return;
+                      setAiPoliciesLoading(true);
+                      try {
+                        const token = await getToken();
+                        if (!token) return;
+                        await apiRequest("/ai/usage/policies", {
+                          method: "PATCH",
+                          token,
+                          body: JSON.stringify({ softCapPct: v }),
+                        });
+                        setAiUsage((p) => p ? { ...p, softCapPct: v } : null);
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to update");
+                      } finally {
+                        setAiPoliciesLoading(false);
+                      }
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground">(warn at this %)</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
       <section className="mt-8 space-y-4">

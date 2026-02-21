@@ -11,6 +11,7 @@ import {
   TooltipBadge,
 } from "@/components/onboarding";
 import { useOnboarding } from "@/contexts/onboarding-context";
+import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS, SAMPLE_LOYALTY, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
@@ -31,8 +32,9 @@ function LoyaltyPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const onboarding = useOnboarding();
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBiz, setSelectedBiz] = useState<string>("");
+  const workspace = useWorkspace();
+  const selectedBiz = workspace?.activeBusinessId ?? "";
+  const businesses = workspace?.businesses ?? [];
   const [threshold, setThreshold] = useState(5);
   const [tagFilter, setTagFilter] = useState("");
   const [customers, setCustomers] = useState<LoyaltyCustomer[]>([]);
@@ -40,18 +42,8 @@ function LoyaltyPageContent() {
 
   useEffect(() => {
     if (!syncData) return;
-    (async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
-        const res = await apiRequest<{ businesses: Business[] }>("/businesses", { token });
-        setBusinesses(res.businesses);
-        if (res.businesses.length) setSelectedBiz(res.businesses[0].id);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [syncData, getToken]);
+    setLoading(false);
+  }, [syncData]);
 
   useEffect(() => {
     if (!selectedBiz || (onboarding?.practiceMode && !onboarding.onboardingCompletedAt)) return;
@@ -83,7 +75,7 @@ function LoyaltyPageContent() {
     ? [{ id: "practice", name: "Practice business" }]
     : businesses;
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
   if (!businesses.length && !showPracticeData) {
     return (
       <div>
@@ -116,17 +108,6 @@ function LoyaltyPageContent() {
         <h1 className="text-2xl font-semibold text-foreground">
           <TooltipBadge screen="loyalty">Loyalty</TooltipBadge>
         </h1>
-        <select
-          value={showPracticeData && !selectedBiz ? "practice" : selectedBiz}
-          onChange={(e) => !showPracticeData && setSelectedBiz(e.target.value)}
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          {displayBusinesses.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground">Visit threshold:</label>
           <select

@@ -15,6 +15,7 @@ import {
   TooltipBadge,
 } from "@/components/onboarding";
 import { useOnboarding } from "@/contexts/onboarding-context";
+import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
@@ -48,22 +49,19 @@ interface Activity {
   businessName?: string;
 }
 
-interface Business {
-  id: string;
-  name: string;
-}
-
 function DashboardPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const onboarding = useOnboarding();
+  const workspace = useWorkspace();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [businessId, setBusinessId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+
+  const businessId = workspace?.activeBusinessId ?? "";
+  const businesses = workspace?.businesses ?? [];
 
   useEffect(() => {
     if (syncData) {
@@ -77,15 +75,8 @@ function DashboardPageContent() {
       try {
         const token = await getToken();
         if (!token) return;
-        const [summaryRes, businessesRes] = await Promise.all([
-          apiRequest<Summary>("/admin/summary", { token }),
-          apiRequest<{ businesses: Business[] }>("/businesses", { token }),
-        ]);
+        const summaryRes = await apiRequest<Summary>("/admin/summary", { token });
         setSummary(summaryRes);
-        setBusinesses(businessesRes.businesses);
-        if (businessesRes.businesses.length) {
-          setBusinessId(businessesRes.businesses[0].id);
-        }
       } finally {
         setLoading(false);
       }
@@ -129,7 +120,7 @@ function DashboardPageContent() {
     })();
   }, [syncData, businessId, getToken]);
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
 
   const s = summary ?? { businesses: 0, customers: 0, appointments: 0, promos: 0 };
   const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
@@ -160,25 +151,6 @@ function DashboardPageContent() {
 
       {businessId && businesses.length > 0 && (
         <div className="mt-8">
-          {businesses.length > 1 && (
-            <div className="mb-2">
-              <label htmlFor="dashboard-business" className="sr-only">
-                Select business for intake link
-              </label>
-              <select
-                id="dashboard-business"
-                value={businessId}
-                onChange={(e) => setBusinessId(e.target.value)}
-                className="rounded-md border border-input bg-background px-3 py-2 text-base"
-              >
-                {businesses.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           <IntakeQRBlock
             businessId={businessId}
             businessName={businesses.find((b) => b.id === businessId)?.name ?? ""}

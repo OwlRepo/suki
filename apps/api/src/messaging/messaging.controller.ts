@@ -40,13 +40,16 @@ export class MessagingController {
       context?: Record<string, unknown>;
     },
     @Tenant("organizationId") orgId?: string,
+    @Tenant("userId") userId?: string,
   ) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
+    if (!userId) throw new UnauthorizedException("Unauthorized");
     if (!body.businessId || !body.prompt?.trim()) {
       throw new BadRequestException("businessId and prompt required");
     }
     const result = await this.messagingService.generate(
       orgId,
+      userId,
       body.businessId,
       body.prompt.trim(),
       body.context,

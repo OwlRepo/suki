@@ -105,6 +105,23 @@ export const STEP_GUIDANCE: Record<number, { message: string; expectedAction: st
   },
 };
 
+/** Ultra-simple first-run: 3 critical tasks only */
+export const CRITICAL_FIRST_TASKS: ChecklistItem[] = [
+  { label: "Complete Business Setup", href: "/setup" },
+  {
+    label: "Add your first customer",
+    href: "/customers",
+    requires: { business: 1 },
+    lockedMessage: "Complete Business Setup first",
+  },
+  {
+    label: "Record one visit or add one follow-up reminder",
+    href: "/customers",
+    requires: { customer: 1 },
+    lockedMessage: "Add at least 1 customer first",
+  },
+];
+
 // Prerequisites: task is unlocked when all conditions are met
 export interface ChecklistRequires {
   business?: number;
@@ -245,6 +262,11 @@ export const CHECKLIST_DAYS: Record<number, ChecklistItem[]> = {
     { label: "Set one routine: Update app before closing each day", href: "/dashboard" },
   ],
 };
+
+export function getChecklistForDay(day: number): ChecklistItem[] {
+  if (day === 1) return CRITICAL_FIRST_TASKS;
+  return CHECKLIST_DAYS[day] ?? [];
+}
 
 /** Check if a checklist item is unlocked given account counts */
 export function isChecklistItemUnlocked(

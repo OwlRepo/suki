@@ -11,11 +11,15 @@ import {
 import { BusinessesService } from "./businesses.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { Tenant } from "../common/tenant.decorator";
+import { FeatureFlagsService } from "../common/feature-flags.service";
 
 @Controller("businesses")
 @UseGuards(ClerkAuthGuard)
 export class BusinessesController {
-  constructor(private readonly businessesService: BusinessesService) {}
+  constructor(
+    private readonly businessesService: BusinessesService,
+    private readonly featureFlags: FeatureFlagsService,
+  ) {}
 
   @Get()
   async list(@Tenant("organizationId") orgId: string) {
@@ -26,7 +30,7 @@ export class BusinessesController {
   @Post()
   async create(
     @Tenant("organizationId") orgId: string,
-    @Body() body: { name: string; businessType: string },
+    @Body() body: { name: string; businessType: string; workflowProfile?: string },
   ) {
     if (!body.name?.trim() || !body.businessType?.trim()) {
       throw new ForbiddenException("name and businessType are required");
@@ -34,6 +38,7 @@ export class BusinessesController {
     const business = await this.businessesService.create(orgId, {
       name: body.name.trim(),
       businessType: body.businessType.trim(),
+      workflowProfile: body.workflowProfile,
     });
     return { business };
   }
@@ -58,6 +63,26 @@ export class BusinessesController {
       throw new ForbiddenException("Business not found");
     }
     const updated = await this.businessesService.update(id, body);
+    return { business: updated };
+  }
+
+  @Patch(":id/crm-mode")
+  async updateCrmMode(
+    @Param("id") id: string,
+    @Tenant("organizationId") orgId: string,
+    @Body() body: { crmMode: "lite" | "full" },
+  ) {
+    if (!this.featureFlags.crmModeToggleEnabled()) {
+      throw new ForbiddenException("CRM mode toggle is not enabled");
+    }
+    if (!body.crmMode || !["lite", "full"].includes(body.crmMode)) {
+      throw new ForbiddenException("crmMode must be 'lite' or 'full'");
+    }
+    const updated = await this.businessesService.updateCrmMode(
+      id,
+      orgId,
+      body.crmMode,
+    );
     return { business: updated };
   }
 }

@@ -2,6 +2,8 @@ import { ReactNode } from "react";
 import Link from "next/link";
 import { AuthButton } from "@/components/auth-button";
 import { DashboardOnboardingWrapper, NavLinkWithLock } from "@/components/onboarding";
+import { PipelineNavLink } from "@/components/pipeline-nav-link";
+import { WorkspaceSelector } from "@/components/workspace-selector";
 import { ONBOARDING_STEPS } from "@/lib/onboarding";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -10,9 +12,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="min-h-screen bg-background">
         <header className="border-b border-border bg-card">
           <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-            <Link href="/dashboard" className="text-lg font-semibold text-foreground">
-              Suki
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link href="/dashboard" className="text-lg font-semibold text-foreground">
+                Suki
+              </Link>
+              <WorkspaceSelector />
+            </div>
             <div className="flex items-center gap-4">
               <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
                 Dashboard
@@ -23,6 +28,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <Link href="/appointments" className="text-sm text-muted-foreground hover:text-foreground">
                 Appointments
               </Link>
+              <PipelineNavLink className="text-sm text-muted-foreground hover:text-foreground">
+                Pipeline
+              </PipelineNavLink>
               <NavLinkWithLock
                 href="/promos"
                 className="text-sm text-muted-foreground hover:text-foreground"

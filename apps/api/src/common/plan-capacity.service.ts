@@ -10,6 +10,12 @@ export const MODULES_BY_PLAN: Record<PlanType, string[]> = {
   ai_pro: ["crm", "insights", "loyalty", "appointments", "promos", "ai_messaging"],
 };
 
+export const BUSINESS_LIMITS_BY_PLAN: Record<PlanType, number> = {
+  starter: 1,
+  growth: 5,
+  ai_pro: Number.POSITIVE_INFINITY,
+};
+
 @Injectable()
 export class PlanCapacityService {
   async getActivePlan(organizationId: string): Promise<PlanType> {
@@ -34,6 +40,11 @@ export class PlanCapacityService {
   async checkModuleAccess(organizationId: string, module: string): Promise<boolean> {
     const plan = await this.getActivePlan(organizationId);
     return this.hasModuleAccess(plan, module);
+  }
+
+  async getBusinessLimitByOrg(organizationId: string): Promise<number> {
+    const plan = await this.getActivePlan(organizationId);
+    return BUSINESS_LIMITS_BY_PLAN[plan];
   }
 
   /** True when subscription is past_due or cancelled (grace / read-only mode). */

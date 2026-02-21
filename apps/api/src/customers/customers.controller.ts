@@ -38,6 +38,19 @@ export class CustomersController {
     });
   }
 
+  @Get("duplicate-candidates")
+  async duplicateCandidates(
+    @Query("businessId") businessId: string,
+    @Query("limit") limitStr?: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!businessId || !orgId) throw new BadRequestException("businessId required");
+    const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+    return this.customersService.findDuplicateCandidates(businessId, orgId, {
+      limit: limit != null && !isNaN(limit) ? limit : undefined,
+    });
+  }
+
   @Get("audience-count")
   async audienceCount(
     @Query("businessId") businessId: string,

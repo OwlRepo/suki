@@ -12,7 +12,9 @@ import {
   OnboardingGuidance,
   TooltipBadge,
 } from "@/components/onboarding";
+import { AiQuotaBanner } from "@/components/ai-quota-banner";
 import { useOnboarding } from "@/contexts/onboarding-context";
+import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS, SAMPLE_PROMOS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
@@ -46,8 +48,9 @@ function PromosPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const onboarding = useOnboarding();
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBiz, setSelectedBiz] = useState<string>("");
+  const workspace = useWorkspace();
+  const selectedBiz = workspace?.activeBusinessId ?? "";
+  const businesses = workspace?.businesses ?? [];
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -70,14 +73,6 @@ function PromosPageContent() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [planType, setPlanType] = useState<string>("starter");
 
-  const loadBusinesses = async () => {
-    const token = await getToken();
-    if (!token) return;
-    const res = await apiRequest<{ businesses: Business[] }>("/businesses", { token });
-    setBusinesses(res.businesses);
-    if (res.businesses.length && !selectedBiz) setSelectedBiz(res.businesses[0].id);
-  };
-
   const loadPromos = async () => {
     if (!selectedBiz) return;
     const token = await getToken();
@@ -88,7 +83,7 @@ function PromosPageContent() {
 
   useEffect(() => {
     if (!syncData) return;
-    loadBusinesses().finally(() => setLoading(false));
+    setLoading(false);
   }, [syncData]);
 
   useEffect(() => {
@@ -241,7 +236,7 @@ function PromosPageContent() {
   const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
   const displayPromos = showPracticeData ? SAMPLE_PROMOS : promos;
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
   if (!businesses.length && !showPracticeData) {
     return (
       <div>
@@ -262,22 +257,12 @@ function PromosPageContent() {
         />
       </div>
       <div>
+      <AiQuotaBanner />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-foreground">
           <TooltipBadge screen="promos">Promos</TooltipBadge>
         </h1>
         <div className="flex gap-2">
-          <select
-            value={selectedBiz}
-            onChange={(e) => setSelectedBiz(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            {businesses.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
           <Button onClick={() => { resetForm(); setShowForm(true); }}>
             Create promo
           </Button>

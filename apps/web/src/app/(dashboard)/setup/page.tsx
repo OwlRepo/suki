@@ -23,6 +23,17 @@ const BUSINESS_TYPES = [
   { value: "other", label: "Other business" },
 ];
 
+/** Map business type to workflow profile for capability templates */
+const WORKFLOW_PROFILE_BY_TYPE: Record<string, string> = {
+  salon: "service_scheduling",
+  clinic: "service_scheduling",
+  spa: "service_scheduling",
+  gym: "service_scheduling",
+  restaurant: "general",
+  retail: "general",
+  other: "general",
+};
+
 const MODULE_LABELS: Record<string, string> = {
   crm: "Customer list — Add and manage your customers",
   appointments: "Appointments — Schedule and track bookings",
@@ -84,16 +95,26 @@ function SetupPageContent() {
     try {
       const token = await getToken();
       if (!token) throw new Error("Not signed in");
+      const workflowProfile = WORKFLOW_PROFILE_BY_TYPE[businessType] ?? "general";
       await apiRequest("/businesses", {
         method: "POST",
         token,
-        body: JSON.stringify({ name: name.trim(), businessType }),
+        body: JSON.stringify({
+          name: name.trim(),
+          businessType,
+          workflowProfile,
+        }),
       });
       onboarding?.advanceStep();
       recordOnboardingEvent("setup_completed", syncData?.organization?.id ?? null);
       router.push("/dashboard");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create business. Please try again.");
+      const msg = e instanceof Error ? e.message : "Failed to create business. Please try again.";
+      if (msg === "PLAN_BUSINESS_LIMIT_REACHED") {
+        setError("Your plan limit for businesses has been reached. Upgrade your plan in Settings to add more.");
+      } else {
+        setError(msg);
+      }
       setSubmitting(false);
     }
   };
@@ -223,9 +244,19 @@ function SetupPageContent() {
         )}
 
         {error && (
-          <p className="mt-4 text-base text-destructive" role="alert">
-            {error}
-          </p>
+          <div className="mt-4 space-y-2" role="alert">
+            <p className="text-base text-destructive">{error}</p>
+            {error.includes("Upgrade your plan") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/settings")}
+                className="mt-2"
+              >
+                Go to Settings to upgrade
+              </Button>
+            )}
+          </div>
         )}
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row-reverse sm:justify-between">

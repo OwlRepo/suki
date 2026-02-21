@@ -4,6 +4,7 @@ import { HealthModule } from "./health/health.module";
 import { PlanCapacityModule } from "./common/plan-capacity.module";
 import { AuthModule } from "./auth/auth.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
+import { UsersModule } from "./users/users.module";
 import { BusinessesModule } from "./businesses/businesses.module";
 import { CustomersModule } from "./customers/customers.module";
 import { InsightsModule } from "./insights/insights.module";
@@ -16,6 +17,11 @@ import { ImportsModule } from "./imports/imports.module";
 import { ActivityLogModule } from "./activity-log/activity-log.module";
 import { IntakeModule } from "./intake/intake.module";
 import { MessagingModule } from "./messaging/messaging.module";
+import { CrmModule } from "./crm/crm.module";
+import { AiModule } from "./ai/ai.module";
+import { OnboardingModule } from "./onboarding/onboarding.module";
+import { WorkflowsModule } from "./workflows/workflows.module";
+import { LicensingModule } from "./licensing/licensing.module";
 
 @Module({
   imports: [
@@ -27,6 +33,7 @@ import { MessagingModule } from "./messaging/messaging.module";
     HealthModule,
     AuthModule,
     OrganizationsModule,
+    UsersModule,
     BusinessesModule,
     CustomersModule,
     InsightsModule,
@@ -39,6 +46,11 @@ import { MessagingModule } from "./messaging/messaging.module";
     ActivityLogModule,
     IntakeModule,
     MessagingModule,
+    CrmModule,
+    AiModule,
+    OnboardingModule,
+    WorkflowsModule,
+    LicensingModule,
   ],
 })
 export class AppModule {}

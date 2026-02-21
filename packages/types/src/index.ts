@@ -1,6 +1,25 @@
 // Plan types (Starter, Growth, AI Pro)
 export type PlanType = "starter" | "growth" | "ai_pro";
 
+// CRM mode: lite (basic) or full (advanced)
+export type CrmMode = "lite" | "full";
+
+// Workflow profile for capability templates
+export type WorkflowProfile =
+  | "general"
+  | "service_scheduling"
+  | "project_lifecycle"
+  | "compliance_heavy";
+
+// AI feature keys for quota/entitlement checks
+export type AiFeatureKey =
+  | "drafting"
+  | "summarization"
+  | "normalization"
+  | "workflow_suggestions"
+  | "migration_mapping"
+  | "analytics_narrative";
+
 export interface Plan {
   type: PlanType;
   name: string;

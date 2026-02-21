@@ -49,6 +49,8 @@ export const businesses = pgTable("businesses", {
   name: text("name").notNull(),
   businessType: text("business_type").notNull(),
   paymongoCustomerId: text("paymongo_customer_id"),
+  crmMode: text("crm_mode").notNull().default("lite"),
+  workflowProfile: text("workflow_profile").notNull().default("general"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -62,6 +64,9 @@ export const users = pgTable("users", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   role: userRoleEnum("role").notNull(),
   email: text("email"),
+  activeBusinessId: uuid("active_business_id").references(() => businesses.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -96,6 +101,78 @@ export const promos = pgTable("promos", {
   audienceFilter: jsonb("audience_filter"),
   messageContent: text("message_content"),
   status: promoStatusEnum("status").notNull().default("draft"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Deals — Full CRM pipeline (Full mode only)
+export const deals = pgTable("deals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  stage: text("stage").notNull(),
+  amount: integer("amount"),
+  ownerUserId: uuid("owner_user_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Deal stages — configurable pipeline stages per business (Full mode)
+export const dealStages = pgTable("deal_stages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Activities — CRM interactions: calls, meetings, emails, notes (Full mode)
+export const activities = pgTable("activities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+  type: text("type").notNull(), // call, meeting, email, note
+  subject: text("subject"),
+  notes: text("notes"),
+  createdByUserId: uuid("created_by_user_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Custom fields — extensible metadata per business (Full mode)
+export const customFields = pgTable("custom_fields", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  entityType: text("entity_type").notNull(), // customer, deal, etc.
+  fieldName: text("field_name").notNull(),
+  fieldType: text("field_type").notNull().default("text"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tasks — Full CRM (Full mode only)
+export const tasks = pgTable("tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  dealId: uuid("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  dueAt: timestamp("due_at"),
+  completedAt: timestamp("completed_at"),
+  assigneeUserId: uuid("assignee_user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -140,6 +217,97 @@ export const aiCredits = pgTable("ai_credits", {
   month: text("month").notNull(), // YYYY-MM format
   allocated: integer("allocated").notNull().default(0),
   used: integer("used").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// AI usage events — per-request token/cost tracking
+export const aiUsageEvents = pgTable("ai_usage_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id"),
+  businessId: uuid("business_id"),
+  feature: text("feature").notNull(),
+  model: text("model").notNull(),
+  promptTokens: integer("prompt_tokens").notNull().default(0),
+  completionTokens: integer("completion_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  estimatedCostMicros: integer("estimated_cost_micros").default(0),
+  status: text("status").notNull().default("completed"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AI budgets — org-level monthly limits and policies
+export const aiBudgets = pgTable("ai_budgets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  month: text("month").notNull(), // YYYY-MM format
+  tokenLimit: integer("token_limit").notNull(),
+  requestLimit: integer("request_limit").notNull(),
+  softCapPct: integer("soft_cap_pct").default(90),
+  aiEnabled: text("ai_enabled").notNull().default("true"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// License challenges — offline/air-gapped activation challenge-response
+export const licenseChallenges = pgTable("license_challenges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  challenge: text("challenge").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// License activations — on-prem activation records and anti-sharing
+export const licenseActivations = pgTable("license_activations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  machineFingerprint: text("machine_fingerprint"),
+  licensePayload: text("license_payload"),
+  activatedAt: timestamp("activated_at").defaultNow().notNull(),
+  lastAttestationAt: timestamp("last_attestation_at"),
+  status: text("status").notNull().default("active"),
+});
+
+// Import batches — for rollback and reconciliation
+export const importBatches = pgTable("import_batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  source: text("source").notNull().default("csv"),
+  entityType: text("entity_type").notNull().default("contacts"),
+  customerIds: jsonb("customer_ids").$type<string[]>().default([]),
+  status: text("status").notNull().default("completed"),
+  importedCount: integer("imported_count").notNull().default(0),
+  skippedCount: integer("skipped_count").notNull().default(0),
+  errorDetails: jsonb("error_details").$type<Array<{ rowIndex: number; message: string }>>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Onboarding progress — per-org/user setup state
+export const onboardingProgress = pgTable("onboarding_progress", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id"),
+  currentStep: integer("current_step").notNull().default(0),
+  completedSteps: jsonb("completed_steps").$type<string[]>().default([]),
+  timeToFirstValueAt: timestamp("time_to_first_value_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

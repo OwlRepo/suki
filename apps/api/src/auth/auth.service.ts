@@ -2,14 +2,22 @@ import { Injectable } from "@nestjs/common";
 import { verifyToken } from "@clerk/backend";
 import { getDb } from "@suki/database";
 import { organizations, users, subscriptions } from "@suki/database";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 @Injectable()
 export class AuthService {
   async syncUser(clerkId: string, email?: string) {
     const db = getDb();
     const [existing] = await db
-      .select()
+      .select({
+        id: users.id,
+        clerkId: users.clerkId,
+        organizationId: users.organizationId,
+        role: users.role,
+        email: users.email,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
       .from(users)
       .where(eq(users.clerkId, clerkId))
       .limit(1);
@@ -40,16 +48,68 @@ export class AuthService {
       currentPeriodEnd: periodEnd,
     });
 
-    const userRes = await db
-      .insert(users)
-      .values({
-        clerkId,
-        organizationId: org.id,
-        role: "owner",
-        email: email ?? null,
-      })
-      .returning();
-    const user = userRes[0];
+    let user:
+      | {
+          id: string;
+          clerkId: string;
+          organizationId: string;
+          role: "owner" | "staff";
+          email: string | null;
+          createdAt: Date;
+          updatedAt: Date;
+        }
+      | undefined;
+    try {
+      const userRes = await db
+        .insert(users)
+        .values({
+          clerkId,
+          organizationId: org.id,
+          role: "owner",
+          email: email ?? null,
+        })
+        .returning({
+          id: users.id,
+          clerkId: users.clerkId,
+          organizationId: users.organizationId,
+          role: users.role,
+          email: users.email,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        });
+      user = userRes[0];
+    } catch (error) {
+      const err = error as { message?: string };
+      const isMissingActiveBusinessColumn =
+        (err.message ?? "").includes("active_business_id");
+      if (!isMissingActiveBusinessColumn) {
+        throw error;
+      }
+      const fallbackInsert = await db.execute(sql`
+        insert into users (clerk_id, organization_id, role, email, created_at, updated_at)
+        values (${clerkId}, ${org.id}, ${"owner"}, ${email ?? null}, now(), now())
+        returning
+          id,
+          clerk_id as "clerkId",
+          organization_id as "organizationId",
+          role,
+          email,
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `);
+      const row = fallbackInsert[0] as Record<string, unknown> | undefined;
+      user = row
+        ? {
+            id: String(row.id),
+            clerkId: String(row.clerkId),
+            organizationId: String(row.organizationId),
+            role: (row.role === "staff" ? "staff" : "owner") as "owner" | "staff",
+            email: (row.email as string | null) ?? null,
+            createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(String(row.createdAt)),
+            updatedAt: row.updatedAt instanceof Date ? row.updatedAt : new Date(String(row.updatedAt)),
+          }
+        : undefined;
+    }
     if (!user) throw new Error("Failed to create user");
     return { user, organization: org, isNew: true };
   }

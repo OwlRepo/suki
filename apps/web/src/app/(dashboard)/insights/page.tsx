@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
+import { useWorkspace } from "@/contexts/workspace-context";
 import { hasClerk } from "@/lib/clerk";
 import { TooltipBadge } from "@/components/onboarding";
 
@@ -23,8 +24,9 @@ interface Metrics {
 function InsightsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBiz, setSelectedBiz] = useState<string>("");
+  const workspace = useWorkspace();
+  const selectedBiz = workspace?.activeBusinessId ?? "";
+  const businesses = workspace?.businesses ?? [];
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -32,18 +34,8 @@ function InsightsPageContent() {
 
   useEffect(() => {
     if (!syncData) return;
-    (async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
-        const res = await apiRequest<{ businesses: Business[] }>("/businesses", { token });
-        setBusinesses(res.businesses);
-        if (res.businesses.length) setSelectedBiz(res.businesses[0].id);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [syncData, getToken]);
+    setLoading(false);
+  }, [syncData]);
 
   useEffect(() => {
     if (!selectedBiz) return;
@@ -62,7 +54,7 @@ function InsightsPageContent() {
     })();
   }, [selectedBiz, year, month, getToken]);
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
   if (!businesses.length) {
     return (
       <div>
@@ -80,17 +72,6 @@ function InsightsPageContent() {
         <h1 className="text-2xl font-semibold text-foreground">
           <TooltipBadge screen="insights">Insights</TooltipBadge>
         </h1>
-        <select
-          value={selectedBiz}
-          onChange={(e) => setSelectedBiz(e.target.value)}
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          {businesses.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
         <select
           value={month}
           onChange={(e) => setMonth(parseInt(e.target.value, 10))}

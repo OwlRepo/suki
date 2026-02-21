@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@suki/ui";
@@ -12,7 +12,9 @@ import {
   OnboardingGuidance,
   TooltipBadge,
 } from "@/components/onboarding";
+import { AiQuotaBanner } from "@/components/ai-quota-banner";
 import { useOnboarding } from "@/contexts/onboarding-context";
+import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
@@ -35,32 +37,97 @@ interface DuplicateMatch {
   reason: "name" | "mobile" | "both";
 }
 
+interface ReconciliationReport {
+  batchId: string;
+  imported: number;
+  skipped: number;
+  errors: Array<{ rowIndex: number; message: string }>;
+  createdAt: string;
+}
+
+interface DryRunResult {
+  mode: string;
+  wouldImport: number;
+  wouldSkip: number;
+  duplicateCount: number;
+  validationReport: { totalRows: number; validRows: number; errorCount: number };
+}
+
 function ImportsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const onboarding = useOnboarding();
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBiz, setSelectedBiz] = useState<string>("");
+  const workspace = useWorkspace();
+  const selectedBiz = workspace?.activeBusinessId ?? "";
+  const businesses = workspace?.businesses ?? [];
   const [csvText, setCsvText] = useState("");
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [skipRows, setSkipRows] = useState<Set<number>>(new Set());
-  const [step, setStep] = useState<"upload" | "paste" | "review" | "done">("upload");
+  const [step, setStep] = useState<"source" | "upload" | "paste" | "review" | "dryrun" | "done">("source");
+  const [source, setSource] = useState<"csv" | "hubspot" | "pipedrive">("csv");
+  const [hubspotToken, setHubspotToken] = useState("");
+  const [pipedriveToken, setPipedriveToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [imported, setImported] = useState(0);
+  const [report, setReport] = useState<ReconciliationReport | null>(null);
+  const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
+  const [batches, setBatches] = useState<Array<{
+    id: string;
+    businessId: string;
+    source: string;
+    entityType: string;
+    status: string;
+    importedCount: number;
+    skippedCount: number;
+    errorCount: number;
+    createdAt: string;
+  }>>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [batchDetail, setBatchDetail] = useState<{
+    id: string;
+    errorDetails: Array<{ rowIndex: number; message: string }>;
+    customerIds: string[];
+  } | null>(null);
 
-  const loadBusinesses = async () => {
-    const token = await getToken();
-    if (!token) return;
-    const res = await apiRequest<{ businesses: Business[] }>("/businesses", { token });
-    setBusinesses(res.businesses);
-    if (res.businesses.length) setSelectedBiz(res.businesses[0].id);
+
+  const handleFetchProvider = async () => {
+    if (source === "hubspot" && !hubspotToken.trim()) return;
+    if (source === "pipedrive" && !pipedriveToken.trim()) return;
+    setLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await apiRequest<{ rows: ParsedRow[]; source: string }>("/imports/fetch-provider", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          provider: source,
+          credentials:
+            source === "hubspot"
+              ? { accessToken: hubspotToken.trim() }
+              : { apiToken: pipedriveToken.trim() },
+        }),
+      });
+      setParsedRows(res.rows);
+      setParseErrors([]);
+      if (res.rows.length) {
+        const dupRes = await apiRequest<{ duplicates: DuplicateMatch[] }>("/imports/duplicates", {
+          method: "POST",
+          token,
+          body: JSON.stringify({ businessId: selectedBiz, rows: res.rows }),
+        });
+        setDuplicates(dupRes.duplicates);
+        setSkipRows(new Set());
+      }
+      setStep("review");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fetch failed");
+    } finally {
+      setLoading(false);
+    }
   };
-
-  useEffect(() => {
-    if (syncData) loadBusinesses();
-  }, [syncData]);
 
   const handleParse = async () => {
     if (!csvText.trim()) return;
@@ -101,15 +168,13 @@ function ImportsPageContent() {
     });
   };
 
-  const handleCommit = async () => {
+  const handleDryRun = async () => {
     if (!selectedBiz || !parsedRows.length) return;
-    const toImport = parsedRows.filter((r) => !skipRows.has(r.rowIndex)).length;
-    if (toImport > 0 && !confirm(`Import ${toImport} customer(s)? This will add them to your list.`)) return;
     setLoading(true);
     try {
       const token = await getToken();
       if (!token) return;
-      const res = await apiRequest<{ imported: number }>("/imports/commit", {
+      const res = await apiRequest<DryRunResult>("/imports/dry-run", {
         method: "POST",
         token,
         body: JSON.stringify({
@@ -118,7 +183,35 @@ function ImportsPageContent() {
           skipRows: Array.from(skipRows),
         }),
       });
+      setDryRunResult(res);
+      setStep("dryrun");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Dry run failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCommit = async () => {
+    if (!selectedBiz || !parsedRows.length) return;
+    const toImport = parsedRows.filter((r) => !skipRows.has(r.rowIndex)).length;
+    if (toImport > 0 && !confirm(`Import ${toImport} customer(s)? This will add them to your list.`)) return;
+    setLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await apiRequest<{ imported: number; report: ReconciliationReport }>("/imports/commit", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          businessId: selectedBiz,
+          rows: parsedRows,
+          skipRows: Array.from(skipRows),
+          source: source === "csv" ? "csv" : source,
+        }),
+      });
       setImported(res.imported);
+      setReport(res.report ?? null);
       onboarding?.advanceStep();
       recordOnboardingEvent("import_completed", syncData?.organization?.id ?? null);
       setStep("done");
@@ -129,13 +222,85 @@ function ImportsPageContent() {
     }
   };
 
+  const handleRollback = async () => {
+    if (!report?.batchId || !confirm("Rollback will delete all customers from this import. Continue?")) return;
+    setLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await apiRequest(`/imports/batches/${report.batchId}/rollback`, {
+        method: "POST",
+        token,
+      });
+      setReport(null);
+      reset();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Rollback failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchBatches = useCallback(async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await apiRequest<Array<{
+        id: string;
+        businessId: string;
+        source: string;
+        entityType: string;
+        status: string;
+        importedCount: number;
+        skippedCount: number;
+        errorCount: number;
+        createdAt: string;
+      }>>(`/imports/batches${selectedBiz ? `?businessId=${selectedBiz}` : ""}`, {
+        token,
+      });
+      setBatches(res ?? []);
+    } catch {
+      setBatches([]);
+    }
+  }, [getToken, selectedBiz]);
+
+  const fetchBatchDetail = async (id: string) => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await apiRequest<{
+        id: string;
+        errorDetails: Array<{ rowIndex: number; message: string }>;
+        customerIds: string[];
+      }>(`/imports/batches/${id}`, {
+        method: "GET",
+        token,
+      });
+      setBatchDetail(res ?? null);
+    } catch {
+      setBatchDetail(null);
+    }
+  };
+
+  useEffect(() => {
+    if (syncData) fetchBatches();
+  }, [syncData, fetchBatches]);
+
+  useEffect(() => {
+    if (selectedBatchId) fetchBatchDetail(selectedBatchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBatchId]);
+
   const reset = () => {
     setCsvText("");
     setParsedRows([]);
     setParseErrors([]);
     setDuplicates([]);
     setSkipRows(new Set());
-    setStep("upload");
+    setReport(null);
+    setDryRunResult(null);
+    setStep("source");
+    fetchBatches();
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -211,9 +376,51 @@ function ImportsPageContent() {
         <p className="mt-1 text-sm text-muted-foreground">
           They are now in your customer list.
         </p>
+        {report && (
+          <div className="mt-6 rounded-lg border border-border bg-card p-4">
+            <h3 className="font-medium text-foreground">Reconciliation report</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Batch ID: {report.batchId.slice(0, 8)}… • Imported: {report.imported} • Skipped: {report.skipped}
+              {report.errors.length > 0 && ` • Errors: ${report.errors.length}`}
+            </p>
+            <Button variant="outline" className="mt-4" onClick={handleRollback} disabled={loading}>
+              {loading ? "Rolling back…" : "Rollback this import"}
+            </Button>
+          </div>
+        )}
         <Button className="mt-6 min-h-[44px] text-base" onClick={reset}>
           Import more
         </Button>
+      </div>
+    );
+  }
+
+  if (step === "dryrun") {
+    return (
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Import customers</h1>
+        <h3 className="mt-4 font-medium text-foreground">Dry-run preview</h3>
+        {dryRunResult && (
+          <div className="mt-2 rounded-lg border border-border bg-card p-4">
+            <p className="text-sm text-muted-foreground">
+              Would import: {dryRunResult.wouldImport} • Would skip: {dryRunResult.wouldSkip} •
+              Duplicates: {dryRunResult.duplicateCount}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Validation: {dryRunResult.validationReport.validRows}/{dryRunResult.validationReport.totalRows} valid
+              {dryRunResult.validationReport.errorCount > 0 &&
+                ` • ${dryRunResult.validationReport.errorCount} errors`}
+            </p>
+          </div>
+        )}
+        <div className="mt-6 flex gap-2">
+          <Button onClick={handleCommit} disabled={loading}>
+            {loading ? "Importing…" : "Go live"}
+          </Button>
+          <Button variant="outline" onClick={() => setStep("review")}>
+            Back to review
+          </Button>
+        </div>
       </div>
     );
   }
@@ -229,29 +436,136 @@ function ImportsPageContent() {
       />
       </div>
       <div>
+      <AiQuotaBanner />
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-2xl font-semibold text-foreground">
           <TooltipBadge screen="import">Import customers</TooltipBadge>
         </h1>
-        <select
-          value={selectedBiz}
-          onChange={(e) => setSelectedBiz(e.target.value)}
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          {businesses.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
       </div>
 
       <p className="mt-6 text-base text-muted-foreground">
         Upload a CSV or Excel file, or paste CSV text. We will check for duplicates before importing. Import in small batches first, then review before continuing. Your existing records are safe.
       </p>
 
+      {batches.length > 0 && (
+        <div className="mt-6 rounded-lg border border-border bg-card p-4">
+          <h3 className="font-medium text-foreground">Reconciliation history</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Past imports for this workspace
+          </p>
+          <ul className="mt-3 space-y-2">
+            {batches.slice(0, 10).map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBatchId(selectedBatchId === b.id ? null : b.id)}
+                  className="text-left font-medium text-primary hover:underline"
+                >
+                  {b.id.slice(0, 8)}… • {b.importedCount} imported • {b.source}
+                  {b.status === "rolled_back" && " (rolled back)"}
+                </button>
+                <span className="text-muted-foreground">
+                  {new Date(b.createdAt).toLocaleDateString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {selectedBatchId && batchDetail && batchDetail.id === selectedBatchId && (
+            <div className="mt-4 rounded border border-border bg-muted/30 p-3 text-sm">
+              <p className="font-medium text-foreground">Batch details</p>
+              <p className="mt-1 text-muted-foreground">
+                {batchDetail.customerIds.length} customers in batch
+                {batchDetail.errorDetails.length > 0 &&
+                  ` • ${batchDetail.errorDetails.length} errors`}
+              </p>
+              {batchDetail.errorDetails.length > 0 && (
+                <ul className="mt-2 list-disc pl-4 text-muted-foreground">
+                  {batchDetail.errorDetails.slice(0, 5).map((e, i) => (
+                    <li key={i}>
+                      Row {e.rowIndex}: {e.message}
+                    </li>
+                  ))}
+                  {batchDetail.errorDetails.length > 5 && (
+                    <li>…and {batchDetail.errorDetails.length - 5} more</li>
+                  )}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === "source" && (
+        <div className="mt-8 space-y-4">
+          <p className="text-sm font-medium text-foreground">Import from</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={source === "csv" ? "default" : "outline"}
+              onClick={() => setSource("csv")}
+            >
+              CSV / Excel
+            </Button>
+            <Button
+              variant={source === "hubspot" ? "default" : "outline"}
+              onClick={() => setSource("hubspot")}
+            >
+              HubSpot
+            </Button>
+            <Button
+              variant={source === "pipedrive" ? "default" : "outline"}
+              onClick={() => setSource("pipedrive")}
+            >
+              Pipedrive
+            </Button>
+          </div>
+          {source === "hubspot" && (
+            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+              <label className="block text-sm font-medium">HubSpot Private App token</label>
+              <input
+                type="password"
+                placeholder="pat-na1-xxxx"
+                value={hubspotToken}
+                onChange={(e) => setHubspotToken(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+              <Button onClick={handleFetchProvider} disabled={loading || !hubspotToken.trim()}>
+                {loading ? "Fetching…" : "Fetch contacts from HubSpot"}
+              </Button>
+            </div>
+          )}
+          {source === "pipedrive" && (
+            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+              <label className="block text-sm font-medium">Pipedrive API token</label>
+              <input
+                type="password"
+                placeholder="API token from Settings → Personal preferences"
+                value={pipedriveToken}
+                onChange={(e) => setPipedriveToken(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+              <Button onClick={handleFetchProvider} disabled={loading || !pipedriveToken.trim()}>
+                {loading ? "Fetching…" : "Fetch contacts from Pipedrive"}
+              </Button>
+            </div>
+          )}
+          {source === "csv" && (
+            <Button onClick={() => setStep("upload")} className="min-h-[44px] text-base">
+              Continue to CSV / Excel
+            </Button>
+          )}
+        </div>
+      )}
+
       {step === "upload" && (
         <div className="mt-8 space-y-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStep("source")}
+            className="mb-2 text-sm text-muted-foreground"
+          >
+            ← Change source
+          </Button>
           <div className="rounded-lg border border-border bg-card p-4">
             <label
               htmlFor="file-upload"
@@ -371,8 +685,11 @@ function ImportsPageContent() {
             </table>
           </div>
           <div className="flex gap-2">
+            <Button onClick={handleDryRun} disabled={loading}>
+              {loading ? "Running dry-run…" : "Dry-run preview"}
+            </Button>
             <Button onClick={handleCommit} disabled={loading}>
-              {loading ? "Importing..." : "Import unchecked rows"}
+              {loading ? "Importing…" : "Go live"}
             </Button>
             <Button variant="outline" onClick={reset}>
               Cancel

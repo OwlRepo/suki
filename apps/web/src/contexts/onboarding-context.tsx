@@ -11,7 +11,7 @@ import {
 } from "react";
 import {
   ONBOARDING_STEPS,
-  CHECKLIST_DAYS,
+  getChecklistForDay as getChecklistForDayLib,
   type OnboardingStepId,
   type ChecklistItem,
 } from "@/lib/onboarding";
@@ -133,12 +133,7 @@ export function OnboardingProvider({
     [state.checklistCompleted],
   );
 
-  const getChecklistForDay = useCallback(
-    (day: number) => {
-      return CHECKLIST_DAYS[day] ?? [];
-    },
-    [],
-  );
+  const getChecklistForDay = useCallback((day: number) => getChecklistForDayLib(day), []);
 
   const finishOnboarding = useCallback(() => {
     setState((s) => ({
