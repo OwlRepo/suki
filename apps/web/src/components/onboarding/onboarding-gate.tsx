@@ -81,7 +81,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     }
     return (
       <div className="flex min-h-[240px] items-center justify-center">
-        <p className="text-base text-muted-foreground">Loading…</p>
+        <p className="text-base text-muted-foreground">Preparing your setup…</p>
       </div>
     );
   }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@suki/ui";
 import { useAuth } from "@clerk/nextjs";
@@ -9,7 +10,10 @@ import { apiRequest } from "@/lib/api";
 import { useOnboardingProgress, FINAL_WIZARD_STEP } from "@/hooks/use-onboarding-progress";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { getStepGuidance } from "@/lib/onboarding";
+import { OnboardingDashboardPreviewStep } from "./onboarding-dashboard-preview-step";
+import { OnboardingJourneyProgress } from "./onboarding-journey-progress";
 import { OnboardingSetupStep } from "./onboarding-setup-step";
+import { OnboardingStepIntro } from "./onboarding-step-intro";
 
 type StepCustomer = {
   id: string;
@@ -28,6 +32,7 @@ export function OnboardingWizard() {
     currentStep,
     advanceStep,
     markComplete,
+    goBackStep,
   } = useOnboardingProgress();
   const businesses = workspace?.businesses ?? [];
   const loading = progressLoading;
@@ -45,11 +50,9 @@ export function OnboardingWizard() {
   const [promoMessage, setPromoMessage] = useState("Thank you for visiting. Enjoy 10% off on your next visit.");
   const [loyaltyThreshold, setLoyaltyThreshold] = useState(5);
   const [importNotes, setImportNotes] = useState("");
+  const [successFeedback, setSuccessFeedback] = useState<string | null>(null);
 
   useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H1",location:"onboarding-wizard.tsx:isCompleteEffect",message:"isComplete effect evaluated",data:{isComplete,currentStep,progressStep:progress?.currentStep ?? null,businessesCount:businesses.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (isComplete) {
       router.replace("/dashboard?welcome=1");
     }
@@ -93,14 +96,8 @@ export function OnboardingWizard() {
   );
 
   const handleBusinessCreated = useCallback(async () => {
-    // #region agent log
-    fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H3",location:"onboarding-wizard.tsx:handleBusinessCreated:beforeAdvance",message:"business created callback invoked",data:{currentStep,progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null,businessesCount:businesses.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     await advanceStep(2);
-    // #region agent log
-    fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H3",location:"onboarding-wizard.tsx:handleBusinessCreated:afterAdvance",message:"business created callback finished advanceStep(2)",data:{currentStep,progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null,businessesCount:businesses.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [advanceStep, businesses.length, currentStep, progress?.completedSteps?.length, progress?.currentStep]);
+  }, [advanceStep]);
 
   const handleContinue = async () => {
     if (step < FINAL_WIZARD_STEP) {
@@ -110,6 +107,11 @@ export function OnboardingWizard() {
       router.replace("/dashboard?welcome=1");
     }
   };
+
+  const handleGoBack = useCallback(async () => {
+    await goBackStep(step);
+    setError(null);
+  }, [goBackStep, step]);
 
   const handleCreateCustomer = async () => {
     if (!activeBusinessId || !customerName.trim()) {
@@ -134,7 +136,11 @@ export function OnboardingWizard() {
       setCustomers((prev) => [created, ...prev]);
       setSelectedCustomerId(created.id);
       setAppointmentCustomerId(created.id);
-      await nextStep(4);
+      setSuccessFeedback(guidance.successFeedback);
+      setTimeout(() => {
+        setSuccessFeedback(null);
+        nextStep(4);
+      }, 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add customer.");
     } finally {
@@ -157,7 +163,11 @@ export function OnboardingWizard() {
         token,
       });
       await loadCustomers();
-      await nextStep(5);
+      setSuccessFeedback(guidance.successFeedback);
+      setTimeout(() => {
+        setSuccessFeedback(null);
+        nextStep(5);
+      }, 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to record visit.");
     } finally {
@@ -185,7 +195,11 @@ export function OnboardingWizard() {
           notes: "Created from onboarding",
         }),
       });
-      await nextStep(6);
+      setSuccessFeedback(guidance.successFeedback);
+      setTimeout(() => {
+        setSuccessFeedback(null);
+        nextStep(6);
+      }, 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create appointment.");
     } finally {
@@ -195,7 +209,7 @@ export function OnboardingWizard() {
 
   const handleCreatePromo = async () => {
     if (!activeBusinessId || !promoType) {
-      setError("Please complete promo details.");
+      setError("Please complete offer details.");
       return;
     }
     const now = new Date();
@@ -218,9 +232,13 @@ export function OnboardingWizard() {
           messageContent: promoMessage,
         }),
       });
-      await nextStep(7);
+      setSuccessFeedback(guidance.successFeedback);
+      setTimeout(() => {
+        setSuccessFeedback(null);
+        nextStep(7);
+      }, 1200);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create promo.");
+      setError(e instanceof Error ? e.message : "Failed to create offer.");
     } finally {
       setBusy(false);
     }
@@ -237,33 +255,17 @@ export function OnboardingWizard() {
           { token }
         );
       }
-      await nextStep(8);
+      setSuccessFeedback(guidance.successFeedback);
+      setTimeout(() => {
+        setSuccessFeedback(null);
+        nextStep(8);
+      }, 1200);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to validate loyalty step.");
+      setError(e instanceof Error ? e.message : "Failed to save rewards.");
     } finally {
       setBusy(false);
     }
   };
-
-  const stepTitle = useMemo(
-    () =>
-      step === 1
-        ? "Set up your business"
-        : step === 2
-          ? "Your daily dashboard workflow"
-          : step === 3
-            ? "Add your first customer"
-            : step === 4
-              ? "Record a visit"
-              : step === 5
-                ? "Add an appointment"
-                : step === 6
-                  ? "Create a promo"
-                  : step === 7
-                    ? "Set your loyalty rule"
-                    : "Finalize onboarding",
-    [step]
-  );
 
   if (loading || isComplete) {
     return (
@@ -275,30 +277,47 @@ export function OnboardingWizard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Step {step} of {FINAL_WIZARD_STEP}
-        </p>
-        <h1 className="text-2xl font-semibold text-foreground">{stepTitle}</h1>
-        <p className="mt-2 text-base text-muted-foreground">
-          {guidance?.message}
-        </p>
-      </div>
+      <OnboardingJourneyProgress currentStep={step} />
 
-      {step === 1 ? (
-        <OnboardingSetupStep
-          onComplete={handleContinue}
-          onBusinessCreated={handleBusinessCreated}
-        />
-      ) : (
-        <div className="space-y-6 rounded-lg border border-border bg-card p-6">
-          <p className="text-base text-foreground">
-            {guidance?.expectedAction}
-          </p>
-          {step === 2 && (
-            <Button size="lg" className="min-h-[44px] text-base" onClick={handleContinue}>
-              Continue
+      {step === 1 && (
+        <>
+          <OnboardingStepIntro guidance={guidance} />
+          <OnboardingSetupStep
+            onComplete={handleContinue}
+            onBusinessCreated={handleBusinessCreated}
+          />
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <OnboardingStepIntro guidance={guidance} />
+          <OnboardingDashboardPreviewStep
+            onContinue={handleContinue}
+            onContinueSecondary={handleContinue}
+            disabled={busy}
+          />
+          {guidance.allowSkip && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => nextStep(3)}
+            >
+              Skip this step
             </Button>
+          )}
+        </>
+      )}
+
+      {step >= 3 && (
+        <div className="space-y-6 rounded-lg border border-border bg-card p-6">
+          <OnboardingStepIntro guidance={guidance} />
+
+          {successFeedback && (
+            <div className="rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400" role="status">
+              {successFeedback}
+            </div>
           )}
 
           {step === 3 && (
@@ -316,7 +335,7 @@ export function OnboardingWizard() {
                 className="min-h-[44px] text-base"
               />
               <Button size="lg" className="min-h-[44px] text-base" onClick={handleCreateCustomer} disabled={busy}>
-                {busy ? "Saving…" : "Save customer and continue"}
+                {busy ? "Saving…" : guidance.primaryActionLabel}
               </Button>
             </div>
           )}
@@ -334,12 +353,12 @@ export function OnboardingWizard() {
                   >
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name} (visits: {c.visitCount})
+                        {c.name} — {c.visitCount} visit{c.visitCount !== 1 ? "s" : ""} recorded
                       </option>
                     ))}
                   </select>
                   <Button size="lg" className="min-h-[44px] text-base" onClick={handleRecordVisit} disabled={busy}>
-                    {busy ? "Recording…" : "Record visit and continue"}
+                    {busy ? "Recording…" : guidance.primaryActionLabel}
                   </Button>
                 </>
               )}
@@ -370,7 +389,7 @@ export function OnboardingWizard() {
                     className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
                   />
                   <Button size="lg" className="min-h-[44px] text-base" onClick={handleCreateAppointment} disabled={busy}>
-                    {busy ? "Saving…" : "Create appointment and continue"}
+                    {busy ? "Saving…" : guidance.primaryActionLabel}
                   </Button>
                 </>
               )}
@@ -379,6 +398,7 @@ export function OnboardingWizard() {
 
           {step === 6 && (
             <div className="space-y-4">
+              <label className="block text-sm font-medium text-foreground">Offer type</label>
               <select
                 value={promoType}
                 onChange={(e) => setPromoType(e.target.value)}
@@ -393,17 +413,17 @@ export function OnboardingWizard() {
               <Input
                 value={promoValue}
                 onChange={(e) => setPromoValue(e.target.value)}
-                placeholder="Promo value (e.g. 10% off)"
+                placeholder="Offer value (e.g. 10% off)"
                 className="min-h-[44px] text-base"
               />
               <textarea
                 value={promoMessage}
                 onChange={(e) => setPromoMessage(e.target.value)}
-                placeholder="Promo message"
+                placeholder="Message to show customers"
                 className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
               />
               <Button size="lg" className="min-h-[44px] text-base" onClick={handleCreatePromo} disabled={busy}>
-                {busy ? "Saving…" : "Create promo and continue"}
+                {busy ? "Saving…" : guidance.primaryActionLabel}
               </Button>
             </div>
           )}
@@ -411,7 +431,7 @@ export function OnboardingWizard() {
           {step === 7 && (
             <div className="space-y-4">
               <label className="block text-sm font-medium text-foreground">
-                Loyalty threshold (visits)
+                Visits before reward unlocks
               </label>
               <input
                 type="number"
@@ -421,10 +441,10 @@ export function OnboardingWizard() {
                 className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
               />
               <p className="text-sm text-muted-foreground">
-                Suggested rule: {loyaltyThreshold} visits before reward unlock.
+                After {loyaltyThreshold} visit{loyaltyThreshold !== 1 ? "s" : ""}, the customer earns a reward. You can change this later.
               </p>
               <Button size="lg" className="min-h-[44px] text-base" onClick={handleLoyaltyContinue} disabled={busy}>
-                {busy ? "Saving…" : "Save loyalty step and continue"}
+                {busy ? "Saving…" : guidance.primaryActionLabel}
               </Button>
             </div>
           )}
@@ -434,15 +454,15 @@ export function OnboardingWizard() {
               <textarea
                 value={importNotes}
                 onChange={(e) => setImportNotes(e.target.value)}
-                placeholder="Optional: paste customer names or notes for later import."
+                placeholder="Optional: paste customer names or notes for later import. You can do this later from the Customers page."
                 className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
               />
               <div className="flex flex-wrap gap-3">
                 <Button size="lg" className="min-h-[44px] text-base" onClick={handleContinue} disabled={busy}>
-                  Finish onboarding
+                  {guidance.primaryActionLabel}
                 </Button>
                 <Button variant="outline" size="lg" className="min-h-[44px] text-base" onClick={handleContinue} disabled={busy}>
-                  Skip import and finish
+                  {guidance.secondaryActionLabel}
                 </Button>
               </div>
             </div>
@@ -452,14 +472,30 @@ export function OnboardingWizard() {
         </div>
       )}
 
-      {step === 1 && businesses.length >= 1 && (
-        <Button
-          size="lg"
-          className="min-h-[44px] w-full text-base sm:w-auto"
-          onClick={handleContinue}
-        >
-          Continue to next step
-        </Button>
+      {(step >= 2 || (step === 1 && businesses.length >= 1)) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {step >= 2 && step <= FINAL_WIZARD_STEP && (
+            <Button
+              variant="outline"
+              size="lg"
+              className="min-h-[44px] text-base"
+              onClick={handleGoBack}
+              disabled={busy}
+            >
+              <ChevronLeft className="mr-1 size-4" aria-hidden />
+              Back
+            </Button>
+          )}
+          {step === 1 && businesses.length >= 1 && (
+            <Button
+              size="lg"
+              className="min-h-[44px] w-full text-base sm:w-auto"
+              onClick={handleContinue}
+            >
+              Continue to next step
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

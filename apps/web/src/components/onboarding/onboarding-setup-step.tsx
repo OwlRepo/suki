@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@suki/ui";
@@ -8,13 +9,13 @@ import { apiRequest } from "@/lib/api";
 import { useWorkspace } from "@/contexts/workspace-context";
 
 const BUSINESS_TYPES = [
-  { value: "salon", label: "Salon / Hair & Beauty" },
-  { value: "clinic", label: "Clinic / Healthcare" },
-  { value: "restaurant", label: "Restaurant / Cafe" },
-  { value: "retail", label: "Retail / Shop" },
-  { value: "spa", label: "Spa / Wellness" },
-  { value: "gym", label: "Gym / Fitness" },
-  { value: "other", label: "Other business" },
+  { value: "salon", label: "Salon / Hair & Beauty", example: "Hair salons, barbershops, beauty services" },
+  { value: "clinic", label: "Clinic / Healthcare", example: "Medical clinics, dental practices" },
+  { value: "restaurant", label: "Restaurant / Cafe", example: "Restaurants, cafes, catering" },
+  { value: "retail", label: "Retail / Shop", example: "Boutiques, specialty shops" },
+  { value: "spa", label: "Spa / Wellness", example: "Day spas, massage, wellness centers" },
+  { value: "gym", label: "Gym / Fitness", example: "Gyms, fitness studios, personal training" },
+  { value: "other", label: "Other business", example: "Any other service or retail business" },
 ];
 
 const WORKFLOW_PROFILE_BY_TYPE: Record<string, string> = {
@@ -42,12 +43,10 @@ export function OnboardingSetupStep({
   const [error, setError] = useState<string | null>(null);
 
   const alreadyHasBusiness = (workspace?.businesses?.length ?? 0) >= 1;
+  const [justCreated, setJustCreated] = useState(false);
 
   useEffect(() => {
     if (alreadyHasBusiness) {
-      // #region agent log
-      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H4",location:"onboarding-setup-step.tsx:alreadyHasBusinessEffect",message:"alreadyHasBusiness effect invoked onBusinessCreated",data:{alreadyHasBusiness,businessesCount:workspace?.businesses?.length ?? 0},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       onBusinessCreated();
     }
   }, [alreadyHasBusiness, onBusinessCreated, workspace?.businesses?.length]);
@@ -55,7 +54,9 @@ export function OnboardingSetupStep({
   if (alreadyHasBusiness) {
     return (
       <div className="rounded-lg border border-border bg-muted/30 p-6">
-        <p className="text-base text-muted-foreground">Loading next step…</p>
+        <p className="text-base text-muted-foreground">
+          {justCreated ? "Business created. Moving to next step…" : "Loading next step…"}
+        </p>
       </div>
     );
   }
@@ -81,19 +82,14 @@ export function OnboardingSetupStep({
           workflowProfile,
         }),
       });
-      // #region agent log
-      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H5",location:"onboarding-setup-step.tsx:handleCreateBusiness:afterCreate",message:"business create API succeeded",data:{alreadyHasBusiness,businessesCount:workspace?.businesses?.length ?? 0},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+      setJustCreated(true);
       await workspace?.refetch?.();
-      // #region agent log
-      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H5",location:"onboarding-setup-step.tsx:handleCreateBusiness:afterRefetch",message:"workspace refetch finished",data:{alreadyHasBusiness,businessesCount:workspace?.businesses?.length ?? 0},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : "Failed to create business. Please try again.";
       if (msg === "PLAN_BUSINESS_LIMIT_REACHED") {
         setError(
-          "Your plan limit for businesses has been reached. Upgrade your plan in Settings to add more."
+          "You've reached the maximum number of businesses on your plan. To add more, go to Settings and upgrade your plan."
         );
       } else {
         setError(msg);
@@ -140,7 +136,27 @@ export function OnboardingSetupStep({
             </option>
           ))}
         </select>
+        {businessType && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {BUSINESS_TYPES.find((t) => t.value === businessType)?.example}
+          </p>
+        )}
       </div>
+
+      <details className="group rounded-md border border-border bg-muted/30">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+          <span>Why do we ask this?</span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
+          <p className="leading-relaxed">
+            We use your business type to show you the right words and suggestions. For example,
+            clinics see "patients" instead of "customers," and salons see service-focused prompts.
+            You can change this anytime in Settings.
+          </p>
+        </div>
+      </details>
+
       {error && (
         <p className="text-base text-destructive" role="alert">
           {error}

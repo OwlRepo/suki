@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { apiRequest } from "@/lib/api";
-import { ONBOARDING_STEPS } from "@/lib/onboarding";
 
 /** Sentinel step meaning onboarding is complete; user never sees wizard again */
 export const ONBOARDING_COMPLETE_STEP = 9;
@@ -70,9 +69,6 @@ export function useOnboardingProgress() {
 
   const advanceStep = useCallback(
     async (toStep?: number) => {
-      // #region agent log
-      fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H3",location:"use-onboarding-progress.ts:advanceStep",message:"advanceStep invoked",data:{toStep:toStep ?? null,progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null,hasProgress:!!progress},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (!progress) return;
       const next = toStep ?? Math.min(progress.currentStep + 1, ONBOARDING_COMPLETE_STEP);
       const stepId = `step_${next}`;
@@ -86,9 +82,6 @@ export function useOnboardingProgress() {
   );
 
   const markComplete = useCallback(async () => {
-    // #region agent log
-    fetch("http://127.0.0.1:7247/ingest/fff4b1e3-aab4-44a4-abd8-c773446f506f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"b61998"},body:JSON.stringify({sessionId:"b61998",runId:"run1",hypothesisId:"H2",location:"use-onboarding-progress.ts:markComplete",message:"markComplete invoked",data:{progressStep:progress?.currentStep ?? null,completedStepsCount:progress?.completedSteps?.length ?? null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     await updateProgress({
       currentStep: ONBOARDING_COMPLETE_STEP,
       completedSteps: [...new Set([...(progress?.completedSteps ?? []), "complete"])],
@@ -101,6 +94,44 @@ export function useOnboardingProgress() {
 
   const currentStep = progress?.currentStep ?? 0;
 
+  const goToStep = useCallback(
+    async (step: number) => {
+      if (!progress) return;
+      const bounded = Math.max(1, Math.min(step, FINAL_WIZARD_STEP));
+      if (bounded > progress.currentStep) {
+        const stepId = `step_${bounded}`;
+        const completedSteps = [...new Set([...progress.completedSteps, stepId])];
+        await updateProgress({ currentStep: bounded, completedSteps });
+      } else {
+        await updateProgress({ currentStep: bounded });
+      }
+    },
+    [progress, updateProgress],
+  );
+
+  const goBackStep = useCallback(
+    async (current: number) => {
+      if (!progress || current <= 1) return;
+      const prev = Math.max(1, current - 1);
+      await updateProgress({ currentStep: prev });
+    },
+    [progress, updateProgress],
+  );
+
+  const skipToNext = useCallback(
+    async (current: number) => {
+      if (!progress) return;
+      const next = Math.min(current + 1, FINAL_WIZARD_STEP);
+      await advanceStep(next);
+    },
+    [progress, advanceStep],
+  );
+
+  const getProgressPercent = useCallback((step: number) => {
+    if (step >= ONBOARDING_COMPLETE_STEP) return 100;
+    return Math.round((Math.max(0, Math.min(step, FINAL_WIZARD_STEP)) / FINAL_WIZARD_STEP) * 100);
+  }, []);
+
   return {
     progress,
     loading,
@@ -110,6 +141,10 @@ export function useOnboardingProgress() {
     updateProgress,
     advanceStep,
     markComplete,
+    goToStep,
+    goBackStep,
+    skipToNext,
+    getProgressPercent,
   };
 }
 
