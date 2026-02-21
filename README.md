@@ -103,7 +103,8 @@ cp .env.example .env
 **Optional (for full features):**
 
 - `OPENAI_API_KEY` — AI message generation (Promos flow)
-- `PAYMONGO_SECRET_KEY` / `PAYMONGO_PUBLIC_KEY` — Billing
+- `PAYMONGO_SECRET_KEY` / `PAYMONGO_PUBLIC_KEY` / `PAYMONGO_WEBHOOK_SECRET` — Billing
+- `PII_ENCRYPTION_KEY_BASE64` — 32-byte key (base64) for PII at rest; generate with `openssl rand -base64 32`
 
 ### 3. Database setup
 
@@ -148,6 +149,26 @@ bun run dev:api   # API only
 | `bun run db:studio` | Open Drizzle Studio |
 | `bun run db:seed` | Seed database |
 | `bun run db:reset` | Reset database |
+
+## Rollout & verification
+
+Feature flags control phased rollout of billing, messaging, and security features. Set via env:
+
+- `FF_auto_messaging_enabled` — Auto appointment/reminder sends
+- `FF_auto_followups_scheduler_enabled` — Scheduler cron jobs
+- `FF_billing_grace_enforced` — Pause messaging when billing past_due
+- `FF_sms_metering_enforced` — Enforce SMS caps
+- `FF_security_audit_enabled` — Audit log writes
+
+Health endpoint `GET /health/feature-flags` returns current values. Default: enabled in dev, disabled in production unless set.
+
+**Verification checklist** (before full rollout):
+
+- [ ] Locked prices visible and consistent across API/UI
+- [ ] Basic cannot auto-send; Grow/Pro entitlements enforced
+- [ ] SMS counted only on successful send; no sends when opted out
+- [ ] STOP webhook suppresses immediately; billing past_due pauses automations
+- [ ] Audit logs contain action metadata only (no raw PII)
 
 ## Deployment
 

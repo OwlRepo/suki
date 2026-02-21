@@ -1,7 +1,10 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
 import { getDb } from "@suki/database";
-import { customers, businesses } from "@suki/database";
+import { customers, businesses, messageEvents } from "@suki/database";
 import { eq, and, ilike, like, or, sql, desc, gte, lt, isNull } from "drizzle-orm";
+import { AutomationSendService } from "../automation/automation-send.service";
+
+const DEFAULT_LOYALTY_THRESHOLD = 5;
 
 function parseTags(tags: string | null | undefined): string | null {
   if (!tags || typeof tags !== "string") return null;
@@ -11,6 +14,7 @@ function parseTags(tags: string | null | undefined): string | null {
 
 @Injectable()
 export class CustomersService {
+  constructor(private readonly automationSend: AutomationSendService) {}
   async create(
     businessId: string,
     organizationId: string,
@@ -77,6 +81,37 @@ export class CustomersService {
       .from(customers)
       .where(conditions);
     return { customers: list, total: count };
+  }
+
+  async getMessageHistory(customerId: string, organizationId: string, limit = 50) {
+    const customer = await this.findById(customerId, organizationId);
+    if (!customer) return [];
+    const db = getDb();
+    const rows = await db
+      .select({
+        id: messageEvents.id,
+        channel: messageEvents.channel,
+        purpose: messageEvents.purpose,
+        status: messageEvents.status,
+        deliveryStatus: messageEvents.deliveryStatus,
+        failureReason: messageEvents.failureReason,
+        sentAt: messageEvents.sentAt,
+        createdAt: messageEvents.createdAt,
+      })
+      .from(messageEvents)
+      .where(eq(messageEvents.customerId, customerId))
+      .orderBy(desc(messageEvents.createdAt))
+      .limit(Math.min(limit, 100));
+    return rows.map((r) => ({
+      id: r.id,
+      channel: r.channel,
+      purpose: r.purpose,
+      status: r.status,
+      deliveryStatus: r.deliveryStatus ?? undefined,
+      failureReason: r.failureReason ?? undefined,
+      sentAt: r.sentAt?.toISOString() ?? undefined,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   async findById(id: string, organizationId: string) {
@@ -154,16 +189,28 @@ export class CustomersService {
     if (!existing) return null;
     const db = getDb();
     const now = new Date();
+    const newVisitCount = existing.visitCount + 1;
     const [updated] = await db
       .update(customers)
       .set({
-        visitCount: existing.visitCount + 1,
+        visitCount: newVisitCount,
         lastVisitAt: now,
         updatedAt: now,
       })
       .where(eq(customers.id, id))
       .returning();
-    return updated!;
+    const customer = updated!;
+
+    void this.automationSend
+      .sendPostVisitFollowup(organizationId, existing.businessId, id)
+      .catch(() => {});
+    if (newVisitCount >= DEFAULT_LOYALTY_THRESHOLD) {
+      void this.automationSend
+        .sendLoyaltyUnlock(organizationId, existing.businessId, id)
+        .catch(() => {});
+    }
+
+    return customer;
   }
 
   async findDuplicateCandidates(

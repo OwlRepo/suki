@@ -1,0 +1,35 @@
+import { Injectable } from "@nestjs/common";
+
+export interface SmsSendResult {
+  ok: boolean;
+  providerMessageId?: string;
+  transient?: boolean;
+  errorCode?: string;
+}
+
+export interface ISmsProvider {
+  send(input: {
+    to: string;
+    body: string;
+    clientRef: string;
+  }): Promise<SmsSendResult>;
+}
+
+/**
+ * No-op SMS provider when no provider is configured.
+ * Returns skipped/not_configured without throwing.
+ */
+@Injectable()
+export class NoopSmsProvider implements ISmsProvider {
+  async send(_input: {
+    to: string;
+    body: string;
+    clientRef: string;
+  }): Promise<SmsSendResult> {
+    return {
+      ok: false,
+      transient: false,
+      errorCode: "provider_not_configured",
+    };
+  }
+}

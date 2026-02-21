@@ -90,6 +90,18 @@ export class CustomersController {
     return { customer };
   }
 
+  @Get(":id/message-history")
+  async getMessageHistory(
+    @Param("id") id: string,
+    @Query("limit") limitStr?: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    const limit = limitStr ? parseInt(limitStr, 10) : 50;
+    const events = await this.customersService.getMessageHistory(id, orgId, limit);
+    return { events };
+  }
+
   @Get(":id")
   async get(@Param("id") id: string, @Tenant("organizationId") orgId?: string) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");

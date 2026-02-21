@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 import { HealthModule } from "./health/health.module";
 import { PlanCapacityModule } from "./common/plan-capacity.module";
 import { AuthModule } from "./auth/auth.module";
@@ -22,9 +23,13 @@ import { AiModule } from "./ai/ai.module";
 import { OnboardingModule } from "./onboarding/onboarding.module";
 import { WorkflowsModule } from "./workflows/workflows.module";
 import { LicensingModule } from "./licensing/licensing.module";
+import { AutomationModule } from "./automation/automation.module";
+import { AutomationPolicyModule } from "./automation/automation-policy.module";
+import { SecurityModule } from "./security/security.module";
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     PlanCapacityModule,
     ConfigModule.forRoot({
       isGlobal: true,
@@ -46,11 +51,14 @@ import { LicensingModule } from "./licensing/licensing.module";
     ActivityLogModule,
     IntakeModule,
     MessagingModule,
+    AutomationPolicyModule,
+    AutomationModule,
     CrmModule,
     AiModule,
     OnboardingModule,
     WorkflowsModule,
     LicensingModule,
+    SecurityModule,
   ],
 })
 export class AppModule {}

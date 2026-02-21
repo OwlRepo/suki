@@ -19,6 +19,11 @@ export class HealthController {
       crm_mode_toggle_enabled: this.featureFlagsService.crmModeToggleEnabled(),
       ai_usage_transparency_enabled: this.featureFlagsService.aiUsageTransparencyEnabled(),
       onboarding_v2_enabled: this.featureFlagsService.onboardingV2Enabled(),
+      auto_messaging_enabled: this.featureFlagsService.autoMessagingEnabled(),
+      auto_followups_scheduler_enabled: this.featureFlagsService.autoFollowupsSchedulerEnabled(),
+      billing_grace_enforced: this.featureFlagsService.billingGraceEnforced(),
+      sms_metering_enforced: this.featureFlagsService.smsMeteringEnforced(),
+      security_audit_enabled: this.featureFlagsService.securityAuditEnabled(),
     };
   }
 

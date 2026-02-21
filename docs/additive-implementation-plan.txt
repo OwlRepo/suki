@@ -1,0 +1,223 @@
+You are a senior product + systems engineer working inside Cursor in PLAN MODE.
+
+Your task is to generate a **strictly ADDITIVE implementation plan** for the Suki app.
+
+IMPORTANT:
+- Suki is already a working production app.
+- You MUST NOT redesign, replace, or invalidate existing features.
+- You MUST NOT propose a rewrite, migration, or architectural overhaul.
+- You are ONLY allowed to:
+  - extend existing flows
+  - add new services
+  - add new background jobs
+  - add new toggles/settings
+  - add new message-sending behavior
+- Existing behavior must continue working exactly as-is.
+
+If an idea requires rewriting core flows, it is OUT OF SCOPE.
+
+────────────────────────────────────────
+EXISTING PRODUCT CONTEXT (DO NOT BREAK)
+────────────────────────────────────────
+Suki is a CRM for service businesses with:
+
+ALREADY IMPLEMENTED:
+- Customers (manual add, QR self-intake, imports)
+- Appointments (scheduled / completed / missed / cancelled)
+- Visit stamping (updates last visit + visit count)
+- Loyalty qualification by visit threshold
+- Promos (template-based, optional AI drafting)
+- Insights (new vs repeat customers)
+- CRM Lite vs Full modes
+- AI features optional (OpenAI key may be absent)
+- “Reminder sent” tracking exists (but no auto-send yet)
+
+You must build ON TOP of these.
+
+────────────────────────────────────────
+GOAL OF THIS CHANGESET
+────────────────────────────────────────
+Incrementally evolve Suki into:
+
+“The CRM that quietly makes more appointments happen.”
+
+This is achieved by:
+- turning existing tracking into **automatic action**
+- adding **calm, opinionated automations**
+- preserving simplicity for middle-to-late aged users (≈40–65+)
+
+────────────────────────────────────────
+TARGET USER CONSTRAINTS (CRITICAL)
+────────────────────────────────────────
+Optimize for:
+- Non-technical operators
+- Middle to late aged users
+- Predictability and trust over flexibility
+
+UX constraints:
+- No workflow builders
+- No drag-and-drop logic
+- No technical language in UI
+- Prefer ON / OFF toggles with safe defaults
+- Always show message previews
+- Always allow easy disable
+- Always log what happened
+
+────────────────────────────────────────
+STACK (LOCKED)
+────────────────────────────────────────
+Frontend:
+- Next.js 15 (App Router, TypeScript, Tailwind)
+
+Backend:
+- NestJS
+- PostgreSQL via Drizzle ORM
+
+Auth:
+- Clerk
+
+Payments:
+- PayMongo
+
+Monorepo:
+- Turborepo + Bun
+
+DO NOT propose changing the stack.
+
+────────────────────────────────────────
+PRICING (LOCKED – MAP FEATURES TO THIS)
+────────────────────────────────────────
+Basic – ₱499/mo
+- Customer records
+- QR signup
+- Visit count + last visit
+- Imports & dedupe
+- Loyalty qualification ONLY
+- NO automatic message sending
+
+Grow – ₱999/mo
+- Everything in Basic
+- Automatic appointment confirmation
+- Automatic 24h reminder (default ON)
+- Delivery status
+- Reschedule links
+- One auto-send channel (SMS OR Email)
+
+Pro – ₱1,499/mo
+- Everything in Grow
+- Missed appointment recovery
+- Post-visit thank-you + rebook
+- Inactivity winback automation
+- Loyalty unlock notifications
+- Higher / generous message caps
+
+You must explicitly gate new features by plan.
+
+────────────────────────────────────────
+NEW FEATURES TO ADD (INCREMENTAL ONLY)
+────────────────────────────────────────
+
+1) AUTOMATIC APPOINTMENT MESSAGING
+Extend the existing Appointments system to:
+- Auto-send confirmation when appointment is created
+- Auto-send reminder at 24h before appointment
+- Optional 72h reminder (OFF by default)
+- Include reschedule link in all messages
+- Update existing “reminder sent” tracking automatically
+
+NO UI complexity:
+- One toggle: “Send reminders automatically”
+
+2) MISSED APPOINTMENT RECOVERY
+Extend existing appointment statuses:
+- When status becomes “missed”:
+  - Send a polite follow-up automatically
+  - Include rebooking link
+  - Log outcome
+
+3) POST-VISIT FOLLOW-UP
+Extend visit stamping:
+- After a completed visit:
+  - Send thank-you + rebook message
+  - Fixed delay (e.g. next day)
+
+4) WINBACK FOR INACTIVE CUSTOMERS
+Extend existing last-visit logic:
+- Detect inactivity after X days (default 60)
+- Send ONE gentle reminder
+- Enforce strict frequency caps
+
+5) LOYALTY UNLOCK NOTIFICATIONS
+Extend existing loyalty qualification:
+- When threshold is reached:
+  - Auto-notify customer
+  - Simple “claim reward” CTA
+
+────────────────────────────────────────
+MESSAGING RULES (MUST BE ENFORCED)
+────────────────────────────────────────
+- Transactional and promotional messages are distinct
+- One message = one purpose
+- SMS must always include STOP opt-out
+- Consent flags must be respected
+- Message history must be visible per customer
+- Messages must be labeled:
+  “Sent automatically by Suki”
+
+AI must NEVER be required for sending.
+
+────────────────────────────────────────
+AUTOMATION UX (ADDITIVE ONLY)
+────────────────────────────────────────
+Add a simple “Automatic Follow-Ups” section that:
+- Lists outcome-based automations
+- Uses ON / OFF toggles
+- Shows message previews
+- Does NOT expose logic or configuration
+
+Examples:
+- Prevent no-shows
+- Recover missed appointments
+- Thank customers after visits
+- Bring back inactive customers
+- Notify loyalty rewards
+
+────────────────────────────────────────
+WHAT YOU MUST NOT DO
+────────────────────────────────────────
+DO NOT:
+- Replace existing flows
+- Rename existing concepts unnecessarily
+- Introduce workflow builders
+- Introduce agent terminology
+- Introduce campaign builders
+- Introduce unified inbox
+- Introduce AI-only critical paths
+- Introduce per-action or per-agent billing
+
+────────────────────────────────────────
+DELIVERABLE EXPECTATION
+────────────────────────────────────────
+Produce a **safe, incremental implementation plan** that includes:
+
+1) What existing code paths are extended
+2) Minimal DB changes (tables / fields)
+3) New backend services or jobs (if needed)
+4) Message sending abstraction
+5) Consent & opt-out handling
+6) Feature gating by plan
+7) UI additions (minimal, additive)
+8) Edge cases & failure handling
+9) A realistic build order (6–8 weeks)
+
+Bias all decisions toward:
+- Minimal disruption
+- Predictable behavior
+- Revenue impact
+- Middle-aged user trust
+
+Primary success metric:
+“Customers show up more often and come back without staff chasing them.”
+
+DO NOT propose a rewrite.
+ONLY extend what already exists.

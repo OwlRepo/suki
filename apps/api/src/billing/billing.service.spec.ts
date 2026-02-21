@@ -10,6 +10,8 @@ describe("BillingService", () => {
     expect(plans.map((p) => p.planType)).toContain("starter");
     expect(plans.map((p) => p.planType)).toContain("growth");
     expect(plans.map((p) => p.planType)).toContain("ai_pro");
-    expect(plans.find((p) => p.planType === "growth")?.pricePhp).toBe(499);
+    expect(plans.find((p) => p.planType === "starter")?.pricePhp).toBe(499);
+    expect(plans.find((p) => p.planType === "growth")?.pricePhp).toBe(999);
+    expect(plans.find((p) => p.planType === "ai_pro")?.pricePhp).toBe(1499);
   });
 });

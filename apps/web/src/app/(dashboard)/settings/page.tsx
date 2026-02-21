@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@suki/ui";
@@ -44,6 +45,37 @@ interface BillingStatus {
   subscription: { planType?: string; status?: string; currentPeriodEnd?: string } | null;
 }
 
+const PLAN_LABELS: Record<string, string> = {
+  starter: "Basic",
+  growth: "Grow",
+  ai_pro: "Pro",
+};
+
+const PLAN_PRICES: Record<string, number> = {
+  starter: 499,
+  growth: 999,
+  ai_pro: 1499,
+};
+
+interface SmsUsage {
+  included: number;
+  addon: number;
+  used: number;
+  total: number;
+  remaining: number;
+  pausedReason: string;
+  at80Pct: boolean;
+  at100Pct: boolean;
+}
+
+const PAUSED_REASON_MESSAGES: Record<string, string> = {
+  none: "",
+  cap_reached: "SMS cap reached. Auto-messages paused. Buy add-on below to resume.",
+  billing_past_due: "Messages paused until billing is fixed. Update your payment to resume.",
+  provider_down: "SMS provider temporarily unavailable. Messages will retry.",
+  manual_pause: "Messaging is manually paused.",
+};
+
 function UpgradeButton({
   planType,
   currentPlan,
@@ -60,8 +92,7 @@ function UpgradeButton({
   readOnly?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
-  const prices: Record<string, number> = { growth: 499, ai_pro: 999 };
-  const price = prices[planType] ?? 0;
+  const price = PLAN_PRICES[planType] ?? 0;
   const isCurrent = currentPlan === planType;
   const isUpgrade =
     (planType === "ai_pro" && currentPlan !== "ai_pro") ||
@@ -116,13 +147,14 @@ function UpgradeButton({
       onClick={isDowngrade ? handleDowngrade : handleUpgrade}
       disabled={loading}
     >
-      {loading ? "..." : isDowngrade ? `Switch to ${planType}` : `${planType} – ₱${price}/mo`}
+      {loading ? "..." : isDowngrade ? `Switch to ${PLAN_LABELS[planType] ?? planType}` : `${PLAN_LABELS[planType] ?? planType} – ₱${price}/mo`}
     </Button>
   );
 }
 
 function SettingsPageContent() {
   const { getToken } = useAuth();
+  const searchParams = useSearchParams();
   const { data: syncData } = useAuthSync();
   const workspace = useWorkspace();
   const flags = useFeatureFlags();
@@ -155,6 +187,10 @@ function SettingsPageContent() {
   const [aiBreakdown, setAiBreakdown] = useState<{ items: Array<{ key: string; tokens: number; requests: number }> } | null>(null);
   const [aiPoliciesLoading, setAiPoliciesLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [smsUsage, setSmsUsage] = useState<SmsUsage | null>(null);
+  const [automationSettingsByBiz, setAutomationSettingsByBiz] = useState<Record<string, { autoSendChannel: "sms" | "email" }>>({});
+  const [channelLoading, setChannelLoading] = useState<string | null>(null);
+  const [addonLoading, setAddonLoading] = useState(false);
 
   const effectivePlan = simulatedPlan ?? (billing?.planType as PlanType | undefined) ?? "starter";
 
@@ -176,13 +212,24 @@ function SettingsPageContent() {
     }
   };
 
+  const refetchSmsUsage = async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const u = await apiRequest<SmsUsage>("/messaging/sms-usage", { token });
+      setSmsUsage(u);
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     if (!syncData) return;
     (async () => {
       try {
         const token = await getToken();
         if (!token) return;
-        const [orgRes, bizRes, billRes, aiRes, breakdownRes] = await Promise.all([
+        const [orgRes, bizRes, billRes, aiRes, breakdownRes, smsRes] = await Promise.all([
           apiRequest<{ organization: Organization }>("/organizations/me", { token }),
           apiRequest<{ businesses: Business[] }>("/businesses", { token }),
           apiRequest<BillingStatus>("/billing/status", { token }),
@@ -200,6 +247,7 @@ function SettingsPageContent() {
             projectedDaysToLimit: number | null;
           }>("/ai/usage/summary", { token }).catch(() => null),
           apiRequest<{ items: Array<{ key: string; tokens: number; requests: number }> }>("/ai/usage/breakdown?groupBy=feature", { token }).catch(() => null),
+          apiRequest<SmsUsage>("/messaging/sms-usage", { token }).catch(() => null),
         ]);
         setOrg(orgRes.organization ?? null);
         setAiUsage(aiRes);
@@ -207,11 +255,52 @@ function SettingsPageContent() {
         setOrgName(orgRes.organization?.name ?? "");
         setBusinesses(bizRes.businesses);
         setBilling(billRes);
+        setSmsUsage(smsRes ?? null);
       } finally {
         setLoading(false);
       }
     })();
   }, [syncData, getToken]);
+
+  useEffect(() => {
+    const addon = searchParams?.get("addon");
+    const checkout = searchParams?.get("checkout");
+    if (addon === "success") {
+      setFeedback({ type: "success", message: "SMS add-on purchased. Credits will appear shortly." });
+      setTimeout(() => setFeedback(null), 5000);
+      refetchSmsUsage();
+      window.history.replaceState({}, "", "/settings");
+    } else if (checkout === "success") {
+      setFeedback({ type: "success", message: "Subscription updated successfully." });
+      setTimeout(() => setFeedback(null), 5000);
+      refetchBilling();
+      window.history.replaceState({}, "", "/settings");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!businesses.length || (effectivePlan !== "growth" && effectivePlan !== "ai_pro")) return;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const results = await Promise.all(
+          businesses.map(async (b) => {
+            const s = await apiRequest<{ autoSendChannel: "sms" | "email" }>(
+              `/automation/settings?businessId=${encodeURIComponent(b.id)}`,
+              { token },
+            ).catch(() => ({ autoSendChannel: "sms" as const }));
+            return { id: b.id, autoSendChannel: s.autoSendChannel ?? "sms" };
+          }),
+        );
+        const map: Record<string, { autoSendChannel: "sms" | "email" }> = {};
+        for (const r of results) map[r.id] = { autoSendChannel: r.autoSendChannel };
+        setAutomationSettingsByBiz(map);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [businesses, effectivePlan, getToken]);
 
   const handleSaveOrg = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,6 +386,18 @@ function SettingsPageContent() {
           variant={feedback.type}
           message={feedback.message}
           onDismiss={() => setFeedback(null)}
+          className="mt-4"
+        />
+      )}
+
+      {(billing?.readOnly || (smsUsage?.pausedReason && smsUsage.pausedReason !== "none")) && (
+        <StatusBanner
+          variant="warning"
+          message={
+            billing?.readOnly
+              ? "Messages paused until billing is fixed. Update your payment to resume."
+              : PAUSED_REASON_MESSAGES[smsUsage!.pausedReason] ?? `Messaging paused: ${smsUsage!.pausedReason}`
+          }
           className="mt-4"
         />
       )}
@@ -507,8 +608,8 @@ function SettingsPageContent() {
         </div>
         <div className="rounded-lg border border-border bg-card p-4 max-w-md">
           <p className="text-sm text-muted-foreground">Plan</p>
-          <p className="mt-1 font-medium capitalize">
-            {effectivePlan}
+          <p className="mt-1 font-medium">
+            {PLAN_LABELS[effectivePlan] ?? effectivePlan}
             {simulatedPlan && (
               <span className="ml-2 text-xs text-amber-600">(simulated)</span>
             )}
@@ -526,7 +627,10 @@ function SettingsPageContent() {
                 planType={plan}
                 currentPlan={effectivePlan}
                 getToken={getToken}
-                onSuccess={refetchBilling}
+                onSuccess={() => {
+                  refetchBilling();
+                  refetchSmsUsage();
+                }}
                 onError={(msg) => {
                   setFeedback({ type: "error", message: msg });
                   setTimeout(() => setFeedback(null), 6000);
@@ -537,6 +641,114 @@ function SettingsPageContent() {
           </div>
         </div>
       </section>
+
+      {(effectivePlan === "growth" || effectivePlan === "ai_pro") && (
+        <section className="mt-8 space-y-4">
+          <div>
+            <h2 className="text-lg font-medium">Messaging & SMS</h2>
+            <p className="text-sm text-muted-foreground">SMS usage, channel preference, and add-on packs.</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4 max-w-lg space-y-4">
+            {smsUsage != null && (
+              <div>
+                <p className="text-sm font-medium">SMS usage this month</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {smsUsage.used} / {smsUsage.total} used
+                  {smsUsage.total > 0 && ` (${smsUsage.included} included${smsUsage.addon > 0 ? ` + ${smsUsage.addon} add-on` : ""})`}
+                </p>
+                <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      smsUsage.at100Pct ? "bg-destructive" : smsUsage.at80Pct ? "bg-amber-500" : "bg-primary"
+                    }`}
+                    style={{ width: `${smsUsage.total > 0 ? Math.min(100, (smsUsage.used / smsUsage.total) * 100) : 0}%` }}
+                  />
+                </div>
+                {smsUsage.at80Pct && !smsUsage.at100Pct && (
+                  <p className="mt-1 text-xs text-amber-600">Approaching limit. Consider buying an add-on.</p>
+                )}
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-medium">Buy +300 SMS for ₱300</p>
+              <p className="text-xs text-muted-foreground">One-time purchase. No auto-charge.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={addonLoading || billing?.readOnly}
+                className="mt-2"
+                onClick={async () => {
+                  setAddonLoading(true);
+                  try {
+                    const token = await getToken();
+                    if (!token) return;
+                    const res = await apiRequest<{ checkoutUrl: string }>("/billing/sms-addon/purchase", {
+                      method: "POST",
+                      token,
+                      body: JSON.stringify({ confirm: true }),
+                    });
+                    if (res?.checkoutUrl) window.location.href = res.checkoutUrl;
+                  } catch (err) {
+                    setFeedback({ type: "error", message: fromError(err, "Add-on purchase unavailable.") });
+                    setTimeout(() => setFeedback(null), 6000);
+                  } finally {
+                    setAddonLoading(false);
+                  }
+                }}
+              >
+                {addonLoading ? "Redirecting..." : "Buy +300 SMS pack"}
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {(effectivePlan === "growth" || effectivePlan === "ai_pro") && businesses.length > 0 && (
+        <section className="mt-8 space-y-4">
+          <div>
+            <h2 className="text-lg font-medium">Auto-message channel</h2>
+            <p className="text-sm text-muted-foreground">Choose SMS or Email for automated appointment messages per business.</p>
+          </div>
+          <ul className="divide-y divide-border">
+            {businesses.map((b) => (
+              <li key={b.id} className="flex items-center justify-between py-3 first:pt-0">
+                <span className="font-medium">{b.name}</span>
+                <select
+                  value={automationSettingsByBiz[b.id]?.autoSendChannel ?? "sms"}
+                  disabled={channelLoading === b.id}
+                  onChange={async (e) => {
+                    const ch = e.target.value as "sms" | "email";
+                    setChannelLoading(b.id);
+                    try {
+                      const token = await getToken();
+                      if (!token) return;
+                      await apiRequest("/automation/settings", {
+                        method: "PATCH",
+                        token,
+                        body: JSON.stringify({ businessId: b.id, autoSendChannel: ch }),
+                      });
+                      setAutomationSettingsByBiz((prev) => ({
+                        ...prev,
+                        [b.id]: { autoSendChannel: ch },
+                      }));
+                      setFeedback({ type: "success", message: "Channel updated." });
+                      setTimeout(() => setFeedback(null), 4000);
+                    } catch (err) {
+                      setFeedback({ type: "error", message: fromError(err, "Failed to update channel.") });
+                    } finally {
+                      setChannelLoading(null);
+                    }
+                  }}
+                  className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                >
+                  <option value="sms">SMS</option>
+                  <option value="email">Email</option>
+                </select>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {isDevMode && (
         <section className="mt-8 space-y-4">
@@ -701,5 +913,9 @@ export default function SettingsPage() {
       </div>
     );
   }
-  return <SettingsPageContent />;
+  return (
+    <Suspense fallback={<p className="text-muted-foreground">Loading...</p>}>
+      <SettingsPageContent />
+    </Suspense>
+  );
 }

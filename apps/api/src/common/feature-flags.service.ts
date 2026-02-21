@@ -31,10 +31,35 @@ export class FeatureFlagsService {
   onboardingV2Enabled(): boolean {
     return this.isEnabled("onboarding_v2_enabled");
   }
+
+  autoMessagingEnabled(): boolean {
+    return this.isEnabled("auto_messaging_enabled");
+  }
+
+  autoFollowupsSchedulerEnabled(): boolean {
+    return this.isEnabled("auto_followups_scheduler_enabled");
+  }
+
+  billingGraceEnforced(): boolean {
+    return this.isEnabled("billing_grace_enforced");
+  }
+
+  smsMeteringEnforced(): boolean {
+    return this.isEnabled("sms_metering_enforced");
+  }
+
+  securityAuditEnabled(): boolean {
+    return this.isEnabled("security_audit_enabled");
+  }
 }
 
 export type FeatureFlag =
   | "workspace_global_enabled"
   | "crm_mode_toggle_enabled"
   | "ai_usage_transparency_enabled"
-  | "onboarding_v2_enabled";
+  | "onboarding_v2_enabled"
+  | "auto_messaging_enabled"
+  | "auto_followups_scheduler_enabled"
+  | "billing_grace_enforced"
+  | "sms_metering_enforced"
+  | "security_audit_enabled";

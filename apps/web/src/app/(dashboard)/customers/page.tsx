@@ -9,6 +9,7 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { CustomerFormModal } from "@/components/customers/customer-form-modal";
 import { CustomerItemActions } from "@/components/customers/customer-item-actions";
+import { CustomerMessageHistoryModal } from "@/components/customers/customer-message-history-modal";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
@@ -59,6 +60,7 @@ function CustomersPageContent() {
   const [addLoading, setAddLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [messageHistoryFor, setMessageHistoryFor] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!syncData) return;
@@ -272,6 +274,13 @@ function CustomersPageContent() {
           practiceMode={onboarding?.practiceMode ?? false}
         />
 
+        <CustomerMessageHistoryModal
+          open={!!messageHistoryFor}
+          onClose={() => setMessageHistoryFor(null)}
+          customerId={messageHistoryFor?.id ?? ""}
+          customerName={messageHistoryFor?.name ?? ""}
+        />
+
       <PageSection>
         <p className="text-sm text-muted-foreground">
           {displayTotal} customer{displayTotal !== 1 ? "s" : ""}
@@ -308,6 +317,11 @@ function CustomersPageContent() {
               <CustomerItemActions
                 onRecordVisit={() => handleStampVisit(c.id)}
                 onRemove={() => handleDelete(c.id)}
+                onViewMessages={
+                  !("isPracticeSample" in c) || !(c as { isPracticeSample?: boolean }).isPracticeSample
+                    ? () => setMessageHistoryFor({ id: c.id, name: c.name })
+                    : undefined
+                }
                 isPracticeSample={"isPracticeSample" in c && (c as { isPracticeSample?: boolean }).isPracticeSample}
                 onPracticeAdvance={onboarding?.advanceStep}
               />

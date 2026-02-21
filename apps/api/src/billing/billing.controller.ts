@@ -72,6 +72,29 @@ export class BillingController {
     return result;
   }
 
+  @Post("sms-addon/purchase")
+  @UseGuards(ClerkAuthGuard)
+  async purchaseSmsAddon(
+    @Body() body: { confirm?: boolean },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    if (body.confirm !== true) {
+      throw new BadRequestException(
+        "Explicit confirmation required. Set body: { confirm: true }.",
+      );
+    }
+    const result = await this.paymongoService.createCheckoutSession({
+      organizationId: orgId,
+      amountPesos: 300,
+      successUrl: `${FRONTEND_URL}/settings?addon=success`,
+      cancelUrl: `${FRONTEND_URL}/settings?addon=cancelled`,
+      description: "Suki +300 SMS pack",
+      metadata: { addon_type: "sms_pack" },
+    });
+    return result;
+  }
+
   @Post("downgrade")
   @UseGuards(ClerkAuthGuard)
   async downgrade(

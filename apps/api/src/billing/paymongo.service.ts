@@ -5,11 +5,12 @@ const PAYMONGO_API = "https://api.paymongo.com/v1";
 
 export interface CreateCheckoutSessionParams {
   organizationId: string;
-  planType: string;
+  planType?: string;
   amountPesos: number;
   successUrl: string;
   cancelUrl: string;
   description: string;
+  metadata?: Record<string, string>;
 }
 
 export interface CheckoutSessionResult {
@@ -67,9 +68,11 @@ export class PaymongoService {
             {
               amount: amountCentavos,
               currency: "PHP",
-              name: `${params.planType} plan`,
+              name: params.planType ? `${params.planType} plan` : "SMS Add-on",
               quantity: 1,
-              description: `Suki ${params.planType} subscription`,
+              description: params.planType
+                ? `Suki ${params.planType} subscription`
+                : "Suki +300 SMS pack",
             },
           ],
           payment_method_types: ["card", "gcash"],
@@ -77,7 +80,8 @@ export class PaymongoService {
           cancel_url: params.cancelUrl,
           metadata: {
             organization_id: params.organizationId,
-            plan_type: params.planType,
+            ...(params.planType && { plan_type: params.planType }),
+            ...params.metadata,
           },
         },
       },

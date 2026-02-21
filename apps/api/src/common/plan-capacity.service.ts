@@ -6,8 +6,27 @@ import type { PlanType } from "@suki/types";
 
 export const MODULES_BY_PLAN: Record<PlanType, string[]> = {
   starter: ["crm", "insights", "loyalty"],
-  growth: ["crm", "insights", "loyalty", "appointments", "promos"],
-  ai_pro: ["crm", "insights", "loyalty", "appointments", "promos", "ai_messaging"],
+  growth: [
+    "crm",
+    "insights",
+    "loyalty",
+    "appointments",
+    "promos",
+    "auto_appointment_messaging",
+  ],
+  ai_pro: [
+    "crm",
+    "insights",
+    "loyalty",
+    "appointments",
+    "promos",
+    "ai_messaging",
+    "auto_appointment_messaging",
+    "auto_missed_recovery",
+    "auto_post_visit",
+    "auto_winback",
+    "auto_loyalty_unlock",
+  ],
 };
 
 export const BUSINESS_LIMITS_BY_PLAN: Record<PlanType, number> = {

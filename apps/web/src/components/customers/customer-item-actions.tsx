@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 interface CustomerItemActionsProps {
   onRecordVisit: () => void;
   onRemove: () => void;
+  onViewMessages?: () => void;
   isPracticeSample?: boolean;
   onPracticeAdvance?: () => void;
 }
@@ -18,6 +19,7 @@ interface CustomerItemActionsProps {
 export function CustomerItemActions({
   onRecordVisit,
   onRemove,
+  onViewMessages,
   isPracticeSample = false,
   onPracticeAdvance,
 }: CustomerItemActionsProps) {
@@ -78,9 +80,22 @@ export function CustomerItemActions({
         </Button>
         {menuOpen && (
           <div
-            className="absolute right-0 top-full z-10 mt-1 min-w-[120px] rounded-md border border-border bg-popover py-1 shadow-md"
+            className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-md border border-border bg-popover py-1 shadow-md"
             role="menu"
           >
+            {onViewMessages && (
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onViewMessages();
+                }}
+              >
+                Message history
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

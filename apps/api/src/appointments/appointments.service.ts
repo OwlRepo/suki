@@ -2,9 +2,11 @@ import { Injectable, ForbiddenException } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { appointments, businesses } from "@suki/database";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { AutomationSendService } from "../automation/automation-send.service";
 
 @Injectable()
 export class AppointmentsService {
+  constructor(private readonly automationSend: AutomationSendService) {}
   async create(
     businessId: string,
     organizationId: string,
@@ -25,7 +27,11 @@ export class AppointmentsService {
         notes: data.notes ?? null,
       })
       .returning();
-    return a!;
+    const appointment = a!;
+    void this.automationSend
+      .sendAppointmentConfirmation(organizationId, businessId, appointment.id)
+      .catch(() => {});
+    return appointment;
   }
 
   async list(
@@ -106,6 +112,11 @@ export class AppointmentsService {
       .set({ status, updatedAt: new Date() })
       .where(eq(appointments.id, id))
       .returning();
+    if (status === "missed") {
+      void this.automationSend
+        .sendMissedRecovery(organizationId, a.businessId, id)
+        .catch(() => {});
+    }
     return updated!;
   }
 
@@ -117,9 +128,14 @@ export class AppointmentsService {
     const newNotes = existing.notes
       ? `${existing.notes}\n${suffix}`
       : suffix;
+    const now = new Date();
     const [updated] = await db
       .update(appointments)
-      .set({ notes: newNotes, updatedAt: new Date() })
+      .set({
+        notes: newNotes,
+        reminder24hSentAt: existing.reminder24hSentAt ?? now,
+        updatedAt: now,
+      })
       .where(eq(appointments.id, id))
       .returning();
     return updated!;

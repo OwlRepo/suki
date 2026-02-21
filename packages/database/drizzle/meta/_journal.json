@@ -1,1 +1,90 @@
-{"version":"7","dialect":"postgresql","entries":[{"idx":0,"version":"7","when":1771171062901,"tag":"0000_tearful_dreadnoughts","breakpoints":true},{"idx":1,"version":"7","when":1771214991046,"tag":"0001_lumpy_black_crow","breakpoints":true},{"idx":2,"version":"7","when":1771214992000,"tag":"0002_workspace_crm_mode_ai_tables","breakpoints":true},{"idx":3,"version":"7","when":1771214993000,"tag":"0003_deal_stages_activities_custom_fields","breakpoints":true},{"idx":4,"version":"7","when":1771214994000,"tag":"0004_import_batches","breakpoints":true},{"idx":5,"version":"7","when":1771214995000,"tag":"0005_license_activations","breakpoints":true},{"idx":6,"version":"7","when":1771214996000,"tag":"0006_license_challenges","breakpoints":true},{"idx":7,"version":"7","when":1771214997000,"tag":"0007_import_batches_entity_error_details","breakpoints":true},{"idx":8,"version":"7","when":1771661200000,"tag":"0008_deal_stages_unique_business_name","breakpoints":true}]}
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1771171062901,
+      "tag": "0000_tearful_dreadnoughts",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771214991046,
+      "tag": "0001_lumpy_black_crow",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771214992000,
+      "tag": "0002_workspace_crm_mode_ai_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771214993000,
+      "tag": "0003_deal_stages_activities_custom_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771214994000,
+      "tag": "0004_import_batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771214995000,
+      "tag": "0005_license_activations",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771214996000,
+      "tag": "0006_license_challenges",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771214997000,
+      "tag": "0007_import_batches_entity_error_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771661200000,
+      "tag": "0008_deal_stages_unique_business_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771683330941,
+      "tag": "0009_automation_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771684052639,
+      "tag": "0010_gigantic_eternity",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1771684470649,
+      "tag": "0011_sudden_master_mold",
+      "breakpoints": true
+    }
+  ]
+}

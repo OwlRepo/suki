@@ -9,6 +9,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { MessagingService } from "./messaging.service";
+import { SmsMeteringService } from "./sms-metering.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { PlanAiMessagingGuard } from "./plan-module.guard";
 import { Tenant } from "../common/tenant.decorator";
@@ -20,6 +21,7 @@ export class MessagingController {
   constructor(
     private readonly messagingService: MessagingService,
     private readonly planCapacity: PlanCapacityService,
+    private readonly smsMetering: SmsMeteringService,
   ) {}
 
   @Get("credits")
@@ -28,6 +30,12 @@ export class MessagingController {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
     const credits = await this.messagingService.getCredits(orgId);
     return credits;
+  }
+
+  @Get("sms-usage")
+  async getSmsUsage(@Tenant("organizationId") orgId?: string) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    return this.smsMetering.getOrCreateCredits(orgId);
   }
 
   @Post("generate")
