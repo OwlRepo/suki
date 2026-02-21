@@ -22,6 +22,7 @@ import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
+import { SettingsSectionSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { fromError } from "@/lib/ui-feedback";
 import { isDevMode } from "@/lib/dev-mode";
@@ -515,8 +516,6 @@ function SettingsPageContent() {
     }
   };
 
-  if (loading) return <p className="text-muted-foreground text-base">Loading settings…</p>;
-
   const sectionLabels: Record<(typeof SETTINGS_SECTION_IDS)[number], string> = {
     organization: "Organization",
     businesses: "Businesses",
@@ -577,7 +576,7 @@ function SettingsPageContent() {
         />
       )}
 
-      {(billing?.readOnly || (smsUsage?.pausedReason && smsUsage.pausedReason !== "none")) && (
+      {!loading && (billing?.readOnly || (smsUsage?.pausedReason && smsUsage.pausedReason !== "none")) && (
         <StatusBanner
           variant="warning"
           message={
@@ -589,6 +588,13 @@ function SettingsPageContent() {
         />
       )}
 
+      {loading ? (
+        <div className="space-y-5">
+          <SettingsSectionSkeleton />
+          <SettingsSectionSkeleton />
+          <SettingsSectionSkeleton />
+        </div>
+      ) : (
       <div className="space-y-5">
         <SettingsSectionCard
           id="organization"
@@ -1210,6 +1216,7 @@ function SettingsPageContent() {
         </SettingsSectionCard>
       )}
       </div>
+      )}
     </div>
   );
 }

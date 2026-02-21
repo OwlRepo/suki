@@ -10,6 +10,7 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -362,8 +363,28 @@ function ImportsPageContent() {
     }
   };
 
-  if (!syncData) return <p className="text-muted-foreground">Loading...</p>;
-  if (!businesses.length) {
+  if (!syncData) {
+    return (
+      <div className="space-y-8">
+        <div className="empty:hidden">
+          <PracticeDayBanner />
+          <OnboardingGuidance step={ONBOARDING_STEPS.importCustomers} screen="import" onComplete={() => {}} />
+        </div>
+        <div>
+          <AiQuotaBanner />
+          <PageHeader
+            title={<TooltipBadge screen="import">Import customers</TooltipBadge>}
+            plainLanguageDescription="Add customers from a file or another CRM. Your existing data stays safe."
+            whatThisPageIsFor="Bring in customer names and numbers from spreadsheets or HubSpot, Pipedrive."
+            whatToDoNext="Upload a file or paste CSV, then review and confirm. Download a sample file first if needed."
+          />
+          <ListSkeleton rowCount={4} className="mt-6" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!workspace?.loading && !businesses.length) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Import customers</h1>

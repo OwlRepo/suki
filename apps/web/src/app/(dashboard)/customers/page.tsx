@@ -13,6 +13,7 @@ import { CustomerMessageHistoryModal } from "@/components/customers/customer-mes
 import { IntakeQRBlock } from "@/components/intake-qr-block";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
@@ -59,16 +60,18 @@ function CustomersPageContent() {
   const [showAdd, setShowAdd] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [syncReady, setSyncReady] = useState(false);
+  const [customersLoading, setCustomersLoading] = useState(false);
   const [messageHistoryFor, setMessageHistoryFor] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!syncData) return;
-    setLoading(false);
+    setSyncReady(true);
   }, [syncData]);
 
   useEffect(() => {
     if (!selectedBiz) return;
+    setCustomersLoading(true);
     (async () => {
       try {
         const token = await getToken();
@@ -85,6 +88,8 @@ function CustomersPageContent() {
       } catch {
         setCustomers([]);
         setTotal(0);
+      } finally {
+        setCustomersLoading(false);
       }
     })();
   }, [selectedBiz, search, tagFilter, getToken]);
@@ -176,10 +181,7 @@ function CustomersPageContent() {
     }
   };
 
-  if (loading || workspace?.loading) {
-    return <p className="text-muted-foreground">Loading...</p>;
-  }
-  if (!businesses.length) {
+  if (!workspace?.loading && !businesses.length) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Customers</h1>
@@ -285,6 +287,10 @@ function CustomersPageContent() {
         <p className="text-sm text-muted-foreground">
           {displayTotal} customer{displayTotal !== 1 ? "s" : ""}
         </p>
+        {!syncReady || workspace?.loading || (!!selectedBiz && customersLoading) ? (
+          <ListSkeleton rowCount={6} className="mt-4" />
+        ) : (
+          <>
         <ul className="mt-4 divide-y divide-border">
           {displayCustomers.map((c) => (
             <li
@@ -338,6 +344,8 @@ function CustomersPageContent() {
               </Button>
             }
           />
+        )}
+          </>
         )}
       </PageSection>
       </div>

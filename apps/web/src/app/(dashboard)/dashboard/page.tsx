@@ -10,6 +10,7 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
 import { MetricCard } from "@/components/ui/metric-card";
+import { ListSkeleton, MetricGridSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { PageHeader } from "@/components/ui/page-header";
@@ -164,9 +165,6 @@ function DashboardPageContent() {
     })();
   }, [businessId, getToken, usage?.upcomingAppointments]);
 
-  if (loading || workspace?.loading)
-    return <p className="text-muted-foreground">Loading...</p>;
-
   const s = summary ?? {
     businesses: 0,
     customers: 0,
@@ -215,7 +213,7 @@ function DashboardPageContent() {
           />
         )}
 
-        {businessId && businesses.length > 0 && (
+        {!workspace?.loading && businessId && businesses.length > 0 && (
           <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-5">
             <h2 className="text-base font-medium text-foreground">Next step</h2>
             <p className="mt-1 text-helper">
@@ -280,38 +278,49 @@ function DashboardPageContent() {
               : undefined
           }
         >
-          <div className="grid gap-6 sm:grid-cols-3">
-            <MetricCard
-              label="Total customers"
-              value={summaryDisplay.customers}
-              suffix={
-                showPracticeData
-                  ? "Practice Sample · People currently saved in your customer list."
-                  : "People currently saved in your customer list."
-              }
-            />
-            <MetricCard
-              label="Visits this month"
-              value={usage?.visitsThisMonth ?? metrics?.repeatVisits ?? "—"}
-              suffix="How many customer visits were recorded this month."
-            />
-            <MetricCard
-              label="Upcoming appointments"
-              value={
-                showPracticeData
-                  ? summaryDisplay.appointments
-                  : upcomingAppointments
-              }
-              suffix={
-                showPracticeData
-                  ? "Practice Sample · Scheduled appointments still ahead."
-                  : "Scheduled appointments still ahead."
-              }
-            />
-          </div>
+          {loading || workspace?.loading ? (
+            <MetricGridSkeleton count={3} />
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-3">
+              <MetricCard
+                label="Total customers"
+                value={summaryDisplay.customers}
+                suffix={
+                  showPracticeData
+                    ? "Practice Sample · People currently saved in your customer list."
+                    : "People currently saved in your customer list."
+                }
+              />
+              <MetricCard
+                label="Visits this month"
+                value={usage?.visitsThisMonth ?? metrics?.repeatVisits ?? "—"}
+                suffix="How many customer visits were recorded this month."
+              />
+              <MetricCard
+                label="Upcoming appointments"
+                value={
+                  showPracticeData
+                    ? summaryDisplay.appointments
+                    : upcomingAppointments
+                }
+                suffix={
+                  showPracticeData
+                    ? "Practice Sample · Scheduled appointments still ahead."
+                    : "Scheduled appointments still ahead."
+                }
+              />
+            </div>
+          )}
         </PageSection>
 
-        {activities.length > 0 && (
+        {loading || workspace?.loading ? (
+          <PageSection
+            title="Recent activity"
+            description="Latest customer, appointment, and promo changes"
+          >
+            <ListSkeleton rowCount={5} className="mt-3" />
+          </PageSection>
+        ) : activities.length > 0 ? (
           <PageSection
             title="Recent activity"
             description="Latest customer, appointment, and promo changes"
@@ -335,9 +344,9 @@ function DashboardPageContent() {
               ))}
             </ul>
           </PageSection>
-        )}
+        ) : null}
 
-        {s.businesses === 0 && (
+        {!loading && !workspace?.loading && s.businesses === 0 && (
           <p className="mt-6 text-muted-foreground">
             Set up your first business to see metrics and manage customers.
           </p>

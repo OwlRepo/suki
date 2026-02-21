@@ -10,6 +10,7 @@ import { hasClerk } from "@/lib/clerk";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import {
@@ -55,7 +56,8 @@ function AppointmentsPageContent() {
   const businesses = workspace?.businesses ?? [];
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [syncReady, setSyncReady] = useState(false);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -85,16 +87,21 @@ function AppointmentsPageContent() {
     if (!selectedBiz) return;
     const token = await getToken();
     if (!token) return;
-    let url = `/appointments?businessId=${selectedBiz}`;
-    if (dateFrom) url += `&from=${new Date(dateFrom).toISOString()}`;
-    if (dateTo) url += `&to=${new Date(dateTo).toISOString()}`;
-    const res = await apiRequest<{ appointments: Appointment[] }>(url, { token });
-    setAppointments(res.appointments);
+    setAppointmentsLoading(true);
+    try {
+      let url = `/appointments?businessId=${selectedBiz}`;
+      if (dateFrom) url += `&from=${new Date(dateFrom).toISOString()}`;
+      if (dateTo) url += `&to=${new Date(dateTo).toISOString()}`;
+      const res = await apiRequest<{ appointments: Appointment[] }>(url, { token });
+      setAppointments(res.appointments);
+    } finally {
+      setAppointmentsLoading(false);
+    }
   };
 
   useEffect(() => {
     if (!syncData) return;
-    setLoading(false);
+    setSyncReady(true);
   }, [syncData]);
 
   useEffect(() => {
@@ -226,8 +233,7 @@ function AppointmentsPageContent() {
   const displayAppointments = showPracticeData ? SAMPLE_APPOINTMENTS : appointments;
   const displayCustomers = showPracticeData ? SAMPLE_CUSTOMERS : customers;
 
-  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
-  if (!businesses.length) {
+  if (!workspace?.loading && !businesses.length) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Appointments</h1>
@@ -374,6 +380,10 @@ function AppointmentsPageContent() {
 
       <PageSection>
         <p className="text-sm text-muted-foreground">{displayAppointments.length} appointment{displayAppointments.length !== 1 ? "s" : ""}</p>
+        {!syncReady || workspace?.loading || (!!selectedBiz && appointmentsLoading) ? (
+          <ListSkeleton rowCount={5} className="mt-4" />
+        ) : (
+          <>
         <ul className="mt-4 divide-y divide-border">
           {displayAppointments.map((a) => (
             <li
@@ -442,6 +452,8 @@ function AppointmentsPageContent() {
               </Button>
             }
           />
+        )}
+          </>
         )}
       </PageSection>
       </div>

@@ -8,6 +8,7 @@ import { useWorkspace } from "@/contexts/workspace-context";
 import { hasClerk } from "@/lib/clerk";
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/ui/metric-card";
+import { MetricGridSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
 import { TooltipBadge } from "@/components/onboarding";
@@ -35,15 +36,17 @@ function InsightsPageContent() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [showYearSelector, setShowYearSelector] = useState(false);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [syncReady, setSyncReady] = useState(false);
+  const [metricsLoading, setMetricsLoading] = useState(false);
 
   useEffect(() => {
     if (!syncData) return;
-    setLoading(false);
+    setSyncReady(true);
   }, [syncData]);
 
   useEffect(() => {
     if (!selectedBiz) return;
+    setMetricsLoading(true);
     (async () => {
       const token = await getToken();
       if (!token) return;
@@ -55,12 +58,13 @@ function InsightsPageContent() {
         setMetrics(res.metrics);
       } catch {
         setMetrics(null);
+      } finally {
+        setMetricsLoading(false);
       }
     })();
   }, [selectedBiz, year, month, getToken]);
 
-  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
-  if (!businesses.length) {
+  if (!workspace?.loading && !businesses.length) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Business Summary</h1>
@@ -123,7 +127,9 @@ function InsightsPageContent() {
         title={`${monthName} ${year}`}
         description={metrics ? undefined : "No metrics for this period."}
       >
-        {metrics ? (
+        {!syncReady || workspace?.loading || (!!selectedBiz && metricsLoading) ? (
+          <MetricGridSkeleton count={3} />
+        ) : metrics ? (
           <div className="grid gap-6 sm:grid-cols-3">
             <MetricCard
               label="New customers"

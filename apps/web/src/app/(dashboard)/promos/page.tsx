@@ -9,6 +9,7 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
@@ -64,7 +65,8 @@ function PromosPageContent() {
   const selectedBiz = workspace?.activeBusinessId ?? "";
   const businesses = workspace?.businesses ?? [];
   const [promos, setPromos] = useState<Promo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [syncReady, setSyncReady] = useState(false);
+  const [promosLoading, setPromosLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -90,13 +92,18 @@ function PromosPageContent() {
     if (!selectedBiz) return;
     const token = await getToken();
     if (!token) return;
-    const res = await apiRequest<{ promos: Promo[] }>(`/promos?businessId=${selectedBiz}`, { token });
-    setPromos(res.promos);
+    setPromosLoading(true);
+    try {
+      const res = await apiRequest<{ promos: Promo[] }>(`/promos?businessId=${selectedBiz}`, { token });
+      setPromos(res.promos);
+    } finally {
+      setPromosLoading(false);
+    }
   };
 
   useEffect(() => {
     if (!syncData) return;
-    setLoading(false);
+    setSyncReady(true);
   }, [syncData]);
 
   useEffect(() => {
@@ -253,8 +260,7 @@ function PromosPageContent() {
   const showPracticeData = onboarding?.practiceMode && !onboarding.onboardingCompletedAt;
   const displayPromos = showPracticeData ? SAMPLE_PROMOS : promos;
 
-  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
-  if (!businesses.length && !showPracticeData) {
+  if (!workspace?.loading && !businesses.length && !showPracticeData) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Promos</h1>
@@ -465,6 +471,10 @@ function PromosPageContent() {
 
       <PageSection>
         <p className="text-sm text-muted-foreground">{displayPromos.length} promo{displayPromos.length !== 1 ? "s" : ""}</p>
+        {!showPracticeData && (!syncReady || workspace?.loading || (!!selectedBiz && promosLoading)) ? (
+          <ListSkeleton rowCount={5} className="mt-4" />
+        ) : (
+          <>
         <ul className="mt-4 divide-y divide-border">
           {displayPromos.map((p) => (
             <li
@@ -527,6 +537,8 @@ function PromosPageContent() {
               </Button>
             }
           />
+        )}
+          </>
         )}
       </PageSection>
       </div>

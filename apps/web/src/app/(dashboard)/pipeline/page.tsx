@@ -7,6 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
+import { PipelineColumnSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -156,7 +157,7 @@ function PipelinePageContent() {
     }
   };
 
-  if (!businessId) {
+  if (!workspace?.loading && !businessId) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Pipeline</h1>
@@ -167,7 +168,7 @@ function PipelinePageContent() {
     );
   }
 
-  if (activeBiz?.crmMode !== "full") {
+  if (!workspace?.loading && businessId && activeBiz?.crmMode !== "full") {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Pipeline</h1>
@@ -178,8 +179,6 @@ function PipelinePageContent() {
       </div>
     );
   }
-
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
 
   const byStage = deals.reduce<Record<string, Deal[]>>((acc, d) => {
     (acc[d.stage] ??= []).push(d);
@@ -265,6 +264,13 @@ function PipelinePageContent() {
       />
 
       <div className="mt-6 overflow-x-auto">
+        {workspace?.loading || loading ? (
+          <div className="flex gap-4 min-w-max">
+            <PipelineColumnSkeleton />
+            <PipelineColumnSkeleton />
+            <PipelineColumnSkeleton />
+          </div>
+        ) : (
         <div className="flex gap-4 min-w-max">
           {stages.map((stage) => (
             <div
@@ -308,9 +314,10 @@ function PipelinePageContent() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
-      {deals.length === 0 && (
+      {!loading && deals.length === 0 && (
         <EmptyState
           what="No deals yet"
           why="Deals help you track sales opportunities from first contact to closed."

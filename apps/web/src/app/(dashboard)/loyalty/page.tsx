@@ -8,6 +8,7 @@ import { hasClerk } from "@/lib/clerk";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
@@ -44,25 +45,31 @@ function LoyaltyPageContent() {
   const [threshold, setThreshold] = useState(5);
   const [tagFilter, setTagFilter] = useState("");
   const [customers, setCustomers] = useState<LoyaltyCustomer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [syncReady, setSyncReady] = useState(false);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
 
   useEffect(() => {
     if (!syncData) return;
-    setLoading(false);
+    setSyncReady(true);
   }, [syncData]);
 
   useEffect(() => {
     if (!selectedBiz || (onboarding?.practiceMode && !onboarding.onboardingCompletedAt)) return;
+    setLoyaltyLoading(true);
     (async () => {
       const token = await getToken();
       if (!token) return;
-      let url = `/loyalty/status?businessId=${selectedBiz}&threshold=${threshold}`;
-      if (tagFilter.trim()) url += `&tag=${encodeURIComponent(tagFilter.trim())}`;
-      const res = await apiRequest<{ customers: LoyaltyCustomer[]; threshold: number }>(
-        url,
-        { token },
-      );
-      setCustomers(res.customers);
+      try {
+        let url = `/loyalty/status?businessId=${selectedBiz}&threshold=${threshold}`;
+        if (tagFilter.trim()) url += `&tag=${encodeURIComponent(tagFilter.trim())}`;
+        const res = await apiRequest<{ customers: LoyaltyCustomer[]; threshold: number }>(
+          url,
+          { token },
+        );
+        setCustomers(res.customers);
+      } finally {
+        setLoyaltyLoading(false);
+      }
     })();
   }, [selectedBiz, threshold, tagFilter, getToken]);
 
@@ -81,8 +88,7 @@ function LoyaltyPageContent() {
     ? [{ id: "practice", name: "Practice business" }]
     : businesses;
 
-  if (loading || workspace?.loading) return <p className="text-muted-foreground">Loading...</p>;
-  if (!businesses.length && !showPracticeData) {
+  if (!workspace?.loading && !businesses.length && !showPracticeData) {
     return (
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Loyalty</h1>
@@ -151,6 +157,10 @@ function LoyaltyPageContent() {
         )}
 
       <PageSection>
+        {!showPracticeData && (!syncReady || workspace?.loading || (!!selectedBiz && loyaltyLoading)) ? (
+          <ListSkeleton rowCount={5} className="mt-0" />
+        ) : (
+          <>
         <ul className="divide-y divide-border">
           {displayCustomers.map((c) => (
             <li key={c.id} className="flex items-center justify-between py-5 first:pt-0">
@@ -183,6 +193,8 @@ function LoyaltyPageContent() {
               </Link>
             }
           />
+        )}
+          </>
         )}
       </PageSection>
       </div>
