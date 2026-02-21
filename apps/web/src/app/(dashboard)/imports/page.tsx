@@ -8,11 +8,14 @@ import { Input } from "@suki/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { PageHeader } from "@/components/ui/page-header";
+import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
   TooltipBadge,
 } from "@/components/onboarding";
+import { fromError } from "@/lib/ui-feedback";
 import { AiQuotaBanner } from "@/components/ai-quota-banner";
 import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
@@ -125,7 +128,7 @@ function ImportsPageContent() {
       }
       setStep("review");
     } catch (err) {
-      setStatus({ type: "error", message: err instanceof Error ? err.message : "Fetch failed" });
+      setStatus({ type: "error", message: fromError(err, "Fetch failed. Please check your token and try again.") });
     } finally {
       setLoading(false);
     }
@@ -155,7 +158,7 @@ function ImportsPageContent() {
       }
       setStep("review");
     } catch (err) {
-      setStatus({ type: "error", message: err instanceof Error ? err.message : "Parse failed" });
+      setStatus({ type: "error", message: fromError(err, "Parse failed. Please check your file format and try again.") });
     } finally {
       setLoading(false);
     }
@@ -188,7 +191,7 @@ function ImportsPageContent() {
       setDryRunResult(res);
       setStep("dryrun");
     } catch (err) {
-      setStatus({ type: "error", message: err instanceof Error ? err.message : "Dry run failed" });
+      setStatus({ type: "error", message: fromError(err, "Dry run failed. Please try again.") });
     } finally {
       setLoading(false);
     }
@@ -218,7 +221,7 @@ function ImportsPageContent() {
       recordOnboardingEvent("import_completed", syncData?.organization?.id ?? null);
       setStep("done");
     } catch (err) {
-      setStatus({ type: "error", message: err instanceof Error ? err.message : "Import failed" });
+      setStatus({ type: "error", message: fromError(err, "Import failed. Please try again.") });
     } finally {
       setLoading(false);
     }
@@ -237,7 +240,7 @@ function ImportsPageContent() {
       setReport(null);
       reset();
     } catch (err) {
-      setStatus({ type: "error", message: err instanceof Error ? err.message : "Rollback failed" });
+      setStatus({ type: "error", message: fromError(err, "Rollback failed. Please try again.") });
     } finally {
       setLoading(false);
     }
@@ -352,7 +355,7 @@ function ImportsPageContent() {
         setStep("paste");
       }
     } catch (err) {
-      setStatus({ type: "error", message: err instanceof Error ? err.message : "Failed to read file" });
+      setStatus({ type: "error", message: fromError(err, "Failed to read file. Please try a different file.") });
     } finally {
       setLoading(false);
       e.target.value = "";
@@ -372,13 +375,15 @@ function ImportsPageContent() {
   if (step === "done") {
     return (
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Import customers</h1>
-        <p className="mt-4 text-base text-green-600 font-medium">
-          Successfully imported {imported} customer{imported !== 1 ? "s" : ""}.
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          They are now in your customer list.
-        </p>
+        <PageHeader
+          title="Import customers"
+          plainLanguageDescription="Import complete. Your new customers are ready."
+        />
+        <StatusBanner
+          variant="success"
+          message={`Successfully imported ${imported} customer${imported !== 1 ? "s" : ""}. They are now in your customer list.`}
+          className="mt-4"
+        />
         {report && (
           <div className="mt-6 rounded-lg border border-border bg-card p-4">
             <h3 className="font-medium text-foreground">Reconciliation report</h3>
@@ -391,9 +396,14 @@ function ImportsPageContent() {
             </Button>
           </div>
         )}
-        <Button className="mt-6 min-h-[44px] text-base" onClick={reset}>
-          Import more
-        </Button>
+        <PrimaryPageAction
+          primaryAction={
+            <Button size="lg" className="mt-6 min-h-[44px] text-base" onClick={reset}>
+              Import more
+            </Button>
+          }
+          hintText="Add another batch anytime. Your existing customers stay safe."
+        />
       </div>
     );
   }
@@ -401,11 +411,17 @@ function ImportsPageContent() {
   if (step === "dryrun") {
     return (
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Import customers</h1>
-        <p className="mt-2 text-sm font-medium text-foreground">Step 3: Confirm</p>
-        <p className="mt-2 text-base text-muted-foreground">
-          Your existing customers are safe. This will only add new customers to your list.
-        </p>
+        <PageHeader
+          title="Import customers"
+          plainLanguageDescription="Step 3: Confirm"
+          whatThisPageIsFor="Preview what will be added before going live."
+          whatToDoNext="Review the preview below, then click Go live when ready."
+        />
+        <StatusBanner
+          variant="info"
+          message="Your existing customers are safe. This will only add new customers to your list."
+          className="mt-4"
+        />
         <h3 className="mt-6 font-medium text-foreground">Dry-run preview</h3>
         {dryRunResult && (
           <div className="mt-2 rounded-lg border border-border bg-card p-4">
@@ -458,18 +474,15 @@ function ImportsPageContent() {
       </div>
       <div>
         <AiQuotaBanner />
-        <div className="flex flex-wrap items-center gap-4">
-          <h1 className="text-2xl font-semibold text-foreground">
-            <TooltipBadge screen="import">Import customers</TooltipBadge>
-          </h1>
-        </div>
+        <PageHeader
+          title={<TooltipBadge screen="import">Import customers</TooltipBadge>}
+          plainLanguageDescription="Add customers from a file or another CRM. Your existing data stays safe."
+          whatThisPageIsFor="Bring in customer names and numbers from spreadsheets or HubSpot, Pipedrive."
+          whatToDoNext="Upload a file or paste CSV, then review and confirm. Download a sample file first if needed."
+        />
 
-        <p className="mt-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-base text-foreground">
+        <p className="mt-4 rounded-lg border-2 border-primary/30 bg-primary/5 px-4 py-3 text-base text-foreground">
           <strong>Your existing customers are safe.</strong> Nothing will be deleted. We add new customers and check for duplicates before importing.
-        </p>
-
-        <p className="mt-4 text-base text-muted-foreground">
-          Upload a CSV or Excel file, or paste CSV text. We check for duplicates before importing. Start with a small batch, review the list, then confirm.
         </p>
 
         {status && (
@@ -492,20 +505,23 @@ function ImportsPageContent() {
           ))}
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const a = document.createElement("a");
-              a.href = "/sample-customers.csv";
-              a.download = "sample-customers.csv";
-              a.click();
-            }}
-          >
-            Download sample file
-          </Button>
-        </div>
+        <PrimaryPageAction
+          primaryAction={
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = "/sample-customers.csv";
+                a.download = "sample-customers.csv";
+                a.click();
+              }}
+            >
+              Download sample file
+            </Button>
+          }
+          hintText="Use this to see the correct format before uploading your own."
+        />
 
       {batches.length > 0 && (
         <div className="mt-6 rounded-lg border border-border bg-card p-4">
@@ -609,7 +625,7 @@ function ImportsPageContent() {
             </div>
           )}
           {source === "csv" && (
-            <Button onClick={() => setStep("upload")} className="min-h-[44px] text-base">
+            <Button onClick={() => setStep("upload")} size="lg" className="min-h-[44px] text-base">
               Continue to CSV / Excel
             </Button>
           )}

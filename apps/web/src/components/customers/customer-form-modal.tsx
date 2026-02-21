@@ -16,7 +16,7 @@ interface CustomerFormModalProps {
 
 /**
  * Modal for adding a customer. Required: Name + Mobile.
- * Optional fields (tags) hidden behind "More options (optional)".
+ * Optional fields (labels) are hidden behind "More options".
  */
 export function CustomerFormModal({
   open,
@@ -42,10 +42,10 @@ export function CustomerFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !mobile.trim()) return;
     onSubmit({
       name: name.trim(),
-      mobile: mobile.trim() || undefined,
+      mobile: mobile.trim(),
       tags: showMore ? (tags.trim() || undefined) : undefined,
     });
   };
@@ -73,7 +73,7 @@ export function CustomerFormModal({
         <form ref={formRef} onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label htmlFor="customer-name" className="mb-1 block text-sm font-medium">
-              Name <span className="text-destructive">*</span>
+              Name <span className="text-destructive">(Required)</span>
             </label>
             <Input
               id="customer-name"
@@ -87,7 +87,7 @@ export function CustomerFormModal({
           </div>
           <div>
             <label htmlFor="customer-mobile" className="mb-1 block text-sm font-medium">
-              Mobile
+              Mobile <span className="text-destructive">(Required)</span>
             </label>
             <Input
               id="customer-mobile"
@@ -96,12 +96,13 @@ export function CustomerFormModal({
               onChange={(e) => setMobile(e.target.value)}
               placeholder="e.g. 09XX XXX XXXX"
               className="w-full"
+              required
             />
           </div>
           {showMore ? (
             <div>
               <label htmlFor="customer-tags" className="mb-1 block text-sm font-medium">
-                Labels <span className="text-muted-foreground">(optional)</span>
+                Labels <span className="text-muted-foreground">(Optional)</span>
               </label>
               <Input
                 id="customer-tags"
@@ -124,11 +125,11 @@ export function CustomerFormModal({
               onClick={() => setShowMore(true)}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
-              More options (optional)
+              More options (Optional)
             </button>
           )}
           <div className="flex gap-2 pt-2">
-            <Button type="submit" disabled={loading} className="min-h-[44px]">
+            <Button type="submit" disabled={loading || !name.trim() || !mobile.trim()} className="min-h-[44px]">
               {loading ? "Saving…" : practiceMode ? "Practice save" : "Save customer"}
             </Button>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>

@@ -9,6 +9,9 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { hasClerk } from "@/lib/clerk";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusBanner } from "@/components/ui/status-banner";
+import { fromError } from "@/lib/ui-feedback";
 import { isDevMode } from "@/lib/dev-mode";
 import {
   getDevApiUrl,
@@ -46,12 +49,14 @@ function UpgradeButton({
   currentPlan,
   getToken,
   onSuccess,
+  onError,
   readOnly,
 }: {
   planType: string;
   currentPlan: string;
   getToken: () => Promise<string | null>;
   onSuccess?: () => void;
+  onError?: (message: string) => void;
   readOnly?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
@@ -77,7 +82,7 @@ function UpgradeButton({
       });
       if (res.checkoutUrl) window.location.href = res.checkoutUrl;
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Checkout unavailable. Is PayMongo configured?");
+      onError?.(err instanceof Error ? err.message : "Checkout unavailable. Is PayMongo configured?");
     } finally {
       setLoading(false);
     }
@@ -96,7 +101,7 @@ function UpgradeButton({
       });
       onSuccess?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Downgrade failed");
+      onError?.(err instanceof Error ? err.message : "Downgrade failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -149,6 +154,7 @@ function SettingsPageContent() {
   } | null>(null);
   const [aiBreakdown, setAiBreakdown] = useState<{ items: Array<{ key: string; tokens: number; requests: number }> } | null>(null);
   const [aiPoliciesLoading, setAiPoliciesLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const effectivePlan = simulatedPlan ?? (billing?.planType as PlanType | undefined) ?? "starter";
 
@@ -220,8 +226,10 @@ function SettingsPageContent() {
         body: JSON.stringify({ name: orgName.trim() }),
       });
       setOrg(res.organization);
+      setFeedback({ type: "success", message: "Organization name saved." });
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save");
+      setFeedback({ type: "error", message: fromError(err, "Failed to save. Please try again.") });
     } finally {
       setSavingOrg(false);
     }
@@ -241,8 +249,10 @@ function SettingsPageContent() {
         prev.map((b) => (b.id === id ? { ...b, name: editBizName.trim() } : b)),
       );
       setEditingBiz(null);
+      setFeedback({ type: "success", message: "Business name saved." });
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save");
+      setFeedback({ type: "error", message: fromError(err, "Failed to save business. Please try again.") });
     }
   };
 
@@ -263,10 +273,11 @@ function SettingsPageContent() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to update mode";
       if (msg === "CRM_FULL_REQUIRES_UPGRADE") {
-        alert("Full CRM mode requires Growth or AI Pro plan. Upgrade in Billing below.");
+        setFeedback({ type: "error", message: "Full CRM mode requires Growth or AI Pro plan. Upgrade in Billing below." });
       } else {
-        alert(msg);
+        setFeedback({ type: "error", message: fromError(err, "Failed to update mode. Please try again.") });
       }
+      setTimeout(() => setFeedback(null), 6000);
     }
   };
 
@@ -274,15 +285,26 @@ function SettingsPageContent() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-      <p className="mt-2 text-muted-foreground">
-        Manage your organization, businesses, and billing.
-      </p>
+      <PageHeader
+        title="Settings"
+        plainLanguageDescription="Manage your organization, businesses, billing, and AI."
+        whatThisPageIsFor="Change your workspace name, business details, plan, and AI preferences."
+        whatToDoNext="Edit any section below. Changes save when you click Save."
+      />
+
+      {feedback && (
+        <StatusBanner
+          variant={feedback.type}
+          message={feedback.message}
+          onDismiss={() => setFeedback(null)}
+          className="mt-4"
+        />
+      )}
 
       <section className="mt-8 space-y-4">
         <div>
           <h2 className="text-lg font-medium">Organization</h2>
-          <p className="text-sm text-muted-foreground">Your workspace name. This appears in emails and receipts.</p>
+          <p className="text-sm text-muted-foreground">Your workspace name. This appears in emails and receipts. You can change it anytime.</p>
         </div>
         <form onSubmit={handleSaveOrg} className="flex gap-2">
           <Input
@@ -291,7 +313,7 @@ function SettingsPageContent() {
             placeholder="Organization name"
             className="max-w-md"
           />
-          <Button type="submit" disabled={savingOrg}>
+          <Button type="submit" disabled={savingOrg} className="min-h-[44px]">
             {savingOrg ? "Saving..." : "Save"}
           </Button>
         </form>
@@ -300,7 +322,7 @@ function SettingsPageContent() {
       <section className="mt-8 space-y-4">
         <div>
           <h2 className="text-lg font-medium">Businesses</h2>
-          <p className="text-sm text-muted-foreground">Each business has its own customers and appointments.</p>
+          <p className="text-sm text-muted-foreground">Each business has its own customers and appointments. Edit names or switch CRM mode here.</p>
         </div>
         <ul className="divide-y divide-border">
           {businesses.map((b) => (
@@ -430,8 +452,10 @@ function SettingsPageContent() {
                           body: JSON.stringify({ aiEnabled: e.target.checked }),
                         });
                         setAiUsage((p) => p ? { ...p, aiEnabled: e.target.checked } : null);
+                        setFeedback({ type: "success", message: "AI settings updated." });
+                        setTimeout(() => setFeedback(null), 4000);
                       } catch (err) {
-                        alert(err instanceof Error ? err.message : "Failed to update");
+                        setFeedback({ type: "error", message: fromError(err, "Failed to update AI settings. Please try again.") });
                       } finally {
                         setAiPoliciesLoading(false);
                       }
@@ -462,7 +486,7 @@ function SettingsPageContent() {
                         });
                         setAiUsage((p) => p ? { ...p, softCapPct: v } : null);
                       } catch (err) {
-                        alert(err instanceof Error ? err.message : "Failed to update");
+                        setFeedback({ type: "error", message: fromError(err, "Failed to update soft cap. Please try again.") });
                       } finally {
                         setAiPoliciesLoading(false);
                       }
@@ -479,7 +503,7 @@ function SettingsPageContent() {
       <section className="mt-8 space-y-4">
         <div>
           <h2 className="text-lg font-medium">Billing</h2>
-          <p className="text-sm text-muted-foreground">You can change or cancel anytime. No lock-in.</p>
+          <p className="text-sm text-muted-foreground">Upgrade or switch plans. You can change or cancel anytime. No lock-in.</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4 max-w-md">
           <p className="text-sm text-muted-foreground">Plan</p>
@@ -503,6 +527,10 @@ function SettingsPageContent() {
                 currentPlan={effectivePlan}
                 getToken={getToken}
                 onSuccess={refetchBilling}
+                onError={(msg) => {
+                  setFeedback({ type: "error", message: msg });
+                  setTimeout(() => setFeedback(null), 6000);
+                }}
                 readOnly={billing?.readOnly}
               />
             ))}
@@ -560,7 +588,7 @@ function SettingsPageContent() {
                         await refetchBilling();
                         setSimulatedPlan(null);
                       } catch (err) {
-                        alert(err instanceof Error ? err.message : "Dev switch failed");
+                        setFeedback({ type: "error", message: fromError(err, "Dev switch failed. Please try again.") });
                       } finally {
                         setDevSwitchLoading(false);
                       }

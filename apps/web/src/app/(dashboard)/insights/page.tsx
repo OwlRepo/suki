@@ -75,13 +75,15 @@ function InsightsPageContent() {
     <div className="space-y-8">
       <PageHeader
         title={<TooltipBadge screen="insights">Business Summary</TooltipBadge>}
-        description="Meaningful numbers without intimidation. New customers = first-time visitors. Repeat customers = people who came back."
+        plainLanguageDescription="Meaningful numbers without intimidation. New customers are first-time visitors. Repeat customers are people who came back."
+        whatThisPageIsFor="Understand customer growth and repeat behavior for the selected month."
+        whatToDoNext="Review this month first, then use 'View past months' only if needed."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={month}
               onChange={(e) => setMonth(parseInt(e.target.value, 10))}
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[40px]"
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
               aria-label="Select month"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
@@ -95,7 +97,7 @@ function InsightsPageContent() {
                 <select
                   value={year}
                   onChange={(e) => setYear(parseInt(e.target.value, 10))}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[40px]"
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
                   aria-label="Select year"
                 >
                   {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (

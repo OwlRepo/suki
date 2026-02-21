@@ -10,6 +10,8 @@ import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -20,6 +22,7 @@ import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS, SAMPLE_PROMOS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
+import { fromError } from "@/lib/ui-feedback";
 
 interface Business {
   id: string;
@@ -198,7 +201,7 @@ function PromosPageContent() {
       setFeedback({ type: "success", message: editingId ? "Offer updated." : "Offer created." });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(fromError(err, "Failed to save offer. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -223,7 +226,7 @@ function PromosPageContent() {
       setShowAiGenerate(false);
       setAiPrompt("");
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : "AI generation failed");
+      setAiError(fromError(err, "AI generation failed. Please try a shorter prompt."));
     } finally {
       setAiGenerating(false);
     }
@@ -243,7 +246,7 @@ function PromosPageContent() {
       setFeedback({ type: "success", message: "Offer marked as sent." });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to send" });
+      setFeedback({ type: "error", message: fromError(err, "Failed to mark as sent. Please try again.") });
     }
   };
 
@@ -274,12 +277,17 @@ function PromosPageContent() {
         <AiQuotaBanner />
         <PageHeader
           title={<TooltipBadge screen="promos">Send Offers to Customers</TooltipBadge>}
-          description="Create offers and messages your customers will receive."
-          actions={
-            <Button onClick={() => { resetForm(); setShowForm(true); }}>
-              Create promo
+          plainLanguageDescription="Create offers and messages your customers will receive."
+          whatThisPageIsFor="Prepare simple customer offers and send them when ready."
+          whatToDoNext={displayPromos.length === 0 ? "Create your first offer from a template." : "Review a draft and mark it as sent."}
+        />
+        <PrimaryPageAction
+          primaryAction={
+            <Button onClick={() => { resetForm(); setShowForm(true); }} size="lg">
+              Create offer
             </Button>
           }
+          hintText="Start from a template to reduce typing and decision fatigue."
         />
 
         {feedback && (
@@ -510,7 +518,15 @@ function PromosPageContent() {
           ))}
         </ul>
         {displayPromos.length === 0 && (
-          <p className="py-8 text-center text-helper">No offers yet. Create one to get started — you can turn it on or off anytime.</p>
+          <EmptyState
+            what="No offers yet"
+            why="Offers help bring back customers and encourage repeat visits."
+            nextAction={
+              <Button onClick={() => { resetForm(); setShowForm(true); }} size="lg">
+                Create first offer
+              </Button>
+            }
+          />
         )}
       </PageSection>
       </div>

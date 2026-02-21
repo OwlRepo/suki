@@ -163,7 +163,7 @@ function SetupPageContent() {
               htmlFor="business-name"
               className="mb-1 block text-base font-medium text-foreground"
             >
-              Business name
+              Business name <span className="text-destructive">(Required)</span>
             </label>
             <Input
               id="business-name"
@@ -179,7 +179,7 @@ function SetupPageContent() {
               htmlFor="business-type"
               className="mb-1 block text-base font-medium text-foreground"
             >
-              Type of business
+              Type of business <span className="text-destructive">(Required)</span>
             </label>
             <select
               id="business-type"

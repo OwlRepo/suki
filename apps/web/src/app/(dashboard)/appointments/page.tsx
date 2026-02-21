@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -20,6 +21,7 @@ import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS, SAMPLE_APPOINTMENTS, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
+import { fromError } from "@/lib/ui-feedback";
 
 interface Business {
   id: string;
@@ -177,7 +179,7 @@ function AppointmentsPageContent() {
       setFeedback({ type: "success", message: editingId ? "Appointment updated." : "Appointment created." });
       setTimeout(() => setFeedback(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(fromError(err, "Failed to save appointment. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -196,7 +198,7 @@ function AppointmentsPageContent() {
       setFeedback({ type: "success", message: "Status updated." });
       setTimeout(() => setFeedback(null), 3000);
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to update status" });
+      setFeedback({ type: "error", message: fromError(err, "Failed to update status. Please try again.") });
     }
   };
 
@@ -212,7 +214,7 @@ function AppointmentsPageContent() {
       setFeedback({ type: "success", message: "Reminder marked as sent." });
       setTimeout(() => setFeedback(null), 3000);
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to mark reminder" });
+      setFeedback({ type: "error", message: fromError(err, "Failed to mark reminder. Please try again.") });
     }
   };
 
@@ -247,7 +249,9 @@ function AppointmentsPageContent() {
       <div className="space-y-8">
         <PageHeader
           title={<TooltipBadge screen="appointments">Appointments</TooltipBadge>}
-          description="Appointments help you plan your day — but you can use the app without them."
+          plainLanguageDescription="Appointments help you plan your day — but you can use the app without them."
+          whatThisPageIsFor="Schedule visits and keep each appointment status up to date."
+          whatToDoNext={displayAppointments.length === 0 ? "Create your first appointment." : "Update the next appointment status."}
           actions={
             <div className="flex flex-wrap gap-2">
               <Input
@@ -266,11 +270,16 @@ function AppointmentsPageContent() {
                 className="w-36"
                 aria-label="To date"
               />
-              <Button onClick={() => { resetForm(); setShowForm(true); }}>
-                {displayAppointments.length === 0 ? "Create first appointment" : "New appointment"}
-              </Button>
             </div>
           }
+        />
+        <PrimaryPageAction
+          primaryAction={
+            <Button onClick={() => { resetForm(); setShowForm(true); }} size="lg">
+              {displayAppointments.length === 0 ? "Create first appointment" : "New appointment"}
+            </Button>
+          }
+          hintText="Pick a customer first, then choose a time preset or exact date and time."
         />
 
         {feedback && (
@@ -293,7 +302,7 @@ function AppointmentsPageContent() {
               <select
                 value={formData.customerId}
                 onChange={(e) => setFormData((d) => ({ ...d, customerId: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[40px]"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
                 required
                 disabled={!!editingId}
                 aria-label="Select customer"
@@ -404,7 +413,7 @@ function AppointmentsPageContent() {
                           handleStatus(a.id, v);
                         }
                       }}
-                      className="rounded-md border border-input bg-background px-3 py-1.5 text-sm capitalize min-h-[32px]"
+                      className="rounded-md border border-input bg-background px-3 py-2 text-sm capitalize min-h-[44px]"
                       aria-label="Change status"
                     >
                       <option value="scheduled">Scheduled</option>

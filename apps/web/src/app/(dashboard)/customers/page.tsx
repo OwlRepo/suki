@@ -13,6 +13,8 @@ import { IntakeQRBlock } from "@/components/intake-qr-block";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -23,6 +25,7 @@ import { useOnboarding } from "@/contexts/onboarding-context";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { ONBOARDING_STEPS, SAMPLE_CUSTOMERS, PRACTICE_SAMPLE_LABEL } from "@/lib/onboarding";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
+import { fromError } from "@/lib/ui-feedback";
 
 interface Business {
   id: string;
@@ -104,7 +107,7 @@ function CustomersPageContent() {
       onboarding?.advanceStep();
       if (total === 0) recordOnboardingEvent("first_customer_added", orgId);
       setShowAdd(false);
-      setFeedback({ type: "success", message: "Customer saved. You can edit details anytime." });
+      setFeedback({ type: "success", message: "Customer added. You can edit details anytime." });
       setTimeout(() => setFeedback(null), 4000);
       const params = new URLSearchParams({ businessId: selectedBiz });
       if (search) params.set("search", search);
@@ -116,7 +119,7 @@ function CustomersPageContent() {
       setCustomers(res.customers);
       setTotal(res.total);
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to save customer" });
+      setFeedback({ type: "error", message: fromError(err, "Failed to save customer. Please try again.") });
     } finally {
       setAddLoading(false);
     }
@@ -141,7 +144,7 @@ function CustomersPageContent() {
       setFeedback({ type: "success", message: "Customer removed." });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
-      setFeedback({ type: "error", message: err instanceof Error ? err.message : "Failed to remove customer" });
+      setFeedback({ type: "error", message: fromError(err, "Failed to remove customer. Please try again.") });
     }
   };
 
@@ -210,7 +213,9 @@ function CustomersPageContent() {
         <AiQuotaBanner />
         <PageHeader
           title={<TooltipBadge screen="customers">Customers</TooltipBadge>}
-          description="This is your customer list. Add people here and track their visits."
+          plainLanguageDescription="This is your customer list. Add people here and track their visits."
+          whatThisPageIsFor="Keep customer details and visit history in one place."
+          whatToDoNext={displayTotal === 0 ? "Add your first customer." : "Record a visit for a recent customer."}
           actions={
             <div className="flex flex-wrap gap-2">
               <Input
@@ -227,9 +232,16 @@ function CustomersPageContent() {
                 className="w-48"
                 aria-label="Filter by label"
               />
-              <Button onClick={() => setShowAdd(true)}>Add customer</Button>
             </div>
           }
+        />
+        <PrimaryPageAction
+          primaryAction={
+            <Button onClick={() => setShowAdd(true)} size="lg">
+              Add customer
+            </Button>
+          }
+          hintText="Start with name and mobile. You can add optional labels later."
         />
 
         {feedback && (
@@ -303,7 +315,15 @@ function CustomersPageContent() {
           ))}
         </ul>
         {displayCustomers.length === 0 && (
-          <p className="py-8 text-center text-helper">No customers yet. Add your first to get started — you can edit details anytime.</p>
+          <EmptyState
+            what="No customers yet"
+            why="Adding customers here helps you track visits, appointments, and repeat business."
+            nextAction={
+              <Button onClick={() => setShowAdd(true)} size="lg">
+                Add your first customer
+              </Button>
+            }
+          />
         )}
       </PageSection>
       </div>

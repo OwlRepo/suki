@@ -7,6 +7,12 @@ interface PageHeaderProps {
   title: React.ReactNode;
   /** Optional description under the title */
   description?: React.ReactNode;
+  /** Optional plain-language description for non-technical users */
+  plainLanguageDescription?: React.ReactNode;
+  /** Optional quick explanation: what this page is for */
+  whatThisPageIsFor?: React.ReactNode;
+  /** Optional quick instruction: what to do next */
+  whatToDoNext?: React.ReactNode;
   /** Optional actions (buttons, etc.) aligned to the right on larger screens */
   actions?: React.ReactNode;
   className?: string;
@@ -15,7 +21,17 @@ interface PageHeaderProps {
 /**
  * Consistent page header with title, optional description, and actions.
  */
-export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  plainLanguageDescription,
+  whatThisPageIsFor,
+  whatToDoNext,
+  actions,
+  className,
+}: PageHeaderProps) {
+  const supportingDescription = plainLanguageDescription ?? description;
+
   return (
     <div
       className={cn(
@@ -27,8 +43,20 @@ export function PageHeader({ title, description, actions, className }: PageHeade
         <h1 className="text-2xl font-semibold text-foreground tracking-tight">
           {title}
         </h1>
-        {description && (
-          <p className="text-helper max-w-2xl">{description}</p>
+        {supportingDescription && (
+          <p className="text-helper max-w-2xl">{supportingDescription}</p>
+        )}
+        {whatThisPageIsFor && (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">What this page is for: </span>
+            {whatThisPageIsFor}
+          </p>
+        )}
+        {whatToDoNext && (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">What to do next: </span>
+            {whatToDoNext}
+          </p>
         )}
       </div>
       {actions && (

@@ -196,7 +196,15 @@ function DashboardPageContent() {
       <div className="space-y-8">
         <PageHeader
           title={<TooltipBadge screen="dashboard">Dashboard</TooltipBadge>}
-          description="Welcome back. Here's what needs your attention today."
+          plainLanguageDescription="Welcome back. Here's what needs your attention today."
+          whatThisPageIsFor="Check today's priorities, then take one clear next step."
+          whatToDoNext={
+            summaryDisplay.customers === 0
+              ? "Add your first customer."
+              : summaryDisplay.appointments === 0
+                ? "Schedule your first appointment."
+                : "Record a customer visit."
+          }
         />
 
         {showWelcome && (
@@ -222,28 +230,23 @@ function DashboardPageContent() {
                 <Link
                   href="/customers"
                   onClick={() => {
-                    if (highlightFirstCard && onboarding)
-                      onboarding.advanceStep();
+                    if (highlightFirstCard && onboarding) onboarding.advanceStep();
                   }}
                 >
                   <Button
-                    variant={highlightFirstCard ? "default" : "default"}
-                    className={
-                      highlightFirstCard
-                        ? "ring-2 ring-primary ring-offset-2"
-                        : ""
-                    }
+                    size="lg"
+                    className={highlightFirstCard ? "ring-2 ring-primary ring-offset-2" : ""}
                   >
                     Add your first customer
                   </Button>
                 </Link>
               ) : summaryDisplay.appointments === 0 ? (
                 <Link href="/appointments">
-                  <Button>Schedule your first appointment</Button>
+                  <Button size="lg">Schedule your first appointment</Button>
                 </Link>
               ) : (
                 <Link href="/customers">
-                  <Button>Record a customer visit</Button>
+                  <Button size="lg">Record a customer visit</Button>
                 </Link>
               )}
             </PrimaryPageAction>
@@ -264,42 +267,28 @@ function DashboardPageContent() {
           </PageSection>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <Link href="/setup">
-            <Button variant="outline" size="sm">
-              Business setup
-            </Button>
-          </Link>
-          <Link href="/customers">
-            <Button variant="outline" size="sm">
-              Customers
-            </Button>
-          </Link>
-          <Link href="/appointments">
-            <Button variant="outline" size="sm">
-              Appointments
-            </Button>
-          </Link>
-          <Link href="/promos">
-            <Button variant="outline" size="sm">
-              Promos
-            </Button>
-          </Link>
-        </div>
-
         <PageSection
           title="Metrics"
-          description={usage?.month ? `Data for ${usage.month}` : undefined}
+          description={
+            usage?.month
+              ? `Data for ${usage.month}. Each number includes a plain-language explanation.`
+              : undefined
+          }
         >
           <div className="grid gap-6 sm:grid-cols-3">
             <MetricCard
               label="Total customers"
               value={summaryDisplay.customers}
-              suffix={showPracticeData ? "Practice Sample" : undefined}
+              suffix={
+                showPracticeData
+                  ? "Practice Sample · People currently saved in your customer list."
+                  : "People currently saved in your customer list."
+              }
             />
             <MetricCard
               label="Visits this month"
               value={usage?.visitsThisMonth ?? metrics?.repeatVisits ?? "—"}
+              suffix="How many customer visits were recorded this month."
             />
             <MetricCard
               label="Upcoming appointments"
@@ -308,7 +297,11 @@ function DashboardPageContent() {
                   ? summaryDisplay.appointments
                   : upcomingAppointments
               }
-              suffix={showPracticeData ? "Practice Sample" : undefined}
+              suffix={
+                showPracticeData
+                  ? "Practice Sample · Scheduled appointments still ahead."
+                  : "Scheduled appointments still ahead."
+              }
             />
           </div>
         </PageSection>

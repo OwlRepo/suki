@@ -5,8 +5,12 @@ import { useAuth } from "@clerk/nextjs";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import {
   PracticeDayBanner,
   OnboardingGuidance,
@@ -108,13 +112,15 @@ function LoyaltyPageContent() {
       <div className="space-y-8">
         <PageHeader
           title={<TooltipBadge screen="loyalty">Loyalty</TooltipBadge>}
-          description="Automatic rewards, not configuration. Regular customers appear here when they meet the threshold."
+          plainLanguageDescription="Regular customers appear here automatically when they meet the visit threshold."
+          whatThisPageIsFor="See who qualifies for rewards. No configuration needed."
+          whatToDoNext="Adjust the visit threshold below to change who counts as a regular."
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={showPracticeData ? displayThreshold : threshold}
                 onChange={(e) => handleThresholdChange(parseInt(e.target.value, 10))}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[40px]"
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
                 aria-label="Visit threshold"
               >
                 {[3, 5, 10, 15, 20].map((t) => (
@@ -128,16 +134,16 @@ function LoyaltyPageContent() {
                 placeholder="Filter by label (e.g. VIP)"
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
-                className="rounded-md border border-input bg-background px-3 py-2 text-base min-h-[40px] w-40"
+                className="rounded-md border border-input bg-background px-3 py-2 text-base min-h-[44px] w-40"
                 aria-label="Filter by label"
               />
             </div>
           }
         />
 
-        <p className="text-helper">
-          After {displayThreshold} visits, customers become regulars. Example: Every 6th visit gets ₱100 off.
-        </p>
+        <PrimaryPageAction
+          hintText={`After ${displayThreshold} visits, customers become regulars. Example: Every 6th visit gets ₱100 off.`}
+        />
         {showPracticeData && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
             {PRACTICE_SAMPLE_LABEL}: {SAMPLE_LOYALTY.reward}
@@ -168,9 +174,15 @@ function LoyaltyPageContent() {
           ))}
         </ul>
         {displayCustomers.length === 0 && (
-          <p className="py-8 text-center text-helper">
-            Regular customers will appear here automatically when they meet the threshold.
-          </p>
+          <EmptyState
+            what="No regular customers yet"
+            why="Regular customers will appear here automatically once they reach the visit threshold. Keep recording visits."
+            nextAction={
+              <Link href="/customers">
+                <Button size="lg">Go to Customers and record visits</Button>
+              </Link>
+            }
+          />
         )}
       </PageSection>
       </div>

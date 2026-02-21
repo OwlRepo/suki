@@ -8,7 +8,7 @@ const PAIN_SOLUTIONS = [
   {
     pain: "Data is messy and duplicates break reporting.",
     solution: "Built-in dedupe checks, cleaner import validation, structured customer profiles.",
-    outcome: "More reliable segments and campaign targeting.",
+    outcome: "More reliable customer groups and campaign targeting.",
   },
   {
     pain: "Teams avoid CRM because updates are manual and slow.",
@@ -31,8 +31,8 @@ const HOW_IT_WORKS = [
   {
     step: "1",
     title: "Capture customers",
-    description:
-      "QR intake, manual entry, or import from spreadsheets. No required fields—collect only what customers share.",
+      description:
+      "QR signup link, manual entry, or import from spreadsheets. Collect only what customers share.",
   },
   {
     step: "2",
@@ -77,7 +77,7 @@ const PLANS = [
     price: "₱499",
     period: "/month",
     forWhom: "Organize customers first",
-    features: ["Customer list, QR intake, manual entry", "Last visit and visit count", "New customers this month", "CSV and data migration"],
+    features: ["Customer list, QR signup link, manual entry", "Last visit and visit count", "New customers this month", "CSV and data migration"],
     cta: "Start with Basic",
   },
   {
@@ -147,7 +147,7 @@ export default function Home() {
             <LandingCta singlePrimary />
           </PrimaryPageAction>
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="lg" className="min-h-[44px]" asChild>
               <Link href="/sign-up">Book Full CRM Demo</Link>
             </Button>
             <Link href="#migration" className="text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
@@ -234,7 +234,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-6 text-center">
-            <Button asChild>
+            <Button size="lg" className="min-h-[44px]" asChild>
               <Link href="#pricing">See Plans</Link>
             </Button>
           </div>
@@ -268,7 +268,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-6 text-center">
-            <Button variant="outline" asChild>
+            <Button variant="outline" size="lg" className="min-h-[44px]" asChild>
               <Link href="/sign-up">Plan My Migration</Link>
             </Button>
           </div>
@@ -289,7 +289,7 @@ export default function Home() {
             <li>Administrative audit trail for activation and updates</li>
           </ul>
           <div className="mt-6 text-center">
-            <Button variant="outline" asChild>
+            <Button variant="outline" size="lg" className="min-h-[44px]" asChild>
               <Link href="/sign-up">Talk to Sales for On-Prem</Link>
             </Button>
           </div>
@@ -404,7 +404,7 @@ export default function Home() {
                     <li key={f}>• {f}</li>
                   ))}
                 </ul>
-                <Button asChild className="mt-6">
+                <Button asChild size="lg" className="mt-6 min-h-[44px]">
                   <Link href="/sign-up">{plan.cta}</Link>
                 </Button>
               </div>
@@ -442,7 +442,7 @@ export default function Home() {
           <PrimaryPageAction className="justify-center">
             <LandingCta singlePrimary />
           </PrimaryPageAction>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="lg" className="min-h-[44px]" asChild>
             <Link href="/sign-up">Book Full CRM Strategy Call</Link>
           </Button>
         </section>
