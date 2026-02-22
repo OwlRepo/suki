@@ -174,17 +174,40 @@ export class CustomerTemplatesService {
     return { success: true };
   }
 
+  /**
+   * Public variant for intake page: returns default template without auth check.
+   * Validates business exists; throws NotFoundException if not.
+   */
+  async getDefaultTemplateForIntake(businessId: string) {
+    const db = getDb();
+    const [biz] = await db
+      .select({ organizationId: businesses.organizationId, businessType: businesses.businessType })
+      .from(businesses)
+      .where(eq(businesses.id, businessId))
+      .limit(1);
+    if (!biz) {
+      throw new NotFoundException("Business not found");
+    }
+    return this.getDefaultTemplateInternal(businessId, biz.organizationId, biz.businessType ?? "");
+  }
+
   async getDefaultTemplate(businessId: string, organizationId: string) {
     await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
-
     const [biz] = await db
       .select({ businessType: businesses.businessType })
       .from(businesses)
       .where(eq(businesses.id, businessId))
       .limit(1);
-    const businessType = biz?.businessType ?? "";
+    return this.getDefaultTemplateInternal(businessId, organizationId, biz?.businessType ?? "");
+  }
 
+  private async getDefaultTemplateInternal(
+    businessId: string,
+    organizationId: string,
+    businessType: string,
+  ) {
+    const db = getDb();
     const [row] = await db
       .select({
         templateId: businessDefaultDescriptionTemplates.templateId,

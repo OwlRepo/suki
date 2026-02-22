@@ -9,5 +9,6 @@ import { AutomationModule } from "../automation/automation.module";
   imports: [AuthModule, AutomationModule],
   controllers: [CustomersController],
   providers: [CustomersService, CustomerTemplatesService],
+  exports: [CustomerTemplatesService],
 })
 export class CustomersModule {}
