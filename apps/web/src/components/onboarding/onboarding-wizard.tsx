@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@clerk/nextjs";
@@ -349,17 +357,21 @@ export function OnboardingWizard() {
                 <p className="text-sm text-muted-foreground">Add a customer in Step 3 first.</p>
               ) : (
                 <>
-                  <select
+                  <Select
                     value={selectedVisitCustomerId}
-                    onChange={(e) => setSelectedCustomerId(e.target.value)}
-                    className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+                    onValueChange={(v) => setSelectedCustomerId(v)}
                   >
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} — {c.visitCount} visit{c.visitCount !== 1 ? "s" : ""} recorded
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="min-h-[44px] w-full text-base">
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} — {c.visitCount} visit{c.visitCount !== 1 ? "s" : ""} recorded
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button size="lg" className="min-h-[44px] text-base" onClick={handleRecordVisit} disabled={busy}>
                     {busy ? "Recording…" : guidance.primaryActionLabel}
                   </Button>
@@ -374,22 +386,26 @@ export function OnboardingWizard() {
                 <p className="text-sm text-muted-foreground">Add a customer first before creating an appointment.</p>
               ) : (
                 <>
-                  <select
+                  <Select
                     value={selectedAppointmentCustomerId}
-                    onChange={(e) => setAppointmentCustomerId(e.target.value)}
-                    className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+                    onValueChange={(v) => setAppointmentCustomerId(v)}
                   >
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
+                    <SelectTrigger className="min-h-[44px] w-full text-base">
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
                     type="datetime-local"
                     value={appointmentWhen}
                     onChange={(e) => setAppointmentWhen(e.target.value)}
-                    className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+                    className="min-h-[44px] text-base"
                   />
                   <Button size="lg" className="min-h-[44px] text-base" onClick={handleCreateAppointment} disabled={busy}>
                     {busy ? "Saving…" : guidance.primaryActionLabel}
@@ -401,18 +417,19 @@ export function OnboardingWizard() {
 
           {step === 6 && (
             <div className="space-y-4">
-              <label className="block text-sm font-medium text-foreground">Offer type</label>
-              <select
-                value={promoType}
-                onChange={(e) => setPromoType(e.target.value)}
-                className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
-              >
-                <option value="discount">Discount</option>
-                <option value="free_addon">Free add-on</option>
-                <option value="loyalty">Loyalty</option>
-                <option value="reminder">Reminder</option>
-                <option value="other">Other</option>
-              </select>
+              <Label className="block">Offer type</Label>
+              <Select value={promoType} onValueChange={(v) => setPromoType(v)}>
+                <SelectTrigger className="min-h-[44px] w-full text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="discount">Discount</SelectItem>
+                  <SelectItem value="free_addon">Free add-on</SelectItem>
+                  <SelectItem value="loyalty">Loyalty</SelectItem>
+                  <SelectItem value="reminder">Reminder</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
               <Input
                 value={promoValue}
                 onChange={(e) => setPromoValue(e.target.value)}
@@ -433,9 +450,9 @@ export function OnboardingWizard() {
 
           {step === 7 && (
             <div className="space-y-4">
-              <label className="block text-sm font-medium text-foreground">
+              <Label className="block">
                 Visits before reward unlocks
-              </label>
+              </Label>
               <Input
                 type="number"
                 min={1}

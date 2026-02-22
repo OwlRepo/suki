@@ -4,6 +4,14 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
@@ -293,7 +301,7 @@ function PromosPageContent() {
           <h2 className="text-lg font-medium">{editingId ? "Edit promo" : "New promo"}</h2>
           {!editingId && (
             <div>
-              <label className="mb-1 block text-sm font-medium">Start from a template</label>
+              <Label className="mb-1 block">Start from a template</Label>
               <div className="flex flex-wrap gap-2">
                 {MESSAGE_TEMPLATES.map((t) => (
                   <Button
@@ -318,21 +326,25 @@ function PromosPageContent() {
           )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Type</label>
-              <select
+              <Label className="mb-1 block">Type</Label>
+              <Select
                 value={formData.type}
-                onChange={(e) => setFormData((d) => ({ ...d, type: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                onValueChange={(v) => setFormData((d) => ({ ...d, type: v }))}
               >
-                {PROMO_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROMO_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Value (e.g. 10%)</label>
+              <Label className="mb-1 block">Value (e.g. 10%)</Label>
               <Input
                 value={formData.value}
                 onChange={(e) => setFormData((d) => ({ ...d, value: e.target.value }))}
@@ -340,7 +352,7 @@ function PromosPageContent() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Start</label>
+              <Label className="mb-1 block">Start</Label>
               <Input
                 type="datetime-local"
                 value={formData.validityStart}
@@ -349,7 +361,7 @@ function PromosPageContent() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">End</label>
+              <Label className="mb-1 block">End</Label>
               <Input
                 type="datetime-local"
                 value={formData.validityEnd}
@@ -360,7 +372,7 @@ function PromosPageContent() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Minimum visits (targeting)</label>
+              <Label className="mb-1 block">Minimum visits (targeting)</Label>
               <Input
                 type="number"
                 min={0}
@@ -370,7 +382,7 @@ function PromosPageContent() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Inactive days (targeting)</label>
+              <Label className="mb-1 block">Inactive days (targeting)</Label>
               <Input
                 type="number"
                 min={0}
@@ -381,7 +393,7 @@ function PromosPageContent() {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Message</label>
+            <Label className="mb-1 block">Message</Label>
             <Textarea
               value={formData.messageContent}
               onChange={(e) => setFormData((d) => ({ ...d, messageContent: e.target.value }))}

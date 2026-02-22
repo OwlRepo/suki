@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SettingsSectionCard } from "@/components/ui/settings-section-card";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
@@ -206,13 +207,13 @@ function UpgradeButton({
     }
   };
 
-  const handleDowngrade = async () => {
-    const planLabel = PLAN_LABELS[planType] ?? planType;
-    const message =
-      `Switching to ${planLabel} will reduce your plan features. ` +
-      `You may lose access to advanced CRM, automation, and AI features. ` +
-      `Are you sure you want to switch to ${planLabel}?`;
-    if (!confirm(message)) return;
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
+
+  const handleDowngradeClick = () => {
+    setShowDowngradeConfirm(true);
+  };
+
+  const doDowngrade = async () => {
     setLoading(true);
     try {
       const token = await getToken();
@@ -236,11 +237,28 @@ function UpgradeButton({
 
   if (isCurrent) return null;
   if (readOnly && isUpgrade) return null;
+  const planLabel = PLAN_LABELS[planType] ?? planType;
   return (
-    <Button
-      size="lg"
-      variant={isUpgrade ? "default" : "outline"}
-      onClick={isDowngrade ? handleDowngrade : handleUpgrade}
+    <>
+      <ConfirmDialog
+        open={showDowngradeConfirm}
+        onOpenChange={(o) => !o && setShowDowngradeConfirm(false)}
+        title={`Switch to ${planLabel}?`}
+        description={
+          `Switching to ${planLabel} will reduce your plan features. ` +
+          `You may lose access to advanced CRM, automation, and AI features. ` +
+          `Are you sure you want to switch to ${planLabel}?`
+        }
+        confirmLabel={`Yes, switch to ${planLabel}`}
+        cancelLabel="No, keep my plan"
+        destructive
+        onConfirm={doDowngrade}
+        loading={loading}
+      />
+      <Button
+        size="lg"
+        variant={isUpgrade ? "default" : "outline"}
+        onClick={isDowngrade ? handleDowngradeClick : handleUpgrade}
       disabled={loading}
       className="min-h-[48px]"
     >
@@ -250,6 +268,7 @@ function UpgradeButton({
           ? `Switch to ${PLAN_LABELS[planType] ?? planType}`
           : `${PLAN_LABELS[planType] ?? planType} – ₱${price}/mo`}
     </Button>
+    </>
   );
 }
 
@@ -831,13 +850,13 @@ function SettingsPageContent() {
           className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground pointer-events-none"
           aria-hidden
         />
-        <input
+        <Input
           type="search"
           value={settingsSearch}
           onChange={(e) => setSettingsSearch(e.target.value)}
           placeholder="Search settings (e.g. billing, reminders, SMS)"
           aria-label="Search settings"
-          className="w-full max-w-md min-h-[48px] pl-10 pr-4 text-base rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="w-full max-w-md min-h-[48px] pl-10 pr-4 text-base"
         />
       </div>
 

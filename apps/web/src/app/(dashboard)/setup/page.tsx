@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
@@ -153,12 +161,12 @@ function SetupPageContent() {
         </p>
         <form onSubmit={handleQuestionsSubmit} className="mt-6 space-y-5">
           <div>
-            <label
+            <Label
               htmlFor="business-name"
               className="mb-1 block text-base font-medium text-foreground"
             >
               Business name <span className="text-destructive">(Required)</span>
-            </label>
+            </Label>
             <Input
               id="business-name"
               value={name}
@@ -169,25 +177,28 @@ function SetupPageContent() {
             />
           </div>
           <div>
-            <label
+            <Label
               htmlFor="business-type"
               className="mb-1 block text-base font-medium text-foreground"
             >
               Type of business <span className="text-destructive">(Required)</span>
-            </label>
-            <select
-              id="business-type"
-              value={businessType}
-              onChange={(e) => setBusinessType(e.target.value)}
-              className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+            </Label>
+            <Select
+              value={businessType || "__none__"}
+              onValueChange={(v) => setBusinessType(v === "__none__" ? "" : v)}
             >
-              <option value="">Select your business type</option>
-              {BUSINESS_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="business-type" className="min-h-[44px] w-full text-base">
+                <SelectValue placeholder="Select your business type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Select your business type</SelectItem>
+                {BUSINESS_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value} className="text-base">
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {error && (
             <p className="text-base text-destructive" role="alert">

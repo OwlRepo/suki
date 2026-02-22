@@ -38,7 +38,7 @@ export class InsightsService {
         ),
       );
 
-    const [repeatResult] = await db
+    const [repeatCustomersResult] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(customers)
       .where(
@@ -46,7 +46,18 @@ export class InsightsService {
           eq(customers.businessId, businessId),
           gte(customers.lastVisitAt, start),
           lte(customers.lastVisitAt, end),
-          lte(customers.createdAt, start),
+          gte(customers.visitCount, 2),
+        ),
+      );
+
+    const [visitedThisMonthResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(customers)
+      .where(
+        and(
+          eq(customers.businessId, businessId),
+          gte(customers.lastVisitAt, start),
+          lte(customers.lastVisitAt, end),
         ),
       );
 
@@ -54,8 +65,8 @@ export class InsightsService {
       year,
       month,
       newCustomers: newCount?.count ?? 0,
-      repeatCustomers: repeatResult?.count ?? 0,
-      repeatVisits: repeatResult?.count ?? 0,
+      repeatCustomers: repeatCustomersResult?.count ?? 0,
+      repeatVisits: visitedThisMonthResult?.count ?? 0,
     };
   }
 }

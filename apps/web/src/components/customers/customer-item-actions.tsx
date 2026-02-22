@@ -15,17 +15,22 @@ interface CustomerItemActionsProps {
   onRecordVisit: () => void;
   onRemove: () => void;
   onViewMessages?: () => void;
+  onAdjustVisit?: () => void;
+  onViewVisitHistory?: () => void;
 }
 
 /**
- * One primary action (Record visit) plus Remove in a 3-dot menu.
+ * One primary action (Record visit) plus dropdown: Correct visit, Message history, Visit history, Remove.
  */
 export function CustomerItemActions({
   onRecordVisit,
   onRemove,
   onViewMessages,
+  onAdjustVisit,
+  onViewVisitHistory,
 }: CustomerItemActionsProps) {
   const [confirmingRemove, setConfirmingRemove] = React.useState(false);
+  const [confirmingRecordVisit, setConfirmingRecordVisit] = React.useState(false);
 
   if (confirmingRemove) {
     return (
@@ -43,9 +48,24 @@ export function CustomerItemActions({
     );
   }
 
+  if (confirmingRecordVisit) {
+    return (
+      <ConfirmActionInline
+        confirmMessage="Record 1 visit for this customer?"
+        confirmLabel="Yes, record"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          onRecordVisit();
+          setConfirmingRecordVisit(false);
+        }}
+        onCancel={() => setConfirmingRecordVisit(false)}
+      />
+    );
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      <Button size="sm" onClick={onRecordVisit}>
+    <div className="flex flex-shrink-0 items-center gap-2">
+      <Button size="sm" onClick={() => setConfirmingRecordVisit(true)}>
         Record visit
       </Button>
       <DropdownMenu>
@@ -60,6 +80,16 @@ export function CustomerItemActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {onAdjustVisit && (
+            <DropdownMenuItem onClick={onAdjustVisit}>
+              Correct visit count
+            </DropdownMenuItem>
+          )}
+          {onViewVisitHistory && (
+            <DropdownMenuItem onClick={onViewVisitHistory}>
+              View adjustment history
+            </DropdownMenuItem>
+          )}
           {onViewMessages && (
             <DropdownMenuItem onClick={onViewMessages}>
               Message history

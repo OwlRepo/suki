@@ -35,7 +35,7 @@ ENV CHOKIDAR_USEPOLLING=true
 EXPOSE 3000
 
 # Ensure deps exist when using node_modules volume; then run web dev from monorepo root
-ENTRYPOINT ["sh", "-c", "cd /app && (test -d node_modules/next || bun install) && cd apps/web && exec bun run dev"]
+ENTRYPOINT ["sh", "-c", "cd /app && (test -d node_modules/next && test -d node_modules/recharts || bun install) && cd apps/web && exec bun run dev"]
 
 # --- prod target: build and serve ---
 FROM base AS prod

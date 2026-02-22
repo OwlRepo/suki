@@ -240,4 +240,45 @@ export class CustomersController {
     const customer = await this.customersService.stampVisit(id, orgId);
     return { customer };
   }
+
+  @Patch(":id/visit")
+  async adjustVisit(
+    @Param("id") id: string,
+    @Body() body: { afterCount: number; reason: string },
+    @Tenant("organizationId") orgId?: string,
+    @Tenant("userId") userId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    if (
+      typeof body.afterCount !== "number" ||
+      body.afterCount < 0 ||
+      !body.reason?.trim()
+    ) {
+      throw new BadRequestException("afterCount (>= 0) and reason are required");
+    }
+    const customer = await this.customersService.adjustVisitCount(
+      id,
+      orgId,
+      Math.floor(body.afterCount),
+      body.reason.trim(),
+      userId,
+    );
+    return { customer };
+  }
+
+  @Get(":id/visit-adjustment-history")
+  async getVisitAdjustmentHistory(
+    @Param("id") id: string,
+    @Query("limit") limitStr?: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    const limit = limitStr ? parseInt(limitStr, 10) : 50;
+    const history = await this.customersService.getVisitAdjustmentHistory(
+      id,
+      orgId,
+      limit,
+    );
+    return { history };
+  }
 }

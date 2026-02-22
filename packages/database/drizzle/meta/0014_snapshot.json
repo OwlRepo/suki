@@ -1,6 +1,6 @@
 {
-  "id": "50028c7e-194f-4d64-8eb2-6f4ed53531b3",
-  "prevId": "b6b3349e-067c-42ad-b241-ec3d73d9ed7a",
+  "id": "d6b9e5d0-b9c9-4788-90c6-450ae4343b07",
+  "prevId": "50028c7e-194f-4d64-8eb2-6f4ed53531b3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2995,6 +2995,112 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.visit_adjustment_history": {
+      "name": "visit_adjustment_history",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "before_count": {
+          "name": "before_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "after_count": {
+          "name": "after_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_clerk_id": {
+          "name": "actor_clerk_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "visit_adjustment_history_customer_id_idx": {
+          "name": "visit_adjustment_history_customer_id_idx",
+          "columns": [
+            {
+              "expression": "customer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "visit_adjustment_history_customer_id_customers_id_fk": {
+          "name": "visit_adjustment_history_customer_id_customers_id_fk",
+          "tableFrom": "visit_adjustment_history",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "visit_adjustment_history_actor_user_id_users_id_fk": {
+          "name": "visit_adjustment_history_actor_user_id_users_id_fk",
+          "tableFrom": "visit_adjustment_history",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

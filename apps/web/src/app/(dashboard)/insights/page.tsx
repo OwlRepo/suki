@@ -7,10 +7,19 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { hasClerk } from "@/lib/clerk";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MetricCard } from "@/components/ui/metric-card";
 import { MetricGridSkeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
+import { InsightsBarChart, InsightsPieChart } from "@/components/insights/insights-charts";
 
 interface Business {
   id: string;
@@ -75,40 +84,46 @@ function InsightsPageContent() {
   const monthName = new Date(year, month - 1).toLocaleString("default", { month: "long" });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Business Summary"
-        plainLanguageDescription="Meaningful numbers without intimidation. New customers are first-time visitors. Repeat customers are people who came back."
-        whatThisPageIsFor="Understand customer growth and repeat behavior for the selected month."
-        whatToDoNext="Review this month first, then use 'View past months' only if needed."
+        plainLanguageDescription="Simple monthly numbers you can trust."
+        whatThisPageIsFor="See how many first-time, returning, and total seen customers you had this month."
+        whatToDoNext="Check this month first. Use 'View past months' when you want to compare."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={month}
-              onChange={(e) => setMonth(parseInt(e.target.value, 10))}
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
-              aria-label="Select month"
+            <Select
+              value={String(month)}
+              onValueChange={(v) => setMonth(parseInt(v, 10))}
             >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>
-                  {new Date(2000, m - 1).toLocaleString("default", { month: "long" })}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="min-h-[44px]" aria-label="Select month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <SelectItem key={m} value={String(m)}>
+                    {new Date(2000, m - 1).toLocaleString("default", { month: "long" })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {showYearSelector ? (
               <>
-                <select
-                  value={year}
-                  onChange={(e) => setYear(parseInt(e.target.value, 10))}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
-                  aria-label="Select year"
+                <Select
+                  value={String(year)}
+                  onValueChange={(v) => setYear(parseInt(v, 10))}
                 >
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="min-h-[44px]" aria-label="Select year">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button variant="ghost" size="sm" onClick={() => setShowYearSelector(false)}>
                   Hide year
                 </Button>
@@ -129,22 +144,49 @@ function InsightsPageContent() {
         {!syncReady || workspace?.loading || (!!selectedBiz && metricsLoading) ? (
           <MetricGridSkeleton count={3} />
         ) : metrics ? (
-          <div className="grid gap-6 sm:grid-cols-3">
-            <MetricCard
-              label="New customers"
-              value={metrics.newCustomers}
-              suffix={metrics.newCustomers === 0 ? "People who visited for the first time this month. This will grow as customers return." : "People who visited for the first time this month"}
-            />
-            <MetricCard
-              label="Repeat visits"
-              value={metrics.repeatVisits}
-              suffix={metrics.repeatVisits === 0 ? "Total visits from returning customers. This will grow as customers return." : "Total visits from customers who've been here before"}
-            />
-            <MetricCard
-              label="Repeat customers"
-              value={metrics.repeatCustomers}
-              suffix={metrics.repeatCustomers === 0 ? "People who came back more than once. This will grow as customers return." : "People who came back more than once"}
-            />
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <MetricCard
+                label="First-time customers"
+                value={metrics.newCustomers}
+                suffix="People added this month on their first visit."
+              />
+              <MetricCard
+                label="Customers seen this month"
+                value={metrics.repeatVisits}
+                suffix="Customers whose latest recorded visit is in this month."
+              />
+              <MetricCard
+                label="Returning customers (2+ visits)"
+                value={metrics.repeatCustomers}
+                suffix="Customers with two or more total visits and a visit this month."
+              />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+              <Card className="lg:col-span-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Monthly breakdown</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <InsightsBarChart metrics={metrics} />
+                </CardContent>
+              </Card>
+              {(metrics.newCustomers > 0 || metrics.repeatCustomers > 0) && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Customer mix</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <InsightsPieChart metrics={metrics} />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            <p className="text-helper text-xs">
+              Count method: Returning customers means 2+ total visits.
+            </p>
           </div>
         ) : (
           <p className="text-helper">No metrics for this period yet. This will grow as customers return.</p>

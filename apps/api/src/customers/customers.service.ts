@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, ConflictException } from "@nestjs/common";
 import { getDb } from "@suki/database";
-import { customers, businesses, messageEvents } from "@suki/database";
+import { customers, businesses, messageEvents, visitAdjustmentHistory } from "@suki/database";
 import { eq, and, ilike, like, or, sql, desc, gte, lt, isNull } from "drizzle-orm";
 import { AutomationSendService } from "../automation/automation-send.service";
 
@@ -68,10 +68,18 @@ export class CustomersService {
   ) {
     await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
-    let conditions = opts?.search?.trim()
+    const searchTerm = opts?.search?.trim();
+    const searchPattern = searchTerm ? `%${searchTerm}%` : "";
+    let conditions = searchTerm
       ? and(
           eq(customers.businessId, businessId),
-          ilike(customers.name, `%${opts.search.trim()}%`),
+          or(
+            ilike(customers.name, searchPattern),
+            sql`(coalesce(${customers.mobile}, '')::text ilike ${searchPattern})`,
+            sql`(coalesce(${customers.email}, '')::text ilike ${searchPattern})`,
+            sql`(coalesce(${customers.notes}, '')::text ilike ${searchPattern})`,
+            sql`(coalesce(${customers.tags}, '')::text ilike ${searchPattern})`,
+          )!,
         )
       : eq(customers.businessId, businessId);
     if (opts?.tag?.trim()) {
@@ -231,6 +239,71 @@ export class CustomersService {
     }
 
     return customer;
+  }
+
+  async adjustVisitCount(
+    id: string,
+    organizationId: string,
+    afterCount: number,
+    reason: string,
+    actorUserId?: string,
+  ) {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) return null;
+    const db = getDb();
+    const beforeCount = existing.visitCount;
+    if (afterCount === beforeCount) return existing;
+
+    const now = new Date();
+    const newLastVisitAt: Date | null =
+      afterCount > beforeCount
+        ? now
+        : afterCount === 0
+          ? null
+          : existing.lastVisitAt;
+
+    await db.insert(visitAdjustmentHistory).values({
+      customerId: id,
+      beforeCount,
+      afterCount,
+      reason,
+      actorUserId: actorUserId ?? null,
+    });
+
+    const [updated] = await db
+      .update(customers)
+      .set({
+        visitCount: afterCount,
+        lastVisitAt: newLastVisitAt,
+        updatedAt: now,
+      })
+      .where(eq(customers.id, id))
+      .returning();
+
+    return updated!;
+  }
+
+  async getVisitAdjustmentHistory(
+    customerId: string,
+    organizationId: string,
+    limit = 50,
+  ) {
+    const customer = await this.findById(customerId, organizationId);
+    if (!customer) return [];
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(visitAdjustmentHistory)
+      .where(eq(visitAdjustmentHistory.customerId, customerId))
+      .orderBy(desc(visitAdjustmentHistory.createdAt))
+      .limit(Math.min(limit, 100));
+    return rows.map((r) => ({
+      id: r.id,
+      beforeCount: r.beforeCount,
+      afterCount: r.afterCount,
+      reason: r.reason,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   async findDuplicateCandidates(

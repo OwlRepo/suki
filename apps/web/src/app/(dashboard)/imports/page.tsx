@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -24,6 +27,7 @@ import { fromError } from "@/lib/ui-feedback";
 import { AiQuotaBanner } from "@/components/ai-quota-banner";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Business {
   id: string;
@@ -98,6 +102,8 @@ function ImportsPageContent() {
     errorDetails: Array<{ rowIndex: number; message: string }>;
     customerIds: string[];
   } | null>(null);
+  const [confirmImportCount, setConfirmImportCount] = useState<number | null>(null);
+  const [confirmRollbackOpen, setConfirmRollbackOpen] = useState(false);
 
 
   const handleFetchProvider = async () => {
@@ -200,10 +206,8 @@ function ImportsPageContent() {
     }
   };
 
-  const handleCommit = async () => {
+  const doCommit = async () => {
     if (!selectedBiz || !parsedRows.length) return;
-    const toImport = parsedRows.filter((r) => !skipRows.has(r.rowIndex)).length;
-    if (toImport > 0 && !confirm(`Import ${toImport} customer(s)? This will add them to your list.`)) return;
     setLoading(true);
     try {
       const token = await getToken();
@@ -229,8 +233,22 @@ function ImportsPageContent() {
     }
   };
 
-  const handleRollback = async () => {
-    if (!report?.batchId || !confirm("Rollback will delete all customers from this import. Continue?")) return;
+  const handleCommit = () => {
+    if (!selectedBiz || !parsedRows.length) return;
+    const toImport = parsedRows.filter((r) => !skipRows.has(r.rowIndex)).length;
+    if (toImport > 0) {
+      setConfirmImportCount(toImport);
+    } else {
+      doCommit();
+    }
+  };
+
+  const handleRollback = () => {
+    if (report?.batchId) setConfirmRollbackOpen(true);
+  };
+
+  const doRollback = async () => {
+    if (!report?.batchId) return;
     setLoading(true);
     try {
       const token = await getToken();
@@ -241,6 +259,7 @@ function ImportsPageContent() {
       });
       setReport(null);
       reset();
+      setConfirmRollbackOpen(false);
     } catch (err) {
       setStatus({ type: "error", message: fromError(err, "Rollback failed. Please try again.") });
     } finally {
@@ -410,7 +429,7 @@ function ImportsPageContent() {
               Batch ID: {report.batchId.slice(0, 8)}… • Imported: {report.imported} • Skipped: {report.skipped}
               {report.errors.length > 0 && ` • Errors: ${report.errors.length}`}
             </p>
-            <Button variant="outline" className="mt-4" onClick={handleRollback} disabled={loading}>
+            <Button variant="outline" className="mt-4" onClick={() => handleRollback()} disabled={loading}>
               {loading ? "Rolling back…" : "Rollback this import"}
             </Button>
             </CardContent>
@@ -507,6 +526,29 @@ function ImportsPageContent() {
             className="mt-4"
           />
         )}
+
+        <ConfirmDialog
+          open={confirmImportCount != null && confirmImportCount > 0}
+          onOpenChange={(o) => !o && setConfirmImportCount(null)}
+          title="Import customers"
+          description={`Import ${confirmImportCount ?? 0} customer(s)? This will add them to your list. Your existing customers stay safe.`}
+          confirmLabel="Yes, import"
+          cancelLabel="Cancel"
+          onConfirm={doCommit}
+          loading={loading}
+        />
+
+        <ConfirmDialog
+          open={confirmRollbackOpen}
+          onOpenChange={(o) => !o && setConfirmRollbackOpen(false)}
+          title="Rollback this import"
+          description="Rollback will delete all customers from this import. This cannot be undone. Continue?"
+          confirmLabel="Yes, rollback"
+          cancelLabel="No, keep them"
+          destructive
+          onConfirm={doRollback}
+          loading={loading}
+        />
 
         <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" role="navigation" aria-label="Import steps">
           {stepOrder.map((s, i) => (
@@ -613,7 +655,7 @@ function ImportsPageContent() {
           {source === "hubspot" && (
             <Card className="rounded-lg p-4">
               <CardContent className="space-y-3 p-0">
-              <label className="block text-sm font-medium">HubSpot Private App token</label>
+              <Label className="block">HubSpot Private App token</Label>
               <p className="text-sm text-muted-foreground">
                 How to get your token: In HubSpot, go to{" "}
                 <strong>Settings → Integrations → Private Apps</strong> (or{" "}
@@ -629,12 +671,12 @@ function ImportsPageContent() {
               >
                 HubSpot Private Apps docs →
               </a>
-              <input
+              <Input
                 type="password"
                 placeholder="pat-na1-xxxx"
                 value={hubspotToken}
                 onChange={(e) => setHubspotToken(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full"
               />
               <Button onClick={handleFetchProvider} disabled={loading || !hubspotToken.trim()}>
                 {loading ? "Fetching…" : "Fetch contacts from HubSpot"}
@@ -648,7 +690,7 @@ function ImportsPageContent() {
           {source === "pipedrive" && (
             <Card className="rounded-lg p-4">
               <CardContent className="space-y-3 p-0">
-              <label className="block text-sm font-medium">Pipedrive API token</label>
+              <Label className="block">Pipedrive API token</Label>
               <p className="text-sm text-muted-foreground">
                 How to get your token: Click your account name (top right) →{" "}
                 <strong>Company settings</strong> →{" "}
@@ -662,12 +704,12 @@ function ImportsPageContent() {
               >
                 Open Pipedrive API settings →
               </a>
-              <input
+              <Input
                 type="password"
                 placeholder="API token from Settings → Personal preferences → API"
                 value={pipedriveToken}
                 onChange={(e) => setPipedriveToken(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full"
               />
               <Button onClick={handleFetchProvider} disabled={loading || !pipedriveToken.trim()}>
                 {loading ? "Fetching…" : "Fetch contacts from Pipedrive"}
@@ -797,10 +839,9 @@ function ImportsPageContent() {
                   return (
                     <TableRow key={r.rowIndex}>
                       <TableCell className="px-3 py-2">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={!isSkipped}
-                          onChange={() => toggleSkip(r.rowIndex)}
+                          onCheckedChange={() => toggleSkip(r.rowIndex)}
                         />
                       </TableCell>
                       <TableCell className="px-3 py-2">{r.name}</TableCell>

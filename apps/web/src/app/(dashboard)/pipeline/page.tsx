@@ -3,6 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiRequest } from "@/lib/api";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { hasClerk } from "@/lib/clerk";
@@ -225,33 +233,39 @@ function PipelinePageContent() {
             )}
             {showAddDeal ? (
               <div className="flex gap-2 items-center flex-wrap">
-                <input
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm w-40 min-h-[44px]"
+                <Input
+                  className="w-40 min-h-[44px]"
                   placeholder="e.g. Acme Corp"
                   value={newDealTitle}
                   onChange={(e) => setNewDealTitle(e.target.value)}
                   aria-label="Deal title"
                 />
-                <input
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm w-24 min-h-[44px]"
+                <Input
+                  className="w-24 min-h-[44px]"
                   placeholder="Amount"
                   type="number"
                   value={newDealAmount}
                   onChange={(e) => setNewDealAmount(e.target.value)}
                   aria-label="Deal amount"
                 />
-                <select
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
-                  value={newDealStage}
-                  onChange={(e) => setNewDealStage(e.target.value)}
-                  aria-label="Deal stage"
+                <Select
+                  value={newDealStage || (dealStages[0]?.name ?? "__none__")}
+                  onValueChange={(v) => setNewDealStage(v === "__none__" ? "" : v)}
                 >
-                  {dealStages.map((s) => (
-                    <option key={s.id} value={s.name}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="min-h-[44px]" aria-label="Deal stage">
+                    <SelectValue placeholder="Stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dealStages.length === 0 && (
+                      <SelectItem value="__none__">Select stage</SelectItem>
+                    )}
+                    {dealStages.map((s) => (
+                      <SelectItem key={s.id} value={s.name}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button size="lg" onClick={handleAddDeal} className="min-h-[44px]">Create deal</Button>
                 <Button variant="outline" size="lg" onClick={() => setShowAddDeal(false)} className="min-h-[44px]">Cancel</Button>
               </div>

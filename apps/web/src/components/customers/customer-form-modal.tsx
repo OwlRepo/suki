@@ -4,6 +4,7 @@ import * as React from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -155,9 +156,9 @@ export function CustomerFormModal({
         </DialogHeader>
         <form ref={formRef} onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="customer-name" className="mb-1 block text-sm font-medium">
+            <Label htmlFor="customer-name" className="mb-1 block">
               Name <span className="text-destructive">(Required)</span>
-            </label>
+            </Label>
             <Input
               id="customer-name"
               value={name}
@@ -169,9 +170,9 @@ export function CustomerFormModal({
             />
           </div>
           <div>
-            <label htmlFor="customer-mobile" className="mb-1 block text-sm font-medium">
+            <Label htmlFor="customer-mobile" className="mb-1 block">
               Mobile <span className="text-muted-foreground">(Optional, encouraged)</span>
-            </label>
+            </Label>
             <p className="mb-1 text-xs text-muted-foreground">
               Helps with SMS reminders and customer retention.
             </p>
@@ -185,9 +186,9 @@ export function CustomerFormModal({
             />
           </div>
           <div>
-            <label htmlFor="customer-email" className="mb-1 block text-sm font-medium">
+            <Label htmlFor="customer-email" className="mb-1 block">
               Email <span className="text-muted-foreground">(Optional, encouraged)</span>
-            </label>
+            </Label>
             <p className="mb-1 text-xs text-muted-foreground">
               Helps with email outreach and follow-ups.
             </p>
@@ -202,9 +203,9 @@ export function CustomerFormModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">
+            <Label className="mb-1 block">
               Description <span className="text-muted-foreground">(Optional)</span>
-            </label>
+            </Label>
             {businessId && (
               <>
                 {/* Key forces remount when templates load so Radix doesn't reset value (it clears value when options are empty during async load) */}
@@ -232,9 +233,9 @@ export function CustomerFormModal({
                   <div className="space-y-2">
                     {fields.map((f) => (
                       <div key={f.key}>
-                        <label htmlFor={`field-${f.key}`} className="mb-0.5 block text-xs text-muted-foreground">
+                        <Label htmlFor={`field-${f.key}`} className="mb-0.5 block text-xs text-muted-foreground">
                           {f.label}
-                        </label>
+                        </Label>
                         <Input
                           id={`field-${f.key}`}
                           value={fieldValues[f.key] ?? ""}
@@ -278,9 +279,9 @@ export function CustomerFormModal({
 
           {showMore ? (
             <div>
-              <label htmlFor="customer-tags" className="mb-1 block text-sm font-medium">
+              <Label htmlFor="customer-tags" className="mb-1 block">
                 Labels <span className="text-muted-foreground">(Optional)</span>
-              </label>
+              </Label>
               <Input
                 id="customer-tags"
                 value={tags}

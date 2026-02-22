@@ -4,6 +4,14 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/api";
@@ -120,25 +128,28 @@ export function OnboardingSetupStep({
         />
       </div>
       <div>
-        <label
+        <Label
           htmlFor="business-type"
           className="mb-1 block text-base font-medium text-foreground"
         >
           Type of business <span className="text-destructive">(Required)</span>
-        </label>
-        <select
-          id="business-type"
-          value={businessType}
-          onChange={(e) => setBusinessType(e.target.value)}
-          className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+        </Label>
+        <Select
+          value={businessType || "__none__"}
+          onValueChange={(v) => setBusinessType(v === "__none__" ? "" : v)}
         >
-          <option value="">Select your business type</option>
-          {BUSINESS_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="business-type" className="min-h-[44px] w-full text-base">
+            <SelectValue placeholder="Select your business type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Select your business type</SelectItem>
+            {BUSINESS_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value} className="text-base">
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {businessType && (
           <p className="mt-1 text-sm text-muted-foreground">
             {BUSINESS_TYPES.find((t) => t.value === businessType)?.example}

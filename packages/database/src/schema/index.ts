@@ -172,6 +172,24 @@ export const customers = pgTable(
   ],
 );
 
+// Visit adjustment history — audit trail for visit count corrections
+export const visitAdjustmentHistory = pgTable(
+  "visit_adjustment_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    beforeCount: integer("before_count").notNull(),
+    afterCount: integer("after_count").notNull(),
+    reason: text("reason").notNull(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    actorClerkId: text("actor_clerk_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("visit_adjustment_history_customer_id_idx").on(t.customerId)],
+);
+
 // Promos — structured promo data, status
 export const promos = pgTable("promos", {
   id: uuid("id").primaryKey().defaultRandom(),

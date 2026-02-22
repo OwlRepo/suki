@@ -12,6 +12,14 @@ import { PageSection } from "@/components/ui/page-section";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { useWorkspace } from "@/contexts/workspace-context";
 
@@ -87,24 +95,27 @@ function LoyaltyPageContent() {
           whatToDoNext="Adjust the visit threshold below to change who counts as a regular."
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={threshold}
-                onChange={(e) => handleThresholdChange(parseInt(e.target.value, 10))}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
-                aria-label="Visit threshold"
+              <Select
+                value={String(threshold)}
+                onValueChange={(v) => handleThresholdChange(parseInt(v, 10))}
               >
-                {[3, 5, 10, 15, 20].map((t) => (
-                  <option key={t} value={t}>
-                    {t}+ visits
-                  </option>
-                ))}
-              </select>
-              <input
+                <SelectTrigger className="min-h-[44px]" aria-label="Visit threshold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[3, 5, 10, 15, 20].map((t) => (
+                    <SelectItem key={t} value={String(t)}>
+                      {t}+ visits
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
                 type="text"
                 placeholder="Filter by label (e.g. VIP)"
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
-                className="rounded-md border border-input bg-background px-3 py-2 text-base min-h-[44px] w-40"
+                className="min-h-[44px] w-40"
                 aria-label="Filter by label"
               />
             </div>

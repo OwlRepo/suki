@@ -3,7 +3,16 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
@@ -17,6 +26,7 @@ import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 import { fromError } from "@/lib/ui-feedback";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Business {
   id: string;
@@ -64,6 +74,7 @@ function AppointmentsPageContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<{ id: string; customerName: string } | null>(null);
 
   const loadCustomers = async () => {
     if (!selectedBiz) return;
@@ -274,6 +285,25 @@ function AppointmentsPageContent() {
           />
         )}
 
+        <ConfirmDialog
+          open={!!pendingCancel}
+          onOpenChange={(o) => !o && setPendingCancel(null)}
+          title="Cancel this appointment?"
+          description={
+            pendingCancel
+              ? `This will mark the appointment for ${pendingCancel.customerName} as cancelled. You can still see it in the list.`
+              : ""
+          }
+          confirmLabel="Yes, cancel"
+          cancelLabel="No, keep it"
+          destructive
+          onConfirm={async () => {
+            if (pendingCancel) {
+              await handleStatus(pendingCancel.id, "cancelled");
+            }
+          }}
+        />
+
       {showForm && (
         <form
           onSubmit={handleSubmit}
@@ -282,25 +312,31 @@ function AppointmentsPageContent() {
           <h2 className="text-lg font-medium">{editingId ? "Reschedule" : "New appointment"}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Customer</label>
-              <select
-                value={formData.customerId}
-                onChange={(e) => setFormData((d) => ({ ...d, customerId: e.target.value }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
-                required
+              <Label htmlFor="customer-select" className="mb-1 block">
+                Customer
+              </Label>
+              <Select
+                value={formData.customerId || "__none__"}
+                onValueChange={(v) =>
+                  setFormData((d) => ({ ...d, customerId: v === "__none__" ? "" : v }))
+                }
                 disabled={!!editingId}
-                aria-label="Select customer"
               >
-                <option value="">Select customer</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="customer-select" className="w-full min-h-[44px]">
+                  <SelectValue placeholder="Select customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Select customer</SelectItem>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Date & time</label>
+              <Label className="mb-1 block">Date & time</Label>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => applyTimePreset("morning")}>
                   Morning
@@ -322,22 +358,22 @@ function AppointmentsPageContent() {
             </div>
           </div>
           {!editingId && (
-            <div className="flex items-start gap-2 rounded-md bg-muted/50 p-3">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2 rounded-md bg-muted/50 p-3">
+              <Checkbox
                 id="reminders-on"
                 checked={formData.remindersOn}
-                onChange={(e) => setFormData((d) => ({ ...d, remindersOn: e.target.checked }))}
-                className="mt-1 rounded"
+                onCheckedChange={(checked) =>
+                  setFormData((d) => ({ ...d, remindersOn: checked === true }))
+                }
               />
-              <label htmlFor="reminders-on" className="text-sm text-foreground">
+              <Label htmlFor="reminders-on" className="cursor-pointer text-sm text-foreground">
                 We&apos;ll remind the customer so you don&apos;t have to.
-              </label>
+              </Label>
             </div>
           )}
           <p className="text-sm text-muted-foreground">Nothing is final until you confirm.</p>
           <div>
-            <label className="mb-1 block text-sm font-medium">Notes</label>
+            <Label className="mb-1 block">Notes</Label>
             <Input
               value={formData.notes}
               onChange={(e) => setFormData((d) => ({ ...d, notes: e.target.value }))}
@@ -387,24 +423,27 @@ function AppointmentsPageContent() {
                         Reminder sent
                       </Button>
                     )}
-                    <select
+                    <Select
                       value={a.status}
-                      onChange={(e) => {
-                        const v = e.target.value as "scheduled" | "completed" | "missed" | "cancelled";
-                        if (v === "cancelled") {
-                          if (confirm("Cancel this appointment?")) handleStatus(a.id, v);
+                      onValueChange={(v) => {
+                        const status = v as "scheduled" | "completed" | "missed" | "cancelled";
+                        if (status === "cancelled") {
+                          setPendingCancel({ id: a.id, customerName: getCustomerName(a.customerId) });
                         } else {
-                          handleStatus(a.id, v);
+                          handleStatus(a.id, status);
                         }
                       }}
-                      className="rounded-md border border-input bg-background px-3 py-2 text-sm capitalize min-h-[44px]"
-                      aria-label="Change status"
                     >
-                      <option value="scheduled">Scheduled</option>
-                      <option value="completed">Completed</option>
-                      <option value="missed">Missed</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
+                      <SelectTrigger className="min-h-[44px] capitalize" aria-label="Change status">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="missed">Missed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
                     {a.status === "scheduled" && (
                       <Button size="sm" variant="outline" onClick={() => handleEdit(a as Appointment)}>
                         Reschedule
