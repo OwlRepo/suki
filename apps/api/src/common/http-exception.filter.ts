@@ -22,19 +22,27 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
+    const rawResponse =
+      exception instanceof HttpException ? exception.getResponse() : null;
+    const resp =
+      typeof rawResponse === "object" && rawResponse !== null
+        ? (rawResponse as Record<string, unknown>)
+        : {};
     const message =
-      exception instanceof HttpException
-        ? (exception.getResponse() as { message?: string | string[] }).message ??
-          exception.message
-        : "Internal server error";
+      (resp.message as string | string[] | undefined) ??
+      (exception instanceof HttpException ? exception.message : "Internal server error");
 
-    const errorResponse = {
+    const errorResponse: Record<string, unknown> = {
       statusCode: status,
       message: Array.isArray(message) ? message : [message as string],
       error: exception instanceof HttpException ? exception.name : "Error",
       timestamp: new Date().toISOString(),
       path: req.url,
     };
+
+    // Pass through duplicate warning fields for conflict dialogs (e.g. customer create)
+    if (resp.duplicateWarning !== undefined) errorResponse.duplicateWarning = resp.duplicateWarning;
+    if (resp.matches !== undefined) errorResponse.matches = resp.matches;
 
     if (status >= 500) {
       this.logger.error(
