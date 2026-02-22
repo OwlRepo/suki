@@ -14,8 +14,9 @@ const db = drizzle(sql);
 
 async function main() {
   console.log("Running migrations...");
+  const migrationsFolder = resolve(import.meta.dir, "../drizzle");
   await migrate(db, {
-    migrationsFolder: resolve(import.meta.dir, "../drizzle"),
+    migrationsFolder,
   });
   console.log("Migrations complete!");
   await sql.end();

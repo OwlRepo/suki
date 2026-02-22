@@ -61,11 +61,12 @@ async function main() {
 
   try {
     console.log("\nRunning migrations...");
+    const migrationsFolder = resolve(import.meta.dir, "../drizzle");
     const sql = postgres(fullConnectionString, { max: 1 });
     const db = drizzle(sql);
     await migrate(db, {
-    migrationsFolder: resolve(import.meta.dir, "../drizzle"),
-  });
+      migrationsFolder,
+    });
     console.log("Migrations complete!");
     await sql.end();
     process.exit(0);

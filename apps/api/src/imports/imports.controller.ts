@@ -40,6 +40,7 @@ export class ImportsController {
       const rows = contacts.map((c, i) => ({
         name: [c.firstName, c.lastName].filter(Boolean).join(" ").trim() || "Unknown",
         mobile: c.mobile,
+        email: c.email,
         notes: c.tags?.join(", "),
         rowIndex: i + 2,
       }));
@@ -52,6 +53,7 @@ export class ImportsController {
       const rows = contacts.map((c, i) => ({
         name: [c.firstName, c.lastName].filter(Boolean).join(" ").trim() || "Unknown",
         mobile: c.mobile,
+        email: c.email,
         notes: c.tags?.join(", "),
         rowIndex: i + 2,
       }));
@@ -84,7 +86,7 @@ export class ImportsController {
 
   @Post("duplicates")
   async detectDuplicates(
-    @Body() body: { businessId: string; rows: Array<{ name: string; mobile?: string; notes?: string; rowIndex: number }> },
+    @Body() body: { businessId: string; rows: Array<{ name: string; mobile?: string; email?: string; notes?: string; rowIndex: number }> },
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!body.businessId || !orgId) throw new BadRequestException("businessId required");
@@ -135,7 +137,7 @@ export class ImportsController {
   async commit(
     @Body() body: {
       businessId: string;
-      rows: Array<{ name: string; mobile?: string; notes?: string; rowIndex: number }>;
+      rows: Array<{ name: string; mobile?: string; email?: string; notes?: string; rowIndex: number }>;
       skipRows?: number[];
       source?: string;
     },

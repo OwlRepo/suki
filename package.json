@@ -29,6 +29,7 @@
     "test": "turbo run test",
     "test:e2e": "bun run --cwd apps/web test:e2e",
     "docker:dev:up": "docker compose up -d",
+    "docker:dev:build": "docker compose -f docker-compose.yml build",
     "docker:dev:down": "docker compose down",
     "docker:dev:logs": "docker compose logs -f",
     "docker:prod:build": "docker compose -f docker-compose.prod.yml build",

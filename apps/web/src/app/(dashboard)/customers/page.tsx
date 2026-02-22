@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, isApiConflictWithDuplicate } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { CustomerFormModal } from "@/components/customers/customer-form-modal";
@@ -16,6 +16,14 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { AiQuotaBanner } from "@/components/ai-quota-banner";
@@ -56,6 +64,11 @@ function CustomersPageContent() {
   const [syncReady, setSyncReady] = useState(false);
   const [customersLoading, setCustomersLoading] = useState(false);
   const [messageHistoryFor, setMessageHistoryFor] = useState<{ id: string; name: string } | null>(null);
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{
+    open: boolean;
+    matches: Array<{ id: string; name: string; reason: string }>;
+    pendingData: { name: string; mobile?: string; email?: string; notes?: string; tags?: string };
+  }>({ open: false, matches: [], pendingData: { name: "" } });
 
   useEffect(() => {
     if (!syncData) return;
@@ -87,26 +100,72 @@ function CustomersPageContent() {
     })();
   }, [selectedBiz, search, tagFilter, getToken]);
 
-  const handleAdd = async (data: { name: string; mobile?: string; tags?: string }) => {
+  const doCreate = async (data: { name: string; mobile?: string; email?: string; notes?: string; tags?: string }, confirmDuplicate?: boolean) => {
+    const token = await getToken();
+    if (!token) return;
+    await apiRequest("/customers", {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        businessId: selectedBiz,
+        name: data.name.trim(),
+        mobile: data.mobile?.trim() || undefined,
+        email: data.email?.trim() || undefined,
+        notes: data.notes?.trim() || undefined,
+        tags: data.tags?.trim() || undefined,
+        confirmDuplicate: confirmDuplicate ?? false,
+      }),
+    });
+  };
+
+  const handleAdd = async (data: { name: string; mobile?: string; email?: string; notes?: string; tags?: string }) => {
     if (!selectedBiz) return;
+    setAddLoading(true);
+    setFeedback(null);
+    setDuplicateConfirm({ open: false, matches: [], pendingData: { name: "" } });
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await doCreate(data);
+      if (total === 0) recordOnboardingEvent("first_customer_added", orgId);
+      setShowAdd(false);
+      setDuplicateConfirm({ open: false, matches: [], pendingData: { name: "" } });
+      setFeedback({ type: "success", message: "Customer added. You can edit details anytime." });
+      setTimeout(() => setFeedback(null), 4000);
+      const params = new URLSearchParams({ businessId: selectedBiz });
+      if (search) params.set("search", search);
+      if (tagFilter.trim()) params.set("tag", tagFilter.trim());
+      const res = await apiRequest<{ customers: Customer[]; total: number }>(
+        `/customers?${params}`,
+        { token },
+      );
+      setCustomers(res.customers);
+      setTotal(res.total);
+    } catch (err) {
+      if (isApiConflictWithDuplicate(err)) {
+        const e = err as Error & { responseBody: { matches: Array<{ id: string; name: string; reason: string }> } };
+        setDuplicateConfirm({ open: true, matches: e.responseBody.matches, pendingData: data });
+        return;
+      }
+      setFeedback({ type: "error", message: fromError(err, "Failed to save customer. Please try again.") });
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const handleProceedWithDuplicate = async () => {
+    if (!duplicateConfirm.open || !selectedBiz) return;
+    const data = duplicateConfirm.pendingData;
     setAddLoading(true);
     setFeedback(null);
     try {
       const token = await getToken();
       if (!token) return;
-      await apiRequest("/customers", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          businessId: selectedBiz,
-          name: data.name.trim(),
-          mobile: data.mobile?.trim() || undefined,
-          tags: data.tags?.trim() || undefined,
-        }),
-      });
+      await doCreate(data, true);
       if (total === 0) recordOnboardingEvent("first_customer_added", orgId);
       setShowAdd(false);
-      setFeedback({ type: "success", message: "Customer added. You can edit details anytime." });
+      setDuplicateConfirm({ open: false, matches: [], pendingData: { name: "" } });
+      setFeedback({ type: "success", message: "Customer added with duplicate tag. You can filter by 'duplicate' to find them." });
       setTimeout(() => setFeedback(null), 4000);
       const params = new URLSearchParams({ businessId: selectedBiz });
       if (search) params.set("search", search);
@@ -199,7 +258,7 @@ function CustomersPageContent() {
                 aria-label="Search by name"
               />
               <Input
-                placeholder="Find customer by label (VIP, Regular)"
+                placeholder="Filter by label (VIP, duplicate)"
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
                 className="w-48"
@@ -214,7 +273,7 @@ function CustomersPageContent() {
               Add customer
             </Button>
           }
-          hintText="Start with name and mobile. You can add optional labels later."
+          hintText="Name is required. Add mobile and email for better retention and outreach."
         />
 
         {feedback && (
@@ -242,7 +301,36 @@ function CustomersPageContent() {
           onClose={() => setShowAdd(false)}
           onSubmit={handleAdd}
           loading={addLoading}
+          businessId={selectedBiz}
+          businessType={businesses.find((b) => b.id === selectedBiz)?.businessType ?? ""}
         />
+
+        <Dialog open={duplicateConfirm.open} onOpenChange={(o) => !o && setDuplicateConfirm((prev) => ({ ...prev, open: false }))}>
+          <DialogContent className="sm:max-w-md" showCloseButton={true}>
+            <DialogHeader>
+              <DialogTitle>Possible duplicate found</DialogTitle>
+              <DialogDescription>
+                A customer with this name or mobile number may already exist. Adding anyway will tag them as a duplicate so you can find and review them later.
+              </DialogDescription>
+            </DialogHeader>
+            {duplicateConfirm.matches.length > 0 && (
+              <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+                <p className="font-medium">Existing match:</p>
+                <p className="mt-1 text-muted-foreground">
+                  {duplicateConfirm.matches[0].name} (matched by {duplicateConfirm.matches[0].reason})
+                </p>
+              </div>
+            )}
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setDuplicateConfirm((prev) => ({ ...prev, open: false }))} disabled={addLoading}>
+                Cancel
+              </Button>
+              <Button onClick={handleProceedWithDuplicate} disabled={addLoading}>
+                {addLoading ? "Saving…" : "Proceed anyway"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <CustomerMessageHistoryModal
           open={!!messageHistoryFor}

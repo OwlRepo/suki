@@ -68,7 +68,7 @@ export const organizations = pgTable("organizations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Businesses — business profile, type, PayMongo customer id
+// Businesses — business profile, type, PayMongo customer id (defined before customerDescriptionTemplates to avoid circular ref)
 export const businesses = pgTable("businesses", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
@@ -82,6 +82,41 @@ export const businesses = pgTable("businesses", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Customer description templates — guided fields for composing customer notes (dynamic by business type)
+export const customerDescriptionTemplates = pgTable(
+  "customer_description_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    businessId: uuid("business_id").references(() => businesses.id, { onDelete: "cascade" }),
+    businessType: text("business_type"), // When set, template only applies to businesses of this type
+    name: text("name").notNull(),
+    fieldsConfig: jsonb("fields_config")
+      .$type<Array<{ key: string; label: string; placeholder?: string }>>()
+      .notNull()
+      .default([]),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+);
+
+// Business default template — separate table to avoid circular FK (businesses <-> customerDescriptionTemplates)
+export const businessDefaultDescriptionTemplates = pgTable(
+  "business_default_description_templates",
+  {
+    businessId: uuid("business_id")
+      .primaryKey()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => customerDescriptionTemplates.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+);
 
 // Users — Clerk user id, role, org link
 export const users = pgTable("users", {

@@ -12,13 +12,17 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { CustomersService } from "./customers.service";
+import { CustomerTemplatesService } from "./customer-templates.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { Tenant } from "../common/tenant.decorator";
 
 @Controller("customers")
 @UseGuards(ClerkAuthGuard)
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly templatesService: CustomerTemplatesService,
+  ) {}
 
   @Get()
   async list(
@@ -68,9 +72,109 @@ export class CustomersController {
     return { count };
   }
 
+  @Get("templates")
+  async listTemplates(
+    @Query("businessId") businessId: string,
+    @Query("businessType") businessType: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new BadRequestException("Unauthorized");
+    return this.templatesService.list(orgId, {
+      businessId: businessId || undefined,
+      businessType: businessType || undefined,
+    });
+  }
+
+  @Get("default-template")
+  async getDefaultTemplate(
+    @Query("businessId") businessId: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!businessId || !orgId) throw new BadRequestException("businessId required");
+    return this.templatesService.getDefaultTemplate(businessId, orgId);
+  }
+
+  @Post("templates")
+  async createTemplate(
+    @Body()
+    body: {
+      name: string;
+      businessId?: string;
+      businessType?: string;
+      fieldsConfig: Array<{ key: string; label: string; placeholder?: string }>;
+      sortOrder?: number;
+    },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!body.name?.trim() || !orgId) throw new BadRequestException("name required");
+    return this.templatesService.create(orgId, {
+      name: body.name,
+      businessId: body.businessId,
+      businessType: body.businessType,
+      fieldsConfig: body.fieldsConfig ?? [],
+      sortOrder: body.sortOrder,
+    });
+  }
+
+  @Get("templates/:templateId")
+  async getTemplate(
+    @Param("templateId") templateId: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    return this.templatesService.getById(templateId, orgId);
+  }
+
+  @Patch("templates/:templateId")
+  async updateTemplate(
+    @Param("templateId") templateId: string,
+    @Body()
+    body: {
+      name?: string;
+      businessType?: string;
+      fieldsConfig?: Array<{ key: string; label: string; placeholder?: string }>;
+      sortOrder?: number;
+    },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    return this.templatesService.update(templateId, orgId, body);
+  }
+
+  @Delete("templates/:templateId")
+  async deleteTemplate(
+    @Param("templateId") templateId: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    return this.templatesService.delete(templateId, orgId);
+  }
+
+  @Patch("default-template")
+  async setDefaultTemplate(
+    @Body() body: { businessId: string; templateId: string | null },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!body.businessId || !orgId) throw new BadRequestException("businessId required");
+    return this.templatesService.setDefaultTemplate(
+      body.businessId,
+      orgId,
+      body.templateId ?? null,
+    );
+  }
+
   @Post()
   async create(
-    @Body() body: { businessId: string; name: string; mobile?: string; notes?: string; preferences?: string; tags?: string },
+    @Body() body: {
+      businessId: string;
+      name: string;
+      mobile?: string;
+      email?: string;
+      notes?: string;
+      preferences?: string;
+      tags?: string;
+      confirmDuplicate?: boolean;
+    },
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!body.businessId || !body.name?.trim() || !orgId) {
@@ -82,9 +186,11 @@ export class CustomersController {
       {
         name: body.name,
         mobile: body.mobile,
+        email: body.email,
         notes: body.notes,
         preferences: body.preferences,
         tags: body.tags,
+        confirmDuplicate: body.confirmDuplicate,
       },
     );
     return { customer };
@@ -113,7 +219,7 @@ export class CustomersController {
   @Patch(":id")
   async update(
     @Param("id") id: string,
-    @Body() body: { name?: string; mobile?: string; notes?: string; preferences?: string; tags?: string },
+    @Body() body: { name?: string; mobile?: string; email?: string; notes?: string; preferences?: string; tags?: string },
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");

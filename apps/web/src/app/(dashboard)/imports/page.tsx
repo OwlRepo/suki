@@ -33,6 +33,7 @@ interface Business {
 interface ParsedRow {
   name: string;
   mobile?: string;
+  email?: string;
   notes?: string;
   rowIndex: number;
 }
@@ -611,8 +612,23 @@ function ImportsPageContent() {
           </div>
           {source === "hubspot" && (
             <Card className="rounded-lg p-4">
-              <CardContent className="space-y-2 p-0">
+              <CardContent className="space-y-3 p-0">
               <label className="block text-sm font-medium">HubSpot Private App token</label>
+              <p className="text-sm text-muted-foreground">
+                How to get your token: In HubSpot, go to{" "}
+                <strong>Settings → Integrations → Private Apps</strong> (or{" "}
+                <strong>Development → Legacy Apps</strong> in older accounts). Create a private app,
+                add scopes for contacts (e.g. <code className="rounded bg-muted px-1">crm.objects.contacts.read</code>),
+                then copy the access token. You must be a super admin.
+              </p>
+              <a
+                href="https://developers.hubspot.com/docs/guides/crm/private-apps/creating-private-apps"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline"
+              >
+                HubSpot Private Apps docs →
+              </a>
               <input
                 type="password"
                 placeholder="pat-na1-xxxx"
@@ -623,16 +639,32 @@ function ImportsPageContent() {
               <Button onClick={handleFetchProvider} disabled={loading || !hubspotToken.trim()}>
                 {loading ? "Fetching…" : "Fetch contacts from HubSpot"}
               </Button>
+              <p className="text-xs text-muted-foreground">
+                HubSpot screens may have changed. Search &quot;HubSpot private app&quot; or refer to official docs if steps differ.
+              </p>
               </CardContent>
             </Card>
           )}
           {source === "pipedrive" && (
             <Card className="rounded-lg p-4">
-              <CardContent className="space-y-2 p-0">
+              <CardContent className="space-y-3 p-0">
               <label className="block text-sm font-medium">Pipedrive API token</label>
+              <p className="text-sm text-muted-foreground">
+                How to get your token: Click your account name (top right) →{" "}
+                <strong>Company settings</strong> →{" "}
+                <strong>Personal preferences</strong> → <strong>API</strong>. Copy your API token.
+              </p>
+              <a
+                href="https://app.pipedrive.com/settings/api"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline"
+              >
+                Open Pipedrive API settings →
+              </a>
               <input
                 type="password"
-                placeholder="API token from Settings → Personal preferences"
+                placeholder="API token from Settings → Personal preferences → API"
                 value={pipedriveToken}
                 onChange={(e) => setPipedriveToken(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -640,6 +672,13 @@ function ImportsPageContent() {
               <Button onClick={handleFetchProvider} disabled={loading || !pipedriveToken.trim()}>
                 {loading ? "Fetching…" : "Fetch contacts from Pipedrive"}
               </Button>
+              <p className="text-xs text-muted-foreground">
+                Pipedrive screens may have changed. Search &quot;Pipedrive API token&quot; or refer to{" "}
+                <a href="https://pipedrive.readme.io/docs/how-to-find-the-api-token" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  official docs
+                </a>{" "}
+                if steps differ.
+              </p>
               </CardContent>
             </Card>
           )}
@@ -710,7 +749,7 @@ function ImportsPageContent() {
           <Textarea
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
-            placeholder="name,mobile,notes&#10;Alice,555-1234,VIP&#10;Bob,555-5678,"
+            placeholder="name,mobile,email,notes&#10;Alice,555-1234,alice@example.com,VIP&#10;Bob,555-5678,,Regular"
             rows={10}
             className="min-h-[120px] w-full font-mono"
           />
@@ -746,6 +785,7 @@ function ImportsPageContent() {
                   <TableHead className="px-3 py-2">Import</TableHead>
                   <TableHead className="px-3 py-2">Name</TableHead>
                   <TableHead className="px-3 py-2">Mobile</TableHead>
+                  <TableHead className="px-3 py-2">Email</TableHead>
                   <TableHead className="px-3 py-2">Notes</TableHead>
                   <TableHead className="px-3 py-2">Duplicate</TableHead>
                 </TableRow>
@@ -765,6 +805,7 @@ function ImportsPageContent() {
                       </TableCell>
                       <TableCell className="px-3 py-2">{r.name}</TableCell>
                       <TableCell className="px-3 py-2">{r.mobile ?? "—"}</TableCell>
+                      <TableCell className="px-3 py-2">{r.email ?? "—"}</TableCell>
                       <TableCell className="px-3 py-2">{r.notes ?? "—"}</TableCell>
                       <TableCell className="px-3 py-2">
                         {dup ? (

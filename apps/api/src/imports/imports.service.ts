@@ -9,6 +9,7 @@ import type { ReconciliationReport } from "./migration-types";
 export interface ParsedRow {
   name: string;
   mobile?: string;
+  email?: string;
   notes?: string;
   rowIndex: number;
 }
@@ -34,7 +35,8 @@ export class ImportsService {
       }) as Record<string, string>[];
       const nameCol = this.findColumn(parsed[0], ["name", "customer", "customer_name"]);
       const mobileCol = this.findColumn(parsed[0], ["mobile", "phone", "contact"]);
-      const notesCol = this.findColumn(parsed[0], ["notes", "note"]);
+      const emailCol = this.findColumn(parsed[0], ["email", "e-mail", "email_address"]);
+      const notesCol = this.findColumn(parsed[0], ["notes", "note", "description"]);
       parsed.forEach((row, i) => {
         const name = (nameCol ? row[nameCol] : row["name"] ?? Object.values(row)[0])?.trim();
         if (!name) {
@@ -44,6 +46,7 @@ export class ImportsService {
         rows.push({
           name,
           mobile: mobileCol ? row[mobileCol]?.trim() : undefined,
+          email: emailCol ? row[emailCol]?.trim() : undefined,
           notes: notesCol ? row[notesCol]?.trim() : undefined,
           rowIndex: i + 2,
         });
@@ -77,7 +80,8 @@ export class ImportsService {
       const headers = (data[0] ?? []).map((h) => String(h ?? "").trim());
       const nameCol = this.findColumnArr(headers, ["name", "customer", "customer_name"]);
       const mobileCol = this.findColumnArr(headers, ["mobile", "phone", "contact"]);
-      const notesCol = this.findColumnArr(headers, ["notes", "note"]);
+      const emailCol = this.findColumnArr(headers, ["email", "e-mail", "email_address"]);
+      const notesCol = this.findColumnArr(headers, ["notes", "note", "description"]);
       for (let i = 1; i < data.length; i++) {
         const row = data[i] ?? [];
         const getVal = (idx: number | null) =>
@@ -90,6 +94,7 @@ export class ImportsService {
         rows.push({
           name,
           mobile: mobileCol != null ? getVal(mobileCol) || undefined : undefined,
+          email: emailCol != null ? getVal(emailCol) || undefined : undefined,
           notes: notesCol != null ? getVal(notesCol) || undefined : undefined,
           rowIndex: i + 2,
         });
@@ -209,6 +214,7 @@ export class ImportsService {
             businessId,
             name: row.name.trim(),
             mobile: row.mobile?.trim() || null,
+            email: row.email?.trim() || null,
             notes: row.notes?.trim() || null,
           })
           .returning();

@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from "@nestjs/common";
+import { Injectable, ForbiddenException, ConflictException } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { customers, businesses, messageEvents } from "@suki/database";
 import { eq, and, ilike, like, or, sql, desc, gte, lt, isNull } from "drizzle-orm";
@@ -21,11 +21,29 @@ export class CustomersService {
     data: {
       name: string;
       mobile?: string;
+      email?: string;
       notes?: string;
       preferences?: string;
       tags?: string;
+      confirmDuplicate?: boolean;
     },
   ) {
+    const matches = await this.checkDuplicateBeforeCreate(businessId, organizationId, {
+      name: data.name,
+      mobile: data.mobile,
+    });
+    if (matches.length > 0 && !data.confirmDuplicate) {
+      throw new ConflictException({
+        duplicateWarning: true,
+        matches: matches.map((m) => ({ id: m.id, name: m.name, reason: m.reason })),
+      });
+    }
+
+    const tagsToUse =
+      matches.length > 0 && data.confirmDuplicate
+        ? this.appendDuplicateTag(data.tags)
+        : parseTags(data.tags);
+
     await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
     const [c] = await db
@@ -34,9 +52,10 @@ export class CustomersService {
         businessId,
         name: data.name.trim(),
         mobile: data.mobile?.trim() || null,
+        email: data.email?.trim() || null,
         notes: data.notes?.trim() || null,
         preferences: data.preferences?.trim() || null,
-        tags: parseTags(data.tags),
+        tags: tagsToUse,
       })
       .returning();
     return c!;
@@ -129,7 +148,7 @@ export class CustomersService {
   async update(
     id: string,
     organizationId: string,
-    data: { name?: string; mobile?: string; notes?: string; preferences?: string; tags?: string },
+    data: { name?: string; mobile?: string; email?: string; notes?: string; preferences?: string; tags?: string },
   ) {
     const existing = await this.findById(id, organizationId);
     if (!existing) return null;
@@ -139,6 +158,7 @@ export class CustomersService {
       .set({
         ...(data.name !== undefined && { name: data.name.trim() }),
         ...(data.mobile !== undefined && { mobile: data.mobile?.trim() || null }),
+        ...(data.email !== undefined && { email: data.email?.trim() || null }),
         ...(data.notes !== undefined && { notes: data.notes?.trim() || null }),
         ...(data.preferences !== undefined && {
           preferences: data.preferences?.trim() || null,
@@ -269,6 +289,58 @@ export class CustomersService {
       }
     }
     return { candidates };
+  }
+
+  /**
+   * Check if a customer with the given name and/or mobile already exists.
+   * Used before create to warn user and optionally proceed with duplicate tag.
+   */
+  async checkDuplicateBeforeCreate(
+    businessId: string,
+    organizationId: string,
+    data: { name: string; mobile?: string },
+  ): Promise<Array<{ id: string; name: string; reason: "name" | "mobile" | "both" }>> {
+    await this.assertBusinessAccess(businessId, organizationId);
+    const db = getDb();
+    const existing = await db
+      .select({ id: customers.id, name: customers.name, mobile: customers.mobile })
+      .from(customers)
+      .where(eq(customers.businessId, businessId));
+
+    const normalizedName = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+    const normalizeMobile = (m: string | null | undefined) =>
+      (m ?? "").replace(/\D/g, "").slice(-10);
+
+    const matches: Array<{ id: string; name: string; reason: "name" | "mobile" | "both" }> = [];
+    const inputName = normalizedName(data.name);
+    const inputMobile = data.mobile ? normalizeMobile(data.mobile) : null;
+
+    for (const ex of existing) {
+      const nameMatch = inputName && ex.name && normalizedName(ex.name) === inputName;
+      const mobileMatch =
+        inputMobile && ex.mobile && normalizeMobile(ex.mobile) === inputMobile;
+
+      if (nameMatch && mobileMatch) {
+        matches.push({ id: ex.id, name: ex.name!, reason: "both" });
+        break;
+      }
+      if (mobileMatch) {
+        matches.push({ id: ex.id, name: ex.name!, reason: "mobile" });
+        break;
+      }
+      if (nameMatch) {
+        matches.push({ id: ex.id, name: ex.name!, reason: "name" });
+        break;
+      }
+    }
+    return matches;
+  }
+
+  private appendDuplicateTag(tags: string | null | undefined): string | null {
+    const base = parseTags(tags);
+    if (!base) return "duplicate";
+    if (base.toLowerCase().includes("duplicate")) return base;
+    return `${base},duplicate`;
   }
 
   private async assertBusinessAccess(businessId: string, organizationId: string) {

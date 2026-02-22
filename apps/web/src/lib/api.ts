@@ -39,8 +39,17 @@ export async function apiRequest<T>(
   const baseUrl = getApiBaseUrl();
   const res = await fetch(`${baseUrl}${path}`, { ...init, headers });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error((err as { message?: string }).message || "Request failed");
+    const body = await res.json().catch(() => ({ message: res.statusText }));
+    const err = new Error((body as { message?: string }).message || "Request failed");
+    (err as Error & { status?: number; responseBody?: unknown }).status = res.status;
+    (err as Error & { status?: number; responseBody?: unknown }).responseBody = body;
+    throw err;
   }
   return res.json();
+}
+
+export function isApiConflictWithDuplicate(err: unknown): err is Error & { responseBody: { duplicateWarning: true; matches: Array<{ id: string; name: string; reason: string }> } } {
+  if (!(err instanceof Error)) return false;
+  const e = err as Error & { status?: number; responseBody?: unknown };
+  return e.status === 409 && (e.responseBody as { duplicateWarning?: boolean })?.duplicateWarning === true;
 }
