@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@suki/ui";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
@@ -369,9 +370,12 @@ function AppointmentsPageContent() {
             >
               <div>
                 <span className="font-medium">{getCustomerName(a.customerId)}</span>
-                <span className={`ml-2 rounded px-2 py-0.5 text-xs capitalize ${a.status === "completed" ? "bg-muted" : a.status === "cancelled" ? "bg-destructive/10" : "bg-primary/10"}`}>
+                <Badge
+                  variant={a.status === "cancelled" ? "destructive" : a.status === "completed" ? "secondary" : "outline"}
+                  className={a.status !== "cancelled" && a.status !== "completed" ? "bg-primary/10 border-primary/20 capitalize" : "capitalize"}
+                >
                   {a.status}
-                </span>
+                </Badge>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {new Date(a.scheduledAt).toLocaleString()}
                   {a.notes && ` · ${a.notes}`}

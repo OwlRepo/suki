@@ -3,6 +3,12 @@
 import * as React from "react";
 import { useAuth } from "@clerk/nextjs";
 import { apiRequest } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface MessageEvent {
   id: string;
@@ -52,30 +58,15 @@ export function CustomerMessageHistoryModal({
     })();
   }, [open, customerId, getToken]);
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="message-history-title"
-    >
-      <div className="w-full max-w-lg max-h-[80vh] rounded-lg border border-border bg-background shadow-lg flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 id="message-history-title" className="text-lg font-semibold">
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[80vh] flex flex-col sm:max-w-lg" showCloseButton={true}>
+        <DialogHeader>
+          <DialogTitle id="message-history-title">
             Message history — {customerName}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 min-h-0">
+          </DialogTitle>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto p-1">
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : events.length === 0 ? (
@@ -114,7 +105,7 @@ export function CustomerMessageHistoryModal({
             </ul>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

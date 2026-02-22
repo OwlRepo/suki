@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Suki - Customer Engagement for Small Business",
   description:
-    "AI-powered CRM for Philippine small businesses. Capture customers, send follow-ups, and grow repeat visits.",
+    "Reduce no-shows and bring customers back automatically. Appointment reminders and follow-ups for Philippine salons, clinics, gyms, and spas.",
 };
 
 export default function RootLayout({

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@suki/ui";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
@@ -11,6 +11,7 @@ import { CustomerFormModal } from "@/components/customers/customer-form-modal";
 import { CustomerItemActions } from "@/components/customers/customer-item-actions";
 import { CustomerMessageHistoryModal } from "@/components/customers/customer-message-history-modal";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -277,9 +278,9 @@ function CustomersPageContent() {
                     ` · Last: ${new Date(c.lastVisitAt).toLocaleDateString()}`}
                 </span>
                 {c.tags && (
-                  <span className="ml-2 rounded bg-muted px-2 py-0.5 text-xs">
+                  <Badge variant="secondary" className="ml-2">
                     {c.tags}
-                  </span>
+                  </Badge>
                 )}
               </div>
               <CustomerItemActions

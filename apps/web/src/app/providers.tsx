@@ -2,13 +2,15 @@
 
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const hasClerk = publishableKey && !publishableKey.includes("placeholder");
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const content = (
-    <ThemeProvider
+    <TooltipProvider>
+      <ThemeProvider
       attribute="class"
       defaultTheme="system"
       enableSystem
@@ -16,6 +18,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     >
       {children}
     </ThemeProvider>
+    </TooltipProvider>
   );
 
   if (!hasClerk) {

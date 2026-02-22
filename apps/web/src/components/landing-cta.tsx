@@ -24,12 +24,12 @@ export function LandingCta({ singlePrimary }: LandingCtaProps) {
       <SignedOut>
         {singlePrimary ? (
           <Button asChild size="lg">
-            <Link href="/sign-up">Start Free with CRM Lite</Link>
+            <Link href="/sign-up">Try Suki Free</Link>
           </Button>
         ) : (
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg">
-              <Link href="/sign-up">Start Free with CRM Lite</Link>
+              <Link href="/sign-up">Try Suki Free</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href="/sign-in">Sign in</Link>

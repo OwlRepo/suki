@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Alert } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
 type StatusBannerVariant = "success" | "error" | "info" | "warning";
@@ -21,6 +22,13 @@ const variantStyles: Record<StatusBannerVariant, string> = {
   warning: "border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 dark:bg-amber-500/20",
 };
 
+const variantMap: Record<StatusBannerVariant, "default" | "destructive"> = {
+  success: "default",
+  error: "destructive",
+  info: "default",
+  warning: "default",
+};
+
 /**
  * Visible inline status banner near forms/actions.
  * Replaces alert()-only feedback for success, error, info, and warning states.
@@ -33,16 +41,17 @@ export function StatusBanner({
   role = "alert",
 }: StatusBannerProps) {
   return (
-    <div
+    <Alert
+      variant={variantMap[variant]}
       role={role}
       aria-live="polite"
       className={cn(
-        "rounded-md border px-3 py-2 text-sm",
-        variantStyles[variant],
+        "px-3 py-2",
+        variant === "error" ? undefined : variantStyles[variant],
         className
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="col-span-2 flex items-center justify-between gap-2">
         <span>{message}</span>
         {onDismiss && (
           <button
@@ -55,6 +64,6 @@ export function StatusBanner({
           </button>
         )}
       </div>
-    </div>
+    </Alert>
   );
 }

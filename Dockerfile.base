@@ -1,0 +1,18 @@
+# Shared base: installs all workspace dependencies.
+# Build from repo root: docker build -f Dockerfile.base -t suki-base .
+# Other Dockerfiles may COPY --from=suki-base /app/node_modules .
+FROM oven/bun:1.2-alpine AS deps
+
+WORKDIR /app
+
+# Copy workspace manifests for dependency install only
+COPY package.json bun.lock turbo.json ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/api/package.json ./apps/api/
+COPY packages/config/package.json ./packages/config/
+COPY packages/database/package.json ./packages/database/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+
+# Install all workspace dependencies (hoisted to /app/node_modules)
+RUN bun install --frozen-lockfile

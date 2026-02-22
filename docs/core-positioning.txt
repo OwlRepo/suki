@@ -1,0 +1,167 @@
+You are acting as a senior conversion-focused product marketer and copywriter with direct experience selling SaaS to Philippine small service business owners (salons, clinics, gyms, spas).
+
+Your task is to FULLY REWRITE AND REPOSITION:
+1. The entire README
+2. The entire LANDING PAGE COPY
+
+This is a COMPLETE REPLACEMENT task.
+Do NOT preserve existing structure, headings, or wording unless explicitly instructed.
+Do NOT summarize or suggest edits.
+Do NOT partially rewrite.
+You must output fully rewritten, production-ready content.
+
+=====================================================
+CORE POSITIONING (NON-NEGOTIABLE)
+=====================================================
+
+- Suki must NOT be positioned primarily as a “CRM”
+- The word “CRM” must NOT appear in the hero section or opening lines
+- The product is positioned as:
+  - automatic follow-ups
+  - appointment reminders
+  - inactivity winback
+  - memory replacement for business owners
+  - revenue recovery from forgotten customers
+
+- Owners do NOT buy CRMs
+- Owners DO buy:
+  - fewer no-shows
+  - customers coming back
+  - less manual texting
+  - less mental load
+  - predictable repeat visits
+
+- Target market:
+  - Philippine service businesses
+  - appointment-based or repeat-visit businesses
+  - salons, barbershops, clinics, dental clinics, gyms, spas
+- Explicitly EXCLUDE:
+  - cafes
+  - convenience stores
+  - high-volume transactional retail
+
+- Pricing is in PHP and must be framed against lost revenue
+- Tone must be practical, direct, and owner-facing
+- No enterprise jargon
+- No investor language
+- No product-manager language
+
+=====================================================
+PART 1: README (FULL REWRITE REQUIRED)
+=====================================================
+
+Produce a COMPLETE README that:
+
+1. Opens with a strong outcome-driven statement
+   Example intent (do not copy):
+   “Reduce no-shows and bring customers back automatically.”
+
+2. Explains the REAL problem:
+   - customers forget appointments
+   - staff forgets to follow up
+   - owners lose customers silently
+   - spreadsheets and notebooks fail
+
+3. Explains WHAT SUKI DOES in plain language:
+   - captures customers once
+   - tracks visits automatically
+   - sends reminders and follow-ups at the right time
+   - brings back inactive customers
+
+4. Mentions “CRM” only AFTER value is established, and only as:
+   “Under the hood, Suki includes a simple CRM…”
+
+5. Includes clear sections:
+   - What problems disappear after using Suki
+   - What automations run automatically
+   - What kind of businesses Suki is for
+   - What kind of businesses Suki is NOT for
+
+6. Keeps statistics minimal and practical
+   - Prefer peso-based examples over academic citations
+
+7. Reads like a sales-facing overview for owners, not a technical document
+
+=====================================================
+PART 2: LANDING PAGE COPY (FULL REWRITE REQUIRED)
+=====================================================
+
+Rewrite the ENTIRE landing page copy from top to bottom.
+
+The output must include the following sections IN THIS ORDER:
+
+1. HERO SECTION
+   - Headline focused on outcomes (no-shows, customers returning)
+   - Subheadline explaining what Suki does in one sentence
+   - Primary CTA that feels low-risk and non-enterprise
+   - No mention of CRM above the fold
+
+2. PROBLEM SECTION
+   - Speak directly to owner pain
+   - Lost customers
+   - Forgotten appointments
+   - Inconsistent follow-ups
+   - Silent churn
+
+3. SOLUTION SECTION
+   - Explain how Suki replaces memory and manual work
+   - Emphasize “set once, runs automatically”
+
+4. HOW IT WORKS
+   - Simple steps
+   - Each step tied to relief or recovered revenue
+
+5. KEY AUTOMATIONS
+   - Appointment reminders
+   - Missed appointment recovery
+   - Post-visit follow-ups
+   - Inactivity winback
+   (Keep concise and benefit-driven)
+
+6. BEFORE AND AFTER
+   - Clear contrast in owner experience and outcomes
+
+7. PRICING
+   - PHP pricing
+   - Anchor cost against a single missed appointment
+   - Explicitly state that one recovered customer per month covers the cost
+
+8. WHO IT IS FOR / WHO IT IS NOT FOR
+   - Be explicit and honest
+
+9. FINAL CTA
+   - Clear
+   - Outcome-focused
+   - Low pressure
+
+=====================================================
+WHAT TO REMOVE OR DE-EMPHASIZE
+=====================================================
+
+Do NOT include or highlight:
+- On-prem deployment
+- Salesforce, HubSpot, Dynamics, Zoho migration
+- CRM Lite vs Full
+- AI credit systems or allowances
+- Enterprise comparisons
+- Dashboard-centric language
+
+=====================================================
+OUTPUT FORMAT (STRICT)
+=====================================================
+
+Your response MUST contain:
+
+1. A fully rewritten README (markdown)
+2. A fully rewritten LANDING PAGE COPY (plain text, sectioned)
+3. A short section titled “Positioning Shift Summary” with 5 bullet points explaining what changed and why
+
+Do NOT include explanations inside the rewritten content.
+Do NOT ask questions.
+Do NOT provide partial drafts.
+
+This output should be immediately usable as:
+- README.md
+- Landing page copy for a Next.js site
+
+If any part of the existing README or landing page does not align with this positioning, it must be rewritten or removed.

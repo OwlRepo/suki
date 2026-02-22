@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1
+# Web app: Next.js 16
+# Targets: dev (HMR, bind-mount source) | prod (standalone image)
+
+FROM oven/bun:1.2-alpine AS base
+WORKDIR /app
+
+# --- deps stage: install workspace deps ---
+FROM base AS deps
+COPY package.json bun.lock turbo.json ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/api/package.json ./apps/api/
+COPY packages/config/package.json ./packages/config/
+COPY packages/database/package.json ./packages/database/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+RUN bun install --frozen-lockfile
+
+# --- dev target: run next dev with bind-mounted source ---
+FROM base AS dev
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json bun.lock turbo.json ./
+COPY apps/web/package.json ./apps/api/package.json ./apps/web/ ./apps/api/
+COPY packages/ ./packages/
+
+# Build packages only (skip db:setup during image build)
+RUN bunx turbo run build --filter=@suki/database --filter=@suki/types --filter=@suki/ui || true
+
+WORKDIR /app
+
+# Next dev with polling for reliable file watch in Docker (macOS/Windows)
+ENV WATCHPACK_POLLING=true
+ENV CHOKIDAR_USEPOLLING=true
+
+EXPOSE 3000
+
+# Ensure deps exist when using node_modules volume; then run web dev from monorepo root
+ENTRYPOINT ["sh", "-c", "cd /app && (test -d node_modules/next || bun install) && cd apps/web && exec bun run dev"]
+
+# --- prod target: build and serve ---
+FROM base AS prod
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Build entire workspace for web (includes packages + web)
+ENV NODE_ENV=production
+RUN bunx turbo run build --filter=@suki/web...
+
+WORKDIR /app/apps/web
+
+EXPOSE 3000
+
+CMD ["bun", "run", "start"]

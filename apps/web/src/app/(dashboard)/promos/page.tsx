@@ -3,13 +3,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@suki/ui";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
 import { ListSkeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
@@ -380,12 +382,12 @@ function PromosPageContent() {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Message</label>
-            <textarea
+            <Textarea
               value={formData.messageContent}
               onChange={(e) => setFormData((d) => ({ ...d, messageContent: e.target.value }))}
               placeholder="e.g. Hi! Come back and get 20% off your next visit."
               rows={3}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="w-full"
             />
             {formData.messageContent && (
               <div className="mt-2 rounded-md border border-border bg-muted/30 p-3">
@@ -463,9 +465,12 @@ function PromosPageContent() {
               <div>
                 <span className="font-medium capitalize">{p.type.replace("_", " ")}</span>
                 {p.value && <span className="ml-2 text-muted-foreground">{p.value}</span>}
-                <span className={`ml-2 rounded px-2 py-0.5 text-xs ${p.status === "sent" ? "bg-muted" : "bg-primary/10"}`}>
+                <Badge
+                  variant={p.status === "sent" ? "secondary" : "outline"}
+                  className={p.status !== "sent" ? "bg-primary/10 border-primary/20" : undefined}
+                >
                   {p.status}
-                </span>
+                </Badge>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {new Date(p.validityStart).toLocaleString()} – {new Date(p.validityEnd).toLocaleString()}
                 </p>

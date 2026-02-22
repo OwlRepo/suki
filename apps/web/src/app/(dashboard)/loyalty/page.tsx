@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -133,9 +134,9 @@ function LoyaltyPageContent() {
                   </span>
                 )}
                 {c.eligible && (
-                  <span className="ml-2 rounded bg-primary/10 px-2 py-0.5 text-xs">
+                  <Badge variant="outline" className="ml-2 bg-primary/10 border-primary/20">
                     Qualified
-                  </span>
+                  </Badge>
                 )}
               </div>
             </li>

@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@suki/ui";
+import { Input } from "@/components/ui/input";
 import { SettingsSectionCard } from "@/components/ui/settings-section-card";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";

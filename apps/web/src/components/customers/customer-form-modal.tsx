@@ -2,8 +2,14 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@suki/ui";
-import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CustomerFormModalProps {
   open: boolean;
@@ -47,26 +53,15 @@ export function CustomerFormModal({
     });
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="customer-form-title"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 id="customer-form-title" className="text-lg font-semibold text-foreground">
-          Add customer
-        </h2>
-        <p className="mt-1 text-helper">
-          Add people here and track their visits. You can edit details anytime.
-        </p>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md" showCloseButton={true}>
+        <DialogHeader>
+          <DialogTitle id="customer-form-title">Add customer</DialogTitle>
+          <DialogDescription>
+            Add people here and track their visits. You can edit details anytime.
+          </DialogDescription>
+        </DialogHeader>
         <form ref={formRef} onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label htmlFor="customer-name" className="mb-1 block text-sm font-medium">
@@ -134,7 +129,7 @@ export function CustomerFormModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

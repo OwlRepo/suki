@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@suki/ui";
+import { Input } from "@/components/ui/input";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/api";
 import { useWorkspace } from "@/contexts/workspace-context";
 
@@ -53,11 +54,13 @@ export function OnboardingSetupStep({
 
   if (alreadyHasBusiness) {
     return (
-      <div className="rounded-lg border border-border bg-muted/30 p-6">
-        <p className="text-base text-muted-foreground">
-          {justCreated ? "Business created. Moving to next step…" : "Loading next step…"}
-        </p>
-      </div>
+      <Card className="rounded-lg border-border bg-muted/30">
+        <CardContent className="p-6">
+          <p className="text-base text-muted-foreground">
+            {justCreated ? "Business created. Moving to next step…" : "Loading next step…"}
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -143,19 +146,20 @@ export function OnboardingSetupStep({
         )}
       </div>
 
-      <details className="group rounded-md border border-border bg-muted/30">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
-          <span>Why do we ask this?</span>
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
-        </summary>
-        <div className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
-          <p className="leading-relaxed">
-            We use your business type to show you the right words and suggestions. For example,
-            clinics see "patients" instead of "customers," and salons see service-focused prompts.
-            You can change this anytime in Settings.
-          </p>
-        </div>
-      </details>
+      <Accordion type="single" collapsible className="rounded-md border border-border bg-muted/30">
+        <AccordionItem value="why-business-type" className="border-0">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            Why do we ask this?
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-3 text-muted-foreground">
+            <p className="leading-relaxed">
+              We use your business type to show you the right words and suggestions. For example,
+              clinics see &quot;patients&quot; instead of &quot;customers,&quot; and salons see service-focused prompts.
+              You can change this anytime in Settings.
+            </p>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {error && (
         <p className="text-base text-destructive" role="alert">

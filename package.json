@@ -27,7 +27,12 @@
     "update:cursor-indexes": "bun run scripts/update-cursor-indexes.ts",
     "prepare": "husky",
     "test": "turbo run test",
-    "test:e2e": "bun run --cwd apps/web test:e2e"
+    "test:e2e": "bun run --cwd apps/web test:e2e",
+    "docker:dev:up": "docker compose up -d",
+    "docker:dev:down": "docker compose down",
+    "docker:dev:logs": "docker compose logs -f",
+    "docker:prod:build": "docker compose -f docker-compose.prod.yml build",
+    "docker:prod:up": "docker compose -f docker-compose.prod.yml up -d"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

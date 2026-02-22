@@ -13,7 +13,7 @@ import {
   organizations,
 } from "../src/schema";
 
-config({ path: resolve(import.meta.dir, "../../../.env") });
+config({ path: resolve(import.meta.dir, "../../../.env"), override: false });
 
 const connectionString =
   process.env.DATABASE_URL ||

@@ -1,9 +1,15 @@
 "use client";
 
 import * as React from "react";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ConfirmActionInline } from "@/components/ui/confirm-action-inline";
-import { cn } from "@/lib/utils";
 
 interface CustomerItemActionsProps {
   onRecordVisit: () => void;
@@ -19,20 +25,7 @@ export function CustomerItemActions({
   onRemove,
   onViewMessages,
 }: CustomerItemActionsProps) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
   const [confirmingRemove, setConfirmingRemove] = React.useState(false);
-  const menuRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!menuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [menuOpen]);
 
   if (confirmingRemove) {
     return (
@@ -51,53 +44,35 @@ export function CustomerItemActions({
   }
 
   return (
-    <div className="relative flex items-center gap-2" ref={menuRef}>
+    <div className="flex items-center gap-2">
       <Button size="sm" onClick={onRecordVisit}>
         Record visit
       </Button>
-      <div className="relative">
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => setMenuOpen((o) => !o)}
-          aria-label="More actions"
-          aria-expanded={menuOpen}
-          aria-haspopup="true"
-        >
-          <span className="text-muted-foreground">⋯</span>
-        </Button>
-        {menuOpen && (
-          <div
-            className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-md border border-border bg-popover py-1 shadow-md"
-            role="menu"
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="More actions"
+            aria-haspopup="true"
           >
-            {onViewMessages && (
-              <button
-                type="button"
-                role="menuitem"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onViewMessages();
-                }}
-              >
-                Message history
-              </button>
-            )}
-            <button
-              type="button"
-              role="menuitem"
-              className="w-full px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-              onClick={() => {
-                setMenuOpen(false);
-                setConfirmingRemove(true);
-              }}
-            >
-              Remove
-            </button>
-          </div>
-        )}
-      </div>
+            <MoreHorizontal className="size-4 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {onViewMessages && (
+            <DropdownMenuItem onClick={onViewMessages}>
+              Message history
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setConfirmingRemove(true)}
+          >
+            Remove
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

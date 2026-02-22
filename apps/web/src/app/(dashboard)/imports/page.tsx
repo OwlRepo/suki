@@ -4,7 +4,16 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { Input } from "@suki/ui";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { hasClerk } from "@/lib/clerk";
@@ -393,7 +402,8 @@ function ImportsPageContent() {
           className="mt-4"
         />
         {report && (
-          <div className="mt-6 rounded-lg border border-border bg-card p-4">
+          <Card className="mt-6 rounded-lg p-4">
+            <CardContent className="p-0">
             <h3 className="font-medium text-foreground">Reconciliation report</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Batch ID: {report.batchId.slice(0, 8)}… • Imported: {report.imported} • Skipped: {report.skipped}
@@ -402,7 +412,8 @@ function ImportsPageContent() {
             <Button variant="outline" className="mt-4" onClick={handleRollback} disabled={loading}>
               {loading ? "Rolling back…" : "Rollback this import"}
             </Button>
-          </div>
+            </CardContent>
+          </Card>
         )}
         <PrimaryPageAction
           primaryAction={
@@ -432,7 +443,8 @@ function ImportsPageContent() {
         />
         <h3 className="mt-6 font-medium text-foreground">Dry-run preview</h3>
         {dryRunResult && (
-          <div className="mt-2 rounded-lg border border-border bg-card p-4">
+          <Card className="mt-2 rounded-lg p-4">
+            <CardContent className="p-0">
             <p className="text-sm text-muted-foreground">
               Would import: {dryRunResult.wouldImport} • Would skip: {dryRunResult.wouldSkip} •
               Duplicates: {dryRunResult.duplicateCount}
@@ -442,7 +454,8 @@ function ImportsPageContent() {
               {dryRunResult.validationReport.errorCount > 0 &&
                 ` • ${dryRunResult.validationReport.errorCount} errors`}
             </p>
-          </div>
+            </CardContent>
+          </Card>
         )}
         <div className="mt-6 flex gap-2">
           <Button onClick={handleCommit} disabled={loading}>
@@ -524,7 +537,8 @@ function ImportsPageContent() {
         />
 
       {batches.length > 0 && (
-        <div className="mt-6 rounded-lg border border-border bg-card p-4">
+        <Card className="mt-6 rounded-lg p-4">
+          <CardContent className="p-0">
           <h3 className="font-medium text-foreground">Reconciliation history</h3>
           <p className="mt-1 text-sm text-muted-foreground">
             Past imports for this workspace
@@ -568,7 +582,8 @@ function ImportsPageContent() {
               )}
             </div>
           )}
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {step === "source" && (
@@ -595,7 +610,8 @@ function ImportsPageContent() {
             </Button>
           </div>
           {source === "hubspot" && (
-            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+            <Card className="rounded-lg p-4">
+              <CardContent className="space-y-2 p-0">
               <label className="block text-sm font-medium">HubSpot Private App token</label>
               <input
                 type="password"
@@ -607,10 +623,12 @@ function ImportsPageContent() {
               <Button onClick={handleFetchProvider} disabled={loading || !hubspotToken.trim()}>
                 {loading ? "Fetching…" : "Fetch contacts from HubSpot"}
               </Button>
-            </div>
+              </CardContent>
+            </Card>
           )}
           {source === "pipedrive" && (
-            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+            <Card className="rounded-lg p-4">
+              <CardContent className="space-y-2 p-0">
               <label className="block text-sm font-medium">Pipedrive API token</label>
               <input
                 type="password"
@@ -622,7 +640,8 @@ function ImportsPageContent() {
               <Button onClick={handleFetchProvider} disabled={loading || !pipedriveToken.trim()}>
                 {loading ? "Fetching…" : "Fetch contacts from Pipedrive"}
               </Button>
-            </div>
+              </CardContent>
+            </Card>
           )}
           {source === "csv" && (
             <Button onClick={() => setStep("upload")} size="lg" className="min-h-[44px] text-base">
@@ -642,7 +661,8 @@ function ImportsPageContent() {
           >
             ← Change source
           </Button>
-          <div className="rounded-lg border border-border bg-card p-4">
+          <Card className="rounded-lg p-4">
+            <CardContent className="p-0">
             <label
               htmlFor="file-upload"
               className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-input p-4 text-center transition-colors hover:bg-muted/50"
@@ -662,7 +682,8 @@ function ImportsPageContent() {
                 className="sr-only"
               />
             </label>
-          </div>
+            </CardContent>
+          </Card>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">or</span>
           </div>
@@ -686,12 +707,12 @@ function ImportsPageContent() {
           >
             Back to file upload
           </Button>
-          <textarea
+          <Textarea
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
             placeholder="name,mobile,notes&#10;Alice,555-1234,VIP&#10;Bob,555-5678,"
             rows={10}
-            className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-base"
+            className="min-h-[120px] w-full font-mono"
           />
           <Button
             className="mt-2 min-h-[44px] text-base"
@@ -719,33 +740,33 @@ function ImportsPageContent() {
             {parsedRows.length} rows to import. Uncheck rows that are duplicates.
           </p>
           <div className="max-h-80 overflow-auto rounded-md border border-border">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-muted">
-                <tr>
-                  <th className="px-3 py-2 text-left">Import</th>
-                  <th className="px-3 py-2 text-left">Name</th>
-                  <th className="px-3 py-2 text-left">Mobile</th>
-                  <th className="px-3 py-2 text-left">Notes</th>
-                  <th className="px-3 py-2 text-left">Duplicate</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow className="sticky top-0 bg-muted hover:bg-muted">
+                  <TableHead className="px-3 py-2">Import</TableHead>
+                  <TableHead className="px-3 py-2">Name</TableHead>
+                  <TableHead className="px-3 py-2">Mobile</TableHead>
+                  <TableHead className="px-3 py-2">Notes</TableHead>
+                  <TableHead className="px-3 py-2">Duplicate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {parsedRows.map((r) => {
                   const dup = duplicates.find((d) => d.rowIndex === r.rowIndex);
                   const isSkipped = skipRows.has(r.rowIndex);
                   return (
-                    <tr key={r.rowIndex} className="border-t border-border">
-                      <td className="px-3 py-2">
+                    <TableRow key={r.rowIndex}>
+                      <TableCell className="px-3 py-2">
                         <input
                           type="checkbox"
                           checked={!isSkipped}
                           onChange={() => toggleSkip(r.rowIndex)}
                         />
-                      </td>
-                      <td className="px-3 py-2">{r.name}</td>
-                      <td className="px-3 py-2">{r.mobile ?? "—"}</td>
-                      <td className="px-3 py-2">{r.notes ?? "—"}</td>
-                      <td className="px-3 py-2">
+                      </TableCell>
+                      <TableCell className="px-3 py-2">{r.name}</TableCell>
+                      <TableCell className="px-3 py-2">{r.mobile ?? "—"}</TableCell>
+                      <TableCell className="px-3 py-2">{r.notes ?? "—"}</TableCell>
+                      <TableCell className="px-3 py-2">
                         {dup ? (
                           <span className="text-amber-600">
                             {dup.reason}: {dup.existingName}
@@ -753,12 +774,12 @@ function ImportsPageContent() {
                         ) : (
                           "—"
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
           <div className="flex gap-2">
             <Button onClick={handleDryRun} disabled={loading}>

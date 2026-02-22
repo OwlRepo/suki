@@ -143,11 +143,64 @@ bun run dev:api   # API only
 
 ---
 
+## Docker (Development)
+
+Run the full stack in Docker with **hot-reload (HMR)**: Postgres + API + Web. File changes are reflected instantly without rebuild.
+
+**Prerequisites:** [Docker](https://docs.docker.com/get-docker/) and Docker Compose.
+
+**Setup:**
+
+1. Copy env and fill required vars (Clerk keys, etc.):
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. For Docker dev, `DATABASE_URL` is overridden by compose to `postgresql://postgres:postgres@postgres:5432/suki`. You can leave it unset in `.env` or set it for local dev.
+
+**Start dev stack:**
+
+```bash
+bun run docker:dev:up
+```
+
+Or: `docker compose up -d`
+
+- **Web:** http://localhost:3000  
+- **API:** http://localhost:3001  
+- **Postgres:** localhost:5433 (user `postgres`, password `postgres`, db `suki`; port 5433 avoids conflict with local Postgres)
+
+**Stop:** `bun run docker:dev:down` or `docker compose down`
+
+**Logs:** `bun run docker:dev:logs` or `docker compose logs -f`
+
+**Validation (HMR):**
+
+- [ ] Edit a component in `apps/web/src` and confirm the change appears in the browser within seconds without rebuild.
+- [ ] Edit an API route/controller in `apps/api/src` and confirm the API response changes after Nest restarts (watch mode).
+- [ ] Run `bun run db:studio` (or connect to `localhost:5433` with `postgresql://postgres:postgres@localhost:5433/suki`) and verify migrations were applied.
+
+**Troubleshooting:**
+
+| Issue | Fix |
+|-------|-----|
+| Changes not reflected | Ensure `WATCHPACK_POLLING` / `CHOKIDAR_USEPOLLING` are set (they are in the dev images). On macOS/Windows, file events over bind mounts can be delayed; polling avoids this. |
+| `node_modules` empty / install fails | Remove volumes and rebuild: `docker compose down -v` then `docker compose up -d --build`. The entrypoint runs `bun install` when `node_modules` is missing. |
+| API can't reach Postgres | Ensure the `api` service `depends_on` postgres with `condition: service_healthy`. |
+
+---
+
 ## Scripts Reference
 
 | Command | Description |
 |---------|-------------|
 | `bun run dev` | Start all apps (runs db:setup first) |
+| `bun run docker:dev:up` | Start Docker dev stack (Postgres + API + Web with HMR) |
+| `bun run docker:dev:down` | Stop Docker dev stack |
+| `bun run docker:dev:logs` | Tail logs from dev stack |
+| `bun run docker:prod:build` | Build production Docker images |
+| `bun run docker:prod:up` | Start production Docker stack |
 | `bun run build` | Build all packages |
 | `bun run typecheck` | Type check all packages |
 | `bun run lint` | Lint all packages |
@@ -169,6 +222,22 @@ bun run dev:api   # API only
 - **Frontend (apps/web)** — Static/SSR Next.js app
 - **API (apps/api)** — Node.js API server
 - **Database** — PostgreSQL (managed or self-hosted)
+
+### Docker (Production-like)
+
+Build and run production images locally (no bind mounts):
+
+```bash
+bun run docker:prod:build
+bun run docker:prod:up
+```
+
+Uses `docker-compose.prod.yml`. Migrations run automatically on API startup. For real deployment, use the Dockerfiles with your orchestrator (Kubernetes, ECS, etc.) and connect to a managed database.
+
+**Validation (production smoke test):**
+
+- [ ] `curl http://localhost:3001/health` returns 200.
+- [ ] Open http://localhost:3000 and verify a page loads.
 
 ### Recommended Hosting
 
@@ -299,3 +368,7 @@ For self-hosted deployment with signed images and entitlement enforcement, see:
 
 - Run `bun run clean` and `bun install` again.
 - Ensure `bun run db:setup` has run (some builds may depend on DB package).
+
+**Docker: HMR / watch not detecting changes**
+
+- Ensure you're using the `dev` target (default in `docker-compose.yml`). Polling env vars (`WATCHPACK_POLLING`, `CHOKIDAR_USEPOLLING`) are set in the dev images.

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@suki/ui";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@clerk/nextjs";
 import { apiRequest } from "@/lib/api";
 import { useOnboardingProgress, FINAL_WIZARD_STEP } from "@/hooks/use-onboarding-progress";
@@ -311,7 +313,8 @@ export function OnboardingWizard() {
       )}
 
       {step >= 3 && (
-        <div className="space-y-6 rounded-lg border border-border bg-card p-6">
+        <Card className="space-y-6 rounded-lg p-6">
+          <CardContent className="space-y-6 p-0">
           <OnboardingStepIntro guidance={guidance} />
 
           {successFeedback && (
@@ -416,11 +419,11 @@ export function OnboardingWizard() {
                 placeholder="Offer value (e.g. 10% off)"
                 className="min-h-[44px] text-base"
               />
-              <textarea
+              <Textarea
                 value={promoMessage}
                 onChange={(e) => setPromoMessage(e.target.value)}
                 placeholder="Message to show customers"
-                className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+                className="min-h-[96px] w-full text-base"
               />
               <Button size="lg" className="min-h-[44px] text-base" onClick={handleCreatePromo} disabled={busy}>
                 {busy ? "Saving…" : guidance.primaryActionLabel}
@@ -433,12 +436,12 @@ export function OnboardingWizard() {
               <label className="block text-sm font-medium text-foreground">
                 Visits before reward unlocks
               </label>
-              <input
+              <Input
                 type="number"
                 min={1}
                 value={loyaltyThreshold}
                 onChange={(e) => setLoyaltyThreshold(Number(e.target.value || 1))}
-                className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+                className="min-h-[44px] w-full text-base"
               />
               <p className="text-sm text-muted-foreground">
                 After {loyaltyThreshold} visit{loyaltyThreshold !== 1 ? "s" : ""}, the customer earns a reward. You can change this later.
@@ -451,11 +454,11 @@ export function OnboardingWizard() {
 
           {step === 8 && (
             <div className="space-y-4">
-              <textarea
+              <Textarea
                 value={importNotes}
                 onChange={(e) => setImportNotes(e.target.value)}
                 placeholder="Optional: paste customer names or notes for later import. You can do this later from the Customers page."
-                className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-base"
+                className="min-h-[120px] w-full text-base"
               />
               <div className="flex flex-wrap gap-3">
                 <Button size="lg" className="min-h-[44px] text-base" onClick={handleContinue} disabled={busy}>
@@ -469,7 +472,8 @@ export function OnboardingWizard() {
           )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {(step >= 2 || (step === 1 && businesses.length >= 1)) && (

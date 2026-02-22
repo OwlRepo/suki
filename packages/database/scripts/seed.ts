@@ -4,7 +4,7 @@ import postgres from "postgres";
 import { resolve } from "path";
 import { organizations, businesses, users } from "../src/schema";
 
-config({ path: resolve(import.meta.dir, "../../../.env") });
+config({ path: resolve(import.meta.dir, "../../../.env"), override: false });
 
 const connectionString =
   process.env.DATABASE_URL ||
