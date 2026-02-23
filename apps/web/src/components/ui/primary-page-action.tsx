@@ -28,8 +28,12 @@ export function PrimaryPageAction({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex flex-wrap items-center gap-3">
-        {mainAction && <div className="flex-shrink-0">{mainAction}</div>}
+      <div className="flex w-full flex-wrap items-center gap-3">
+        {mainAction && (
+          <div className="w-full min-w-0 sm:w-auto sm:flex-shrink-0">
+            {mainAction}
+          </div>
+        )}
         {secondaryActions && (
           <div className="flex flex-wrap items-center gap-2">{secondaryActions}</div>
         )}

@@ -229,7 +229,12 @@ export default function Home() {
                 <PrimaryPageAction className="w-full sm:w-auto [&>div]:justify-start">
                   <LandingCta singlePrimary />
                 </PrimaryPageAction>
-                <Button variant="outline" size="lg" className="min-h-[44px]" asChild>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="min-h-[44px] w-full sm:w-auto"
+                  asChild
+                >
                   <Link href="/sign-in">Sign in</Link>
                 </Button>
               </div>
@@ -476,7 +481,11 @@ export default function Home() {
                     <li key={f}>• {f}</li>
                   ))}
                 </ul>
-                <Button asChild size="lg" className="mt-6 min-h-[44px]">
+                <Button
+                  asChild
+                  size="lg"
+                  className="mt-6 min-h-[44px] w-full"
+                >
                   <Link href="/sign-up">{plan.cta}</Link>
                 </Button>
               </Card>
@@ -523,14 +532,14 @@ export default function Home() {
                 <p className="max-w-lg text-muted-foreground leading-relaxed">
                   Try free. Set up in minutes. No credit card required.
                 </p>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <PrimaryPageAction className="justify-center lg:justify-start">
+                <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
+                  <PrimaryPageAction className="w-full sm:w-auto sm:justify-center lg:justify-start">
                     <LandingCta singlePrimary />
                   </PrimaryPageAction>
                   <Button
                     variant="outline"
                     size="lg"
-                    className="min-h-[44px]"
+                    className="min-h-[44px] w-full sm:w-auto"
                     asChild
                   >
                     <Link href="/sign-in">Sign in</Link>

@@ -9,7 +9,7 @@ import { hasClerk } from "@/lib/clerk";
 export function AuthCta() {
   if (!hasClerk) {
     return (
-      <Button asChild>
+      <Button asChild className="min-w-[100px] sm:min-w-0">
         <Link href="/dashboard">Go to Dashboard</Link>
       </Button>
     );
@@ -17,12 +17,12 @@ export function AuthCta() {
   return (
     <>
       <SignedOut>
-        <Button asChild>
+        <Button asChild className="min-w-[100px] sm:min-w-0">
           <Link href="/sign-in">Sign in</Link>
         </Button>
       </SignedOut>
       <SignedIn>
-        <Button asChild>
+        <Button asChild className="min-w-[100px] sm:min-w-0">
           <Link href="/dashboard">Go to Dashboard</Link>
         </Button>
       </SignedIn>
