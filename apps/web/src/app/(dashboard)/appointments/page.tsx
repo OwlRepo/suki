@@ -233,15 +233,19 @@ function AppointmentsPageContent() {
 
   if (!workspace?.loading && !businesses.length) {
     return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Appointments</h1>
-        <p className="mt-2 text-muted-foreground">Create a business in Setup first.</p>
+      <div className="space-y-6">
+        <PageHeader
+          title="Appointments"
+          plainLanguageDescription="Appointments help you plan your day."
+          whatThisPageIsFor="Schedule visits and keep each appointment status up to date."
+          whatToDoNext="Create a business in Setup first, then add customers and appointments."
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-full">
         <PageHeader
           title="Appointments"
           plainLanguageDescription="Appointments help you plan your day — but you can use the app without them."

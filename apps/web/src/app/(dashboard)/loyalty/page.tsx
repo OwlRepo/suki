@@ -75,9 +75,13 @@ function LoyaltyPageContent() {
 
   if (!workspace?.loading && !businesses.length) {
     return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Loyalty</h1>
-        <p className="mt-2 text-muted-foreground">Create a business in Setup first.</p>
+      <div className="space-y-6">
+        <PageHeader
+          title="Loyalty"
+          plainLanguageDescription="Regular customers appear here when they meet the visit threshold."
+          whatThisPageIsFor="See who qualifies for rewards. No configuration needed."
+          whatToDoNext="Create a business in Setup first, then add customers to see loyalty status here."
+        />
       </div>
     );
   }
@@ -87,7 +91,7 @@ function LoyaltyPageContent() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-full">
         <PageHeader
           title="Loyalty"
           plainLanguageDescription="Regular customers appear here automatically when they meet the visit threshold."

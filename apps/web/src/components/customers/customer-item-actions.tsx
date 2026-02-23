@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmActionInline } from "@/components/ui/confirm-action-inline";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface CustomerItemActionsProps {
   onRecordVisit: () => void;
@@ -32,22 +33,6 @@ export function CustomerItemActions({
   const [confirmingRemove, setConfirmingRemove] = React.useState(false);
   const [confirmingRecordVisit, setConfirmingRecordVisit] = React.useState(false);
 
-  if (confirmingRemove) {
-    return (
-      <ConfirmActionInline
-        confirmMessage="Remove this customer? This cannot be undone."
-        confirmLabel="Yes, remove"
-        cancelLabel="Cancel"
-        destructive
-        onConfirm={() => {
-          onRemove();
-          setConfirmingRemove(false);
-        }}
-        onCancel={() => setConfirmingRemove(false)}
-      />
-    );
-  }
-
   if (confirmingRecordVisit) {
     return (
       <ConfirmActionInline
@@ -64,12 +49,23 @@ export function CustomerItemActions({
   }
 
   return (
-    <div className="flex flex-shrink-0 items-center gap-2">
-      <Button size="sm" onClick={() => setConfirmingRecordVisit(true)}>
-        Record visit
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+    <>
+      <ConfirmDialog
+        open={confirmingRemove}
+        onOpenChange={setConfirmingRemove}
+        title="Remove this customer?"
+        description="This will permanently remove the customer from your list. This cannot be undone."
+        confirmLabel="Yes, remove"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={() => onRemove()}
+      />
+      <div className="flex flex-shrink-0 items-center gap-2">
+        <Button size="sm" onClick={() => setConfirmingRecordVisit(true)}>
+          Record visit
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
           <Button
             size="icon-sm"
             variant="ghost"
@@ -78,31 +74,32 @@ export function CustomerItemActions({
           >
             <MoreHorizontal className="size-4 text-muted-foreground" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {onAdjustVisit && (
-            <DropdownMenuItem onClick={onAdjustVisit}>
-              Correct visit count
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onAdjustVisit && (
+              <DropdownMenuItem onClick={onAdjustVisit}>
+                Correct visit count
+              </DropdownMenuItem>
+            )}
+            {onViewVisitHistory && (
+              <DropdownMenuItem onClick={onViewVisitHistory}>
+                View adjustment history
+              </DropdownMenuItem>
+            )}
+            {onViewMessages && (
+              <DropdownMenuItem onClick={onViewMessages}>
+                Message history
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove
             </DropdownMenuItem>
-          )}
-          {onViewVisitHistory && (
-            <DropdownMenuItem onClick={onViewVisitHistory}>
-              View adjustment history
-            </DropdownMenuItem>
-          )}
-          {onViewMessages && (
-            <DropdownMenuItem onClick={onViewMessages}>
-              Message history
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setConfirmingRemove(true)}
-          >
-            Remove
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </>
   );
 }

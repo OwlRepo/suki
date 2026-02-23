@@ -84,7 +84,7 @@ export function InsightsBarChart({ metrics }: { metrics: Metrics }) {
         <YAxis
           type="category"
           dataKey="name"
-          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 13 }}
+          tick={{ fill: "var(--muted-foreground)", fontSize: 14 }}
           width={160}
           tickLine={false}
           axisLine={false}

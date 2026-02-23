@@ -156,24 +156,24 @@ export function CustomerFormModal({
         </DialogHeader>
         <form ref={formRef} onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <Label htmlFor="customer-name" className="mb-1 block">
+            <Label htmlFor="customer-name" className="mb-1 block text-base">
               Name <span className="text-destructive">(Required)</span>
             </Label>
             <Input
               id="customer-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Juan Dela Cruz"
+              placeholder="e.g. Maria Garcia"
               required
               className="w-full"
               autoFocus
             />
           </div>
           <div>
-            <Label htmlFor="customer-mobile" className="mb-1 block">
+            <Label htmlFor="customer-mobile" className="mb-1 block text-base">
               Mobile <span className="text-muted-foreground">(Optional, encouraged)</span>
             </Label>
-            <p className="mb-1 text-xs text-muted-foreground">
+            <p className="mb-1 text-sm text-muted-foreground">
               Helps with SMS reminders and customer retention.
             </p>
             <Input
@@ -181,17 +181,17 @@ export function CustomerFormModal({
               type="tel"
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
-              placeholder="e.g. 09XX XXX XXXX"
+              placeholder="e.g. +1 234 567 8900"
               className="w-full"
             />
           </div>
+
+          {showMore && (
+            <>
           <div>
-            <Label htmlFor="customer-email" className="mb-1 block">
-              Email <span className="text-muted-foreground">(Optional, encouraged)</span>
+            <Label htmlFor="customer-email" className="mb-1 block text-base">
+              Email <span className="text-muted-foreground">(Optional)</span>
             </Label>
-            <p className="mb-1 text-xs text-muted-foreground">
-              Helps with email outreach and follow-ups.
-            </p>
             <Input
               id="customer-email"
               type="email"
@@ -203,7 +203,7 @@ export function CustomerFormModal({
           </div>
 
           <div>
-            <Label className="mb-1 block">
+            <Label className="mb-1 block text-base">
               Description <span className="text-muted-foreground">(Optional)</span>
             </Label>
             {businessId && (
@@ -277,35 +277,27 @@ export function CustomerFormModal({
             )}
           </div>
 
-          {showMore ? (
-            <div>
-              <Label htmlFor="customer-tags" className="mb-1 block">
-                Labels <span className="text-muted-foreground">(Optional)</span>
-              </Label>
-              <Input
-                id="customer-tags"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                placeholder="e.g. VIP, Regular"
-                className="w-full"
-              />
-              <button
-                type="button"
-                onClick={() => setShowMore(false)}
-                className="mt-1 text-sm text-muted-foreground hover:text-foreground"
-              >
-                Hide optional fields
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowMore(true)}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              More options (Optional)
-            </button>
+          <div>
+            <Label htmlFor="customer-tags" className="mb-1 block text-base">
+              Labels <span className="text-muted-foreground">(Optional)</span>
+            </Label>
+            <Input
+              id="customer-tags"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="e.g. VIP, Regular"
+              className="w-full"
+            />
+          </div>
+            </>
           )}
+          <button
+            type="button"
+            onClick={() => setShowMore(!showMore)}
+            className="text-base text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            {showMore ? "Hide optional fields" : "Add more details (email, notes, labels)"}
+          </button>
           <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={loading || !name.trim()} className="min-h-[44px]">
               {loading ? "Saving…" : "Save customer"}

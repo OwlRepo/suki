@@ -45,24 +45,24 @@ export function PageHeader({
       role="banner"
     >
       <div className="min-w-0 flex-1 space-y-3 max-w-2xl">
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight sm:text-[1.625rem]">
+        <h1 className="text-2xl font-semibold text-foreground tracking-tight sm:text-3xl">
           {title}
         </h1>
         {supportingDescription && (
-          <p className="text-base text-muted-foreground leading-relaxed">
+          <p className="text-base text-muted-foreground leading-relaxed" style={{ lineHeight: 1.6 }}>
             {supportingDescription}
           </p>
         )}
         {hasGuidance && (
-          <div className="flex flex-col gap-1.5 pt-1 border-l-2 border-muted-foreground/30 pl-4">
+          <div className="flex flex-col gap-2 pt-2 border-l-2 border-muted-foreground/30 pl-4">
             {whatThisPageIsFor != null && (
-              <p className="text-base text-muted-foreground leading-relaxed">
+              <p className="text-base text-muted-foreground leading-relaxed" style={{ lineHeight: 1.6 }}>
                 <span className="font-medium text-foreground">What this page is for: </span>
                 <span>{whatThisPageIsFor}</span>
               </p>
             )}
             {whatToDoNext != null && (
-              <p className="text-base text-muted-foreground leading-relaxed">
+              <p className="text-base text-muted-foreground leading-relaxed" style={{ lineHeight: 1.6 }}>
                 <span className="font-medium text-foreground">What to do next: </span>
                 <span>{whatToDoNext}</span>
               </p>

@@ -134,7 +134,9 @@
   }
 }
 
-/* Muted explanatory text used consistently across all pages */
+/* Muted explanatory text used consistently across all pages - comfortable for all ages */
 .text-helper {
   @apply text-base text-muted-foreground leading-relaxed;
+  font-size: 1rem;
+  line-height: 1.6;
 }

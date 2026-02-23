@@ -165,7 +165,7 @@ function DashboardPageContent() {
   const summaryDisplay = s;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-full">
       <div className="space-y-8">
         <PageHeader
           title="Dashboard"

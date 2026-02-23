@@ -315,17 +315,19 @@ function CustomersPageContent() {
 
   if (!workspace?.loading && !businesses.length) {
     return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Customers</h1>
-        <p className="mt-2 text-muted-foreground">
-          Create a business in Setup first, then add customers here.
-        </p>
+      <div className="space-y-6">
+        <PageHeader
+          title="Customers"
+          plainLanguageDescription="Your customer list lives here."
+          whatThisPageIsFor="Keep customer details and visit history in one place."
+          whatToDoNext="Create a business in Setup first, then add customers here."
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-full">
       <AiQuotaBanner />
       <PageHeader
         title="Customers"
@@ -477,7 +479,7 @@ function CustomersPageContent() {
               {customers.map((c) => (
                 <li
                   key={c.id}
-                  className="flex items-center justify-between py-5 first:pt-0"
+                  className="flex items-center justify-between gap-4 py-6 first:pt-0 min-h-[52px]"
                 >
                   <div className="min-w-0 flex-1">
                     <span className="font-medium">{c.name}</span>

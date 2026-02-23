@@ -21,20 +21,20 @@ export function EmptyState({ what, why, nextAction, className }: EmptyStateProps
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-lg border border-border bg-card p-8 text-center",
+        "flex flex-col items-center justify-center rounded-lg border border-border bg-card p-10 text-center",
         className
       )}
       role="status"
       aria-live="polite"
     >
-      <p className="text-base font-medium text-foreground" data-slot="what">
+      <p className="text-lg font-medium text-foreground" data-slot="what">
         {what}
       </p>
-      <p className="mt-2 max-w-md text-base text-muted-foreground leading-relaxed" data-slot="why">
+      <p className="mt-3 max-w-md text-base text-muted-foreground leading-relaxed" data-slot="why" style={{ lineHeight: 1.6 }}>
         {why}
       </p>
       {nextAction && (
-        <div className="mt-6" data-slot="next-action">
+        <div className="mt-8" data-slot="next-action">
           {nextAction}
         </div>
       )}

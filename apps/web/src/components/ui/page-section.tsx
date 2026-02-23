@@ -20,9 +20,9 @@ export function PageSection({ children, title, description, className }: PageSec
   return (
     <section className={cn("space-y-4", className)}>
       {(title || description) && (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {title && (
-            <h2 className="text-base font-medium text-foreground">{title}</h2>
+            <h2 className="text-lg font-medium text-foreground">{title}</h2>
           )}
           {description && (
             <p className="text-helper">{description}</p>

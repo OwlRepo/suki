@@ -74,9 +74,13 @@ function InsightsPageContent() {
 
   if (!workspace?.loading && !businesses.length) {
     return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Business Summary</h1>
-        <p className="mt-2 text-helper">Create a business in Setup first.</p>
+      <div className="space-y-6">
+        <PageHeader
+          title="Business Summary"
+          plainLanguageDescription="Simple monthly numbers you can trust."
+          whatThisPageIsFor="See how many first-time, returning, and total seen customers you had each month."
+          whatToDoNext="Create a business in Setup first, then come back here to see your numbers."
+        />
       </div>
     );
   }
@@ -84,7 +88,7 @@ function InsightsPageContent() {
   const monthName = new Date(year, month - 1).toLocaleString("default", { month: "long" });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 w-full">
       <PageHeader
         title="Business Summary"
         plainLanguageDescription="Simple monthly numbers you can trust."
