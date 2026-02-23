@@ -763,6 +763,30 @@ Add known issues and solutions here as they are discovered.
 
   generateRules() {
     ensureDir(join(CURSOR_DIR, "rules"));
+    write(
+      "rules/entry-point.mdc",
+      `---
+alwaysApply: true
+---
+
+# Cursor Entry Point
+
+**Primary entry point** for Cursor AI. **Hard Rule B**: This file MUST be loaded as the first prompt context for any workflow.
+
+## Fully Automatic
+
+- Detects intent (bug/feature/enhancement/refactor/review)
+- Finds files via file-index
+- Applies rules from rules/
+- Includes architecture docs
+- Creates implementation plans
+- Enforces planning gate before edits
+
+## Usage
+
+Just describe what you need. No need to reference command files or rules.
+`
+    );
     const rules = [
       ["bug-fix.mdc", "Reproduce first, use RCA, test thoroughly, follow patterns."],
       ["feature-implementation.mdc", "Follow architecture, use patterns, create types, error handling, tests."],
@@ -840,26 +864,6 @@ See CURSOR_INTEGRATION.mdc for full specifications.
 
   generateCore() {
     write(
-      "entry-point.mdc",
-      `# Cursor Entry Point
-
-**Primary entry point** for Cursor AI. Check this file first.
-
-## Fully Automatic
-
-- Detects intent (bug/feature/enhancement/refactor/review)
-- Finds files via file-index
-- Applies rules from rules/
-- Includes architecture docs
-- Creates implementation plans
-- Enforces planning gate before edits
-
-## Usage
-
-Just describe what you need. No need to reference command files or rules.
-`
-    );
-    write(
       "README.mdc",
       `# Cursor Integration
 
@@ -867,7 +871,7 @@ AI-assisted development system for Suki monorepo.
 
 ## Overview
 
-- **entry-point.mdc**: Primary entry; automatic intent detection and routing
+- **rules/entry-point.mdc**: Primary entry; automatic intent detection and routing (alwaysApply: true)
 - **architecture/**: System docs (overview, tech-stack, routing, database, etc.)
 - **file-index/**: File indexes (components, routes, controllers, models, etc.)
 - **rules/**: Bug-fix, feature, enhancement, refactor, testing, code-review
@@ -877,12 +881,16 @@ AI-assisted development system for Suki monorepo.
 
 ## Usage
 
-See CURSOR_USAGE_GUIDE.mdc for step-by-step workflows.
+Always use **@.cursor/rules/entry-point.mdc** as the first prompt (Hard Rule B). See CURSOR_USAGE_GUIDE.mdc for step-by-step workflows.
 `
     );
     write(
       "CURSOR_USAGE_GUIDE.mdc",
       `# Cursor Usage Guide - Suki
+
+## Getting Started (Hard Rule B)
+
+For any prompt, **@.cursor/rules/entry-point.mdc** MUST be used as the first context. Load it before planning, implementing, or applying rules. The entry point detects intent, finds files, and applies appropriate rules automatically.
 
 ## Project Context
 
@@ -906,6 +914,8 @@ See CURSOR_USAGE_GUIDE.mdc for step-by-step workflows.
 
 ## Workflows
 
+All workflows begin via the entry point. Load **@.cursor/rules/entry-point.mdc** first, then describe what you need:
+
 1. **Bug**: Describe the bug; system applies bug-fix rules and RCA
 2. **Feature**: Describe the feature; system follows architecture and patterns
 3. **Enhancement**: Describe current + desired; system maintains compatibility
@@ -914,10 +924,16 @@ See CURSOR_USAGE_GUIDE.mdc for step-by-step workflows.
 
 ## Onboarding
 
-1. Read architecture/overview.mdc
-2. Read architecture/tech-stack.mdc
-3. Skim file-index for relevant areas
+1. For every prompt, load **@.cursor/rules/entry-point.mdc** first (Hard Rule B)
+2. Read architecture/overview.mdc
+3. Read architecture/tech-stack.mdc
+4. Skim file-index for relevant areas
 `
+    );
+    writeFileSync(
+      join(ROOT, "AGENTS.md"),
+      "For any task, load @.cursor/rules/entry-point.mdc first and follow its workflow.\n",
+      "utf-8"
     );
   }
 
