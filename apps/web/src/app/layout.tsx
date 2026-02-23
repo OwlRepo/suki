@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Suki - Customer Engagement for Small Business",
   description:
-    "Reduce no-shows and bring customers back automatically. Appointment reminders and follow-ups for Philippine salons, clinics, gyms, and spas.",
+    "Reduce no-shows and bring customers back automatically. Appointment reminders and follow-ups for salons, clinics, gyms, and spas worldwide.",
 };
 
 export default function RootLayout({
