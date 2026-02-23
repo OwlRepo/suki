@@ -26,23 +26,26 @@ import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 const TRUST_CHIPS = [
   "No credit card to start",
   "Set up in minutes",
+  "You don't need to open it every day—it just runs",
   "Works on any device",
 ] as const;
 
 const OUTCOME_STATS = [
   {
-    label: "Reduced no-shows",
-    value: "Industry studies suggest reminders can cut no-shows significantly",
-    source: "Results vary by business and message timing.",
+    label: "Fewer no-shows",
+    value: "Fewer empty slots when customers get reminded",
+    source: "Simple reminders, sent on time.",
   },
   {
     label: "Recovered revenue",
-    value: "A single recovered appointment (e.g. ₱800+) often covers a month's plan",
+    value:
+      "Recover revenue you'd lose from forgotten follow-ups—one saved appointment often covers a month's plan",
     source: "Example based on typical service pricing.",
   },
   {
     label: "Less manual work",
-    value: "Set once—reminders and follow-ups run on their own",
+    value:
+      "Set once—follow-ups run automatically so customers come back without you remembering",
     source: "Fully automated after initial setup.",
   },
 ] as const;
@@ -51,7 +54,7 @@ const PROBLEM_POINTS = [
   "Customers forget appointments—empty slots, lost revenue",
   "Staff forgets to follow up—you lose customers silently",
   "Inconsistent reminders—some get texts, some don't",
-  "Churn you never see coming—until they're already gone",
+  "They leave and you never notice—until they're already gone",
 ] as const;
 
 const HOW_IT_WORKS = [
@@ -67,7 +70,7 @@ const HOW_IT_WORKS = [
     icon: CalendarCheck,
     title: "Track visits automatically",
     description:
-      "Stamp visits as they happen. Suki knows who came, when, and who hasn't been back.",
+      "Mark visits as they happen. Suki knows who came, when, and who hasn't been back.",
   },
   {
     step: "3",
@@ -89,25 +92,27 @@ const KEY_AUTOMATIONS = [
   },
   {
     name: "Post-visit follow-ups",
-    benefit: "Thank-you and rebook while the experience is fresh",
+    benefit:
+      "Thank-you and rebook while it's fresh—no money lost to forgotten follow-ups",
   },
   {
     name: "Inactivity winback",
-    benefit: "We miss you—bring back customers before they churn for good",
+    benefit:
+      "Bring back customers automatically before they're gone for good—recover revenue you'd have lost",
   },
 ] as const;
 
 const BEFORE_AFTER = {
   before: [
     "Paper logbooks and memory",
-    "No follow-ups or forgotten reminders",
+    "Forgotten follow-ups—and money slipping away",
     "Unclear who comes back",
     "Customers drift away—you never notice",
   ],
   after: [
     "Organized customer list",
     "Follow-ups at the right time, automatically",
-    "Clear new vs repeat, who's drifting",
+    "Clear who's coming back and who isn't",
     "Revenue recovered from customers you'd have lost",
   ],
 } as const;
@@ -134,7 +139,7 @@ const PLANS = [
       "Everything in Basic",
       "Promos or Appointments module",
       "New vs repeat customers monthly",
-      "AI-assisted message writing",
+      "Helpful message suggestions",
     ],
     cta: "Start with Grow",
   },
@@ -158,12 +163,16 @@ const FAQ = [
     a: "Your business owns the data. Nothing is deleted. View and export anytime.",
   },
   {
+    q: "Do I need to use it every day?",
+    a: "No. Set it up once. Messages send themselves. You don't need to open it every day.",
+  },
+  {
     q: "Can I use this on my phone?",
     a: "Yes. Suki works on any device—phone, tablet, or computer.",
   },
   {
     q: "How long does setup take?",
-    a: "Most businesses are up and running in under 10 minutes. Add customers via QR, manual entry, or CSV import.",
+    a: "Most businesses are up and running in under 10 minutes. Scan a QR, add a few customers, and messages send themselves. No long forms. No tutorials.",
   },
   {
     q: "Can I cancel anytime?",
@@ -174,8 +183,8 @@ const FAQ = [
     a: "SMS costs vary by carrier and region. Suki sends only the messages you configure—no surprises.",
   },
   {
-    q: "Where do the benchmark stats come from?",
-    a: "Industry studies on appointment reminders and follow-up effectiveness. Results vary by business type, offer quality, and customer response rates.",
+    q: "Where do the outcome numbers come from?",
+    a: "Based on typical service businesses. Results vary by business type and how you use reminders.",
   },
 ] as const;
 
@@ -213,8 +222,8 @@ export default function Home() {
               </h1>
               <p className="max-w-lg text-lg text-muted-foreground leading-relaxed">
                 Suki sends appointment reminders and follow-ups automatically—so
-                you don&apos;t have to remember. Less manual texting, less
-                mental load. Built for service businesses worldwide.
+                you stop losing money from forgotten follow-ups. Less manual
+                texting, less mental load. Built for service businesses worldwide.
               </p>
               <div className="flex flex-col gap-4 pt-2 sm:flex-row sm:items-center">
                 <PrimaryPageAction className="w-full sm:w-auto [&>div]:justify-start">
@@ -237,14 +246,14 @@ export default function Home() {
         <section className="border-y border-border bg-muted/20 py-12 sm:py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <h2 className="sr-only">Trusted outcomes</h2>
-            <div className="grid gap-8 sm:grid-cols-3">
+            <div className="grid gap-8 sm:grid-cols-3 sm:items-stretch">
               {OUTCOME_STATS.map(({ label, value, source }) => (
-                <div key={label} className="flex flex-col gap-2">
+                <div key={label} className="flex min-h-full flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <BarChart3 className="size-5 text-primary" />
+                    <BarChart3 className="size-5 shrink-0 text-primary" />
                     <span className="font-semibold text-foreground">{label}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{value}</p>
+                  <p className="flex-1 text-sm text-muted-foreground">{value}</p>
                   <p className="text-xs text-muted-foreground/80">{source}</p>
                 </div>
               ))}
@@ -258,8 +267,13 @@ export default function Home() {
             Sound familiar?
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground leading-relaxed">
-            Customers forget. Staff forgets. Owners lose revenue and never see it
-            coming.
+            Customers forget. Staff forgets to follow up. You lose money from
+            forgotten follow-ups—and often never see it coming. One missed
+            follow-up or no-show is often ₱500–₱1,000 gone.
+          </p>
+          <p className="mx-auto mt-4 max-w-xl text-center text-muted-foreground">
+            Most businesses lose customers not because they&apos;re bad, but
+            because everyone forgets. Suki just makes sure no one forgets.
           </p>
           <ul className="mx-auto mt-8 max-w-xl list-inside list-disc space-y-2 text-muted-foreground">
             {PROBLEM_POINTS.map((point) => (
@@ -277,8 +291,8 @@ export default function Home() {
               </h2>
               <p className="mt-3 text-muted-foreground leading-relaxed">
                 Capture customers once. Track visits. Set your reminders and
-                follow-ups—then let Suki run them automatically. No spreadsheets.
-                No forgotten texts.
+                follow-ups—then let Suki run them automatically. Customers come
+                back without you remembering. No spreadsheets. No forgotten texts.
               </p>
               <div className="mt-6 rounded-xl border border-primary/30 bg-primary/5 p-6">
                 <p className="flex items-center gap-2 font-semibold text-foreground">
@@ -286,10 +300,30 @@ export default function Home() {
                   Set once. Runs automatically.
                 </p>
               </div>
+              <p className="mt-4 text-muted-foreground italic">
+                Think of it as a staff member whose only job is to remember
+                customers and send messages at the right time—so customers come
+                back automatically and you stop losing money from forgotten
+                follow-ups.
+              </p>
             </div>
             <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-6">
               <WorkflowIllustration className="h-auto w-full" />
             </div>
+          </div>
+        </section>
+
+        {/* One concrete scenario */}
+        <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+          <div className="rounded-xl border border-border bg-muted/20 p-6 text-center sm:p-8">
+            <p className="text-sm font-medium text-muted-foreground">
+              How it works in one example
+            </p>
+            <p className="mt-2 text-foreground leading-relaxed">
+              Customer visits today. Suki remembers. A few days later, it sends
+              a friendly follow-up—so you never forget. Customer comes back
+              automatically. No money lost to forgotten follow-ups.
+            </p>
           </div>
         </section>
 
@@ -335,7 +369,8 @@ export default function Home() {
               What runs automatically
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
-              These automations run on their own—you don&apos;t lift a finger.
+              Reminders and follow-ups send on their own—you don&apos;t lift a
+              finger.
             </p>
             <div className="mt-12 grid gap-4 sm:grid-cols-2">
               {KEY_AUTOMATIONS.map(({ name, benefit }) => (
@@ -415,9 +450,10 @@ export default function Home() {
             Plans that grow with your business
           </h2>
           <p className="mx-auto mt-2 max-w-2xl text-center text-muted-foreground">
-            One recovered customer per month typically covers the cost. A single
-            missed appointment (e.g. ₱800+) is revenue you can get back.
-            Pricing in PHP—local currency support coming for more regions.
+            If one customer comes back because of this, it already paid for
+            itself. A single missed appointment (e.g. ₱800+) is revenue you can
+            get back. Pricing in PHP—local currency support coming for more
+            regions.
           </p>
           <div className="mt-12 grid gap-6 sm:grid-cols-3">
             {PLANS.map((plan) => (
@@ -481,7 +517,8 @@ export default function Home() {
             <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
               <div className="flex flex-col items-center gap-6 text-center lg:items-start lg:text-left">
                 <h2 className="text-2xl font-semibold text-foreground sm:text-3xl max-w-xl">
-                  Start bringing customers back—without the busywork
+                  Start bringing customers back automatically—and stop losing
+                  money from forgotten follow-ups
                 </h2>
                 <p className="max-w-lg text-muted-foreground leading-relaxed">
                   Try free. Set up in minutes. No credit card required.
