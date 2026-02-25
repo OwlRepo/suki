@@ -190,14 +190,6 @@ export default function Home() {
                 <PrimaryPageAction className="w-full sm:w-auto [&>div]:justify-start">
                   <LandingCta singlePrimary />
                 </PrimaryPageAction>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="min-h-[44px] w-full sm:w-auto"
-                  asChild
-                >
-                  <Link href="/sign-in">Sign in</Link>
-                </Button>
               </div>
             </div>
             <div className="relative mt-12 lg:mt-0 flex items-center justify-center">
@@ -452,14 +444,6 @@ export default function Home() {
                   <PrimaryPageAction className="w-full sm:w-auto sm:justify-center lg:justify-start">
                     <LandingCta singlePrimary />
                   </PrimaryPageAction>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="min-h-[44px] w-full sm:w-auto"
-                    asChild
-                  >
-                    <Link href="/sign-in">Sign in</Link>
-                  </Button>
                 </div>
               </div>
               <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-6 shadow-lg">
