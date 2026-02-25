@@ -85,15 +85,22 @@ export function useAuthSync() {
       })
       .catch((e) => {
         if (!cancelled) {
-          const err = e as Error & { status?: number; message?: string };
+          const err = e as Error & { status?: number; responseBody?: { message?: string | string[] } };
+          const rawMessage = err?.responseBody?.message;
+          const messageStr =
+            Array.isArray(rawMessage)
+              ? rawMessage[0] ?? String(rawMessage)
+              : typeof rawMessage === "string"
+                ? rawMessage
+                : err?.message ?? "Sync failed";
           const isAccessDenied =
             err.status === 403 ||
-            (typeof err.message === "string" &&
-              err.message.toLowerCase().includes("invite-only"));
+            (typeof messageStr === "string" &&
+              messageStr.toLowerCase().includes("invite-only"));
           setError(
             isAccessDenied
               ? "Access is invite-only. Contact us to get started."
-              : err?.message ?? "Sync failed",
+              : messageStr,
           );
         }
       })

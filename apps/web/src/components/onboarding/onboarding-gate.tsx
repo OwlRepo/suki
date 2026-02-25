@@ -65,9 +65,9 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   if (syncLoading || !organizationId || loading) {
     if (syncError && !syncLoading) {
       return (
-        <div className="flex min-h-[240px] flex-col items-center justify-center gap-4">
-          <p className="text-base text-muted-foreground">
-            Something went wrong while loading your account.
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4">
+          <p className="text-base text-foreground">
+            {syncError || "Something went wrong while loading your account."}
           </p>
           <button
             type="button"
@@ -80,8 +80,8 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
       );
     }
     return (
-      <div className="flex min-h-[240px] items-center justify-center">
-        <p className="text-base text-muted-foreground">Preparing your setup…</p>
+      <div className="flex min-h-[60vh] min-w-full items-center justify-center px-4">
+        <p className="text-base text-foreground">Preparing your setup…</p>
       </div>
     );
   }
