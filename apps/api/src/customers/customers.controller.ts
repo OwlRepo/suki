@@ -14,10 +14,11 @@ import {
 import { CustomersService } from "./customers.service";
 import { CustomerTemplatesService } from "./customer-templates.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
+import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
 
 @Controller("customers")
-@UseGuards(ClerkAuthGuard)
+@UseGuards(ClerkAuthGuard, BillingWriteGuard)
 export class CustomersController {
   constructor(
     private readonly customersService: CustomersService,

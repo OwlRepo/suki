@@ -59,11 +59,28 @@ export const smsPausedReasonEnum = pgEnum("sms_paused_reason", [
   "provider_down",
   "manual_pause",
 ]);
+export const orgBillingStatusEnum = pgEnum("org_billing_status", [
+  "trial_active",
+  "trial_expired",
+  "active_manual",
+  "past_due_manual",
+  "cancelled_manual",
+  "suspended",
+]);
 
 // Organizations — tenant for multi-business (future)
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  trialStartsAt: timestamp("trial_starts_at"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  billingStatus: orgBillingStatusEnum("billing_status").default("trial_active"),
+  currentPlan: planTypeEnum("current_plan").default("starter"),
+  manualBillingNotes: text("manual_billing_notes"),
+  lastBillingAt: timestamp("last_billing_at"),
+  nextBillingDueAt: timestamp("next_billing_due_at"),
+  billingPausedAt: timestamp("billing_paused_at"),
+  accessEndsAt: timestamp("access_ends_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

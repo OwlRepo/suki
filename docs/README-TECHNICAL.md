@@ -2,6 +2,8 @@
 
 Setup, deployment, tech stack, and development guide for the Suki monorepo.
 
+**Product flows, auth details, and cloud decision pack:** See **[docs/APP-FLOW-AND-TECHNICAL.md](./APP-FLOW-AND-TECHNICAL.md)** for user journeys, Clerk login flow, feature capabilities, cloud/VPS architecture options, risk matrix, and go/no-go checklist.
+
 ---
 
 ## Tech Stack
@@ -327,13 +329,13 @@ GET /health/feature-flags
 
 ## Automation Without OpenAI
 
-Core CRM and workflows run without `OPENAI_API_KEY` or when AI allowance is exhausted:
+Core customer list and workflows run without `OPENAI_API_KEY` or when AI allowance is exhausted:
 
 - QR self-intake, visit stamping
 - Loyalty qualification
 - Duplicate-aware imports
 - Appointment status and reminders
-- Pipeline stage movement
+- Deal pipeline (if enabled)
 
 AI features are disabled when the key is unset or allowance runs out; the rest of the app continues to work.
 

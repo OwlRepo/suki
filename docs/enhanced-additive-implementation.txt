@@ -13,7 +13,7 @@ CORE PURPOSE (DO NOT DRIFT FROM THIS)
 ────────────────────────────────────────
 Suki’s true purpose is:
 
-“Reduce CRM chaos for service businesses by removing manual work and mistakes, so owners can run their business calmly.”
+“Reduce operational chaos for service businesses by removing manual work and mistakes, so owners can run their business calmly.”
 
 Everything you plan or implement MUST:
 - Reduce manual effort
@@ -35,7 +35,7 @@ If a feature:
 ────────────────────────────────────────
 EXISTING APP CONTEXT (DO NOT BREAK)
 ────────────────────────────────────────
-Suki is already a working CRM with:
+Suki is already a working customer engagement app with:
 
 ALREADY IMPLEMENTED:
 - Customers (manual add, QR self-intake, imports)
@@ -44,7 +44,7 @@ ALREADY IMPLEMENTED:
 - Loyalty qualification by visit thresholds
 - Promos (template-based, optional AI drafting)
 - Insights (new vs repeat customers)
-- CRM Lite vs Full modes
+- Standard and pipeline modes (optional)
 - “Reminder sent” tracking (manual)
 - AI features optional (OpenAI key may be absent)
 

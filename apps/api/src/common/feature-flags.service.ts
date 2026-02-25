@@ -11,8 +11,10 @@ export class FeatureFlagsService {
     const val = process.env[key];
     if (val === "false" || val === "0") return false;
     if (val === "true" || val === "1") return true;
+    // Flags with explicit defaults use them when unset
+    const explicitDefault = FLAG_DEFAULTS[flag];
+    if (explicitDefault !== undefined) return explicitDefault;
     // Default to enabled outside production to avoid hiding features
-    // when NODE_ENV is unset in local/dev environments.
     return process.env.NODE_ENV !== "production";
   }
 
@@ -51,7 +53,30 @@ export class FeatureFlagsService {
   securityAuditEnabled(): boolean {
     return this.isEnabled("security_audit_enabled");
   }
+
+  founderLedModeEnabled(): boolean {
+    return this.isEnabled("founder_led_mode_enabled");
+  }
+
+  publicSignupEnabled(): boolean {
+    return this.isEnabled("public_signup_enabled");
+  }
+
+  selfServeBillingEnabled(): boolean {
+    return this.isEnabled("self_serve_billing_enabled");
+  }
+
+  manualBillingControlsEnabled(): boolean {
+    return this.isEnabled("manual_billing_controls_enabled");
+  }
 }
+
+const FLAG_DEFAULTS: Partial<Record<FeatureFlag, boolean>> = {
+  founder_led_mode_enabled: true,
+  public_signup_enabled: false,
+  self_serve_billing_enabled: false,
+  manual_billing_controls_enabled: true,
+};
 
 export type FeatureFlag =
   | "workspace_global_enabled"
@@ -62,4 +87,8 @@ export type FeatureFlag =
   | "auto_followups_scheduler_enabled"
   | "billing_grace_enforced"
   | "sms_metering_enforced"
-  | "security_audit_enabled";
+  | "security_audit_enabled"
+  | "founder_led_mode_enabled"
+  | "public_signup_enabled"
+  | "self_serve_billing_enabled"
+  | "manual_billing_controls_enabled";

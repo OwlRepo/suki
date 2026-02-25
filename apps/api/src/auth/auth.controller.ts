@@ -1,5 +1,11 @@
-import { Controller, Post, Headers, UnauthorizedException } from "@nestjs/common";
-import { AuthService } from "./auth.service";
+import {
+  Controller,
+  Post,
+  Headers,
+  UnauthorizedException,
+  ForbiddenException,
+} from "@nestjs/common";
+import { AuthService, ACCESS_NOT_APPROVED } from "./auth.service";
 
 @Controller("auth")
 export class AuthController {
@@ -15,11 +21,20 @@ export class AuthController {
     if (!payload) {
       throw new UnauthorizedException("Invalid token");
     }
-    const result = await this.authService.syncUser(payload.clerkId, payload.email);
-    return {
-      user: result.user,
-      organization: result.organization,
-      isNew: result.isNew,
-    };
+    try {
+      const result = await this.authService.syncUser(payload.clerkId, payload.email);
+      return {
+        user: result.user,
+        organization: result.organization,
+        isNew: result.isNew,
+      };
+    } catch (err) {
+      if (err instanceof Error && err.message === ACCESS_NOT_APPROVED) {
+        throw new ForbiddenException(
+          "Access is invite-only. Contact us to get started.",
+        );
+      }
+      throw err;
+    }
   }
 }

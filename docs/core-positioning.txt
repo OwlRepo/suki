@@ -14,8 +14,8 @@ You must output fully rewritten, production-ready content.
 CORE POSITIONING (NON-NEGOTIABLE)
 =====================================================
 
-- Suki must NOT be positioned primarily as a “CRM”
-- The word “CRM” must NOT appear in the hero section or opening lines
+- Suki must NOT be positioned as a “CRM”
+- The word “CRM” must NOT appear anywhere in user-facing copy
 - The product is positioned as:
   - automatic follow-ups
   - appointment reminders
@@ -23,7 +23,7 @@ CORE POSITIONING (NON-NEGOTIABLE)
   - memory replacement for business owners
   - revenue recovery from forgotten customers
 
-- Owners do NOT buy CRMs
+- Owners do NOT buy CRM software
 - Owners DO buy:
   - fewer no-shows
   - customers coming back
@@ -68,8 +68,7 @@ Produce a COMPLETE README that:
    - sends reminders and follow-ups at the right time
    - brings back inactive customers
 
-4. Mentions “CRM” only AFTER value is established, and only as:
-   “Under the hood, Suki includes a simple CRM…”
+4. Do NOT use the word “CRM”. Use “customer list” and “customer engagement” instead.
 
 5. Includes clear sections:
    - What problems disappear after using Suki
@@ -94,7 +93,7 @@ The output must include the following sections IN THIS ORDER:
    - Headline focused on outcomes (no-shows, customers returning)
    - Subheadline explaining what Suki does in one sentence
    - Primary CTA that feels low-risk and non-enterprise
-   - No mention of CRM above the fold
+   - No CRM or enterprise jargon
 
 2. PROBLEM SECTION
    - Speak directly to owner pain
@@ -141,7 +140,7 @@ WHAT TO REMOVE OR DE-EMPHASIZE
 Do NOT include or highlight:
 - On-prem deployment
 - Salesforce, HubSpot, Dynamics, Zoho migration
-- CRM Lite vs Full
+- Pipeline or "mode" terminology
 - AI credit systems or allowances
 - Enterprise comparisons
 - Dashboard-centric language

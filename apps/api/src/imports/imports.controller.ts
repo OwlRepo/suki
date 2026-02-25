@@ -12,13 +12,14 @@ import { ImportsService } from "./imports.service";
 import { MigrationService } from "./migration.service";
 import { MappingService } from "./mapping.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
+import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
 import { fetchHubSpotContacts } from "./providers/hubspot.provider";
 import { fetchPipedrivePersons } from "./providers/pipedrive.provider";
 import type { MigrationEntity } from "./migration-types";
 
 @Controller("imports")
-@UseGuards(ClerkAuthGuard)
+@UseGuards(ClerkAuthGuard, BillingWriteGuard)
 export class ImportsController {
   constructor(
     private readonly importsService: ImportsService,

@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Body, UseGuards } from "@nestjs/common";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { Tenant } from "../common/tenant.decorator";
+import { isFounder } from "../common/founder-allowlist";
 import { WorkspaceService } from "./workspace.service";
 
 @Controller("users")
@@ -12,8 +13,11 @@ export class UsersController {
   async getWorkspace(
     @Tenant("userId") userId: string,
     @Tenant("organizationId") organizationId: string,
+    @Tenant() tenant: { clerkId?: string; email?: string },
   ) {
-    return this.workspaceService.getWorkspace(userId!, organizationId);
+    const workspace = await this.workspaceService.getWorkspace(userId!, organizationId);
+    const isFounderUser = isFounder(tenant?.clerkId, tenant?.email);
+    return { ...workspace, isFounder: isFounderUser };
   }
 
   @Patch("me/workspace")

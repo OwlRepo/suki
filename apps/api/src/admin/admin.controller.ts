@@ -1,13 +1,45 @@
-import { Controller, Get, Query, UseGuards, UnauthorizedException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+  UnauthorizedException,
+  ForbiddenException,
+  BadRequestException,
+} from "@nestjs/common";
 import { sql, inArray, eq, desc, and, gte, gt, lte } from "drizzle-orm";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { Tenant } from "../common/tenant.decorator";
+import { FounderGuard } from "../common/founder.guard";
+import { FeatureFlagsService } from "../common/feature-flags.service";
+import { OrgBillingStateService } from "../common/org-billing-state.service";
+import { OrganizationsService } from "../organizations/organizations.service";
 import { getDb } from "@suki/database";
 import { customers, businesses, appointments, promos } from "@suki/database";
+import type { OrgBillingStatus, PlanType } from "@suki/types";
+
+const VALID_BILLING_STATUSES: OrgBillingStatus[] = [
+  "trial_active",
+  "trial_expired",
+  "active_manual",
+  "past_due_manual",
+  "cancelled_manual",
+  "suspended",
+];
+const VALID_PLANS: PlanType[] = ["starter", "growth", "ai_pro"];
 
 @Controller("admin")
 @UseGuards(ClerkAuthGuard)
 export class AdminController {
+  constructor(
+    private readonly featureFlags: FeatureFlagsService,
+    private readonly orgBillingState: OrgBillingStateService,
+    private readonly organizationsService: OrganizationsService,
+  ) {}
+
   @Get("summary")
   async getSummary(@Tenant("organizationId") orgId?: string) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
@@ -225,5 +257,125 @@ export class AdminController {
       result.upcomingAppointments = upcomingAppointments;
     }
     return result;
+  }
+
+  @Get("org-billing")
+  @UseGuards(FounderGuard)
+  async getOrgBilling(@Query("organizationId") organizationId?: string) {
+    if (!organizationId) {
+      throw new BadRequestException("organizationId is required");
+    }
+    const state = await this.orgBillingState.getOrgBillingState(organizationId);
+    if (!state) {
+      throw new BadRequestException("Organization not found");
+    }
+    const org = await this.organizationsService.findById(organizationId);
+    return {
+      ...state,
+      trialStartsAt: org?.trialStartsAt?.toISOString() ?? null,
+      trialEndsAt: org?.trialEndsAt?.toISOString() ?? null,
+      nextBillingDueAt: org?.nextBillingDueAt?.toISOString() ?? null,
+      accessEndsAt: org?.accessEndsAt?.toISOString() ?? null,
+    };
+  }
+
+  @Patch("org-billing")
+  @UseGuards(FounderGuard)
+  async patchOrgBilling(
+    @Body()
+    body: {
+      organizationId: string;
+      billingStatus?: OrgBillingStatus;
+      currentPlan?: PlanType;
+      trialStartsAt?: string | null;
+      trialEndsAt?: string | null;
+      nextBillingDueAt?: string | null;
+      manualBillingNotes?: string | null;
+      accessEndsAt?: string | null;
+    },
+  ) {
+    if (!this.featureFlags.manualBillingControlsEnabled()) {
+      throw new ForbiddenException("Manual billing controls not enabled");
+    }
+    const { organizationId, ...rest } = body;
+    if (!organizationId) {
+      throw new BadRequestException("organizationId is required");
+    }
+    if (rest.billingStatus && !VALID_BILLING_STATUSES.includes(rest.billingStatus)) {
+      throw new BadRequestException("Invalid billingStatus");
+    }
+    if (rest.currentPlan && !VALID_PLANS.includes(rest.currentPlan)) {
+      throw new BadRequestException("Invalid currentPlan");
+    }
+    const updates: Parameters<OrganizationsService["updateBilling"]>[1] = {};
+    if (rest.billingStatus !== undefined) updates.billingStatus = rest.billingStatus;
+    if (rest.currentPlan !== undefined) updates.currentPlan = rest.currentPlan;
+    if (rest.trialStartsAt !== undefined) {
+      updates.trialStartsAt = rest.trialStartsAt ? new Date(rest.trialStartsAt) : null;
+    }
+    if (rest.trialEndsAt !== undefined) {
+      updates.trialEndsAt = rest.trialEndsAt ? new Date(rest.trialEndsAt) : null;
+    }
+    if (rest.nextBillingDueAt !== undefined) {
+      updates.nextBillingDueAt = rest.nextBillingDueAt
+        ? new Date(rest.nextBillingDueAt)
+        : null;
+    }
+    if (rest.manualBillingNotes !== undefined) updates.manualBillingNotes = rest.manualBillingNotes;
+    if (rest.accessEndsAt !== undefined) {
+      updates.accessEndsAt = rest.accessEndsAt ? new Date(rest.accessEndsAt) : null;
+    }
+    const updated = await this.organizationsService.updateBilling(organizationId, updates);
+    const state = await this.orgBillingState.getOrgBillingState(organizationId);
+    return {
+      organization: updated,
+      state: state
+        ? {
+            ...state,
+            trialStartsAt: state.trialStartsAt?.toISOString() ?? null,
+            trialEndsAt: state.trialEndsAt?.toISOString() ?? null,
+            nextBillingDueAt: state.nextBillingDueAt?.toISOString() ?? null,
+          }
+        : null,
+    };
+  }
+
+  @Post("org-billing/extend-trial")
+  @UseGuards(FounderGuard)
+  async extendTrial(
+    @Body() body: { organizationId?: string; days?: number },
+  ) {
+    if (!this.featureFlags.manualBillingControlsEnabled()) {
+      throw new ForbiddenException("Manual billing controls not enabled");
+    }
+    const organizationId = body.organizationId;
+    const days = typeof body.days === "number" ? body.days : parseInt(String(body.days), 10);
+    if (!organizationId || !Number.isFinite(days) || days < 1 || days > 365) {
+      throw new BadRequestException("organizationId and days (1-365) are required");
+    }
+    const state = await this.orgBillingState.getOrgBillingState(organizationId);
+    if (!state) {
+      throw new BadRequestException("Organization not found");
+    }
+    const org = await this.organizationsService.findById(organizationId);
+    if (!org) throw new BadRequestException("Organization not found");
+
+    const now = new Date();
+    const trialEndsAt = org.trialEndsAt && org.trialEndsAt > now
+      ? new Date(org.trialEndsAt.getTime() + days * 24 * 60 * 60 * 1000)
+      : new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const trialStartsAt = org.trialStartsAt ?? now;
+
+    await this.organizationsService.updateBilling(organizationId, {
+      trialStartsAt,
+      trialEndsAt,
+      billingStatus: "trial_active",
+    });
+    const newState = await this.orgBillingState.getOrgBillingState(organizationId);
+    return {
+      trialStartsAt: newState?.trialStartsAt?.toISOString() ?? null,
+      trialEndsAt: newState?.trialEndsAt?.toISOString() ?? null,
+      daysRemaining: newState?.daysRemaining ?? null,
+    };
   }
 }

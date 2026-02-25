@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 import { hasClerk } from "@/lib/clerk";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
+
+const REQUEST_ACCESS_URL =
+  process.env.NEXT_PUBLIC_REQUEST_ACCESS_URL ||
+  "mailto:hello@suki.app?subject=Request%20access%20to%20Suki";
 
 interface LandingCtaProps {
   /** When true, show only the primary CTA (for hero with one dominant action) */
@@ -12,6 +17,7 @@ interface LandingCtaProps {
 }
 
 export function LandingCta({ singlePrimary }: LandingCtaProps) {
+  const flags = useFeatureFlags();
   if (!hasClerk) {
     return (
       <Button asChild size="lg" className="w-full sm:w-auto">
@@ -24,19 +30,36 @@ export function LandingCta({ singlePrimary }: LandingCtaProps) {
   return (
     <>
       <SignedOut>
-        {singlePrimary ? (
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="/sign-up">Try Suki Free</Link>
-          </Button>
-        ) : (
-          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+        {flags.public_signup_enabled ? (
+          singlePrimary ? (
             <Button asChild size="lg" className="w-full sm:w-auto">
               <Link href="/sign-up">Try Suki Free</Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-              <Link href="/sign-in">Sign in</Link>
+          ) : (
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+              <Button asChild size="lg" className="w-full sm:w-auto">
+                <Link href="/sign-up">Try Suki Free</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                <Link href="/sign-in">Sign in</Link>
+              </Button>
+            </div>
+          )
+        ) : (
+          singlePrimary ? (
+            <Button asChild size="lg" className="w-full sm:w-auto">
+              <a href={REQUEST_ACCESS_URL}>Request access</a>
             </Button>
-          </div>
+          ) : (
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+              <Button asChild size="lg" className="w-full sm:w-auto">
+                <a href={REQUEST_ACCESS_URL}>Request access</a>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                <Link href="/sign-in">Sign in</Link>
+              </Button>
+            </div>
+          )
         )}
       </SignedOut>
       <SignedIn>

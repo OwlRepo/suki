@@ -14,7 +14,7 @@ Customers forget appointments. Staff forgets to follow up. Owners lose customers
 
 Suki captures customers once, tracks visits automatically, and sends reminders and follow-ups at the right time—without you having to remember. It brings back inactive customers before they drift away for good.
 
-Under the hood, Suki includes a simple CRM to keep your customer list organized. But what you notice first is the relief: fewer empty slots, more repeat visits, less manual texting, less mental load.
+Suki keeps your customer list organized. What you notice first is the relief: fewer empty slots, more repeat visits, less manual texting, less mental load.
 
 ---
 
@@ -75,4 +75,7 @@ One recovered customer per month typically covers the cost. A single missed appo
 
 **Docker:** `bun run docker:dev:up` — runs Postgres + API + Web with hot-reload. Requires [Docker](https://docs.docker.com/get-docker/).
 
-For technical documentation (setup, deployment, tech stack), see **[docs/README-TECHNICAL.md](./docs/README-TECHNICAL.md)**.
+For technical documentation and cloud readiness:
+
+- **Setup & deployment:** [docs/README-TECHNICAL.md](./docs/README-TECHNICAL.md)
+- **App flows, Clerk auth, and cloud decision pack:** [docs/APP-FLOW-AND-TECHNICAL.md](./docs/APP-FLOW-AND-TECHNICAL.md)

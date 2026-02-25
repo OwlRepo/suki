@@ -1,11 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { AuthService } from "./auth.service";
+import { FeatureFlagsService } from "../common/feature-flags.service";
 import { getDb } from "@suki/database";
 import { users, organizations } from "@suki/database";
 import { eq } from "drizzle-orm";
 
+const featureFlagsMock = {
+  founderLedModeEnabled: () => false,
+  publicSignupEnabled: () => true,
+} as unknown as FeatureFlagsService;
+
 describe("AuthService", () => {
-  const service = new AuthService();
+  const service = new AuthService(featureFlagsMock);
 
   describe("syncUser", () => {
     it("concurrent syncUser calls for same clerkId return one user and no 500", async () => {

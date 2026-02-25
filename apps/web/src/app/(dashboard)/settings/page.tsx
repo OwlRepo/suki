@@ -94,6 +94,8 @@ const SETTINGS_SEARCH_INDEX: Record<
     "grow",
     "pro",
     "payment",
+    "manual",
+    "founder",
   ],
   "ai-usage": ["ai", "usage", "tokens", "quota", "limit", "soft cap"],
   "dev-tools": ["dev", "developer", "simulation", "mock", "api"],
@@ -117,6 +119,15 @@ interface BillingStatus {
   status: string;
   planType: string;
   readOnly?: boolean;
+  billingStatus?: string;
+  currentPlan?: string;
+  trialStartsAt?: string | null;
+  trialEndsAt?: string | null;
+  daysRemaining?: number | null;
+  isReadOnly?: boolean;
+  nextBillingDueAt?: string | null;
+  manualBillingNotes?: string | null;
+  accessEndsAt?: string | null;
   subscription: {
     planType?: string;
     status?: string;
@@ -272,6 +283,211 @@ function UpgradeButton({
   );
 }
 
+const BILLING_STATUS_OPTIONS = [
+  "trial_active",
+  "trial_expired",
+  "active_manual",
+  "past_due_manual",
+  "cancelled_manual",
+  "suspended",
+] as const;
+
+function FounderBillingControls({
+  organizationId,
+  billing,
+  getToken,
+  onSuccess,
+  onError,
+  saving,
+  setSaving,
+  extendLoading,
+  setExtendLoading,
+  extendDays,
+  setExtendDays,
+}: {
+  organizationId: string;
+  billing: BillingStatus | null;
+  getToken: () => Promise<string | null>;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+  saving: boolean;
+  setSaving: (v: boolean) => void;
+  extendLoading: boolean;
+  setExtendLoading: (v: boolean) => void;
+  extendDays: number;
+  setExtendDays: (v: number) => void;
+}) {
+  const [billingStatus, setBillingStatus] = useState(
+    billing?.billingStatus ?? billing?.status ?? "trial_active",
+  );
+  const [currentPlan, setCurrentPlan] = useState(
+    (billing?.planType ?? billing?.currentPlan ?? "starter") as PlanType,
+  );
+  const [trialEndsAt, setTrialEndsAt] = useState(() => {
+    const d = billing?.trialEndsAt;
+    return d ? new Date(d).toISOString().slice(0, 10) : "";
+  });
+  const [nextBillingDueAt, setNextBillingDueAt] = useState(() => {
+    const d = billing?.nextBillingDueAt;
+    return d ? new Date(d).toISOString().slice(0, 10) : "";
+  });
+  const [manualBillingNotes, setManualBillingNotes] = useState(
+    billing?.manualBillingNotes ?? "",
+  );
+  const [accessEndsAt, setAccessEndsAt] = useState(() => {
+    const d = billing?.accessEndsAt;
+    return d ? new Date(d).toISOString().slice(0, 10) : "";
+  });
+
+  useEffect(() => {
+    if (billing) {
+      setBillingStatus(billing.billingStatus ?? billing.status ?? "trial_active");
+      setCurrentPlan((billing.planType ?? billing.currentPlan ?? "starter") as PlanType);
+      setTrialEndsAt(billing.trialEndsAt ? new Date(billing.trialEndsAt).toISOString().slice(0, 10) : "");
+      setNextBillingDueAt(billing.nextBillingDueAt ? new Date(billing.nextBillingDueAt).toISOString().slice(0, 10) : "");
+      setManualBillingNotes(billing.manualBillingNotes ?? "");
+      setAccessEndsAt(billing.accessEndsAt ? new Date(billing.accessEndsAt).toISOString().slice(0, 10) : "");
+    }
+  }, [billing]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await apiRequest("/admin/org-billing", {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({
+          organizationId,
+          billingStatus,
+          currentPlan,
+          trialEndsAt: trialEndsAt || null,
+          nextBillingDueAt: nextBillingDueAt || null,
+          manualBillingNotes: manualBillingNotes.trim() || null,
+          accessEndsAt: accessEndsAt || null,
+        }),
+      });
+      onSuccess();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to update billing");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExtendTrial = async () => {
+    setExtendLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await apiRequest("/admin/org-billing/extend-trial", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ organizationId, days: extendDays }),
+      });
+      onSuccess();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to extend trial");
+    } finally {
+      setExtendLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-lg">
+      <div className="space-y-2">
+        <Label>Extend trial</Label>
+        <div className="flex gap-2 flex-wrap">
+          <Input
+            type="number"
+            min={1}
+            max={365}
+            value={extendDays}
+            onChange={(e) => setExtendDays(Math.max(1, Math.min(365, parseInt(e.target.value, 10) || 1)))}
+            className="w-20"
+          />
+          <Button
+            onClick={handleExtendTrial}
+            disabled={extendLoading}
+          >
+            {extendLoading ? "Extending…" : "Extend by N days"}
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="founder-billing-status">Billing status</Label>
+        <Select value={billingStatus} onValueChange={(v) => setBillingStatus(v)}>
+          <SelectTrigger id="founder-billing-status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {BILLING_STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="founder-current-plan">Current plan</Label>
+        <Select value={currentPlan} onValueChange={(v) => setCurrentPlan(v as PlanType)}>
+          <SelectTrigger id="founder-current-plan">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(["starter", "growth", "ai_pro"] as const).map((p) => (
+              <SelectItem key={p} value={p}>
+                {PLAN_LABELS[p] ?? p}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="founder-trial-ends">Trial ends</Label>
+        <Input
+          id="founder-trial-ends"
+          type="date"
+          value={trialEndsAt}
+          onChange={(e) => setTrialEndsAt(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="founder-next-due">Next billing due</Label>
+        <Input
+          id="founder-next-due"
+          type="date"
+          value={nextBillingDueAt}
+          onChange={(e) => setNextBillingDueAt(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="founder-access-ends">Access ends</Label>
+        <Input
+          id="founder-access-ends"
+          type="date"
+          value={accessEndsAt}
+          onChange={(e) => setAccessEndsAt(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="founder-notes">Manual billing notes</Label>
+        <Input
+          id="founder-notes"
+          value={manualBillingNotes}
+          onChange={(e) => setManualBillingNotes(e.target.value)}
+          placeholder="Internal notes"
+        />
+      </div>
+      <Button onClick={handleSave} disabled={saving}>
+        {saving ? "Saving…" : "Save changes"}
+      </Button>
+    </div>
+  );
+}
+
 function SettingsPageContent() {
   const { getToken } = useAuth();
   const searchParams = useSearchParams();
@@ -337,6 +553,9 @@ function SettingsPageContent() {
     Record<string, string>
   >({});
   const [addonLoading, setAddonLoading] = useState(false);
+  const [founderBillingSaving, setFounderBillingSaving] = useState(false);
+  const [founderExtendLoading, setFounderExtendLoading] = useState(false);
+  const [founderExtendDays, setFounderExtendDays] = useState(30);
   const [settingsSearch, setSettingsSearch] = useState("");
   interface CustomerTemplate {
     id: string;
@@ -1506,50 +1725,52 @@ function SettingsPageContent() {
                     )}
                   </div>
                 )}
-                <div>
-                  <p className="text-base font-medium text-foreground">
-                    Buy +300 SMS for ₱300
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    One-time purchase. No auto-charge.
-                  </p>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    disabled={addonLoading || billing?.readOnly}
-                    className="mt-3 min-h-[48px]"
-                    onClick={async () => {
-                      setAddonLoading(true);
-                      try {
-                        const token = await getToken();
-                        if (!token) return;
-                        const res = await apiRequest<{ checkoutUrl: string }>(
-                          "/billing/sms-addon/purchase",
-                          {
-                            method: "POST",
-                            token,
-                            body: JSON.stringify({ confirm: true }),
-                          },
-                        );
-                        if (res?.checkoutUrl)
-                          window.location.href = res.checkoutUrl;
-                      } catch (err) {
-                        setFeedback({
-                          type: "error",
-                          message: fromError(
-                            err,
-                            "Add-on purchase unavailable.",
-                          ),
-                        });
-                        setTimeout(() => setFeedback(null), 6000);
-                      } finally {
-                        setAddonLoading(false);
-                      }
-                    }}
-                  >
-                    {addonLoading ? "Redirecting…" : "Buy +300 SMS pack"}
-                  </Button>
-                </div>
+                {flags.self_serve_billing_enabled && (
+                  <div>
+                    <p className="text-base font-medium text-foreground">
+                      Buy +300 SMS for ₱300
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      One-time purchase. No auto-charge.
+                    </p>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      disabled={addonLoading || billing?.readOnly}
+                      className="mt-3 min-h-[48px]"
+                      onClick={async () => {
+                        setAddonLoading(true);
+                        try {
+                          const token = await getToken();
+                          if (!token) return;
+                          const res = await apiRequest<{ checkoutUrl: string }>(
+                            "/billing/sms-addon/purchase",
+                            {
+                              method: "POST",
+                              token,
+                              body: JSON.stringify({ confirm: true }),
+                            },
+                          );
+                          if (res?.checkoutUrl)
+                            window.location.href = res.checkoutUrl;
+                        } catch (err) {
+                          setFeedback({
+                            type: "error",
+                            message: fromError(
+                              err,
+                              "Add-on purchase unavailable.",
+                            ),
+                          });
+                          setTimeout(() => setFeedback(null), 6000);
+                        } finally {
+                          setAddonLoading(false);
+                        }
+                      }}
+                    >
+                      {addonLoading ? "Redirecting…" : "Buy +300 SMS pack"}
+                    </Button>
+                  </div>
+                )}
               </div>
             </SettingsSectionCard>
           )}
@@ -1557,7 +1778,11 @@ function SettingsPageContent() {
           <SettingsSectionCard
             id="billing"
             title="Billing"
-            description="Upgrade or switch plans. You can change or cancel anytime. No lock-in."
+            description={
+              flags.self_serve_billing_enabled
+                ? "Upgrade or switch plans. You can change or cancel anytime. No lock-in."
+                : "Your plan and billing status. Contact us to change or continue access."
+            }
             visible={visibleSections.has("billing")}
           >
             <div className="space-y-4 max-w-md">
@@ -1571,37 +1796,84 @@ function SettingsPageContent() {
                 )}
               </p>
               <p className="text-sm text-muted-foreground">
-                Status: {billing?.status ?? "none"}
+                Status:{" "}
+                {billing?.billingStatus ?? billing?.status ?? "none"}
               </p>
-              {billing?.subscription?.currentPeriodEnd && (
+              {billing?.daysRemaining != null && billing.daysRemaining >= 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Current period ends:{" "}
-                  {new Date(
-                    billing.subscription.currentPeriodEnd,
-                  ).toLocaleDateString()}
+                  Trial: {billing.daysRemaining} days remaining
                 </p>
               )}
-              <div className="flex flex-wrap gap-3">
-                {(["starter", "growth", "ai_pro"] as const).map((plan) => (
-                  <UpgradeButton
-                    key={plan}
-                    planType={plan}
-                    currentPlan={effectivePlan}
-                    getToken={getToken}
-                    onSuccess={() => {
-                      refetchBilling();
-                      refetchSmsUsage();
-                    }}
-                    onError={(msg) => {
-                      setFeedback({ type: "error", message: msg });
-                      setTimeout(() => setFeedback(null), 6000);
-                    }}
-                    readOnly={billing?.readOnly}
-                  />
-                ))}
-              </div>
+              {(billing?.nextBillingDueAt || billing?.subscription?.currentPeriodEnd) && (
+                <p className="text-sm text-muted-foreground">
+                  {billing?.nextBillingDueAt
+                    ? `Next due: ${new Date(billing.nextBillingDueAt).toLocaleDateString()}`
+                    : `Current period ends: ${new Date(billing!.subscription!.currentPeriodEnd!).toLocaleDateString()}`}
+                </p>
+              )}
+              {billing?.manualBillingNotes && (
+                <p className="text-sm text-muted-foreground rounded border border-border bg-muted/30 p-3">
+                  {billing.manualBillingNotes}
+                </p>
+              )}
+              {flags.self_serve_billing_enabled ? (
+                <div className="flex flex-wrap gap-3">
+                  {(["starter", "growth", "ai_pro"] as const).map((plan) => (
+                    <UpgradeButton
+                      key={plan}
+                      planType={plan}
+                      currentPlan={effectivePlan}
+                      getToken={getToken}
+                      onSuccess={() => {
+                        refetchBilling();
+                        refetchSmsUsage();
+                      }}
+                      onError={(msg) => {
+                        setFeedback({ type: "error", message: msg });
+                        setTimeout(() => setFeedback(null), 6000);
+                      }}
+                      readOnly={billing?.readOnly ?? billing?.isReadOnly}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Contact us to change your plan or continue access.
+                </p>
+              )}
             </div>
           </SettingsSectionCard>
+
+          {flags.manual_billing_controls_enabled && workspace?.isFounder && syncData?.organization?.id && (
+            <SettingsSectionCard
+              id="founder-billing"
+              title="Founder Billing Controls"
+              description="Manage trial, billing status, and plan for organizations. Founder-only."
+              collapsedByDefault
+              visible={visibleSections.has("billing")}
+            >
+              <FounderBillingControls
+                organizationId={syncData.organization.id}
+                billing={billing}
+                getToken={getToken}
+                onSuccess={() => {
+                  refetchBilling();
+                  setFeedback({ type: "success", message: "Billing updated." });
+                  setTimeout(() => setFeedback(null), 4000);
+                }}
+                onError={(msg) => {
+                  setFeedback({ type: "error", message: msg });
+                  setTimeout(() => setFeedback(null), 6000);
+                }}
+                saving={founderBillingSaving}
+                setSaving={setFounderBillingSaving}
+                extendLoading={founderExtendLoading}
+                setExtendLoading={setFounderExtendLoading}
+                extendDays={founderExtendDays}
+                setExtendDays={setFounderExtendDays}
+              />
+            </SettingsSectionCard>
+          )}
 
           {aiUsage && (
             <SettingsSectionCard

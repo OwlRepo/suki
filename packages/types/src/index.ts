@@ -18,6 +18,13 @@ export type SmsPausedReason =
   | "billing_past_due"
   | "provider_down"
   | "manual_pause";
+export type OrgBillingStatus =
+  | "trial_active"
+  | "trial_expired"
+  | "active_manual"
+  | "past_due_manual"
+  | "cancelled_manual"
+  | "suspended";
 export type AutomationKey =
   | "appointment_confirmation"
   | "appointment_reminder_24h"
@@ -57,6 +64,15 @@ export interface Plan {
 export interface Organization {
   id: string;
   name: string;
+  trialStartsAt?: Date | null;
+  trialEndsAt?: Date | null;
+  billingStatus?: OrgBillingStatus | null;
+  currentPlan?: PlanType | null;
+  manualBillingNotes?: string | null;
+  lastBillingAt?: Date | null;
+  nextBillingDueAt?: Date | null;
+  billingPausedAt?: Date | null;
+  accessEndsAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

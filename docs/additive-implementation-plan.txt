@@ -19,7 +19,7 @@ If an idea requires rewriting core flows, it is OUT OF SCOPE.
 ────────────────────────────────────────
 EXISTING PRODUCT CONTEXT (DO NOT BREAK)
 ────────────────────────────────────────
-Suki is a CRM for service businesses with:
+Suki is a customer engagement app for service businesses with:
 
 ALREADY IMPLEMENTED:
 - Customers (manual add, QR self-intake, imports)
@@ -28,7 +28,7 @@ ALREADY IMPLEMENTED:
 - Loyalty qualification by visit threshold
 - Promos (template-based, optional AI drafting)
 - Insights (new vs repeat customers)
-- CRM Lite vs Full modes
+- Standard and pipeline modes (optional)
 - AI features optional (OpenAI key may be absent)
 - “Reminder sent” tracking exists (but no auto-send yet)
 
@@ -39,7 +39,7 @@ GOAL OF THIS CHANGESET
 ────────────────────────────────────────
 Incrementally evolve Suki into:
 
-“The CRM that quietly makes more appointments happen.”
+“The app that quietly makes more appointments happen.”
 
 This is achieved by:
 - turning existing tracking into **automatic action**

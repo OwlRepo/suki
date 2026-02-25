@@ -4,6 +4,8 @@ export interface TenantContext {
   organizationId: string;
   userId?: string;
   role?: "owner" | "staff";
+  clerkId?: string;
+  email?: string;
 }
 
 /**

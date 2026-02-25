@@ -9,11 +9,12 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
+import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
 import { AutomationSettingsService } from "./automation-settings.service";
 
 @Controller("automation")
-@UseGuards(ClerkAuthGuard)
+@UseGuards(ClerkAuthGuard, BillingWriteGuard)
 export class AutomationController {
   constructor(private readonly settings: AutomationSettingsService) {}
 

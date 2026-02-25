@@ -2,10 +2,11 @@ import { Controller, Get, Patch, Body, Query, UseGuards } from "@nestjs/common";
 import { OrganizationsService } from "./organizations.service";
 import { RecommendationService } from "../common/recommendation.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
+import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
 
 @Controller("organizations")
-@UseGuards(ClerkAuthGuard)
+@UseGuards(ClerkAuthGuard, BillingWriteGuard)
 export class OrganizationsController {
   constructor(
     private readonly organizationsService: OrganizationsService,

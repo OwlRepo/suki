@@ -12,10 +12,11 @@ import {
 } from "@nestjs/common";
 import { PromosService } from "./promos.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
+import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
 
 @Controller("promos")
-@UseGuards(ClerkAuthGuard)
+@UseGuards(ClerkAuthGuard, BillingWriteGuard)
 export class PromosController {
   constructor(private readonly promosService: PromosService) {}
 

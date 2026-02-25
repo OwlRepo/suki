@@ -84,8 +84,18 @@ export function useAuthSync() {
         if (!cancelled) setData(result);
       })
       .catch((e) => {
-        if (!cancelled)
-          setError(e instanceof Error ? e.message : "Sync failed");
+        if (!cancelled) {
+          const err = e as Error & { status?: number; message?: string };
+          const isAccessDenied =
+            err.status === 403 ||
+            (typeof err.message === "string" &&
+              err.message.toLowerCase().includes("invite-only"));
+          setError(
+            isAccessDenied
+              ? "Access is invite-only. Contact us to get started."
+              : err?.message ?? "Sync failed",
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

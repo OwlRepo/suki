@@ -3,6 +3,8 @@ import { getDb } from "@suki/database";
 import { subscriptions } from "@suki/database";
 import { eq, sql } from "drizzle-orm";
 import type { PlanType } from "@suki/types";
+import { FeatureFlagsService } from "./feature-flags.service";
+import { OrgBillingStateService } from "./org-billing-state.service";
 
 export const MODULES_BY_PLAN: Record<PlanType, string[]> = {
   starter: ["crm", "insights", "loyalty"],
@@ -37,7 +39,16 @@ export const BUSINESS_LIMITS_BY_PLAN: Record<PlanType, number> = {
 
 @Injectable()
 export class PlanCapacityService {
+  constructor(
+    private readonly featureFlags: FeatureFlagsService,
+    private readonly orgBillingState: OrgBillingStateService,
+  ) {}
+
   async getActivePlan(organizationId: string): Promise<PlanType> {
+    if (this.featureFlags.founderLedModeEnabled()) {
+      const state = await this.orgBillingState.getOrgBillingState(organizationId);
+      return state?.currentPlan ?? "starter";
+    }
     const db = getDb();
     const activeStatuses = ["active", "trialing"] as const;
     const [sub] = await db
@@ -68,6 +79,10 @@ export class PlanCapacityService {
 
   /** True when subscription is past_due or cancelled (grace / read-only mode). */
   async isReadOnly(organizationId: string): Promise<boolean> {
+    if (this.featureFlags.founderLedModeEnabled()) {
+      const state = await this.orgBillingState.getOrgBillingState(organizationId);
+      return state?.isReadOnly ?? false;
+    }
     const db = getDb();
     const [sub] = await db
       .select()

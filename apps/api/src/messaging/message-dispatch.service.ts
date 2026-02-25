@@ -87,7 +87,7 @@ export class MessageDispatchService {
 
     const readOnly = await this.planCapacity.isReadOnly(input.organizationId);
     if (readOnly) {
-      return this.recordSkipped(input, "billing_past_due");
+      return this.recordSkipped(input, "billing_inactive");
     }
 
     const policyResult = this.policy.canSend(

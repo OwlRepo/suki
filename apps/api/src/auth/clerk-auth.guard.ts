@@ -43,6 +43,8 @@ export class ClerkAuthGuard implements CanActivate {
       organizationId: user.organizationId,
       userId: user.id,
       role: user.role as "owner" | "staff",
+      clerkId: payload.clerkId,
+      email: payload.email,
     };
     (request as Request & { user?: { id: string } }).user = { id: user.id };
     return true;

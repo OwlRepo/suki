@@ -7,6 +7,7 @@ import { AuthButton } from "@/components/auth-button";
 import { WorkspaceDropdown } from "@/components/workspace-dropdown";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { DashboardOnboardingWrapper } from "@/components/onboarding";
+import { TrialBanner } from "@/components/trial-banner";
 import {
   getDashboardNavGroups,
   getMobileBottomNavItems,
@@ -100,6 +101,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
                 "px)] lg:pb-6"
               )}
             >
+              <TrialBanner />
               {children}
             </main>
 

@@ -3,12 +3,16 @@ import { verifyToken } from "@clerk/backend";
 import { getDb } from "@suki/database";
 import { organizations, users, subscriptions } from "@suki/database";
 import { eq } from "drizzle-orm";
+import { FeatureFlagsService } from "../common/feature-flags.service";
 
 const UNIQUE_VIOLATION = "23505";
 const USERS_CLERK_ID_CONSTRAINT = "users_clerk_id_unique";
+export const ACCESS_NOT_APPROVED = "ACCESS_NOT_APPROVED";
 
 @Injectable()
 export class AuthService {
+  constructor(private readonly featureFlags: FeatureFlagsService) {}
+
   async syncUser(clerkId: string, email?: string) {
     const db = getDb();
 
@@ -35,6 +39,13 @@ export class AuthService {
             .where(eq(organizations.id, existing.organizationId))
             .limit(1);
           return { user: existing, organization: org, isNew: false };
+        }
+
+        if (
+          this.featureFlags.founderLedModeEnabled() &&
+          !this.featureFlags.publicSignupEnabled()
+        ) {
+          throw new Error(ACCESS_NOT_APPROVED);
         }
 
         const [org] = await tx

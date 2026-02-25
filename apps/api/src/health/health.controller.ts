@@ -24,6 +24,10 @@ export class HealthController {
       billing_grace_enforced: this.featureFlagsService.billingGraceEnforced(),
       sms_metering_enforced: this.featureFlagsService.smsMeteringEnforced(),
       security_audit_enabled: this.featureFlagsService.securityAuditEnabled(),
+      founder_led_mode_enabled: this.featureFlagsService.founderLedModeEnabled(),
+      public_signup_enabled: this.featureFlagsService.publicSignupEnabled(),
+      self_serve_billing_enabled: this.featureFlagsService.selfServeBillingEnabled(),
+      manual_billing_controls_enabled: this.featureFlagsService.manualBillingControlsEnabled(),
     };
   }
 

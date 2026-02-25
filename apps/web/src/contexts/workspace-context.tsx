@@ -22,6 +22,7 @@ export interface WorkspaceBusiness {
 export interface WorkspaceContextValue {
   activeBusinessId: string | null;
   businesses: WorkspaceBusiness[];
+  isFounder?: boolean;
   setActiveBusinessId: (id: string) => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -41,6 +42,7 @@ export function WorkspaceProvider({
 }) {
   const [activeBusinessId, setActiveBusinessIdState] = useState<string | null>(null);
   const [businesses, setBusinesses] = useState<WorkspaceBusiness[]>([]);
+  const [isFounder, setIsFounder] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +59,7 @@ export function WorkspaceProvider({
       if (!token) {
         setBusinesses([]);
         setActiveBusinessIdState(null);
+        setIsFounder(false);
         return;
       }
       const res = await apiRequest<{
@@ -68,7 +71,9 @@ export function WorkspaceProvider({
           crmMode: string;
           workflowProfile: string;
         }>;
+        isFounder?: boolean;
       }>("/users/me/workspace", { token });
+      setIsFounder(res.isFounder ?? false);
       setBusinesses(
         res.businesses.map((b) => ({
           id: b.id,
@@ -82,6 +87,7 @@ export function WorkspaceProvider({
     } catch (err) {
       setBusinesses([]);
       setActiveBusinessIdState(null);
+      setIsFounder(false);
       setError(err instanceof Error ? err.message : "Failed to load workspace");
     } finally {
       setLoading(false);
@@ -115,12 +121,13 @@ export function WorkspaceProvider({
     () => ({
       activeBusinessId,
       businesses,
+      isFounder,
       setActiveBusinessId,
       loading,
       error,
       refetch: fetchWorkspace,
     }),
-    [activeBusinessId, businesses, setActiveBusinessId, loading, error, fetchWorkspace],
+    [activeBusinessId, businesses, isFounder, setActiveBusinessId, loading, error, fetchWorkspace],
   );
 
   return (
