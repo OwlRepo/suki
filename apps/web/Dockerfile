@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Web app: Next.js 16
 # Targets: dev (HMR, bind-mount source) | prod (standalone image)
 

@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # API app: NestJS 10
 # Targets: dev (watch mode, bind-mount source) | prod (standalone image)
 
