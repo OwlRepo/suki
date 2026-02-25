@@ -1,0 +1,47 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            cd ~/apps/suki
+
+            git fetch origin
+            git checkout main
+            git pull --ff-only origin main
+
+            for i in 1 2 3 4 5; do
+              docker pull postgres:16-alpine && break
+              echo "postgres pull retry $i..."
+              sleep $((i * 5))
+            done
+
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            docker compose -f docker-compose.prod.yml ps
+
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              curl -fsS http://localhost:3000 >/dev/null && break
+              echo "web health check retry $i..."
+              sleep 3
+            done
