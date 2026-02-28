@@ -34,7 +34,7 @@
     "docker:dev:logs": "docker compose logs -f",
     "docker:prod:build": "docker compose -f docker-compose.prod.yml build",
     "docker:prod:up": "docker compose -f docker-compose.prod.yml up -d",
-    "push:api:acr": "./scripts/push-api-to-acr.sh v5"
+    "push:api:acr": "./scripts/push-api-to-acr.sh"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
