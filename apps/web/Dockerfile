@@ -49,4 +49,6 @@ WORKDIR /app/apps/web
 
 EXPOSE 3000
 
-CMD ["bun", "run", "start"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD ["sh", "-c", "wget -q -O /dev/null \"http://127.0.0.1:$${PORT:-3000}/\" || exit 1"]
+CMD ["sh", "-c", "exec bun run start -- -H 0.0.0.0"]

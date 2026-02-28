@@ -49,4 +49,6 @@ WORKDIR /app
 
 # Run migrations (direct script so Docker DATABASE_URL is used), then start API
 EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD ["sh", "-c", "wget -q -O /dev/null \"http://127.0.0.1:$${PORT:-3001}/health\" || exit 1"]
 CMD ["sh", "-c", "bun run --no-env-file packages/database/scripts/migrate.ts && cd apps/api && exec bun run start"]
