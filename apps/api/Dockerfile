@@ -1,7 +1,7 @@
 # API app: NestJS 10
 # Targets: dev (watch mode, bind-mount source) | prod (standalone image)
 
-FROM oven/bun:1.2-alpine AS base
+FROM --platform=linux/amd64 oven/bun:1.2-alpine AS base
 WORKDIR /app
 
 # --- deps stage: install workspace deps ---

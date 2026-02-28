@@ -15,8 +15,8 @@ fi
 IMAGE=suki-api
 REMOTE=sukiacr.azurecr.io/suki-api:$TAG
 
-echo "Building $IMAGE..."
-docker build -f apps/api/Dockerfile -t "$IMAGE" .
+echo "Building $IMAGE (linux/amd64 for Azure)..."
+docker build --platform linux/amd64 -f apps/api/Dockerfile -t "$IMAGE" .
 
 echo "Tagging $REMOTE..."
 docker tag "$IMAGE" "$REMOTE"
