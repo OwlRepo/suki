@@ -29,7 +29,7 @@ const VALID_BILLING_STATUSES: OrgBillingStatus[] = [
   "cancelled_manual",
   "suspended",
 ];
-const VALID_PLANS: PlanType[] = ["starter", "growth", "ai_pro"];
+const VALID_PLANS: PlanType[] = ["starter", "growth", "pro"];
 
 @Controller("admin")
 @UseGuards(ClerkAuthGuard)

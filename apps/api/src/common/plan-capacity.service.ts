@@ -7,34 +7,46 @@ import { FeatureFlagsService } from "./feature-flags.service";
 import { OrgBillingStateService } from "./org-billing-state.service";
 
 export const MODULES_BY_PLAN: Record<PlanType, string[]> = {
-  starter: ["crm", "insights", "loyalty"],
-  growth: [
-    "crm",
-    "insights",
-    "loyalty",
+  starter: [
+    "customers",
     "appointments",
-    "promos",
+    "imports",
+    "insights",
     "auto_appointment_messaging",
+    "auto_missed_recovery",
+    "auto_post_visit",
   ],
-  ai_pro: [
-    "crm",
-    "insights",
-    "loyalty",
+  growth: [
+    "customers",
     "appointments",
-    "promos",
+    "imports",
+    "insights",
     "ai_messaging",
     "auto_appointment_messaging",
     "auto_missed_recovery",
     "auto_post_visit",
     "auto_winback",
-    "auto_loyalty_unlock",
+  ],
+  pro: [
+    "customers",
+    "appointments",
+    "imports",
+    "insights",
+    "ai_messaging",
+    "auto_appointment_messaging",
+    "auto_missed_recovery",
+    "auto_post_visit",
+    "auto_winback",
+    "multi_branch",
+    "advanced_segmentation",
+    "month_to_month_comparison",
   ],
 };
 
 export const BUSINESS_LIMITS_BY_PLAN: Record<PlanType, number> = {
   starter: 1,
   growth: 5,
-  ai_pro: Number.POSITIVE_INFINITY,
+  pro: Number.POSITIVE_INFINITY,
 };
 
 @Injectable()

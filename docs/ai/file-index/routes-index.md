@@ -1,4 +1,4 @@
-Last updated: 2026-05-03T11:29:53.965Z
+Last updated: 2026-05-03T12:46:06.000Z
 Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
 # Routes Index
@@ -6,7 +6,7 @@ Source-of-truth inputs: Repository manifests, module files, tests, and workflow 
 | Path | Purpose | Main Exports | Dependencies | Consumers | Usage Patterns | Risk |
 |---|---|---|---|---|---|---|
 | `apps/web/src/app/page.tsx` | marketing landing route | page component | UI components | anonymous users | public entry funnel | Low |
-| `apps/web/src/app/(dashboard)/*/page.tsx` | authenticated product routes | page components | hooks/lib/api/auth | signed-in users | dashboard feature surfaces | High |
+| `apps/web/src/app/(dashboard)/*/page.tsx` | authenticated product routes | page components | hooks/lib/api/auth | signed-in users | MVP dashboard surfaces; promos/loyalty/pipeline pages redirect to dashboard | High |
 | `apps/web/src/app/onboarding/page.tsx` | onboarding route | page component | onboarding components/hooks | new workspaces | setup journey | High |
 | `apps/web/src/app/sign-in/[[...sign-in]]/page.tsx` | sign-in route | page component | Clerk | unauthenticated users | auth entry | High |
 | `apps/web/src/app/sign-up/[[...sign-up]]/page.tsx` | sign-up route | page component | Clerk | unauthenticated users | auth registration | High |

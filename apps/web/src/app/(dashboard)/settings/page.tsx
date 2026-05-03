@@ -101,7 +101,7 @@ const SETTINGS_SEARCH_INDEX: Record<
   "dev-tools": ["dev", "developer", "simulation", "mock", "api"],
 };
 
-type PlanType = "starter" | "growth" | "ai_pro";
+type PlanType = "starter" | "growth" | "pro";
 
 interface Organization {
   id: string;
@@ -138,13 +138,13 @@ interface BillingStatus {
 const PLAN_LABELS: Record<string, string> = {
   starter: "Basic",
   growth: "Grow",
-  ai_pro: "Pro",
+  pro: "Pro",
 };
 
 const PLAN_PRICES: Record<string, number> = {
-  starter: 499,
-  growth: 999,
-  ai_pro: 1499,
+  starter: 299,
+  growth: 799,
+  pro: 1499,
 };
 
 interface SmsUsage {
@@ -187,11 +187,11 @@ function UpgradeButton({
   const price = PLAN_PRICES[planType] ?? 0;
   const isCurrent = currentPlan === planType;
   const isUpgrade =
-    (planType === "ai_pro" && currentPlan !== "ai_pro") ||
+    (planType === "pro" && currentPlan !== "pro") ||
     (planType === "growth" && currentPlan === "starter");
   const isDowngrade =
     (planType === "starter" && currentPlan !== "starter") ||
-    (planType === "growth" && currentPlan === "ai_pro");
+    (planType === "growth" && currentPlan === "pro");
 
   const handleUpgrade = async () => {
     setLoading(true);
@@ -437,7 +437,7 @@ function FounderBillingControls({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(["starter", "growth", "ai_pro"] as const).map((p) => (
+            {(["starter", "growth", "pro"] as const).map((p) => (
               <SelectItem key={p} value={p}>
                 {PLAN_LABELS[p] ?? p}
               </SelectItem>
@@ -703,7 +703,7 @@ function SettingsPageContent() {
   useEffect(() => {
     if (
       !businesses.length ||
-      (effectivePlan !== "growth" && effectivePlan !== "ai_pro")
+      (effectivePlan !== "growth" && effectivePlan !== "pro")
     )
       return;
     (async () => {
@@ -1211,7 +1211,7 @@ function SettingsPageContent() {
                           </span>
                         </div>
                         {(effectivePlan === "growth" ||
-                          effectivePlan === "ai_pro") &&
+                          effectivePlan === "pro") &&
                           flags.crm_mode_toggle_enabled && (
                             <Select
                               value={b.crmMode ?? "lite"}
@@ -1268,7 +1268,7 @@ function SettingsPageContent() {
             </div>
           )}
 
-          {(effectivePlan === "growth" || effectivePlan === "ai_pro") &&
+          {(effectivePlan === "growth" || effectivePlan === "pro") &&
             businesses.length > 0 && (
               <SettingsSectionCard
                 id="automation"
@@ -1686,7 +1686,7 @@ function SettingsPageContent() {
             </SettingsSectionCard>
           )}
 
-          {(effectivePlan === "growth" || effectivePlan === "ai_pro") && (
+          {(effectivePlan === "growth" || effectivePlan === "pro") && (
             <SettingsSectionCard
               id="messaging"
               title="Messaging & SMS"
@@ -1818,7 +1818,7 @@ function SettingsPageContent() {
               )}
               {flags.self_serve_billing_enabled ? (
                 <div className="flex flex-wrap gap-3">
-                  {(["starter", "growth", "ai_pro"] as const).map((plan) => (
+                  {(["starter", "growth", "pro"] as const).map((plan) => (
                     <UpgradeButton
                       key={plan}
                       planType={plan}
@@ -1932,7 +1932,7 @@ function SettingsPageContent() {
                 )}
                 {aiUsage.tokensLimit > 0 &&
                   aiUsage.tokensUsed / aiUsage.tokensLimit >= 0.7 &&
-                  effectivePlan !== "ai_pro" && (
+                  effectivePlan !== "pro" && (
                     <p className="text-sm text-amber-600">
                       Approaching limit. Consider upgrading for higher
                       allowance.
@@ -2050,7 +2050,7 @@ function SettingsPageContent() {
                     test UI behavior across plans.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {(["starter", "growth", "ai_pro"] as const).map((p) => (
+                    {(["starter", "growth", "pro"] as const).map((p) => (
                       <Button
                         key={p}
                         size="sm"
@@ -2078,7 +2078,7 @@ function SettingsPageContent() {
                     only.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {(["starter", "growth", "ai_pro"] as const).map((plan) => (
+                    {(["starter", "growth", "pro"] as const).map((plan) => (
                       <Button
                         key={plan}
                         size="sm"

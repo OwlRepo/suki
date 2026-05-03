@@ -1,13 +1,13 @@
 import { Injectable } from "@nestjs/common";
 
 export const BUSINESS_TYPE_RECOMMENDATIONS: Record<string, string[]> = {
-  salon: ["crm", "appointments", "loyalty", "promos"],
-  clinic: ["crm", "appointments", "promos"],
-  restaurant: ["crm", "loyalty", "promos"],
-  retail: ["crm", "loyalty", "promos", "ai_messaging"],
-  spa: ["crm", "appointments", "loyalty"],
-  gym: ["crm", "appointments", "loyalty"],
-  other: ["crm", "insights", "loyalty"],
+  salon: ["customers", "appointments", "imports", "insights"],
+  clinic: ["customers", "appointments", "imports", "insights"],
+  restaurant: ["customers", "appointments", "imports", "insights"],
+  retail: ["customers", "appointments", "imports", "insights", "ai_messaging"],
+  spa: ["customers", "appointments", "imports", "insights"],
+  gym: ["customers", "appointments", "imports", "insights"],
+  other: ["customers", "appointments", "imports", "insights"],
 };
 
 @Injectable()

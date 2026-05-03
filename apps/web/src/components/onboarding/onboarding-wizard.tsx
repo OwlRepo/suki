@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -55,10 +54,6 @@ export function OnboardingWizard() {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [appointmentCustomerId, setAppointmentCustomerId] = useState("");
   const [appointmentWhen, setAppointmentWhen] = useState("");
-  const [promoType, setPromoType] = useState("discount");
-  const [promoValue, setPromoValue] = useState("10% off");
-  const [promoMessage, setPromoMessage] = useState("Thank you for visiting. Enjoy 10% off on your next visit.");
-  const [loyaltyThreshold, setLoyaltyThreshold] = useState(5);
   const [importNotes, setImportNotes] = useState("");
   const [successFeedback, setSuccessFeedback] = useState<string | null>(null);
 
@@ -217,66 +212,6 @@ export function OnboardingWizard() {
     }
   };
 
-  const handleCreatePromo = async () => {
-    if (!activeBusinessId || !promoType) {
-      setError("Please complete offer details.");
-      return;
-    }
-    const now = new Date();
-    const end = new Date(now);
-    end.setDate(end.getDate() + 14);
-    setBusy(true);
-    setError(null);
-    try {
-      const token = await getToken();
-      if (!token) throw new Error("Not signed in");
-      await apiRequest("/promos", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          businessId: activeBusinessId,
-          type: promoType,
-          value: promoValue || undefined,
-          validityStart: now.toISOString(),
-          validityEnd: end.toISOString(),
-          messageContent: promoMessage,
-        }),
-      });
-      setSuccessFeedback(guidance.successFeedback);
-      setTimeout(() => {
-        setSuccessFeedback(null);
-        nextStep(7);
-      }, 1200);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create offer.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleLoyaltyContinue = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const token = await getToken();
-      if (token && activeBusinessId) {
-        await apiRequest(
-          `/loyalty/status?businessId=${encodeURIComponent(activeBusinessId)}&threshold=${encodeURIComponent(String(loyaltyThreshold))}`,
-          { token }
-        );
-      }
-      setSuccessFeedback(guidance.successFeedback);
-      setTimeout(() => {
-        setSuccessFeedback(null);
-        nextStep(8);
-      }, 1200);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save rewards.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   if (loading || isComplete) {
     return (
       <div className="flex min-h-[320px] items-center justify-center">
@@ -416,60 +351,6 @@ export function OnboardingWizard() {
           )}
 
           {step === 6 && (
-            <div className="space-y-4">
-              <Label className="block">Offer type</Label>
-              <Select value={promoType} onValueChange={(v) => setPromoType(v)}>
-                <SelectTrigger className="min-h-[44px] w-full text-base">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="discount">Discount</SelectItem>
-                  <SelectItem value="free_addon">Free add-on</SelectItem>
-                  <SelectItem value="loyalty">Loyalty</SelectItem>
-                  <SelectItem value="reminder">Reminder</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                value={promoValue}
-                onChange={(e) => setPromoValue(e.target.value)}
-                placeholder="Offer value (e.g. 10% off)"
-                className="min-h-[44px] text-base"
-              />
-              <Textarea
-                value={promoMessage}
-                onChange={(e) => setPromoMessage(e.target.value)}
-                placeholder="Message to show customers"
-                className="min-h-[96px] w-full text-base"
-              />
-              <Button size="lg" className="min-h-[44px] text-base" onClick={handleCreatePromo} disabled={busy}>
-                {busy ? "Saving…" : guidance.primaryActionLabel}
-              </Button>
-            </div>
-          )}
-
-          {step === 7 && (
-            <div className="space-y-4">
-              <Label className="block">
-                Visits before reward unlocks
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                value={loyaltyThreshold}
-                onChange={(e) => setLoyaltyThreshold(Number(e.target.value || 1))}
-                className="min-h-[44px] w-full text-base"
-              />
-              <p className="text-sm text-muted-foreground">
-                After {loyaltyThreshold} visit{loyaltyThreshold !== 1 ? "s" : ""}, the customer earns a reward. You can change this later.
-              </p>
-              <Button size="lg" className="min-h-[44px] text-base" onClick={handleLoyaltyContinue} disabled={busy}>
-                {busy ? "Saving…" : guidance.primaryActionLabel}
-              </Button>
-            </div>
-          )}
-
-          {step === 8 && (
             <div className="space-y-4">
               <Textarea
                 value={importNotes}

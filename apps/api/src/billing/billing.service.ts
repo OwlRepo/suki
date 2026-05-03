@@ -6,11 +6,11 @@ import type { PlanType } from "@suki/types";
 
 const GRACE_DAYS = 7;
 
-/** Locked pricing: Basic=499, Grow=999, Pro=1499 (PHP/month) */
+/** Locked pricing: Starter=299, Growth=799, Pro=1499 (PHP/month) */
 const PLAN_AMOUNTS: Record<string, number> = {
-  starter: 499,
-  growth: 999,
-  ai_pro: 1499,
+  starter: 299,
+  growth: 799,
+  pro: 1499,
 };
 
 @Injectable()
@@ -30,7 +30,7 @@ export class BillingService {
     return [
       { planType: "starter", pricePhp: PLAN_AMOUNTS.starter },
       { planType: "growth", pricePhp: PLAN_AMOUNTS.growth },
-      { planType: "ai_pro", pricePhp: PLAN_AMOUNTS.ai_pro },
+      { planType: "pro", pricePhp: PLAN_AMOUNTS.pro },
     ];
   }
 

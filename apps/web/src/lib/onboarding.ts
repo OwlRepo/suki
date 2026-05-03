@@ -9,9 +9,7 @@ export const ONBOARDING_STEPS = {
   customersPage: 3,
   recordVisit: 4,
   appointmentsOverview: 5,
-  promos: 6,
-  loyalty: 7,
-  importCustomers: 8,
+  importCustomers: 6,
 } as const;
 
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[keyof typeof ONBOARDING_STEPS];
@@ -71,22 +69,6 @@ export const STEP_GUIDANCE: Record<number, StepGuidance> = {
     primaryActionLabel: "Create appointment and continue",
   },
   6: {
-    title: "Create your first offer",
-    whatThisIs: "An offer is a special you can share with customers — like a discount, free add-on, or reminder.",
-    whyThisMatters: "Simple offers help bring customers back and make them feel valued.",
-    doThisNow: "Choose an offer type and add a short message. We'll pre-fill an example you can edit.",
-    successFeedback: "Offer ready. You can turn it on or off anytime.",
-    primaryActionLabel: "Create offer and continue",
-  },
-  7: {
-    title: "Set your customer rewards",
-    whatThisIs: "A reward program gives customers something after a certain number of visits — like every 5 visits, get a free treatment.",
-    whyThisMatters: "Rewards encourage repeat visits and help you keep regular customers coming back.",
-    doThisNow: "Set how many visits before a reward unlocks (e.g. 5). You can refine this later.",
-    successFeedback: "Rewards are active. Returning customers can now earn benefits.",
-    primaryActionLabel: "Save and continue",
-  },
-  8: {
     title: "Finish setup",
     whatThisIs: "You're almost done. If you already have a customer list elsewhere, you can paste names or notes here for later import.",
     whyThisMatters: "Importing in small batches lets you review each group before adding more. You can also skip and import later.",
@@ -349,7 +331,7 @@ function mergeGuidance(
   };
 }
 
-/** Get step guidance personalized by business type. Falls back to default if no override. */
+/** Get step guidance. */
 export function getStepGuidance(
   step: number,
   businessType?: string | null
@@ -365,11 +347,9 @@ export function getStepGuidance(
       primaryActionLabel: "Continue",
     };
   }
-  const byType =
-    businessType && STEP_GUIDANCE_BY_BUSINESS_TYPE[businessType]
-      ? STEP_GUIDANCE_BY_BUSINESS_TYPE[businessType][step]
-      : undefined;
-  return mergeGuidance(base, byType);
+  // Use default guidance for deterministic MVP flow.
+  void businessType;
+  return base;
 }
 
 /** Routes allowed when onboarding is incomplete, per step. Users can finish setup later. */
@@ -380,11 +360,9 @@ export const STEP_ALLOWED_PATHS: Record<number, string[]> = {
   4: ["/dashboard"],
   5: ["/dashboard"],
   6: ["/dashboard"],
-  7: ["/dashboard"],
-  8: ["/dashboard"],
 };
 
-/** Check if path is allowed for the given onboarding step (1-8). /onboarding is always allowed. */
+/** Check if path is allowed for the given onboarding step (1-6). /onboarding is always allowed. */
 export function isPathAllowedForStep(step: number, pathname: string): boolean {
   if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) return true;
   const allowed = STEP_ALLOWED_PATHS[step] ?? [];

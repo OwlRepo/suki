@@ -5,7 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { apiRequest } from "@/lib/api";
 
 /** Sentinel step meaning onboarding is complete; user never sees wizard again */
-export const ONBOARDING_COMPLETE_STEP = 9;
+export const ONBOARDING_COMPLETE_STEP = 7;
 
 export interface OnboardingProgress {
   currentStep: number;
@@ -148,16 +148,14 @@ export function useOnboardingProgress() {
   };
 }
 
-/** Steps 1-8 map to onboarding steps; 9 = complete */
+/** Steps 1-6 map to onboarding steps; 7 = complete */
 export const WIZARD_STEPS = [
   { id: 1, key: "businessSetup" as const },
   { id: 2, key: "firstDashboard" as const },
   { id: 3, key: "customersPage" as const },
   { id: 4, key: "recordVisit" as const },
   { id: 5, key: "appointmentsOverview" as const },
-  { id: 6, key: "promos" as const },
-  { id: 7, key: "loyalty" as const },
-  { id: 8, key: "importCustomers" as const },
+  { id: 6, key: "importCustomers" as const },
 ] as const;
 
-export const FINAL_WIZARD_STEP = 8;
+export const FINAL_WIZARD_STEP = 6;

@@ -1,5 +1,5 @@
 // Plan types (Starter, Growth, AI Pro)
-export type PlanType = "starter" | "growth" | "ai_pro";
+export type PlanType = "starter" | "growth" | "pro";
 
 // Message automation types
 export type MessagePurpose = "transactional" | "promotional";

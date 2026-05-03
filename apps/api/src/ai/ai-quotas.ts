@@ -45,7 +45,7 @@ export const AI_QUOTAS: Record<PlanType, AiQuotaConfig> = {
       normalization: 300,
     },
   },
-  ai_pro: {
+  pro: {
     monthlyTokenLimit: 3_000_000,
     monthlyRequestLimit: 8_000,
     perUserRpm: 30,

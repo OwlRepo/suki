@@ -11,7 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 // Enums
-export const planTypeEnum = pgEnum("plan_type", ["starter", "growth", "ai_pro"]);
+export const planTypeEnum = pgEnum("plan_type", ["starter", "growth", "pro"]);
 export const userRoleEnum = pgEnum("user_role", ["owner", "staff"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "active",

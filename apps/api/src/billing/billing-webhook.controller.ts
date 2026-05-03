@@ -93,7 +93,7 @@ export class BillingWebhookController {
           details: { addon_type: "sms_pack" },
         });
         this.logger.log(`SMS addon credited for org ${orgId}`);
-      } else if (orgId && planType && ["growth", "ai_pro"].includes(planType)) {
+      } else if (orgId && planType && ["growth", "pro"].includes(planType)) {
         await this.billingService.createOrUpdateSubscriptionFromCheckout(
           orgId,
           planType,

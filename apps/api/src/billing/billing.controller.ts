@@ -104,9 +104,9 @@ export class BillingController {
     if (!this.featureFlags.selfServeBillingEnabled()) {
       throw new ForbiddenException(SELF_SERVE_DISABLED);
     }
-    const planType = (body.planType ?? "growth") as "starter" | "growth" | "ai_pro";
-    if (!["growth", "ai_pro"].includes(planType)) {
-      throw new BadRequestException("planType must be growth or ai_pro");
+    const planType = (body.planType ?? "growth") as "starter" | "growth" | "pro";
+    if (!["growth", "pro"].includes(planType)) {
+      throw new BadRequestException("planType must be growth or pro");
     }
     const plans = this.billingService.getPlans();
     const plan = plans.find((p) => p.planType === planType);
@@ -160,9 +160,9 @@ export class BillingController {
     if (!this.featureFlags.selfServeBillingEnabled()) {
       throw new ForbiddenException(SELF_SERVE_DISABLED);
     }
-    const planType = (body.planType ?? "starter") as "starter" | "growth" | "ai_pro";
-    if (!["starter", "growth", "ai_pro"].includes(planType)) {
-      throw new BadRequestException("planType must be starter, growth, or ai_pro");
+    const planType = (body.planType ?? "starter") as "starter" | "growth" | "pro";
+    if (!["starter", "growth", "pro"].includes(planType)) {
+      throw new BadRequestException("planType must be starter, growth, or pro");
     }
     const sub = await this.billingService.downgradePlan(orgId, planType);
     return { subscription: sub, planType };
@@ -181,9 +181,9 @@ export class BillingController {
       throw new ForbiddenException("Dev plan switch is only available in development");
     }
     if (!orgId) throw new UnauthorizedException("Unauthorized");
-    const planType = (body.planType ?? "starter") as "starter" | "growth" | "ai_pro";
-    if (!["starter", "growth", "ai_pro"].includes(planType)) {
-      throw new BadRequestException("planType must be starter, growth, or ai_pro");
+    const planType = (body.planType ?? "starter") as "starter" | "growth" | "pro";
+    if (!["starter", "growth", "pro"].includes(planType)) {
+      throw new BadRequestException("planType must be starter, growth, or pro");
     }
     const sub = await this.billingService.createOrUpdateSubscriptionFromCheckout(
       orgId,

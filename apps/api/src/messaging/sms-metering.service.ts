@@ -7,9 +7,9 @@ import { PlanCapacityService } from "../common/plan-capacity.service";
 
 /** SMS included per plan per month */
 const SMS_INCLUDED_BY_PLAN: Record<PlanType, number> = {
-  starter: 0,
-  growth: 500,
-  ai_pro: 1200,
+  starter: 300,
+  growth: 800,
+  pro: 2000,
 };
 
 @Injectable()

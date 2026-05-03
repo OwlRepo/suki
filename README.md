@@ -1,29 +1,37 @@
 # Suki
 
-**Reduce no-shows and bring customers back automatically.**
+**Bring customers back automatically. No more forgotten follow-ups.**
 
 ---
 
 ## The Real Problem
 
-Customers forget appointments. Staff forgets to follow up. Owners lose customers silently—and don't notice until it's too late. Spreadsheets and notebooks fail. There's no one reminding your customers to come back.
+Customers forget appointments. Staff forgets to follow up.  
+Businesses lose repeat customers silently—and only notice when revenue drops.
+
+Most of the time, it’s not bad service.
+
+It’s just that **everyone forgets**.
 
 ---
 
 ## What Suki Does
 
-Suki captures customers once, tracks visits automatically, and sends reminders and follow-ups at the right time—without you having to remember. It brings back inactive customers before they drift away for good.
+Suki helps service businesses **recover lost customers automatically**.
 
-Suki keeps your customer list organized. What you notice first is the relief: fewer empty slots, more repeat visits, less manual texting, less mental load.
+It captures your customers, tracks visits, and sends reminders and follow-ups at the right time—so customers come back without you needing to remember.
+
+You don’t need to open it every day.  
+You set it once. It runs for you.
 
 ---
 
-## Problems That Disappear
+## What Actually Changes
 
-- **No-shows** — Automated reminders before appointments. Fewer empty chairs and wasted slots.
-- **Forgotten follow-ups** — Thank-you and rebook messages go out automatically after each visit.
-- **Silent churn** — Customers who haven't visited in 60+ days get a gentle "We miss you" without you lifting a finger.
-- **Manual texting** — Set it once; Suki sends the right message at the right time.
+- Fewer empty slots from missed appointments  
+- More repeat visits without manual follow-ups  
+- Customers don’t drift away unnoticed  
+- Less texting, less mental load  
 
 ---
 
@@ -31,51 +39,158 @@ Suki keeps your customer list organized. What you notice first is the relief: fe
 
 | Automation | What it does | What you get |
 |------------|--------------|--------------|
-| Appointment reminders | Sends confirmation when booked, reminder 24h before | Fewer no-shows, more filled slots |
-| Missed appointment recovery | "You missed—rebook here" when someone doesn't show | Second chance for lost revenue |
-| Post-visit follow-up | Thank-you + "Book your next visit" after each completed visit | Rebooking while the experience is fresh |
-| Inactivity winback | "We miss you" when a customer hasn't visited in 60+ days | Brings back customers who'd otherwise churn |
+| Appointment reminders | Confirmation + reminder before visit | Fewer no-shows |
+| Missed appointment recovery | “You missed—rebook here” | Recover lost bookings |
+| Post-visit follow-up | Thank-you + rebook message | Increase repeat visits |
+| Inactivity winback | “We miss you” after 30–60 days | Bring back inactive customers |
 
 ---
 
-## What Kind of Businesses Suki Is For
+## Who This Is For
 
-Suki is built for **Philippine service businesses** with appointments or repeat visits:
+Suki is built for **service businesses with repeat customers**:
 
-- Salons and barbershops
-- Clinics and dental clinics
-- Gyms and spas
-- Any business where customers book ahead or come back regularly
-
----
-
-## What Kind of Businesses Suki Is Not For
-
-- Cafes
-- Convenience stores
-- High-volume transactional retail
-
-If your business runs on one-off transactions and no appointments or repeat visits, Suki won't fit.
+- Salons & barbershops  
+- Clinics & dental clinics  
+- Gyms & spas  
+- Any business where customers come back regularly  
 
 ---
 
-## Plans
+## Not For
 
-| Plan | Price | What's Included |
-|------|-------|------------------|
-| **Basic** | ₱499/mo | Customer list, QR signup, manual entry, last visit & visit count, new customers this month |
-| **Grow** | ₱999/mo | Everything in Basic + Promos or Appointments, new vs repeat monthly, AI-assisted message writing |
-| **Pro** | ₱1,499/mo | Everything in Grow + two modules, month-to-month comparison |
+- Cafes  
+- Convenience stores  
+- One-time transaction businesses  
 
-One recovered customer per month typically covers the cost. A single missed appointment at ₱500+ is revenue you can recover with reminders.
+If customers don’t come back regularly, Suki won’t add much value.
 
 ---
 
-## Quick Start
+## 💰 Pricing (Early Access)
 
-**Docker:** `bun run docker:dev:up` — runs Postgres + API + Web with hot-reload. Requires [Docker](https://docs.docker.com/get-docker/).
+Suki is currently offered as a **customer follow-up automation service**.
 
-For technical documentation and cloud readiness:
+You don’t pay for “software”—you pay for:
+> **customers coming back automatically**
 
-- **Setup & deployment:** [docs/README-TECHNICAL.md](./docs/README-TECHNICAL.md)
-- **App flows, Clerk auth, and cloud decision pack:** [docs/APP-FLOW-AND-TECHNICAL.md](./docs/APP-FLOW-AND-TECHNICAL.md)
+---
+
+### Starter — ₱299/month
+
+- Customer list (QR signup + manual entry)  
+- Visit tracking  
+- Core automations:
+  - Appointment reminders  
+  - Missed appointment recovery  
+  - Post-visit follow-ups  
+- **300 SMS included**
+
+**Extra usage:** ₱2.50 per SMS beyond 300  
+
+---
+
+### Growth — ₱799/month
+
+Everything in Starter +
+
+- Inactivity winback automation  
+- New vs repeat customer insights  
+- AI-assisted message writing  
+- **800 SMS included**
+
+**Extra usage:** ₱2.30 per SMS beyond 800  
+
+---
+
+### Pro — ₱1,499/month
+
+Everything in Growth +
+
+- Advanced segmentation  
+- Month-to-month comparisons  
+- Multi-branch ready  
+- **2,000 SMS included**
+
+**Extra usage:** ₱2.00 per SMS beyond 2,000  
+
+---
+
+### Example
+
+If you’re on Starter:
+
+- 300 SMS included  
+- You used 500  
+
+Billing:
+
+- ₱299 base  
+- 200 extra × ₱2.50 = ₱500  
+
+**Total: ₱799**
+
+---
+
+## 🧠 Why Businesses Use Suki
+
+One recovered customer often covers the monthly cost.
+
+Example:
+- Missed appointment = ₱500–₱1,000 lost  
+- Suki reminder = brings them back  
+
+That’s already ROI.
+
+---
+
+## 🤝 Current Setup (Early Stage)
+
+Suki is currently offered with **direct support and setup**.
+
+- Setup is handled with you  
+- Billing is sent monthly (GCash / bank transfer)  
+- Usage is tracked and summarized clearly  
+
+This allows faster onboarding and better results early on.
+
+---
+
+## 🔒 Your Data
+
+- You own your customer data  
+- Nothing is deleted if you stop  
+- You can request export anytime  
+
+---
+
+## 🚀 Quick Start
+
+Run locally:
+
+```bash
+bun run docker:dev:up
+```
+
+Runs:
+- Postgres  
+- API  
+- Web (with hot reload)  
+
+Requires [Docker](https://docs.docker.com/get-docker/)
+
+---
+
+## 🧪 Status
+
+- MVP ready  
+- Core automations working  
+- Early users onboarding  
+
+---
+
+## 📬 Contact
+
+For early access or setup:
+
+→ Reach out directly
