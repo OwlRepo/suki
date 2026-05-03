@@ -5,14 +5,15 @@ import { SuccessIllustration } from "@/components/landing/success-illustration";
 import {
   BarChart3,
   CalendarCheck,
+  CreditCard,
   MessageSquare,
   Shield,
+  TrendingUp,
   Users,
   Zap,
 } from "lucide-react";
 import { AuthCta } from "@/components/auth-cta";
 import { LandingCta } from "@/components/landing-cta";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,40 +23,37 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
-import { LandingPricingSection } from "@/components/landing-pricing-section";
 
 const TRUST_CHIPS = [
+  "Free plan available",
   "No credit card to start",
-  "Set up in minutes",
-  "You don't need to open it every day—it just runs",
-  "Works on any device",
+  "Includes monthly SMS allowance",
+  "Pay extra only when usage grows",
 ] as const;
 
 const OUTCOME_STATS = [
   {
     label: "Fewer no-shows",
-    value: "Fewer empty slots when customers get reminded",
-    source: "Simple reminders, sent on time.",
+    value: "Customers get reminded before their appointment.",
+    source: "Automated confirmation + reminder messages.",
   },
   {
-    label: "Recovered revenue",
-    value:
-      "Recover revenue you'd lose from forgotten follow-ups—one saved appointment often covers a month's plan",
-    source: "Example based on typical service pricing.",
+    label: "Recovered bookings",
+    value: "One recovered ₱500+ appointment can already cover the monthly plan.",
+    source: "Built for salons, clinics, gyms, spas, and repeat-visit businesses.",
   },
   {
-    label: "Less manual work",
-    value:
-      "Set once—follow-ups run automatically so customers come back without you remembering",
-    source: "Fully automated after initial setup.",
+    label: "Predictable pricing",
+    value: "Each plan includes SMS. Extra usage is charged only after the allowance.",
+    source: "Base plan + overage model.",
   },
 ] as const;
 
 const PROBLEM_POINTS = [
-  "Customers forget appointments—empty slots, lost revenue",
-  "Staff forgets to follow up—you lose customers silently",
-  "Inconsistent reminders—some get texts, some don't",
-  "They leave and you never notice—until they're already gone",
+  "Customers forget appointments, causing empty slots.",
+  "Staff forgets follow-ups, so customers quietly disappear.",
+  "Manual texting takes time and becomes inconsistent.",
+  "Owners only notice lost customers when revenue is already down.",
 ] as const;
 
 const HOW_IT_WORKS = [
@@ -64,95 +62,152 @@ const HOW_IT_WORKS = [
     icon: Users,
     title: "Capture customers once",
     description:
-      "QR signup link, manual entry, or import. One record per customer. No spreadsheets.",
+      "Use QR signup, manual entry, or imports. Suki keeps one organized customer record with visit history.",
   },
   {
     step: "2",
     icon: CalendarCheck,
-    title: "Track visits automatically",
+    title: "Track visits and appointments",
     description:
-      "Mark visits as they happen. Suki knows who came, when, and who hasn't been back.",
+      "Suki knows who booked, who visited, who missed, and who has not returned in a while.",
   },
   {
     step: "3",
     icon: MessageSquare,
-    title: "Reminders and follow-ups run on their own",
+    title: "Automations send the right message",
     description:
-      "Set it once. Suki sends reminders, thank-yous, and winback messages at the right time—without you remembering.",
+      "Reminders, thank-yous, missed appointment recovery, and winback messages run automatically.",
   },
 ] as const;
 
 const KEY_AUTOMATIONS = [
   {
     name: "Appointment reminders",
-    benefit: "Fewer no-shows, more filled slots",
+    benefit: "Confirmation and 24-hour reminders reduce forgotten bookings.",
   },
   {
     name: "Missed appointment recovery",
-    benefit: "Second chance for customers who didn't show",
+    benefit: "Send a rebook message after a missed appointment.",
   },
   {
     name: "Post-visit follow-ups",
-    benefit:
-      "Thank-you and rebook while it's fresh—no money lost to forgotten follow-ups",
+    benefit: "Thank customers and invite them to book again while the visit is fresh.",
   },
   {
     name: "Inactivity winback",
-    benefit:
-      "Bring back customers automatically before they're gone for good—recover revenue you'd have lost",
+    benefit: "Automatically message customers who have not returned after 60+ days.",
+  },
+] as const;
+
+const PRICING = [
+  {
+    name: "Free",
+    price: "₱0",
+    description: "For trying Suki with a small customer list.",
+    features: [
+      "Up to 50 customers",
+      "Customer list",
+      "QR signup",
+      "Visit tracking",
+      "Appointment reminders only",
+      "50 SMS included",
+      "Powered by Suki branding",
+    ],
+    overage: "Upgrade when you need more SMS or automations",
+    popular: false,
+  },
+  {
+    name: "Starter",
+    price: "₱299/mo",
+    description: "For small shops that want core automations.",
+    features: [
+      "Up to 300 customers",
+      "Appointment reminders",
+      "Missed appointment recovery",
+      "Post-visit follow-ups",
+      "300 SMS included",
+      "Remove Suki branding",
+    ],
+    overage: "₱2.50 per SMS beyond 300",
+    popular: false,
+  },
+  {
+    name: "Growth",
+    price: "₱799/mo",
+    description: "For businesses that want repeat visits and winbacks.",
+    features: [
+      "Up to 1,000 customers",
+      "Everything in Starter",
+      "Inactivity winback",
+      "New vs repeat analytics",
+      "AI-assisted message writing",
+      "800 SMS included",
+    ],
+    overage: "₱2.30 per SMS beyond 800",
+    popular: true,
+  },
+  {
+    name: "Pro",
+    price: "₱1,499/mo",
+    description: "For high-volume or multi-branch businesses.",
+    features: [
+      "Larger customer database",
+      "Everything in Growth",
+      "Advanced segmentation",
+      "Month-to-month comparison",
+      "Multi-branch ready",
+      "2,000 SMS included",
+    ],
+    overage: "₱2.00 per SMS beyond 2,000",
+    popular: false,
   },
 ] as const;
 
 const BEFORE_AFTER = {
   before: [
-    "Paper logbooks and memory",
-    "Forgotten follow-ups—and money slipping away",
-    "Unclear who comes back",
-    "Customers drift away—you never notice",
+    "Manual texts",
+    "Spreadsheets and notebooks",
+    "Forgotten follow-ups",
+    "No clear customer return tracking",
   ],
   after: [
-    "Organized customer list",
-    "Follow-ups at the right time, automatically",
-    "Clear who's coming back and who isn't",
-    "Revenue recovered from customers you'd have lost",
+    "Automated reminders",
+    "Organized customer records",
+    "Winback messages run automatically",
+    "Clear visibility into repeat customers",
   ],
 } as const;
 
 const FAQ = [
   {
-    q: "What happens to my data if I stop?",
-    a: "Your business owns the data. Nothing is deleted. View and export anytime.",
+    q: "Is Suki free to start?",
+    a: "Yes. You can start on the Free plan with up to 50 customers and 50 included SMS.",
   },
   {
-    q: "Do I need to use it every day?",
-    a: "No. Set it up once. Messages send themselves. You don't need to open it every day.",
+    q: "How does SMS pricing work?",
+    a: "Each paid plan includes a monthly SMS allowance. If you exceed it, only the extra SMS are charged based on your plan’s overage rate.",
   },
   {
-    q: "Can I use this on my phone?",
-    a: "Yes. Suki works on any device—phone, tablet, or computer.",
-  },
-  {
-    q: "How long does setup take?",
-    a: "Most businesses are up and running in under 10 minutes. Scan a QR, add a few customers, and messages send themselves. No long forms. No tutorials.",
+    q: "Why not unlimited SMS?",
+    a: "SMS has real sending costs. The included allowance keeps pricing predictable while still protecting the business from heavy usage costs.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Month-to-month billing. Cancel when you need. Your data stays yours.",
+    a: "Yes. Suki is month-to-month. Your business data stays yours.",
   },
   {
-    q: "What about message volume and costs?",
-    a: "SMS costs vary by carrier and region. Suki sends only the messages you configure—no surprises.",
+    q: "What happens if payment fails?",
+    a: "Suki can pause automated sending after the grace period, so you do not accidentally keep sending paid SMS while past due.",
   },
   {
-    q: "Where do the outcome numbers come from?",
-    a: "Based on typical service businesses. Results vary by business type and how you use reminders.",
+    q: "Is Suki only for the Philippines?",
+    a: "Suki is designed first for Philippine service businesses, especially salons, clinics, gyms, spas, and appointment-based businesses.",
   },
 ] as const;
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-background font-sans">
-      {/* Header */}
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="text-xl font-semibold text-foreground">
@@ -163,36 +218,42 @@ export default function Home() {
       </header>
 
       <main>
-        {/* Hero — split layout with visual */}
         <section className="relative overflow-hidden">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:grid lg:grid-cols-2 lg:items-center lg:gap-12">
             <div className="flex flex-col gap-6">
               <div className="flex flex-wrap gap-2">
                 {TRUST_CHIPS.map((chip) => (
-                  <Badge
-                    key={chip}
-                    variant="secondary"
-                    className="text-xs font-medium"
-                  >
+                  <Badge key={chip} variant="secondary">
                     {chip}
                   </Badge>
                 ))}
               </div>
+
               <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-                Fewer no-shows. Customers coming back.
+                Recover lost customers automatically.
               </h1>
-              <p className="max-w-lg text-lg text-muted-foreground leading-relaxed">
-                Suki sends appointment reminders and follow-ups automatically—so
-                you stop losing money from forgotten follow-ups. Less manual
-                texting, less mental load. Built for service businesses worldwide.
+
+              <p className="max-w-lg text-lg leading-relaxed text-muted-foreground">
+                Suki helps Philippine service businesses reduce no-shows, send
+                follow-ups, and bring customers back automatically. Start free,
+                then pay more only when your usage grows.
               </p>
+
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
+                <p className="font-semibold text-foreground">
+                  Free to start. Paid plans include SMS. Extra SMS only costs
+                  more after your allowance.
+                </p>
+              </div>
+
               <div className="flex flex-col gap-4 pt-2 sm:flex-row sm:items-center">
                 <PrimaryPageAction className="w-full sm:w-auto [&>div]:justify-start">
                   <LandingCta singlePrimary />
                 </PrimaryPageAction>
               </div>
             </div>
-            <div className="relative mt-12 lg:mt-0 flex items-center justify-center">
+
+            <div className="relative mt-12 flex items-center justify-center lg:mt-0">
               <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-muted/30 p-6 shadow-lg lg:max-w-lg">
                 <HeroIllustration className="h-auto w-full" />
               </div>
@@ -200,39 +261,30 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Trusted outcomes band */}
         <section className="border-y border-border bg-muted/20 py-12 sm:py-16">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <h2 className="sr-only">Trusted outcomes</h2>
-            <div className="grid gap-8 sm:grid-cols-3 sm:items-stretch">
-              {OUTCOME_STATS.map(({ label, value, source }) => (
-                <div key={label} className="flex min-h-full flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="size-5 shrink-0 text-primary" />
-                    <span className="font-semibold text-foreground">{label}</span>
-                  </div>
-                  <p className="flex-1 text-sm text-muted-foreground">{value}</p>
-                  <p className="text-xs text-muted-foreground/80">{source}</p>
+          <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:grid-cols-3 sm:px-6">
+            {OUTCOME_STATS.map(({ label, value, source }) => (
+              <div key={label} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="size-5 text-primary" />
+                  <span className="font-semibold text-foreground">{label}</span>
                 </div>
-              ))}
-            </div>
+                <p className="text-sm text-muted-foreground">{value}</p>
+                <p className="text-xs text-muted-foreground/80">{source}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* Problem — owner pain */}
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
-            Sound familiar?
+            The problem is not bad service. It is forgotten follow-up.
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground leading-relaxed">
-            Customers forget. Staff forgets to follow up. You lose money from
-            forgotten follow-ups—and often never see it coming. One missed
-            follow-up or no-show is often ₱500–₱1,000 gone.
+          <p className="mx-auto mt-3 max-w-2xl text-center leading-relaxed text-muted-foreground">
+            Customers forget appointments. Staff get busy. Follow-ups are missed.
+            Suki makes sure the right message still gets sent.
           </p>
-          <p className="mx-auto mt-4 max-w-xl text-center text-muted-foreground">
-            Most businesses lose customers not because they&apos;re bad, but
-            because everyone forgets. Suki just makes sure no one forgets.
-          </p>
+
           <ul className="mx-auto mt-8 max-w-xl list-inside list-disc space-y-2 text-muted-foreground">
             {PROBLEM_POINTS.map((point) => (
               <li key={point}>{point}</li>
@@ -240,68 +292,61 @@ export default function Home() {
           </ul>
         </section>
 
-        {/* Solution — replaces memory */}
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
             <div>
               <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
-                Suki replaces memory and manual work
+                Set it once. Suki keeps working.
               </h2>
-              <p className="mt-3 text-muted-foreground leading-relaxed">
-                Capture customers once. Track visits. Set your reminders and
-                follow-ups—then let Suki run them automatically. Customers come
-                back without you remembering. No spreadsheets. No forgotten texts.
+              <p className="mt-3 leading-relaxed text-muted-foreground">
+                Suki stores your customer list, tracks visits, and sends
+                reminders or winback messages automatically. You do not need to
+                open it every day.
               </p>
-              <div className="mt-6 rounded-xl border border-primary/30 bg-primary/5 p-6">
-                <p className="flex items-center gap-2 font-semibold text-foreground">
-                  <Zap className="size-5 text-primary" />
-                  Set once. Runs automatically.
-                </p>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <Card>
+                  <CardContent className="p-5">
+                    <Zap className="mb-3 size-5 text-primary" />
+                    <p className="font-semibold">Automated follow-ups</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Less manual texting and fewer forgotten customers.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-5">
+                    <TrendingUp className="mb-3 size-5 text-primary" />
+                    <p className="font-semibold">Revenue recovery</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Bring back customers who might have quietly disappeared.
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-              <p className="mt-4 text-muted-foreground italic">
-                Think of it as a staff member whose only job is to remember
-                customers and send messages at the right time—so customers come
-                back automatically and you stop losing money from forgotten
-                follow-ups.
-              </p>
             </div>
-            <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-6">
+
+            <div className="overflow-hidden rounded-2xl border border-border bg-muted/30 p-6">
               <WorkflowIllustration className="h-auto w-full" />
             </div>
           </div>
         </section>
 
-        {/* One concrete scenario */}
-        <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-          <div className="rounded-xl border border-border bg-muted/20 p-6 text-center sm:p-8">
-            <p className="text-sm font-medium text-muted-foreground">
-              How it works in one example
-            </p>
-            <p className="mt-2 text-foreground leading-relaxed">
-              Customer visits today. Suki remembers. A few days later, it sends
-              a friendly follow-up—so you never forget. Customer comes back
-              automatically. No money lost to forgotten follow-ups.
-            </p>
-          </div>
-        </section>
-
-        {/* How it works */}
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             How it works
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
-            Simple steps. Each one ties to relief or recovered revenue.
+            Built for small service businesses that need repeat customers.
           </p>
+
           <div className="mt-12 grid gap-8 sm:grid-cols-3">
             {HOW_IT_WORKS.map(({ step, icon: Icon, title, description }) => (
-              <Card key={step} className="flex flex-col overflow-hidden">
-                <CardContent className="flex flex-col p-6">
+              <Card key={step}>
+                <CardContent className="p-6">
                   <div className="flex items-center gap-3">
-                    <span
-                      className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary"
-                      aria-hidden
-                    >
+                    <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <Icon className="size-5" />
                     </span>
                     <span className="text-sm font-medium text-muted-foreground">
@@ -311,7 +356,7 @@ export default function Home() {
                   <h3 className="mt-4 text-lg font-semibold text-foreground">
                     {title}
                   </h3>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                     {description}
                   </p>
                 </CardContent>
@@ -320,20 +365,20 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Key automations */}
         <section className="border-t border-border bg-muted/10 py-16 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
-              What runs automatically
+              Automations that recover customers
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
-              Reminders and follow-ups send on their own—you don&apos;t lift a
-              finger.
+              Suki runs the messages that business owners and staff usually
+              forget.
             </p>
+
             <div className="mt-12 grid gap-4 sm:grid-cols-2">
               {KEY_AUTOMATIONS.map(({ name, benefit }) => (
-                <Card key={name} className="flex flex-col p-6 shadow-sm">
-                  <CardContent className="flex flex-col p-0">
+                <Card key={name} className="p-6">
+                  <CardContent className="p-0">
                     <p className="font-semibold text-foreground">{name}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {benefit}
@@ -345,13 +390,73 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Before and after */}
+        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+          <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
+            Simple pricing that scales with usage
+          </h2>
+          <p className="mx-auto mt-2 max-w-2xl text-center text-muted-foreground">
+            Each plan includes monthly SMS. If you send more, you only pay for
+            the extra messages.
+          </p>
+
+          <div className="mt-12 grid gap-6 lg:grid-cols-4">
+            {PRICING.map((plan) => (
+              <Card
+                key={plan.name}
+                className={
+                  plan.popular
+                    ? "relative border-primary/50 bg-primary/5 shadow-md"
+                    : "relative"
+                }
+              >
+                {plan.popular ? (
+                  <Badge className="absolute right-4 top-4">Popular</Badge>
+                ) : null}
+
+                <CardContent className="flex h-full flex-col p-6">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {plan.name}
+                  </h3>
+                  <p className="mt-2 text-3xl font-bold text-foreground">
+                    {plan.price}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {plan.description}
+                  </p>
+
+                  <ul className="mt-6 flex-1 space-y-2 text-sm text-muted-foreground">
+                    {plan.features.map((feature) => (
+                      <li key={feature}>• {feature}</li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-6 rounded-lg border border-border bg-background p-3 text-sm">
+                    <p className="font-medium text-foreground">Overage</p>
+                    <p className="text-muted-foreground">{plan.overage}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mx-auto mt-8 max-w-2xl rounded-xl border border-border bg-muted/20 p-6 text-center">
+            <CreditCard className="mx-auto mb-3 size-6 text-primary" />
+            <p className="font-semibold text-foreground">
+              Example: Starter plan with 500 SMS
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              ₱299 base + 200 extra SMS × ₱2.50 = ₱799 total.
+            </p>
+          </div>
+        </section>
+
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
             Before and after
           </h2>
+
           <div className="mt-12 grid gap-6 sm:grid-cols-2">
-            <Card className="rounded-xl p-6 shadow-sm">
+            <Card className="p-6">
               <CardContent className="p-0">
                 <h3 className="font-semibold text-muted-foreground">Before</h3>
                 <ul className="mt-4 list-inside list-disc space-y-2 text-sm text-card-foreground">
@@ -361,7 +466,8 @@ export default function Home() {
                 </ul>
               </CardContent>
             </Card>
-            <Card className="rounded-xl border-primary/30 bg-primary/5 p-6 shadow-sm">
+
+            <Card className="border-primary/30 bg-primary/5 p-6">
               <CardContent className="p-0">
                 <h3 className="font-semibold text-foreground">After Suki</h3>
                 <ul className="mt-4 list-inside list-disc space-y-2 text-sm text-foreground">
@@ -374,52 +480,45 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Who it's for (positive ICP framing) */}
         <section className="border-y border-border bg-muted/20 py-16 sm:py-24">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
-              Built for service businesses
+          <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
+            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
+              Built first for Philippine service businesses
             </h2>
-            <p className="mx-auto mt-2 max-w-2xl text-center text-muted-foreground">
-              Service businesses with appointments or repeat visits: salons,
-              barbershops, clinics, dental clinics, gyms, spas. If customers book
-              ahead or come back regularly, Suki fits.
+            <p className="mx-auto mt-2 max-w-2xl text-muted-foreground">
+              Suki works best when customers book ahead or come back regularly.
             </p>
-            <div className="mt-8 flex justify-center">
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                {["Salons", "Clinics", "Gyms", "Spas", "Barbershops"].map(
-                  (biz) => (
-                    <Badge key={biz} variant="outline" className="text-sm">
-                      {biz}
-                    </Badge>
-                  )
-                )}
-              </div>
+
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              {["Salons", "Barbershops", "Clinics", "Dental Clinics", "Gyms", "Spas"].map(
+                (biz) => (
+                  <Badge key={biz} variant="outline" className="text-sm">
+                    {biz}
+                  </Badge>
+                )
+              )}
             </div>
           </div>
         </section>
 
-        <LandingPricingSection />
-
-        {/* Trust & FAQ */}
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto max-w-3xl">
             <div className="flex items-center gap-2">
               <Shield className="size-6 text-primary" />
               <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
-                Your data is safe
+                Your data stays yours
               </h2>
             </div>
+
             <p className="mt-2 text-muted-foreground">
-              Your business owns the data. Nothing is deleted if you stop. View
-              and export anytime.
+              Suki helps you organize your customer list and automate follow-ups.
+              You can view and export your data anytime.
             </p>
+
             <Accordion type="single" collapsible className="mt-8">
               {FAQ.map(({ q, a }, i) => (
                 <AccordionItem key={q} value={`faq-${i}`}>
-                  <AccordionTrigger className="text-left">
-                    {q}
-                  </AccordionTrigger>
+                  <AccordionTrigger className="text-left">{q}</AccordionTrigger>
                   <AccordionContent>{a}</AccordionContent>
                 </AccordionItem>
               ))}
@@ -427,26 +526,28 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Final CTA with image */}
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/5" />
+
           <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
             <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
               <div className="flex flex-col items-center gap-6 text-center lg:items-start lg:text-left">
-                <h2 className="text-2xl font-semibold text-foreground sm:text-3xl max-w-xl">
-                  Start bringing customers back automatically—and stop losing
-                  money from forgotten follow-ups
+                <h2 className="max-w-xl text-2xl font-semibold text-foreground sm:text-3xl">
+                  Start free. Recover customers automatically. Pay more only
+                  when your usage grows.
                 </h2>
-                <p className="max-w-lg text-muted-foreground leading-relaxed">
-                  Try free. Set up in minutes. No credit card required.
+
+                <p className="max-w-lg leading-relaxed text-muted-foreground">
+                  Suki is built for small service businesses that want fewer
+                  no-shows, more repeat visits, and less manual texting.
                 </p>
-                <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
-                  <PrimaryPageAction className="w-full sm:w-auto sm:justify-center lg:justify-start">
-                    <LandingCta singlePrimary />
-                  </PrimaryPageAction>
-                </div>
+
+                <PrimaryPageAction className="w-full sm:w-auto sm:justify-center lg:justify-start">
+                  <LandingCta singlePrimary />
+                </PrimaryPageAction>
               </div>
-              <div className="relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-6 shadow-lg">
+
+              <div className="overflow-hidden rounded-2xl border border-border bg-muted/30 p-6 shadow-lg">
                 <SuccessIllustration className="h-auto w-full" />
               </div>
             </div>
@@ -456,7 +557,7 @@ export default function Home() {
 
       <footer className="border-t border-border py-12">
         <div className="mx-auto max-w-6xl px-4 text-center text-sm text-muted-foreground sm:px-6">
-          Suki — Customer engagement for small service businesses.
+          Suki — Customer recovery automation for Philippine service businesses.
         </div>
       </footer>
     </div>
