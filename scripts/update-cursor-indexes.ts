@@ -1,132 +1,58 @@
 #!/usr/bin/env bun
 /**
- * Cursor Index Updater
- * Updates .cursor/file-index/*.mdc based on staged or specified file changes.
- * Supports monorepo: apps/web, apps/api, packages/*
+ * AI docs freshness stamper (markdown-only).
+ * Updates metadata headers for docs/ai markdown files.
  */
-
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { execSync } from "child_process";
+import { readdirSync, readFileSync, writeFileSync, statSync } from "fs";
 import { join } from "path";
 
-const ROOT = join(import.meta.dir, "..");
-const CURSOR_DIR = join(ROOT, ".cursor");
-const DRY_RUN = process.argv.includes("--dry-run");
+const root = join(import.meta.dir, "..");
+const docsRoot = join(root, "docs", "ai");
+const stamp = new Date().toISOString();
 
-type ChangeType = "added" | "modified" | "deleted" | "renamed";
+const defaultValidatedAgainst = [
+  "package.json",
+  "apps/web/package.json",
+  "apps/api/package.json",
+  "packages/database/package.json",
+  "turbo.json",
+  ".github/workflows/deploy.yml",
+].join(", ");
 
-interface FileChange {
-  path: string;
-  type: ChangeType;
-  oldPath?: string;
+function walk(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const p = join(dir, entry);
+    const st = statSync(p);
+    if (st.isDirectory()) out.push(...walk(p));
+    else if (st.isFile() && p.endsWith(".md")) out.push(p);
+  }
+  return out;
 }
 
-const INDEX_MAPPING: Array<{
-  pattern: RegExp;
-  indexFile: string;
-}> = [
-  { pattern: /^apps\/web\/src\/.*\.tsx$/, indexFile: "components-index.mdc" },
-  { pattern: /^apps\/web\/src\/app\/([^/]+\/)?page\.tsx$/, indexFile: "routes-index.mdc" },
-  { pattern: /^apps\/web\/src\/app\/layout\.tsx$/, indexFile: "routes-index.mdc" },
-  { pattern: /^packages\/ui\/src\/.*\.tsx$/, indexFile: "components-index.mdc" },
-  { pattern: /^apps\/api\/src\/.*\.controller\.ts$/, indexFile: "controllers-index.mdc" },
-  { pattern: /^apps\/api\/src\/.*\.service\.ts$/, indexFile: "services-index.mdc" },
-  { pattern: /^packages\/database\/src\/schema\/.*\.ts$/, indexFile: "models-index.mdc" },
-  { pattern: /^packages\/types\/src\/.*\.ts$/, indexFile: "utils-index.mdc" },
-  { pattern: /^packages\/database\/.*\.ts$/, indexFile: "utils-index.mdc" },
-  { pattern: /^apps\/web\/src\/.*\.tsx$/, indexFile: "hooks-index.mdc" }, // hooks can live alongside components
-  { pattern: /^apps\/web\/src\/.*$/, indexFile: "src-index.mdc" },
-  { pattern: /^apps\/api\/src\/.*$/, indexFile: "src-index.mdc" },
-  { pattern: /^packages\/[^/]+\/src\/.*$/, indexFile: "src-index.mdc" },
-];
+function upsertMeta(content: string): string {
+  const lines = content.split("\n");
+  const hasLast = lines.some((l) => l.startsWith("Last updated:"));
+  const hasValidated = lines.some((l) => l.startsWith("Validated against:"));
+  const hasSource = lines.some((l) => l.startsWith("Source-of-truth inputs:"));
 
-function getStagedChanges(): FileChange[] {
-  try {
-    const out = execSync("git diff --cached --name-status", {
-      cwd: ROOT,
-      encoding: "utf-8",
-    });
-    const changes: FileChange[] = [];
-    for (const line of out.trim().split("\n").filter(Boolean)) {
-      const parts = line.split("\t");
-      const status = parts[0];
-      const path = parts[1]?.trim();
-      const oldPath = parts[2]?.trim();
-      if (!path) continue;
-      if (path.includes("node_modules") || path.includes(".next") || path.includes("/dist/"))
-        continue;
-      if (status === "A") changes.push({ path, type: "added" });
-      else if (status === "M") changes.push({ path, type: "modified" });
-      else if (status === "D") changes.push({ path, type: "deleted" });
-      else if (status.startsWith("R") && oldPath) changes.push({ path, type: "renamed", oldPath });
-    }
-    return changes;
-  } catch {
-    return [];
-  }
+  let body = content;
+  body = hasLast
+    ? body.replace(/^Last updated:.*$/m, `Last updated: ${stamp}`)
+    : `Last updated: ${stamp}\n${body}`;
+  body = hasValidated
+    ? body.replace(/^Validated against:.*$/m, `Validated against: ${defaultValidatedAgainst}`)
+    : `Validated against: ${defaultValidatedAgainst}\n${body}`;
+  body = hasSource
+    ? body.replace(/^Source-of-truth inputs:.*$/m, "Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs")
+    : `Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs\n${body}`;
+
+  return body;
 }
 
-function getAffectedIndexFiles(changes: FileChange[]): Set<string> {
-  const indexes = new Set<string>();
-  for (const c of changes) {
-    for (const { pattern, indexFile } of INDEX_MAPPING) {
-      if (pattern.test(c.path) || (c.oldPath && pattern.test(c.oldPath))) {
-        indexes.add(indexFile);
-      }
-    }
-  }
-  return indexes;
+for (const file of walk(docsRoot)) {
+  const prev = readFileSync(file, "utf8");
+  const next = upsertMeta(prev);
+  writeFileSync(file, next, "utf8");
+  console.log(`Stamped ${file.replace(root + "/", "")}`);
 }
-
-function updateIndexFile(indexName: string) {
-  const indexPath = join(CURSOR_DIR, "file-index", indexName);
-  if (!existsSync(indexPath)) return;
-  let content = readFileSync(indexPath, "utf-8");
-  const tsMatch = content.match(/Last updated: (.+)/);
-  const newTs = `Last updated: ${new Date().toISOString()}`;
-  if (tsMatch) {
-    content = content.replace(tsMatch[0], newTs);
-  } else {
-    content = newTs + "\n\n" + content;
-  }
-  if (!DRY_RUN) {
-    writeFileSync(indexPath, content, "utf-8");
-  }
-  console.log(DRY_RUN ? `[dry-run] would update ${indexName}` : `Updated ${indexName}`);
-}
-
-function main() {
-  const explicitFiles = process.argv.filter(
-    (a) => !a.startsWith("-") && (a.endsWith(".ts") || a.endsWith(".tsx"))
-  );
-  const changes: FileChange[] = explicitFiles.length
-    ? explicitFiles.map((p) => ({ path: p, type: "modified" as ChangeType }))
-    : getStagedChanges();
-
-  if (changes.length === 0 && !explicitFiles.length) {
-    console.log("No staged changes. Use --dry-run with no staging to test, or pass files.");
-    return;
-  }
-
-  const indexes = getAffectedIndexFiles(changes);
-  if (indexes.size === 0) {
-    console.log("No file-index files affected by these changes.");
-    return;
-  }
-
-  for (const idx of indexes) {
-    updateIndexFile(idx);
-  }
-
-  if (!DRY_RUN && indexes.size > 0) {
-    try {
-      for (const idx of indexes) {
-        execSync(`git add ${join(CURSOR_DIR, "file-index", idx)}`, { cwd: ROOT });
-      }
-    } catch {
-      // Ignore if not in git
-    }
-  }
-}
-
-main();

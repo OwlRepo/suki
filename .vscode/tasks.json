@@ -1,0 +1,24 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "install", "type": "shell", "command": "bun install", "group": "build" },
+    { "label": "dev", "type": "shell", "command": "bun run dev", "group": "build" },
+    { "label": "dev:web", "type": "shell", "command": "bun run dev:web", "group": "build" },
+    { "label": "dev:api", "type": "shell", "command": "bun run dev:api", "group": "build" },
+    { "label": "build", "type": "shell", "command": "bun run build", "group": "build" },
+    { "label": "build:web", "type": "shell", "command": "bun run build:web", "group": "build" },
+    { "label": "build:api", "type": "shell", "command": "bun run build:api", "group": "build" },
+    { "label": "typecheck", "type": "shell", "command": "bun run typecheck", "group": "test" },
+    { "label": "lint", "type": "shell", "command": "bun run lint", "group": "test" },
+    { "label": "test", "type": "shell", "command": "bun run test", "group": "test" },
+    { "label": "test:e2e", "type": "shell", "command": "bun run test:e2e", "group": "test" },
+    { "label": "db:setup", "type": "shell", "command": "bun run db:setup", "group": "build" },
+    { "label": "db:generate", "type": "shell", "command": "bun run db:generate", "group": "build" },
+    { "label": "db:migrate", "type": "shell", "command": "bun run db:migrate", "group": "build" },
+    { "label": "db:seed", "type": "shell", "command": "bun run db:seed", "group": "build" },
+    { "label": "db:reset", "type": "shell", "command": "bun run db:reset", "group": "build" },
+    { "label": "db:reconcile-orphans", "type": "shell", "command": "bun run db:reconcile-orphans", "group": "build" },
+    { "label": "db:studio", "type": "shell", "command": "bun run db:studio", "group": "build" },
+    { "label": "update:cursor-indexes", "type": "shell", "command": "bun run update:cursor-indexes", "group": "none" }
+  ]
+}
