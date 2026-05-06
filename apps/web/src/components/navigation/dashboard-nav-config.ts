@@ -38,6 +38,7 @@ export function getDashboardNavGroups(_showPipeline: boolean): NavGroup[] {
       label: "Growth",
       items: [
         { href: "/insights", label: "Business summary", icon: BarChart3 },
+        { href: "/analytics", label: "Usage analytics", icon: BarChart3 },
       ],
     },
     {
@@ -57,7 +58,7 @@ export function getMobileBottomNavItems(_showPipeline: boolean): NavItem[] {
   const items: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/customers", label: "Customers", icon: Users },
-    { href: "/appointments", label: "Appointments", icon: CalendarDays },
+    { href: "/analytics", label: "Analytics", icon: BarChart3 },
   ];
   return items;
 }

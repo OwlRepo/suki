@@ -117,7 +117,7 @@ function SetupPageContent() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create business. Please try again.";
       if (msg === "PLAN_BUSINESS_LIMIT_REACHED") {
-        setError("Your plan limit for businesses has been reached. Upgrade your plan in Settings to add more.");
+        setError("Business creation limit reached for this workspace. Contact support if you need help.");
       } else {
         setError(msg);
       }

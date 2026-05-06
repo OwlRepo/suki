@@ -27,4 +27,18 @@ export class InsightsController {
     );
     return { metrics };
   }
+
+  @Get("monitoring")
+  async getMonitoring(
+    @Tenant("organizationId") orgId?: string,
+    @Query("businessId") businessId?: string,
+    @Query("days") daysStr?: string,
+  ) {
+    if (!orgId) throw new BadRequestException("organization required");
+    const parsedDays = daysStr ? parseInt(daysStr, 10) : 30;
+    const days = Number.isFinite(parsedDays)
+      ? Math.min(Math.max(parsedDays, 7), 90)
+      : 30;
+    return this.insightsService.getMonitoringMetrics(orgId, { businessId, days });
+  }
 }

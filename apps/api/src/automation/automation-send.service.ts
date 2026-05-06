@@ -265,6 +265,7 @@ export class AutomationSendService {
     organizationId: string,
     businessId: string,
     customerId: string,
+    actorUserId?: string,
   ): Promise<{ status: string; reason?: string }> {
     if (!this.isAutomationEnabled()) return { status: "skipped", reason: "feature_disabled" };
 
@@ -296,6 +297,7 @@ export class AutomationSendService {
       organizationId,
       businessId,
       customerId,
+      actorUserId,
       automationKey: "post_visit_followup",
       purpose: "promotional",
       channel,

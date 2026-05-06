@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { AI_QUOTAS } from "./ai-quotas";
 import type { PlanType } from "@suki/types";
@@ -12,11 +12,8 @@ export class AiPolicyService {
     _userId: string,
     feature: string,
   ): Promise<void> {
-    const plan = await this.planCapacity.getActivePlan(organizationId);
-    const quota = AI_QUOTAS[plan];
-    if (!quota.allowedFeatures.includes(feature)) {
-      throw new ForbiddenException("AI_FEATURE_NOT_INCLUDED");
-    }
+    void organizationId;
+    void feature;
   }
 
   validateInput(

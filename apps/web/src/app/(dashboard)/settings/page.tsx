@@ -52,7 +52,6 @@ const SETTINGS_SECTION_IDS = [
   "automation",
   "customer-templates",
   "messaging",
-  "billing",
   "ai-usage",
   "dev-tools",
 ] as const;
@@ -83,20 +82,7 @@ const SETTINGS_SEARCH_INDEX: Record<
     "default",
     "add customer",
   ],
-  messaging: ["messaging", "sms", "add-on", "usage", "text", "credits", "buy"],
-  billing: [
-    "billing",
-    "plan",
-    "subscription",
-    "upgrade",
-    "downgrade",
-    "basic",
-    "grow",
-    "pro",
-    "payment",
-    "manual",
-    "founder",
-  ],
+  messaging: ["messaging", "sms", "usage", "text", "credits"],
   "ai-usage": ["ai", "usage", "tokens", "quota", "limit", "soft cap"],
   "dev-tools": ["dev", "developer", "simulation", "mock", "api"],
 };
@@ -135,18 +121,6 @@ interface BillingStatus {
   } | null;
 }
 
-const PLAN_LABELS: Record<string, string> = {
-  starter: "Basic",
-  growth: "Grow",
-  pro: "Pro",
-};
-
-const PLAN_PRICES: Record<string, number> = {
-  starter: 299,
-  growth: 799,
-  pro: 1499,
-};
-
 interface SmsUsage {
   included: number;
   addon: number;
@@ -160,333 +134,11 @@ interface SmsUsage {
 
 const PAUSED_REASON_MESSAGES: Record<string, string> = {
   none: "",
-  cap_reached:
-    "SMS cap reached. Auto-messages paused. Buy add-on below to resume.",
-  billing_past_due:
-    "Messages paused until billing is fixed. Update your payment to resume.",
+  cap_reached: "SMS cap reached for this period.",
+  billing_past_due: "Messages paused due to account status.",
   provider_down: "SMS provider temporarily unavailable. Messages will retry.",
   manual_pause: "Messaging is manually paused.",
 };
-
-function UpgradeButton({
-  planType,
-  currentPlan,
-  getToken,
-  onSuccess,
-  onError,
-  readOnly,
-}: {
-  planType: string;
-  currentPlan: string;
-  getToken: () => Promise<string | null>;
-  onSuccess?: () => void;
-  onError?: (message: string) => void;
-  readOnly?: boolean;
-}) {
-  const [loading, setLoading] = useState(false);
-  const price = PLAN_PRICES[planType] ?? 0;
-  const isCurrent = currentPlan === planType;
-  const isUpgrade =
-    (planType === "pro" && currentPlan !== "pro") ||
-    (planType === "growth" && currentPlan === "starter");
-  const isDowngrade =
-    (planType === "starter" && currentPlan !== "starter") ||
-    (planType === "growth" && currentPlan === "pro");
-
-  const handleUpgrade = async () => {
-    setLoading(true);
-    try {
-      const token = await getToken();
-      if (!token) return;
-      const res = await apiRequest<{ checkoutUrl: string }>(
-        "/billing/checkout",
-        {
-          method: "POST",
-          token,
-          body: JSON.stringify({ planType }),
-        },
-      );
-      if (res.checkoutUrl) window.location.href = res.checkoutUrl;
-    } catch (err) {
-      onError?.(
-        err instanceof Error
-          ? err.message
-          : "Checkout unavailable. Is PayMongo configured?",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
-
-  const handleDowngradeClick = () => {
-    setShowDowngradeConfirm(true);
-  };
-
-  const doDowngrade = async () => {
-    setLoading(true);
-    try {
-      const token = await getToken();
-      if (!token) return;
-      await apiRequest("/billing/downgrade", {
-        method: "POST",
-        token,
-        body: JSON.stringify({ planType }),
-      });
-      onSuccess?.();
-    } catch (err) {
-      onError?.(
-        err instanceof Error
-          ? err.message
-          : "Downgrade failed. Please try again.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (isCurrent) return null;
-  if (readOnly && isUpgrade) return null;
-  const planLabel = PLAN_LABELS[planType] ?? planType;
-  return (
-    <>
-      <ConfirmDialog
-        open={showDowngradeConfirm}
-        onOpenChange={(o) => !o && setShowDowngradeConfirm(false)}
-        title={`Switch to ${planLabel}?`}
-        description={
-          `Switching to ${planLabel} will reduce your plan features. ` +
-          `You may lose access to advanced CRM, automation, and AI features. ` +
-          `Are you sure you want to switch to ${planLabel}?`
-        }
-        confirmLabel={`Yes, switch to ${planLabel}`}
-        cancelLabel="No, keep my plan"
-        destructive
-        onConfirm={doDowngrade}
-        loading={loading}
-      />
-      <Button
-        size="lg"
-        variant={isUpgrade ? "default" : "outline"}
-        onClick={isDowngrade ? handleDowngradeClick : handleUpgrade}
-      disabled={loading}
-      className="min-h-[48px]"
-    >
-      {loading
-        ? "..."
-        : isDowngrade
-          ? `Switch to ${PLAN_LABELS[planType] ?? planType}`
-          : `${PLAN_LABELS[planType] ?? planType} – ₱${price}/mo`}
-    </Button>
-    </>
-  );
-}
-
-const BILLING_STATUS_OPTIONS = [
-  "trial_active",
-  "trial_expired",
-  "active_manual",
-  "past_due_manual",
-  "cancelled_manual",
-  "suspended",
-] as const;
-
-function FounderBillingControls({
-  organizationId,
-  billing,
-  getToken,
-  onSuccess,
-  onError,
-  saving,
-  setSaving,
-  extendLoading,
-  setExtendLoading,
-  extendDays,
-  setExtendDays,
-}: {
-  organizationId: string;
-  billing: BillingStatus | null;
-  getToken: () => Promise<string | null>;
-  onSuccess: () => void;
-  onError: (msg: string) => void;
-  saving: boolean;
-  setSaving: (v: boolean) => void;
-  extendLoading: boolean;
-  setExtendLoading: (v: boolean) => void;
-  extendDays: number;
-  setExtendDays: (v: number) => void;
-}) {
-  const [billingStatus, setBillingStatus] = useState(
-    billing?.billingStatus ?? billing?.status ?? "trial_active",
-  );
-  const [currentPlan, setCurrentPlan] = useState(
-    (billing?.planType ?? billing?.currentPlan ?? "starter") as PlanType,
-  );
-  const [trialEndsAt, setTrialEndsAt] = useState(() => {
-    const d = billing?.trialEndsAt;
-    return d ? new Date(d).toISOString().slice(0, 10) : "";
-  });
-  const [nextBillingDueAt, setNextBillingDueAt] = useState(() => {
-    const d = billing?.nextBillingDueAt;
-    return d ? new Date(d).toISOString().slice(0, 10) : "";
-  });
-  const [manualBillingNotes, setManualBillingNotes] = useState(
-    billing?.manualBillingNotes ?? "",
-  );
-  const [accessEndsAt, setAccessEndsAt] = useState(() => {
-    const d = billing?.accessEndsAt;
-    return d ? new Date(d).toISOString().slice(0, 10) : "";
-  });
-
-  useEffect(() => {
-    if (billing) {
-      setBillingStatus(billing.billingStatus ?? billing.status ?? "trial_active");
-      setCurrentPlan((billing.planType ?? billing.currentPlan ?? "starter") as PlanType);
-      setTrialEndsAt(billing.trialEndsAt ? new Date(billing.trialEndsAt).toISOString().slice(0, 10) : "");
-      setNextBillingDueAt(billing.nextBillingDueAt ? new Date(billing.nextBillingDueAt).toISOString().slice(0, 10) : "");
-      setManualBillingNotes(billing.manualBillingNotes ?? "");
-      setAccessEndsAt(billing.accessEndsAt ? new Date(billing.accessEndsAt).toISOString().slice(0, 10) : "");
-    }
-  }, [billing]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const token = await getToken();
-      if (!token) return;
-      await apiRequest("/admin/org-billing", {
-        method: "PATCH",
-        token,
-        body: JSON.stringify({
-          organizationId,
-          billingStatus,
-          currentPlan,
-          trialEndsAt: trialEndsAt || null,
-          nextBillingDueAt: nextBillingDueAt || null,
-          manualBillingNotes: manualBillingNotes.trim() || null,
-          accessEndsAt: accessEndsAt || null,
-        }),
-      });
-      onSuccess();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Failed to update billing");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleExtendTrial = async () => {
-    setExtendLoading(true);
-    try {
-      const token = await getToken();
-      if (!token) return;
-      await apiRequest("/admin/org-billing/extend-trial", {
-        method: "POST",
-        token,
-        body: JSON.stringify({ organizationId, days: extendDays }),
-      });
-      onSuccess();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Failed to extend trial");
-    } finally {
-      setExtendLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6 max-w-lg">
-      <div className="space-y-2">
-        <Label>Extend trial</Label>
-        <div className="flex gap-2 flex-wrap">
-          <Input
-            type="number"
-            min={1}
-            max={365}
-            value={extendDays}
-            onChange={(e) => setExtendDays(Math.max(1, Math.min(365, parseInt(e.target.value, 10) || 1)))}
-            className="w-20"
-          />
-          <Button
-            onClick={handleExtendTrial}
-            disabled={extendLoading}
-          >
-            {extendLoading ? "Extending…" : "Extend by N days"}
-          </Button>
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="founder-billing-status">Billing status</Label>
-        <Select value={billingStatus} onValueChange={(v) => setBillingStatus(v)}>
-          <SelectTrigger id="founder-billing-status">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {BILLING_STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="founder-current-plan">Current plan</Label>
-        <Select value={currentPlan} onValueChange={(v) => setCurrentPlan(v as PlanType)}>
-          <SelectTrigger id="founder-current-plan">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(["starter", "growth", "pro"] as const).map((p) => (
-              <SelectItem key={p} value={p}>
-                {PLAN_LABELS[p] ?? p}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="founder-trial-ends">Trial ends</Label>
-        <Input
-          id="founder-trial-ends"
-          type="date"
-          value={trialEndsAt}
-          onChange={(e) => setTrialEndsAt(e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="founder-next-due">Next billing due</Label>
-        <Input
-          id="founder-next-due"
-          type="date"
-          value={nextBillingDueAt}
-          onChange={(e) => setNextBillingDueAt(e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="founder-access-ends">Access ends</Label>
-        <Input
-          id="founder-access-ends"
-          type="date"
-          value={accessEndsAt}
-          onChange={(e) => setAccessEndsAt(e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="founder-notes">Manual billing notes</Label>
-        <Input
-          id="founder-notes"
-          value={manualBillingNotes}
-          onChange={(e) => setManualBillingNotes(e.target.value)}
-          placeholder="Internal notes"
-        />
-      </div>
-      <Button onClick={handleSave} disabled={saving}>
-        {saving ? "Saving…" : "Save changes"}
-      </Button>
-    </div>
-  );
-}
 
 function SettingsPageContent() {
   const { getToken } = useAuth();
@@ -503,7 +155,6 @@ function SettingsPageContent() {
   const [editingBiz, setEditingBiz] = useState<string | null>(null);
   const [editBizName, setEditBizName] = useState("");
   const [simulatedPlan, setSimulatedPlan] = useState<PlanType | null>(null);
-  const [devSwitchLoading, setDevSwitchLoading] = useState(false);
   const [devApiUrl, setDevApiUrlState] = useState("");
   const [devMockLatencyMs, setDevMockLatencyMsState] = useState(0);
   const [devMockFailure, setDevMockFailureState] = useState(false);
@@ -552,10 +203,6 @@ function SettingsPageContent() {
   const [inactivityDraftByBiz, setInactivityDraftByBiz] = useState<
     Record<string, string>
   >({});
-  const [addonLoading, setAddonLoading] = useState(false);
-  const [founderBillingSaving, setFounderBillingSaving] = useState(false);
-  const [founderExtendLoading, setFounderExtendLoading] = useState(false);
-  const [founderExtendDays, setFounderExtendDays] = useState(30);
   const [settingsSearch, setSettingsSearch] = useState("");
   interface CustomerTemplate {
     id: string;
@@ -582,9 +229,6 @@ function SettingsPageContent() {
     Array<{ label: string; placeholder: string }>
   >([{ label: "", placeholder: "" }]);
   const [createTemplateSaving, setCreateTemplateSaving] = useState(false);
-
-  const effectivePlan =
-    simulatedPlan ?? (billing?.planType as PlanType | undefined) ?? "starter";
 
   const visibleSections = useMemo(() => {
     const q = settingsSearch.trim().toLowerCase();
@@ -680,32 +324,19 @@ function SettingsPageContent() {
 
   useEffect(() => {
     const addon = searchParams?.get("addon");
-    const checkout = searchParams?.get("checkout");
     if (addon === "success") {
       setFeedback({
         type: "success",
-        message: "SMS add-on purchased. Credits will appear shortly.",
+        message: "Credits updated successfully.",
       });
       setTimeout(() => setFeedback(null), 5000);
       refetchSmsUsage();
-      window.history.replaceState({}, "", "/settings");
-    } else if (checkout === "success") {
-      setFeedback({
-        type: "success",
-        message: "Subscription updated successfully.",
-      });
-      setTimeout(() => setFeedback(null), 5000);
-      refetchBilling();
       window.history.replaceState({}, "", "/settings");
     }
   }, [searchParams]);
 
   useEffect(() => {
-    if (
-      !businesses.length ||
-      (effectivePlan !== "growth" && effectivePlan !== "pro")
-    )
-      return;
+    if (!businesses.length) return;
     (async () => {
       try {
         const token = await getToken();
@@ -746,7 +377,7 @@ function SettingsPageContent() {
         // ignore
       }
     })();
-  }, [businesses, effectivePlan, getToken]);
+  }, [businesses, getToken]);
 
   useEffect(() => {
     if (!businesses.length) return;
@@ -970,7 +601,6 @@ function SettingsPageContent() {
   };
 
   const handleCrmModeChange = async (id: string, crmMode: "lite" | "full") => {
-    if (effectivePlan === "starter") return;
     try {
       const token = await getToken();
       if (!token) return;
@@ -991,19 +621,10 @@ function SettingsPageContent() {
       );
       workspace?.refetch();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to update mode";
-      if (msg === "CRM_FULL_REQUIRES_UPGRADE") {
-        setFeedback({
-          type: "error",
-          message:
-            "Full CRM mode requires Growth or AI Pro plan. Upgrade in Billing below.",
-        });
-      } else {
-        setFeedback({
-          type: "error",
-          message: fromError(err, "Failed to update mode. Please try again."),
-        });
-      }
+      setFeedback({
+        type: "error",
+        message: fromError(err, "Failed to update mode. Please try again."),
+      });
       setTimeout(() => setFeedback(null), 6000);
     }
   };
@@ -1050,7 +671,6 @@ function SettingsPageContent() {
     automation: "Automation",
     "customer-templates": "Customer Description Templates",
     messaging: "Messaging & SMS",
-    billing: "Billing",
     "ai-usage": "AI Usage",
     "dev-tools": "Dev Tools",
   };
@@ -1059,8 +679,8 @@ function SettingsPageContent() {
     <div className="space-y-6">
       <PageHeader
         title="Settings"
-        plainLanguageDescription="Manage your organization, businesses, billing, and automation."
-        whatThisPageIsFor="Change your workspace name, business details, plan, reminders, and AI."
+        plainLanguageDescription="Manage your organization, businesses, automations, messaging, and AI limits."
+        whatThisPageIsFor="Change your workspace name, business details, reminders, messaging, and AI settings."
         whatToDoNext="Use the search below to find a setting, or open any section to edit."
       />
 
@@ -1073,7 +693,7 @@ function SettingsPageContent() {
           type="search"
           value={settingsSearch}
           onChange={(e) => setSettingsSearch(e.target.value)}
-          placeholder="Search settings (e.g. billing, reminders, SMS)"
+          placeholder="Search settings (e.g. reminders, SMS, AI)"
           aria-label="Search settings"
           className="w-full max-w-md min-h-[48px] pl-10 pr-4 text-base"
         />
@@ -1114,15 +734,13 @@ function SettingsPageContent() {
       )}
 
       {!loading &&
-        (billing?.readOnly ||
-          (smsUsage?.pausedReason && smsUsage.pausedReason !== "none")) && (
+        smsUsage?.pausedReason &&
+        smsUsage.pausedReason !== "none" && (
           <StatusBanner
             variant="warning"
             message={
-              billing?.readOnly
-                ? "Messages paused until billing is fixed. Update your payment to resume."
-                : (PAUSED_REASON_MESSAGES[smsUsage!.pausedReason] ??
-                  `Messaging paused: ${smsUsage!.pausedReason}`)
+              PAUSED_REASON_MESSAGES[smsUsage!.pausedReason] ??
+              `Messaging paused: ${smsUsage!.pausedReason}`
             }
             className="mt-4"
           />
@@ -1210,9 +828,7 @@ function SettingsPageContent() {
                             {b.businessType}
                           </span>
                         </div>
-                        {(effectivePlan === "growth" ||
-                          effectivePlan === "pro") &&
-                          flags.crm_mode_toggle_enabled && (
+                        {flags.crm_mode_toggle_enabled && (
                             <Select
                               value={b.crmMode ?? "lite"}
                               onValueChange={(v) =>
@@ -1259,17 +875,7 @@ function SettingsPageContent() {
             )}
           </SettingsSectionCard>
 
-          {billing?.readOnly && (
-            <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
-              <p className="text-base font-medium text-foreground">
-                Read-only mode — Your subscription needs attention. Update
-                billing to make changes.
-              </p>
-            </div>
-          )}
-
-          {(effectivePlan === "growth" || effectivePlan === "pro") &&
-            businesses.length > 0 && (
+          {businesses.length > 0 && (
               <SettingsSectionCard
                 id="automation"
                 title="Automation Controls"
@@ -1686,11 +1292,11 @@ function SettingsPageContent() {
             </SettingsSectionCard>
           )}
 
-          {(effectivePlan === "growth" || effectivePlan === "pro") && (
+          {(
             <SettingsSectionCard
               id="messaging"
               title="Messaging & SMS"
-              description="SMS usage, add-on packs, and text credits."
+              description="SMS usage and credits."
               visible={visibleSections.has("messaging")}
             >
               <div className="space-y-6 max-w-lg">
@@ -1720,158 +1326,12 @@ function SettingsPageContent() {
                     </div>
                     {smsUsage.at80Pct && !smsUsage.at100Pct && (
                       <p className="mt-2 text-sm text-amber-600">
-                        Approaching limit. Consider buying an add-on below.
+                        Approaching SMS limit for this period.
                       </p>
                     )}
                   </div>
                 )}
-                {flags.self_serve_billing_enabled && (
-                  <div>
-                    <p className="text-base font-medium text-foreground">
-                      Buy +300 SMS for ₱300
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      One-time purchase. No auto-charge.
-                    </p>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      disabled={addonLoading || billing?.readOnly}
-                      className="mt-3 min-h-[48px]"
-                      onClick={async () => {
-                        setAddonLoading(true);
-                        try {
-                          const token = await getToken();
-                          if (!token) return;
-                          const res = await apiRequest<{ checkoutUrl: string }>(
-                            "/billing/sms-addon/purchase",
-                            {
-                              method: "POST",
-                              token,
-                              body: JSON.stringify({ confirm: true }),
-                            },
-                          );
-                          if (res?.checkoutUrl)
-                            window.location.href = res.checkoutUrl;
-                        } catch (err) {
-                          setFeedback({
-                            type: "error",
-                            message: fromError(
-                              err,
-                              "Add-on purchase unavailable.",
-                            ),
-                          });
-                          setTimeout(() => setFeedback(null), 6000);
-                        } finally {
-                          setAddonLoading(false);
-                        }
-                      }}
-                    >
-                      {addonLoading ? "Redirecting…" : "Buy +300 SMS pack"}
-                    </Button>
-                  </div>
-                )}
               </div>
-            </SettingsSectionCard>
-          )}
-
-          <SettingsSectionCard
-            id="billing"
-            title="Billing"
-            description={
-              flags.self_serve_billing_enabled
-                ? "Upgrade or switch plans. You can change or cancel anytime. No lock-in."
-                : "Your plan and billing status. Contact us to change or continue access."
-            }
-            visible={visibleSections.has("billing")}
-          >
-            <div className="space-y-4 max-w-md">
-              <p className="text-sm text-muted-foreground">Current plan</p>
-              <p className="text-lg font-semibold">
-                {PLAN_LABELS[effectivePlan] ?? effectivePlan}
-                {simulatedPlan && (
-                  <span className="ml-2 text-sm text-amber-600">
-                    (simulated)
-                  </span>
-                )}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Status:{" "}
-                {billing?.billingStatus ?? billing?.status ?? "none"}
-              </p>
-              {billing?.daysRemaining != null && billing.daysRemaining >= 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Trial: {billing.daysRemaining} days remaining
-                </p>
-              )}
-              {(billing?.nextBillingDueAt || billing?.subscription?.currentPeriodEnd) && (
-                <p className="text-sm text-muted-foreground">
-                  {billing?.nextBillingDueAt
-                    ? `Next due: ${new Date(billing.nextBillingDueAt).toLocaleDateString()}`
-                    : `Current period ends: ${new Date(billing!.subscription!.currentPeriodEnd!).toLocaleDateString()}`}
-                </p>
-              )}
-              {billing?.manualBillingNotes && (
-                <p className="text-sm text-muted-foreground rounded border border-border bg-muted/30 p-3">
-                  {billing.manualBillingNotes}
-                </p>
-              )}
-              {flags.self_serve_billing_enabled ? (
-                <div className="flex flex-wrap gap-3">
-                  {(["starter", "growth", "pro"] as const).map((plan) => (
-                    <UpgradeButton
-                      key={plan}
-                      planType={plan}
-                      currentPlan={effectivePlan}
-                      getToken={getToken}
-                      onSuccess={() => {
-                        refetchBilling();
-                        refetchSmsUsage();
-                      }}
-                      onError={(msg) => {
-                        setFeedback({ type: "error", message: msg });
-                        setTimeout(() => setFeedback(null), 6000);
-                      }}
-                      readOnly={billing?.readOnly ?? billing?.isReadOnly}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Contact us to change your plan or continue access.
-                </p>
-              )}
-            </div>
-          </SettingsSectionCard>
-
-          {flags.manual_billing_controls_enabled && workspace?.isFounder && syncData?.organization?.id && (
-            <SettingsSectionCard
-              id="founder-billing"
-              title="Founder Billing Controls"
-              description="Manage trial, billing status, and plan for organizations. Founder-only."
-              collapsedByDefault
-              visible={visibleSections.has("billing")}
-            >
-              <FounderBillingControls
-                organizationId={syncData.organization.id}
-                billing={billing}
-                getToken={getToken}
-                onSuccess={() => {
-                  refetchBilling();
-                  setFeedback({ type: "success", message: "Billing updated." });
-                  setTimeout(() => setFeedback(null), 4000);
-                }}
-                onError={(msg) => {
-                  setFeedback({ type: "error", message: msg });
-                  setTimeout(() => setFeedback(null), 6000);
-                }}
-                saving={founderBillingSaving}
-                setSaving={setFounderBillingSaving}
-                extendLoading={founderExtendLoading}
-                setExtendLoading={setFounderExtendLoading}
-                extendDays={founderExtendDays}
-                setExtendDays={setFounderExtendDays}
-              />
             </SettingsSectionCard>
           )}
 
@@ -1927,15 +1387,13 @@ function SettingsPageContent() {
                 )}
                 {aiUsage.tokensLimit === 0 && (
                   <p className="text-sm text-amber-600">
-                    Upgrade to Growth or AI Pro for AI features.
+                    No token budget is configured for this workspace.
                   </p>
                 )}
                 {aiUsage.tokensLimit > 0 &&
-                  aiUsage.tokensUsed / aiUsage.tokensLimit >= 0.7 &&
-                  effectivePlan !== "pro" && (
+                  aiUsage.tokensUsed / aiUsage.tokensLimit >= 0.7 && (
                     <p className="text-sm text-amber-600">
-                      Approaching limit. Consider upgrading for higher
-                      allowance.
+                      Approaching limit for this period.
                     </p>
                   )}
                 {aiUsage.tokensLimit > 0 && (
@@ -2067,55 +1525,6 @@ function SettingsPageContent() {
                     >
                       Clear simulation
                     </Button>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Real plan switch (backend)
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Persist plan change in database. Development environment
-                    only.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {(["starter", "growth", "pro"] as const).map((plan) => (
-                      <Button
-                        key={plan}
-                        size="sm"
-                        variant={
-                          billing?.planType === plan ? "default" : "outline"
-                        }
-                        disabled={
-                          devSwitchLoading || billing?.planType === plan
-                        }
-                        onClick={async () => {
-                          setDevSwitchLoading(true);
-                          try {
-                            const token = await getToken();
-                            if (!token) return;
-                            await apiRequest("/billing/dev-switch-plan", {
-                              method: "POST",
-                              token,
-                              body: JSON.stringify({ planType: plan }),
-                            });
-                            await refetchBilling();
-                            setSimulatedPlan(null);
-                          } catch (err) {
-                            setFeedback({
-                              type: "error",
-                              message: fromError(
-                                err,
-                                "Dev switch failed. Please try again.",
-                              ),
-                            });
-                          } finally {
-                            setDevSwitchLoading(false);
-                          }
-                        }}
-                      >
-                        {plan}
-                      </Button>
-                    ))}
                   </div>
                 </div>
                 <div>

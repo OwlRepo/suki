@@ -58,7 +58,7 @@ export function AiQuotaBanner() {
       <AlertDescription>
         {variant === "error" ? (
           <p>
-            AI quota exceeded. Upgrade your plan or wait for reset on next month.
+            AI quota exceeded. Wait for the next reset window.
             <Link href="/settings" className="ml-1 underline">
               View usage
             </Link>

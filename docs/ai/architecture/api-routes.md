@@ -13,11 +13,11 @@ NestJS route handlers are defined by controller files in `apps/api/src/**/*.cont
 | customers/intake | `customers.controller.ts`, `intake.controller.ts` | customer workflows | High |
 | crm | `activities.controller.ts`, `tasks.controller.ts`, `deals.controller.ts`, `deal-stages.controller.ts`, `custom-fields.controller.ts` | CRM UI pages | High |
 | appointments | `appointments.controller.ts` | appointments dashboards | High |
-| promos/loyalty/insights | `promos.controller.ts`, `loyalty.controller.ts`, `insights.controller.ts` | growth and analytics pages | High |
+| promos/loyalty/insights | `promos.controller.ts`, `loyalty.controller.ts`, `insights.controller.ts` | growth and analytics pages, AI/automation monitoring | High |
 | imports | `imports.controller.ts` | import wizard and onboarding | High |
 | onboarding/workflows | `onboarding.controller.ts`, `workflows.controller.ts` | setup and automations UI | High |
 | messaging | `messaging.controller.ts`, `inbound-sms.controller.ts`, `messaging-webhooks.controller.ts` | outbound/inbound messaging + providers | High |
-| billing | `billing.controller.ts`, `billing-webhook.controller.ts` | checkout/billing settings + provider webhooks | High |
+| billing | `billing.controller.ts`, `billing-webhook.controller.ts` | free-mode billing compatibility endpoints + provider webhook no-op | High |
 | licensing/security | `licensing.controller.ts`, `ota-update.controller.ts`, `privacy.controller.ts` | on-prem licensing/privacy | High |
 | admin/ai/automation | `admin.controller.ts`, `ai.controller.ts`, `automation.controller.ts` | admin + AI automations | High |
 

@@ -1,7 +1,7 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { businesses, customers, messageEvents } from "@suki/database";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, sql } from "drizzle-orm";
 import type { AutomationKey, MessagePurpose } from "@suki/types";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { AutomationPolicyService } from "../automation/automation-policy.service";
@@ -12,6 +12,20 @@ import { SMS_PROVIDER, EMAIL_PROVIDER } from "./providers/provider.tokens";
 
 const SMS_STOP = " Reply STOP to opt out.";
 const AUTO_FOOTER = " Sent automatically by Suki";
+const FOLLOWUP_DAILY_ORG_LIMIT_DEFAULT = 500;
+const FOLLOWUP_DAILY_BUSINESS_LIMIT_DEFAULT = 300;
+const FOLLOWUP_DAILY_USER_LIMIT_DEFAULT = 120;
+
+function getEnvInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
+}
+
+function getDayStartUTC(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+}
 
 /** Map automation key -> required module for plan gate */
 const MODULE_BY_AUTOMATION: Record<AutomationKey, string> = {
@@ -28,6 +42,7 @@ export interface DispatchInput {
   organizationId: string;
   businessId: string;
   customerId: string;
+  actorUserId?: string;
   appointmentId?: string;
   automationKey: AutomationKey;
   purpose: MessagePurpose;
@@ -55,6 +70,7 @@ export class MessageDispatchService {
 
   async dispatch(input: DispatchInput): Promise<DispatchResult> {
     const db = getDb();
+    const sentBy = input.actorUserId ? `user:${input.actorUserId}` : "auto_suki";
 
     const [cust] = await db
       .select()
@@ -113,6 +129,18 @@ export class MessageDispatchService {
       return this.recordSkipped(input, reason);
     }
 
+    const followupCapCheck = await this.checkFollowupDailyCaps(
+      input.organizationId,
+      input.businessId,
+      sentBy,
+    );
+    if (!followupCapCheck.allowed) {
+      return this.recordSkipped(
+        input,
+        followupCapCheck.reason ?? "FOLLOWUP_DAILY_ORG_CAP_EXCEEDED",
+      );
+    }
+
     if (input.channel === "sms") {
       const canConsume = await this.smsMetering.canConsume(
         input.organizationId,
@@ -147,6 +175,7 @@ export class MessageDispatchService {
         channel: input.channel,
         content: body,
         status: "queued",
+        sentBy,
         retryCount: 0,
       })
       .returning();
@@ -321,6 +350,7 @@ export class MessageDispatchService {
         channel: input.channel,
         content: input.rawMessage,
         status: "skipped",
+        sentBy: input.actorUserId ? `user:${input.actorUserId}` : "auto_suki",
         failureReason: reason,
       })
       .returning();
@@ -329,5 +359,70 @@ export class MessageDispatchService {
       reason,
       messageEventId: evt?.id,
     };
+  }
+
+  private async checkFollowupDailyCaps(
+    organizationId: string,
+    businessId: string,
+    sentBy: string,
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    const db = getDb();
+    const dayStart = getDayStartUTC();
+
+    const [orgRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(messageEvents)
+      .innerJoin(businesses, eq(messageEvents.businessId, businesses.id))
+      .where(
+        and(
+          eq(businesses.organizationId, organizationId),
+          eq(messageEvents.status, "sent"),
+          gte(messageEvents.createdAt, dayStart),
+        ),
+      );
+    const orgLimit = getEnvInt("FOLLOWUP_DAILY_ORG_LIMIT", FOLLOWUP_DAILY_ORG_LIMIT_DEFAULT);
+    const orgCount = Number(orgRow?.count ?? 0);
+    if (orgLimit > 0 && orgCount >= orgLimit) {
+      return { allowed: false, reason: "FOLLOWUP_DAILY_ORG_CAP_EXCEEDED" };
+    }
+
+    const [businessRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(messageEvents)
+      .where(
+        and(
+          eq(messageEvents.businessId, businessId),
+          eq(messageEvents.status, "sent"),
+          gte(messageEvents.createdAt, dayStart),
+        ),
+      );
+    const businessLimit = getEnvInt(
+      "FOLLOWUP_DAILY_BUSINESS_LIMIT",
+      FOLLOWUP_DAILY_BUSINESS_LIMIT_DEFAULT,
+    );
+    const businessCount = Number(businessRow?.count ?? 0);
+    if (businessLimit > 0 && businessCount >= businessLimit) {
+      return { allowed: false, reason: "FOLLOWUP_DAILY_BUSINESS_CAP_EXCEEDED" };
+    }
+
+    if (sentBy.startsWith("user:")) {
+      const [userRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(messageEvents)
+        .where(
+          and(
+            eq(messageEvents.sentBy, sentBy),
+            eq(messageEvents.status, "sent"),
+            gte(messageEvents.createdAt, dayStart),
+          ),
+        );
+      const userLimit = getEnvInt("FOLLOWUP_DAILY_USER_LIMIT", FOLLOWUP_DAILY_USER_LIMIT_DEFAULT);
+      const userCount = Number(userRow?.count ?? 0);
+      if (userLimit > 0 && userCount >= userLimit) {
+        return { allowed: false, reason: "FOLLOWUP_DAILY_USER_CAP_EXCEEDED" };
+      }
+    }
+
+    return { allowed: true };
   }
 }

@@ -5,7 +5,6 @@ import { SuccessIllustration } from "@/components/landing/success-illustration";
 import {
   BarChart3,
   CalendarCheck,
-  CreditCard,
   MessageSquare,
   Shield,
   TrendingUp,
@@ -25,10 +24,10 @@ import {
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 
 const TRUST_CHIPS = [
-  "Free plan available",
-  "No credit card to start",
-  "Includes monthly SMS allowance",
-  "Pay extra only when usage grows",
+  "All core features available",
+  "No payment setup required",
+  "Built for repeat-visit businesses",
+  "Fast setup for small teams",
 ] as const;
 
 const OUTCOME_STATS = [
@@ -39,13 +38,13 @@ const OUTCOME_STATS = [
   },
   {
     label: "Recovered bookings",
-    value: "One recovered ₱500+ appointment can already cover the monthly plan.",
+    value: "Recovered bookings help keep your calendar full and revenue steady.",
     source: "Built for salons, clinics, gyms, spas, and repeat-visit businesses.",
   },
   {
-    label: "Predictable pricing",
-    value: "Each plan includes SMS. Extra usage is charged only after the allowance.",
-    source: "Base plan + overage model.",
+    label: "Clear daily limits",
+    value: "Built-in usage limits help prevent accidental abuse.",
+    source: "Daily caps for AI and follow-up sending.",
   },
 ] as const;
 
@@ -99,69 +98,6 @@ const KEY_AUTOMATIONS = [
   },
 ] as const;
 
-const PRICING = [
-  {
-    name: "Free",
-    price: "₱0",
-    description: "For trying Suki with a small customer list.",
-    features: [
-      "Up to 50 customers",
-      "Customer list",
-      "QR signup",
-      "Visit tracking",
-      "Appointment reminders only",
-      "50 SMS included",
-      "Powered by Suki branding",
-    ],
-    overage: "Upgrade when you need more SMS or automations",
-    popular: false,
-  },
-  {
-    name: "Starter",
-    price: "₱299/mo",
-    description: "For small shops that want core automations.",
-    features: [
-      "Up to 300 customers",
-      "Appointment reminders",
-      "Missed appointment recovery",
-      "Post-visit follow-ups",
-      "300 SMS included",
-      "Remove Suki branding",
-    ],
-    overage: "₱2.50 per SMS beyond 300",
-    popular: false,
-  },
-  {
-    name: "Growth",
-    price: "₱799/mo",
-    description: "For businesses that want repeat visits and winbacks.",
-    features: [
-      "Up to 1,000 customers",
-      "Everything in Starter",
-      "Inactivity winback",
-      "New vs repeat analytics",
-      "AI-assisted message writing",
-      "800 SMS included",
-    ],
-    overage: "₱2.30 per SMS beyond 800",
-    popular: true,
-  },
-  {
-    name: "Pro",
-    price: "₱1,499/mo",
-    description: "For high-volume or multi-branch businesses.",
-    features: [
-      "Larger customer database",
-      "Everything in Growth",
-      "Advanced segmentation",
-      "Month-to-month comparison",
-      "Multi-branch ready",
-      "2,000 SMS included",
-    ],
-    overage: "₱2.00 per SMS beyond 2,000",
-    popular: false,
-  },
-] as const;
 
 const BEFORE_AFTER = {
   before: [
@@ -180,24 +116,12 @@ const BEFORE_AFTER = {
 
 const FAQ = [
   {
-    q: "Is Suki free to start?",
-    a: "Yes. You can start on the Free plan with up to 50 customers and 50 included SMS.",
+    q: "Is Suki free to use?",
+    a: "Yes. Suki is currently in free mode with all core features enabled.",
   },
   {
-    q: "How does SMS pricing work?",
-    a: "Each paid plan includes a monthly SMS allowance. If you exceed it, only the extra SMS are charged based on your plan’s overage rate.",
-  },
-  {
-    q: "Why not unlimited SMS?",
-    a: "SMS has real sending costs. The included allowance keeps pricing predictable while still protecting the business from heavy usage costs.",
-  },
-  {
-    q: "Can I cancel anytime?",
-    a: "Yes. Suki is month-to-month. Your business data stays yours.",
-  },
-  {
-    q: "What happens if payment fails?",
-    a: "Suki can pause automated sending after the grace period, so you do not accidentally keep sending paid SMS while past due.",
+    q: "How do usage limits work?",
+    a: "Suki enforces daily limits for AI and follow-up sending to prevent abuse and keep usage healthy.",
   },
   {
     q: "Is Suki only for the Philippines?",
@@ -235,14 +159,13 @@ export default function Home() {
 
               <p className="max-w-lg text-lg leading-relaxed text-muted-foreground">
                 Suki helps Philippine service businesses reduce no-shows, send
-                follow-ups, and bring customers back automatically. Start free,
-                then pay more only when your usage grows.
+                follow-ups, and bring customers back automatically.
               </p>
 
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
                 <p className="font-semibold text-foreground">
-                  Free to start. Paid plans include SMS. Extra SMS only costs
-                  more after your allowance.
+                  Free mode is active with core features enabled and sensible
+                  daily limits to prevent abuse.
                 </p>
               </div>
 
@@ -387,66 +310,6 @@ export default function Home() {
                 </Card>
               ))}
             </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
-            Simple pricing that scales with usage
-          </h2>
-          <p className="mx-auto mt-2 max-w-2xl text-center text-muted-foreground">
-            Each plan includes monthly SMS. If you send more, you only pay for
-            the extra messages.
-          </p>
-
-          <div className="mt-12 grid gap-6 lg:grid-cols-4">
-            {PRICING.map((plan) => (
-              <Card
-                key={plan.name}
-                className={
-                  plan.popular
-                    ? "relative border-primary/50 bg-primary/5 shadow-md"
-                    : "relative"
-                }
-              >
-                {plan.popular ? (
-                  <Badge className="absolute right-4 top-4">Popular</Badge>
-                ) : null}
-
-                <CardContent className="flex h-full flex-col p-6">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {plan.name}
-                  </h3>
-                  <p className="mt-2 text-3xl font-bold text-foreground">
-                    {plan.price}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {plan.description}
-                  </p>
-
-                  <ul className="mt-6 flex-1 space-y-2 text-sm text-muted-foreground">
-                    {plan.features.map((feature) => (
-                      <li key={feature}>• {feature}</li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-6 rounded-lg border border-border bg-background p-3 text-sm">
-                    <p className="font-medium text-foreground">Overage</p>
-                    <p className="text-muted-foreground">{plan.overage}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <div className="mx-auto mt-8 max-w-2xl rounded-xl border border-border bg-muted/20 p-6 text-center">
-            <CreditCard className="mx-auto mb-3 size-6 text-primary" />
-            <p className="font-semibold text-foreground">
-              Example: Starter plan with 500 SMS
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              ₱299 base + 200 extra SMS × ₱2.50 = ₱799 total.
-            </p>
           </div>
         </section>
 

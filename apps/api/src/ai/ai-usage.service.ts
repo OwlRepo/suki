@@ -24,6 +24,15 @@ function getDayStartUTC(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
 }
 
+function getEnvInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
+}
+
+const AI_DAILY_REQUEST_LIMIT_DEFAULT = 150;
+const AI_DAILY_TOKEN_LIMIT_DEFAULT = 150_000;
+
 @Injectable()
 export class AiUsageService {
   constructor(private readonly planCapacity: PlanCapacityService) {}
@@ -230,6 +239,7 @@ export class AiUsageService {
     const [dailyRow] = await db
       .select({
         dailyTokens: sql<number>`coalesce(sum(${aiUsageEvents.totalTokens}), 0)::int`,
+        dailyRequests: sql<number>`count(*)::int`,
       })
       .from(aiUsageEvents)
       .where(
@@ -239,7 +249,10 @@ export class AiUsageService {
         ),
       );
     const dailyTokens = Number(dailyRow?.dailyTokens ?? 0);
+    const dailyRequests = Number(dailyRow?.dailyRequests ?? 0);
     const dailyCap = Math.floor(quota.monthlyTokenLimit * (quota.dailyCapPct ?? 0.08));
+    const dailyRequestLimit = getEnvInt("AI_DAILY_REQUEST_LIMIT", AI_DAILY_REQUEST_LIMIT_DEFAULT);
+    const dailyTokenLimit = getEnvInt("AI_DAILY_TOKEN_LIMIT", AI_DAILY_TOKEN_LIMIT_DEFAULT);
 
     if (quota.monthlyTokenLimit > 0 && tokensUsed + estimatedTokens > quota.monthlyTokenLimit) {
       return { allowed: false, reason: "AI_TOKEN_BUDGET_EXCEEDED" };
@@ -249,6 +262,12 @@ export class AiUsageService {
     }
     if (dailyCap > 0 && dailyTokens + estimatedTokens > dailyCap) {
       return { allowed: false, reason: "AI_DAILY_CAP_EXCEEDED" };
+    }
+    if (dailyRequestLimit > 0 && dailyRequests + 1 > dailyRequestLimit) {
+      return { allowed: false, reason: "AI_DAILY_REQUEST_CAP_EXCEEDED" };
+    }
+    if (dailyTokenLimit > 0 && dailyTokens + estimatedTokens > dailyTokenLimit) {
+      return { allowed: false, reason: "AI_DAILY_TOKEN_CAP_EXCEEDED" };
     }
 
     const [budgetRow] = await db

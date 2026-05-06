@@ -16,6 +16,7 @@ import { CustomerTemplatesService } from "./customer-templates.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
+import { AutomationSendService } from "../automation/automation-send.service";
 
 @Controller("customers")
 @UseGuards(ClerkAuthGuard, BillingWriteGuard)
@@ -23,6 +24,7 @@ export class CustomersController {
   constructor(
     private readonly customersService: CustomersService,
     private readonly templatesService: CustomerTemplatesService,
+    private readonly automationSend: AutomationSendService,
   ) {}
 
   @Get()
@@ -240,6 +242,25 @@ export class CustomersController {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
     const customer = await this.customersService.stampVisit(id, orgId);
     return { customer };
+  }
+
+  @Post(":id/send-follow-up")
+  async sendFollowUp(
+    @Param("id") id: string,
+    @Tenant("organizationId") orgId?: string,
+    @Tenant("userId") userId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    if (!userId) throw new UnauthorizedException("Unauthorized");
+    const customer = await this.customersService.findById(id, orgId);
+    if (!customer) throw new BadRequestException("Customer not found");
+    const result = await this.automationSend.sendPostVisitFollowup(
+      orgId,
+      customer.businessId,
+      id,
+      userId,
+    );
+    return result;
   }
 
   @Patch(":id/visit")
