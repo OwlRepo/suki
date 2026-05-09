@@ -19,10 +19,12 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `GET/PATCH/DELETE /privacy/*`
 - `POST /licensing/*`, `GET /licensing/ota/*`
 - `POST /ai/check`, `GET /ai/usage/*`, `PATCH /ai/usage/policies`
+- `GET /intake/config`, `POST /intake`, `GET /intake/availability`, `POST /intake/hold`, `POST /intake/otp/send`, `POST /intake/otp/verify`
 
 ## Auth Requirements
 - Most business routes are protected by `ClerkAuthGuard`.
 - Additional guards enforce plan/billing/owner/crm-mode/founder controls by route.
+- Intake endpoints are public-facing for external customers; server-side validation and business scoping are required for every request.
 
 ## Request/Response Schema Sources
 - DTO/body/query declarations in controller signatures

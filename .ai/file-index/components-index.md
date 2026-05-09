@@ -3,6 +3,9 @@
 | File Path | Purpose | Relationships | Usage Patterns |
 |---|---|---|---|
 | `apps/web/src/components/navigation/adaptive-app-shell.tsx` | Adaptive dashboard shell | Used by dashboard layout/navigation | Responsive app navigation wrapper |
+| `apps/web/src/components/navigation/dashboard-nav-config.ts` | Dashboard navigation source config | Consumed by desktop/mobile navigation components | Defines grouped sidebar links and mobile bottom-nav priorities |
+| `apps/web/src/components/share-slots/share-slots-workflow.tsx` | Share-slots workflow surface | Uses workspace context, auth hooks, and appointments share-template APIs | Step-by-step slot sharing flow with template management, asset generation, and copy actions |
+| `apps/web/src/components/ai-quota-banner.tsx` | AI usage and quota awareness banner | Rendered by dashboard surfaces that expose AI actions | Surfaces policy/usage state to users before AI actions |
 | `apps/web/src/components/dashboard-nav.tsx` | Primary dashboard nav links | Depends on dashboard nav config | Route-level navigation |
 | `apps/web/src/components/onboarding/onboarding-wizard.tsx` | Onboarding flow UI | Uses onboarding hooks/services | Progressive onboarding state |
 | `apps/web/src/components/customers/customer-form-modal.tsx` | Customer create/edit modal | Calls API via lib/hook layer | CRUD workflow UI |

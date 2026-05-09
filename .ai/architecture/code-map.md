@@ -7,8 +7,10 @@
 
 ## Core Application Flows
 - Auth/session: `apps/web/src/lib/clerk.ts` <-> `apps/api/src/auth/*`
+- Web route protection: `apps/web/src/proxy.ts` + `apps/web/src/lib/protected-routes.ts`
 - Onboarding: web onboarding pages/components + `apps/api/src/onboarding/*`
 - Customers/CRM: dashboard pages + `apps/api/src/customers/*`, `apps/api/src/crm/*`
+- Public intake and booking: `apps/web/src/app/intake/[businessId]/page.tsx` + `apps/api/src/intake/*`
 - Messaging and AI composition: `apps/api/src/messaging/*` + `apps/api/src/ai/*`
 - Billing/plans: `apps/api/src/billing/*` + plan guards in `apps/api/src/common`
 - Imports: `apps/web/src/app/(dashboard)/imports/page.tsx` + `apps/api/src/imports/*`

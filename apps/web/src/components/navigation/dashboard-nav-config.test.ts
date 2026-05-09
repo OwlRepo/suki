@@ -11,4 +11,11 @@ describe("dashboard navigation UX", () => {
     const labels = getMobileBottomNavItems(false).map((i) => i.label);
     expect(labels).toContain("Appointments");
   });
+
+  it("includes a dedicated share slots page in dashboard navigation", () => {
+    const dailyItems = getDashboardNavGroups(false).find((g) => g.key === "daily")?.items ?? [];
+    expect(dailyItems).toEqual(
+      expect.arrayContaining([expect.objectContaining({ href: "/share-slots", label: "Share slots" })]),
+    );
+  });
 });

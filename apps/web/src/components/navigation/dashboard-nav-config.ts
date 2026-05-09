@@ -6,6 +6,7 @@ import {
   Import,
   Settings,
   Settings2,
+  Share2,
   Users,
 } from "lucide-react";
 
@@ -29,6 +30,7 @@ export function getDashboardNavGroups(_showPipeline: boolean): NavGroup[] {
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/appointments", label: "Appointments", icon: CalendarDays },
+    { href: "/share-slots", label: "Share slots", icon: Share2 },
   ];
 
   return [

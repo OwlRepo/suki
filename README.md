@@ -26,6 +26,17 @@ You set it once. It runs for you.
 
 ---
 
+## Current Product Capabilities
+
+- Public intake page per business (`/intake/[businessId]`) for lead capture and booking requests
+- Guided booking flow with date/time selection, review, and OTP verification
+- Temporary slot holds before confirmation to reduce double-booking
+- Guided Facebook slot sharing flow with source tracking into customer notes
+- Protected dashboard routes for internal staff flows (customers, appointments, insights, settings, and related pages)
+- Updated adaptive app shell and navigation for desktop + mobile dashboard use
+
+---
+
 ## What Actually Changes
 
 - Fewer empty slots from missed appointments  
@@ -181,10 +192,39 @@ Requires [Docker](https://docs.docker.com/get-docker/)
 
 ---
 
+## Developer Quick Context
+
+- Monorepo: Bun + Turborepo
+- Web: Next.js 16 + React 19 (`apps/web`)
+- API: NestJS 10 (`apps/api`)
+- Database: Drizzle schema/migrations (`packages/database`)
+
+Common commands:
+
+```bash
+bun run dev
+bun run test
+bun run lint
+bun run typecheck
+bun run docker:dev:up
+```
+
+Targeted commands:
+
+```bash
+bun run dev:web
+bun run dev:api
+bun run --cwd apps/web test:run
+bun run --cwd apps/api test:run
+```
+
+---
+
 ## 🧪 Status
 
 - MVP ready  
 - Core automations working  
+- Intake booking holds with OTP verification live  
 - Early users onboarding  
 
 ---

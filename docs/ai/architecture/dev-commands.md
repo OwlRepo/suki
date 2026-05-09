@@ -1,4 +1,4 @@
-Last updated: 2026-05-09T08:25:19.556Z
+Last updated: 2026-05-09T12:07:06.828Z
 Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
 # Dev Commands
@@ -31,8 +31,7 @@ Source-of-truth inputs: Repository manifests, module files, tests, and workflow 
 | root | db:seed | `bun run db:seed` |
 | root | db:reset | `bun run db:reset` |
 | root | db:reconcile-orphans | `bun run db:reconcile-orphans` |
-| root | setup docs bootstrap helper | `bun run setup:cursor` |
-| root | refresh AI indexes metadata | `bun run update:cursor-indexes` |
+| root | refresh AI indexes metadata | `bun run update:ai-indexes` |
 | root | docker dev up | `bun run docker:dev:up` |
 | root | docker dev build | `bun run docker:dev:build` |
 | root | docker dev down | `bun run docker:dev:down` |
