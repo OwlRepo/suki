@@ -25,7 +25,7 @@ export function MobileBottomNav({
   return (
     <div
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-border bg-card/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden",
+        "fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-border bg-card px-2 py-2 shadow-[0_-4px_16px_rgba(0,0,0,0.05)] lg:hidden",
         className
       )}
       style={{ minHeight: BOTTOM_NAV_HEIGHT }}
@@ -44,8 +44,8 @@ export function MobileBottomNav({
             className={cn(
               "flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-2 text-xs font-medium transition-colors",
               isActive
-                ? "text-foreground"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                ? "bg-primary/10 text-foreground"
+                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
             )}
           >
             <Icon className="size-5 shrink-0" aria-hidden />

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import type { NavGroup } from "./dashboard-nav-config";
 
 const NAV_LINK_CLASS =
-  "flex min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors";
+  "flex min-h-[46px] items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors";
 
 interface DesktopSidebarNavProps {
   groups: NavGroup[];
@@ -39,8 +39,8 @@ export function DesktopSidebarNav({ groups, className }: DesktopSidebarNavProps)
                     className={cn(
                       NAV_LINK_CLASS,
                       isActive
-                        ? "bg-primary/10 text-foreground"
-                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        ? "bg-primary/10 text-foreground ring-1 ring-primary/20"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
                     <Icon className="size-5 shrink-0" aria-hidden />

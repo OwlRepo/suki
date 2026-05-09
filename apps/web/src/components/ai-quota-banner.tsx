@@ -50,8 +50,8 @@ export function AiQuotaBanner() {
     variant === "error"
       ? "border-destructive/50 bg-destructive/10 text-destructive"
       : variant === "warning"
-        ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        : "border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-300";
+        ? "border-amber-500/50 bg-amber-500/10 text-amber-700"
+        : "border-blue-500/30 bg-blue-500/5 text-blue-700";
 
   return (
     <Alert variant={variant === "error" ? "destructive" : "default"} className={cn("mb-4", variantClass)}>

@@ -261,7 +261,7 @@ export function OnboardingWizard() {
           <OnboardingStepIntro guidance={guidance} />
 
           {successFeedback && (
-            <div className="rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400" role="status">
+            <div className="rounded-md border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-700" role="status">
               {successFeedback}
             </div>
           )}
