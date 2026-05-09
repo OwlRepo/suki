@@ -1,0 +1,339 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from "@nestjs/common";
+import { getDb } from "@suki/database";
+import { appointments, bookingHolds, businesses } from "@suki/database";
+import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+
+const HOLD_MINUTES = 5;
+const OTP_MAX_ATTEMPTS = 5;
+
+type VerifyResult = {
+  sid?: string;
+  status?: string;
+  valid?: boolean;
+};
+
+@Injectable()
+export class IntakeBookingService {
+  async getAvailability(businessId: string, month: string) {
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      throw new BadRequestException("month must be YYYY-MM");
+    }
+
+    const [year, monthNum] = month.split("-").map((v) => parseInt(v, 10));
+    const start = new Date(Date.UTC(year, monthNum - 1, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59));
+
+    const db = getDb();
+    const [biz] = await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.id, businessId))
+      .limit(1);
+
+    if (!biz) throw new BadRequestException("Business not found");
+
+    const slotDurationMins = biz.businessType === "clinic" ? 60 : 30;
+    const startHour = biz.businessType === "clinic" ? 9 : 10;
+    const endHour = biz.businessType === "clinic" ? 17 : 20;
+
+    const appts = await db
+      .select({ scheduledAt: appointments.scheduledAt })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.businessId, businessId),
+          eq(appointments.status, "scheduled"),
+          gte(appointments.scheduledAt, start),
+          lte(appointments.scheduledAt, end),
+        ),
+      );
+
+    const now = new Date();
+    const activeHolds = await db
+      .select({ scheduledAt: bookingHolds.scheduledAt })
+      .from(bookingHolds)
+      .where(
+        and(
+          eq(bookingHolds.businessId, businessId),
+          inArray(bookingHolds.status, ["held", "confirmed"]),
+          gte(bookingHolds.expiresAt, now),
+          gte(bookingHolds.scheduledAt, start),
+          lte(bookingHolds.scheduledAt, end),
+        ),
+      );
+
+    const blocked = new Set<string>();
+    for (const a of appts) blocked.add(a.scheduledAt.toISOString());
+    for (const h of activeHolds) blocked.add(h.scheduledAt.toISOString());
+
+    const byDay: Record<string, string[]> = {};
+    const startLocal = new Date(year, monthNum - 1, 1);
+    const endLocal = new Date(year, monthNum, 0);
+
+    for (let d = new Date(startLocal); d <= endLocal; d.setDate(d.getDate() + 1)) {
+      const day = new Date(d);
+      const dayKey = day.toISOString().slice(0, 10);
+      const daySlots: string[] = [];
+
+      for (let hour = startHour; hour < endHour; hour += 1) {
+        for (let mins = 0; mins < 60; mins += slotDurationMins) {
+          const slot = new Date(
+            day.getFullYear(),
+            day.getMonth(),
+            day.getDate(),
+            hour,
+            mins,
+            0,
+            0,
+          );
+          if (slot <= now) continue;
+          if (!blocked.has(slot.toISOString())) {
+            daySlots.push(slot.toISOString());
+          }
+        }
+      }
+
+      if (daySlots.length > 0) {
+        byDay[dayKey] = daySlots;
+      }
+    }
+
+    return { month, slotDurationMins, byDay };
+  }
+
+  async createHold(input: {
+    businessId: string;
+    customerId: string;
+    mobile: string;
+    scheduledAt: string;
+  }) {
+    const scheduledAt = new Date(input.scheduledAt);
+    if (!Number.isFinite(scheduledAt.getTime())) {
+      throw new BadRequestException("Invalid scheduledAt");
+    }
+    if (!input.mobile?.trim()) {
+      throw new BadRequestException("mobile required");
+    }
+
+    const db = getDb();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + HOLD_MINUTES * 60_000);
+
+    const hold = await db.transaction(async (tx) => {
+      const lockKey = `${input.businessId}:${scheduledAt.toISOString()}`;
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`,
+      );
+
+      const existingAppt = await tx
+        .select({ id: appointments.id })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.businessId, input.businessId),
+            eq(appointments.scheduledAt, scheduledAt),
+            eq(appointments.status, "scheduled"),
+          ),
+        )
+        .limit(1);
+
+      if (existingAppt.length > 0) {
+        throw new ConflictException("Selected slot is no longer available");
+      }
+
+      const existingHold = await tx
+        .select({ id: bookingHolds.id })
+        .from(bookingHolds)
+        .where(
+          and(
+            eq(bookingHolds.businessId, input.businessId),
+            eq(bookingHolds.scheduledAt, scheduledAt),
+            inArray(bookingHolds.status, ["held", "confirmed"]),
+            gte(bookingHolds.expiresAt, now),
+          ),
+        )
+        .limit(1);
+
+      if (existingHold.length > 0) {
+        throw new ConflictException("Selected slot is currently held");
+      }
+
+      const [created] = await tx
+        .insert(bookingHolds)
+        .values({
+          businessId: input.businessId,
+          customerId: input.customerId,
+          mobile: input.mobile.trim(),
+          scheduledAt,
+          status: "held",
+          expiresAt,
+        })
+        .returning();
+
+      return created!;
+    });
+
+    return hold;
+  }
+
+  async sendOtp(holdId: string) {
+    const db = getDb();
+    const [hold] = await db
+      .select()
+      .from(bookingHolds)
+      .where(eq(bookingHolds.id, holdId))
+      .limit(1);
+
+    if (!hold) throw new BadRequestException("Hold not found");
+    if (hold.status !== "held") throw new BadRequestException("Hold is not active");
+    if (hold.expiresAt < new Date()) throw new BadRequestException("Hold expired");
+
+    const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+    const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+    const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
+
+    if (!sid || !token || !verifyServiceSid) {
+      throw new BadRequestException("OTP provider not configured");
+    }
+
+    const basicAuth = Buffer.from(`${sid}:${token}`).toString("base64");
+    const params = new URLSearchParams();
+    params.set("To", hold.mobile);
+    params.set("Channel", "sms");
+
+    const res = await fetch(
+      `https://verify.twilio.com/v2/Services/${verifyServiceSid}/Verifications`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      },
+    );
+
+    if (!res.ok) {
+      throw new BadRequestException("Failed to send OTP");
+    }
+
+    const data = (await res.json()) as VerifyResult;
+
+    await db
+      .update(bookingHolds)
+      .set({
+        otpSid: data.sid ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(bookingHolds.id, hold.id));
+
+    return { success: true };
+  }
+
+  async verifyAndConfirm(holdId: string, code: string) {
+    if (!code?.trim()) throw new BadRequestException("OTP code required");
+
+    const db = getDb();
+    const [hold] = await db
+      .select()
+      .from(bookingHolds)
+      .where(eq(bookingHolds.id, holdId))
+      .limit(1);
+
+    if (!hold) throw new BadRequestException("Hold not found");
+    if (hold.status !== "held") throw new BadRequestException("Hold is not active");
+    if (hold.expiresAt < new Date()) {
+      await db
+        .update(bookingHolds)
+        .set({ status: "expired", updatedAt: new Date() })
+        .where(eq(bookingHolds.id, hold.id));
+      throw new BadRequestException("Hold expired");
+    }
+    if (hold.otpAttempts >= OTP_MAX_ATTEMPTS) {
+      throw new BadRequestException("Too many OTP attempts");
+    }
+
+    const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+    const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+    const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
+    if (!sid || !token || !verifyServiceSid) {
+      throw new BadRequestException("OTP provider not configured");
+    }
+
+    const basicAuth = Buffer.from(`${sid}:${token}`).toString("base64");
+    const params = new URLSearchParams();
+    params.set("To", hold.mobile);
+    params.set("Code", code.trim());
+
+    const verifyRes = await fetch(
+      `https://verify.twilio.com/v2/Services/${verifyServiceSid}/VerificationCheck`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      },
+    );
+
+    const verifyData = (await verifyRes.json().catch(() => ({}))) as VerifyResult;
+
+    if (!verifyRes.ok || !verifyData.valid) {
+      await db
+        .update(bookingHolds)
+        .set({ otpAttempts: hold.otpAttempts + 1, updatedAt: new Date() })
+        .where(eq(bookingHolds.id, hold.id));
+      throw new BadRequestException("Invalid OTP");
+    }
+
+    const result = await db.transaction(async (tx) => {
+      const lockKey = `${hold.businessId}:${hold.scheduledAt.toISOString()}`;
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+
+      const conflictingAppointment = await tx
+        .select({ id: appointments.id })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.businessId, hold.businessId),
+            eq(appointments.scheduledAt, hold.scheduledAt),
+            eq(appointments.status, "scheduled"),
+          ),
+        )
+        .limit(1);
+
+      if (conflictingAppointment.length > 0) {
+        throw new ConflictException("Selected slot is no longer available");
+      }
+
+      const [appointment] = await tx
+        .insert(appointments)
+        .values({
+          businessId: hold.businessId,
+          customerId: hold.customerId,
+          scheduledAt: hold.scheduledAt,
+          notes: "Booked via customer self-serve flow",
+          status: "scheduled",
+        })
+        .returning();
+
+      await tx
+        .update(bookingHolds)
+        .set({
+          status: "confirmed",
+          confirmedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(bookingHolds.id, hold.id));
+
+      return appointment!;
+    });
+
+    return { appointment: result, success: true };
+  }
+}

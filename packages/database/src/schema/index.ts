@@ -329,6 +329,34 @@ export const appointments = pgTable(
   ],
 );
 
+// Booking holds — temporary slot reservation pending OTP verification
+export const bookingHolds = pgTable(
+  "booking_holds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    mobile: text("mobile").notNull(),
+    scheduledAt: timestamp("scheduled_at").notNull(),
+    status: text("status").notNull().default("held"), // held | confirmed | expired | released
+    otpSid: text("otp_sid"),
+    otpAttempts: integer("otp_attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at").notNull(),
+    confirmedAt: timestamp("confirmed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("booking_holds_business_scheduled_idx").on(t.businessId, t.scheduledAt),
+    index("booking_holds_expires_at_idx").on(t.expiresAt),
+    index("booking_holds_status_idx").on(t.status),
+  ],
+);
+
 // Subscriptions — plan, status, PayMongo subscription id
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
