@@ -7,10 +7,6 @@ import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { hasClerk } from "@/lib/clerk";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 
-const REQUEST_ACCESS_URL =
-  process.env.NEXT_PUBLIC_REQUEST_ACCESS_URL ||
-  "mailto:romeo.webeng@gmail.com?subject=Request%20access%20to%20Suki";
-
 interface LandingCtaProps {
   /** When true, show only the primary CTA (for hero with one dominant action) */
   singlePrimary?: boolean;
@@ -30,25 +26,21 @@ export function LandingCta({ singlePrimary }: LandingCtaProps) {
   return (
     <>
       <SignedOut>
-        {flags.public_signup_enabled ? (
-          singlePrimary ? (
+        {singlePrimary ? (
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <Link href="/sign-in">Log in</Link>
+          </Button>
+        ) : (
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
             <Button asChild size="lg" className="w-full sm:w-auto">
-              <Link href="/sign-up">Try Suki Free</Link>
+              <Link href="/sign-in">Log in</Link>
             </Button>
-          ) : (
-            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
-              <Button asChild size="lg" className="w-full sm:w-auto">
+            {flags.public_signup_enabled && (
+              <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
                 <Link href="/sign-up">Try Suki Free</Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-                <Link href="/sign-in">Sign in</Link>
-              </Button>
-            </div>
-          )
-        ) : (
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <a href={REQUEST_ACCESS_URL}>Request access</a>
-          </Button>
+            )}
+          </div>
         )}
       </SignedOut>
       <SignedIn>

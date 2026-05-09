@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
+  Logger,
 } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { appointments, bookingHolds, businesses } from "@suki/database";
@@ -16,8 +18,29 @@ type VerifyResult = {
   valid?: boolean;
 };
 
+type DatabaseLikeError = {
+  code?: string;
+  message?: string;
+};
+
+export function isBookingHoldsCompatibilityError(error: unknown): boolean {
+  const candidate = error as DatabaseLikeError | undefined;
+  const message = String(candidate?.message ?? "").toLowerCase();
+  // PostgreSQL 42P01 = undefined_table, 42703 = undefined_column.
+  return (
+    candidate?.code === "42P01" ||
+    candidate?.code === "42703" ||
+    (message.includes("booking_holds") &&
+      (message.includes("does not exist") ||
+        message.includes("undefined column") ||
+        message.includes("relation")))
+  );
+}
+
 @Injectable()
 export class IntakeBookingService {
+  private readonly logger = new Logger(IntakeBookingService.name);
+
   async getAvailability(businessId: string, month: string) {
     if (!/^\d{4}-\d{2}$/.test(month)) {
       throw new BadRequestException("month must be YYYY-MM");
@@ -53,18 +76,29 @@ export class IntakeBookingService {
       );
 
     const now = new Date();
-    const activeHolds = await db
-      .select({ scheduledAt: bookingHolds.scheduledAt })
-      .from(bookingHolds)
-      .where(
-        and(
-          eq(bookingHolds.businessId, businessId),
-          inArray(bookingHolds.status, ["held", "confirmed"]),
-          gte(bookingHolds.expiresAt, now),
-          gte(bookingHolds.scheduledAt, start),
-          lte(bookingHolds.scheduledAt, end),
-        ),
-      );
+    let activeHolds: Array<{ scheduledAt: Date }> = [];
+    try {
+      activeHolds = await db
+        .select({ scheduledAt: bookingHolds.scheduledAt })
+        .from(bookingHolds)
+        .where(
+          and(
+            eq(bookingHolds.businessId, businessId),
+            inArray(bookingHolds.status, ["held", "confirmed"]),
+            gte(bookingHolds.expiresAt, now),
+            gte(bookingHolds.scheduledAt, start),
+            lte(bookingHolds.scheduledAt, end),
+          ),
+        );
+    } catch (error) {
+      if (isBookingHoldsCompatibilityError(error)) {
+        this.logger.warn(
+          `Booking holds compatibility fallback in getAvailability for businessId=${businessId}. Ensure migration 0018_booking_holds is applied.`,
+        );
+      } else {
+        throw new InternalServerErrorException("Failed to load availability");
+      }
+    }
 
     const blocked = new Set<string>();
     for (const a of appts) blocked.add(a.scheduledAt.toISOString());

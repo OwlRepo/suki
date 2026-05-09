@@ -15,5 +15,7 @@ describe("Auth flows", () => {
     cy.visit("/sign-up");
     cy.url().should("include", "/sign-up");
     cy.get("body").should("be.visible");
+    cy.contains(/invite-only access/i).should("not.exist");
+    cy.contains(/request access/i).should("not.exist");
   });
 });

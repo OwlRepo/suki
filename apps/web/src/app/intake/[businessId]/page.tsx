@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { normalizeApiError } from "./error-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const OTP_LENGTH = 6;
@@ -67,6 +68,8 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   const [configError, setConfigError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [availabilityReloadNonce, setAvailabilityReloadNonce] = useState(0);
 
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [month, setMonth] = useState<string>(toLocalMonthValue());
@@ -129,13 +132,18 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     if (step !== "schedule") return;
     let cancelled = false;
     setAvailabilityLoading(true);
-    setError(null);
+    setAvailabilityError(null);
 
     fetch(`${API_URL}/intake/availability?businessId=${encodeURIComponent(businessId)}&month=${encodeURIComponent(month)}`)
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error((data as { message?: string }).message || "Failed to load availability");
+          throw new Error(
+            normalizeApiError(
+              data,
+              "We’re having trouble loading available slots right now. Please try again.",
+            ),
+          );
         }
         return data as Availability;
       })
@@ -146,7 +154,13 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         setSelectedSlot(null);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load availability");
+        if (!cancelled) {
+          setAvailabilityError(
+            e instanceof Error
+              ? e.message
+              : "We’re having trouble loading available slots right now. Please try again.",
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) setAvailabilityLoading(false);
@@ -155,7 +169,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     return () => {
       cancelled = true;
     };
-  }, [step, businessId, month]);
+  }, [step, businessId, month, availabilityReloadNonce]);
 
   const fields = template?.fieldsConfig ?? [];
   const dayKeys = Object.keys(availability?.byDay ?? {}).sort();
@@ -188,7 +202,9 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data as { message?: string }).message || "Failed");
+      if (!res.ok) {
+        throw new Error(normalizeApiError(data, "Failed to save your details. Please try again."));
+      }
 
       const customer = (data as { customer?: { id: string } }).customer;
       if (!customer?.id) throw new Error("Missing customer id");
@@ -235,7 +251,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       });
       const holdData = await holdRes.json().catch(() => ({}));
       if (!holdRes.ok) {
-        throw new Error((holdData as { message?: string }).message || "Failed to hold slot");
+        throw new Error(normalizeApiError(holdData, "Failed to hold slot"));
       }
 
       const createdHoldId = (holdData as { hold?: { id: string } }).hold?.id;
@@ -248,7 +264,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       });
       const otpData = await otpRes.json().catch(() => ({}));
       if (!otpRes.ok) {
-        throw new Error((otpData as { message?: string }).message || "Failed to send OTP");
+        throw new Error(normalizeApiError(otpData, "Failed to send OTP"));
       }
 
       setHoldId(createdHoldId);
@@ -273,7 +289,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error((data as { message?: string }).message || "Invalid OTP");
+        throw new Error(normalizeApiError(data, "Invalid OTP"));
       }
       setStep("done");
     } catch (e) {
@@ -369,7 +385,9 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                   body: JSON.stringify({ holdId }),
                 });
                 const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error((data as { message?: string }).message || "Failed to resend OTP");
+                if (!res.ok) {
+                  throw new Error(normalizeApiError(data, "Failed to resend OTP"));
+                }
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Failed to resend OTP");
               } finally {
@@ -470,6 +488,20 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
           <p className="mt-4 text-base text-destructive" role="alert">
             {error}
           </p>
+        )}
+        {availabilityError && (
+          <div className="mt-4 space-y-3" role="alert" aria-live="polite">
+            <p className="text-base text-destructive">{availabilityError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() => setAvailabilityReloadNonce((prev) => prev + 1)}
+              disabled={availabilityLoading}
+            >
+              {availabilityLoading ? "Retrying..." : "Retry"}
+            </Button>
+          </div>
         )}
       </div>
     );
