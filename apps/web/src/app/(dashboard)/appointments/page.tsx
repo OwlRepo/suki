@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -50,6 +52,12 @@ interface Appointment {
   createdAt: string;
 }
 
+type ShareBackgroundTemplate = "classic" | "sunrise" | "mint" | "photo";
+
+function formatSlotLabel(isoString: string) {
+  return new Date(isoString).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function AppointmentsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
@@ -75,6 +83,16 @@ function AppointmentsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [pendingCancel, setPendingCancel] = useState<{ id: string; customerName: string } | null>(null);
+  const [shareSlots, setShareSlots] = useState<string[]>([]);
+  const [shareTimeInput, setShareTimeInput] = useState("");
+  const [shareCaption, setShareCaption] = useState("");
+  const [shareLink, setShareLink] = useState("");
+  const [shareImageFeedUrl, setShareImageFeedUrl] = useState<string | null>(null);
+  const [shareImageStoryUrl, setShareImageStoryUrl] = useState<string | null>(null);
+  const [shareBackground, setShareBackground] = useState<ShareBackgroundTemplate>("classic");
+  const [shareBackgroundPhoto, setShareBackgroundPhoto] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   const loadCustomers = async () => {
     if (!selectedBiz) return;
@@ -117,6 +135,25 @@ function AppointmentsPageContent() {
     if (!selectedBiz) return;
     loadAppointments();
   }, [selectedBiz, dateFrom, dateTo]);
+
+  useEffect(() => {
+    const todayKey = new Date().toDateString();
+    const slotLabels = appointments
+      .filter((a) => a.status === "scheduled" && new Date(a.scheduledAt).toDateString() === todayKey)
+      .map((a) => formatSlotLabel(a.scheduledAt));
+    if (!slotLabels.length) return;
+    setShareSlots((prev) => (prev.length ? prev : slotLabels));
+  }, [appointments]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !selectedBiz) return;
+    const base = `${window.location.origin}/intake/${selectedBiz}`;
+    const url = new URL(base);
+    url.searchParams.set("utm_source", "facebook");
+    url.searchParams.set("utm_medium", "organic");
+    url.searchParams.set("utm_campaign", "daily_slots");
+    setShareLink(url.toString());
+  }, [selectedBiz]);
 
   const resetForm = () => {
     const today = new Date();
@@ -231,6 +268,166 @@ function AppointmentsPageContent() {
   const getCustomerName = (customerId: string) =>
     customers.find((c) => c.id === customerId)?.name ?? "—";
 
+  const parseSlots = () => shareSlots.map((slot) => slot.trim()).filter(Boolean);
+
+  const normalizeTimeLabel = (time24: string) => {
+    const [hourRaw, minuteRaw] = time24.split(":");
+    const h = Number(hourRaw);
+    const m = Number(minuteRaw);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return "";
+    const date = new Date();
+    date.setHours(h, m, 0, 0);
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  };
+
+  const addSlotFromPicker = () => {
+    const label = normalizeTimeLabel(shareTimeInput);
+    if (!label) return;
+    setShareSlots((prev) => {
+      if (prev.includes(label)) return prev;
+      return [...prev, label];
+    });
+    setShareTimeInput("");
+  };
+
+  const removeSlot = (slot: string) => {
+    setShareSlots((prev) => prev.filter((item) => item !== slot));
+  };
+
+  const loadImage = (src: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new window.Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Unable to load image"));
+      image.src = src;
+    });
+
+  const createShareCard = async (
+    slots: string[],
+    width: number,
+    height: number,
+    title: string,
+    background: ShareBackgroundTemplate,
+    backgroundPhoto: string | null,
+  ) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Unable to render image");
+
+    if (background === "photo" && backgroundPhoto) {
+      const photo = await loadImage(backgroundPhoto);
+      const scale = Math.max(width / photo.width, height / photo.height);
+      const drawW = photo.width * scale;
+      const drawH = photo.height * scale;
+      const x = (width - drawW) / 2;
+      const y = (height - drawH) / 2;
+      ctx.drawImage(photo, x, y, drawW, drawH);
+      const overlay = ctx.createLinearGradient(0, 0, 0, height);
+      overlay.addColorStop(0, "rgba(15, 23, 42, 0.30)");
+      overlay.addColorStop(1, "rgba(15, 23, 42, 0.70)");
+      ctx.fillStyle = overlay;
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      const gradient = ctx.createLinearGradient(0, 0, width, height);
+      if (background === "sunrise") {
+        gradient.addColorStop(0, "#7c2d12");
+        gradient.addColorStop(1, "#f97316");
+      } else if (background === "mint") {
+        gradient.addColorStop(0, "#064e3b");
+        gradient.addColorStop(1, "#10b981");
+      } else {
+        gradient.addColorStop(0, "#0f172a");
+        gradient.addColorStop(1, "#1e293b");
+      }
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 46px system-ui";
+    ctx.fillText(title, 48, 92);
+    ctx.font = "500 28px system-ui";
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fillText(new Date().toLocaleDateString(), 48, 132);
+
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "600 34px system-ui";
+    const visibleSlots = slots.slice(0, 10);
+    visibleSlots.forEach((slot, index) => {
+      ctx.fillText(`• ${slot}`, 58, 210 + index * 54);
+    });
+
+    ctx.fillStyle = "#93c5fd";
+    ctx.font = "500 24px system-ui";
+    ctx.fillText("Tap our booking link in caption to reserve.", 48, height - 72);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (!result) {
+          reject(new Error("Failed to render image"));
+          return;
+        }
+        resolve(result);
+      }, "image/png");
+    });
+    return URL.createObjectURL(blob);
+  };
+
+  const generateShareAssets = async () => {
+    const slots = parseSlots();
+    if (!slots.length) {
+      setShareError("Add at least one time slot.");
+      return;
+    }
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      if (shareImageFeedUrl) URL.revokeObjectURL(shareImageFeedUrl);
+      if (shareImageStoryUrl) URL.revokeObjectURL(shareImageStoryUrl);
+      const feed = await createShareCard(slots, 1080, 1080, "Today's Available Slots", shareBackground, shareBackgroundPhoto);
+      const story = await createShareCard(slots, 1080, 1920, "Book Today", shareBackground, shareBackgroundPhoto);
+      setShareImageFeedUrl(feed);
+      setShareImageStoryUrl(story);
+      const captionLines = [
+        "Today's available slots:",
+        ...slots.map((slot) => `• ${slot}`),
+        "",
+        "Reserve now:",
+        shareLink,
+      ];
+      setShareCaption(captionLines.join("\n"));
+    } catch (err) {
+      setShareError(fromError(err, "Failed to generate share assets."));
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const copyText = async (value: string, successMessage: string) => {
+    if (!value.trim()) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setFeedback({ type: "success", message: successMessage });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch {
+      setFeedback({ type: "error", message: "Unable to copy to clipboard on this device." });
+    }
+  };
+
+  const handleBackgroundUpload = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setShareBackgroundPhoto(reader.result);
+        setShareBackground("photo");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   if (!workspace?.loading && !businesses.length) {
     return (
       <div className="space-y-6">
@@ -280,6 +477,110 @@ function AppointmentsPageContent() {
           }
           hintText="Pick a customer first, then choose a time preset or exact date and time."
         />
+        <PageSection>
+          <div className="rounded-md border border-border bg-card p-4 space-y-3">
+            <h2 className="text-lg font-medium">Share Today&apos;s Slots (Facebook)</h2>
+            <p className="text-sm text-muted-foreground">
+              Keep your current posting style with guided steps. Add times, pick a background, generate assets, then post to Facebook Feed and Story.
+            </p>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Step 1: Add available times</Label>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  type="time"
+                  value={shareTimeInput}
+                  onChange={(e) => setShareTimeInput(e.target.value)}
+                  className="w-44"
+                  aria-label="Select slot time"
+                />
+                <Button type="button" variant="outline" onClick={addSlotFromPicker} disabled={!shareTimeInput}>
+                  Add time
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {shareSlots.map((slot) => (
+                  <Button key={slot} type="button" variant="secondary" size="sm" onClick={() => removeSlot(slot)}>
+                    {slot} ×
+                  </Button>
+                ))}
+                {shareSlots.length === 0 && <p className="text-sm text-muted-foreground">No slots yet. Add at least one time.</p>}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Step 2: Choose background</Label>
+              <Select value={shareBackground} onValueChange={(v) => setShareBackground(v as ShareBackgroundTemplate)}>
+                <SelectTrigger className="w-full min-h-[44px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="classic">Classic navy gradient</SelectItem>
+                  <SelectItem value="sunrise">Warm sunrise gradient</SelectItem>
+                  <SelectItem value="mint">Fresh mint gradient</SelectItem>
+                  <SelectItem value="photo">Use uploaded photo</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleBackgroundUpload(e.target.files?.[0])}
+              />
+              <p className="text-xs text-muted-foreground">Tip: upload a shop photo for a familiar look customers already recognize.</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Step 3: Generate and post</Label>
+              <Label htmlFor="share-link">Booking link</Label>
+              <Input id="share-link" value={shareLink} readOnly />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={generateShareAssets} disabled={shareBusy}>
+                {shareBusy ? "Generating..." : "Generate post assets"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => copyText(shareLink, "Booking link copied.")}>
+                Copy booking link
+              </Button>
+              <Button type="button" variant="outline" onClick={() => copyText(shareCaption, "Caption copied.")} disabled={!shareCaption}>
+                Copy caption
+              </Button>
+            </div>
+            {shareError && <p className="text-sm text-destructive">{shareError}</p>}
+            {(shareImageFeedUrl || shareImageStoryUrl) && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {shareImageFeedUrl && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Feed image</p>
+                    <Image
+                      src={shareImageFeedUrl}
+                      alt="Facebook feed slot card"
+                      width={1080}
+                      height={1080}
+                      unoptimized
+                      className="h-auto w-full rounded-md border border-border"
+                    />
+                    <a href={shareImageFeedUrl} download="slots-feed.png" className="text-sm underline text-primary">
+                      Download feed image
+                    </a>
+                  </div>
+                )}
+                {shareImageStoryUrl && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Story image</p>
+                    <Image
+                      src={shareImageStoryUrl}
+                      alt="Facebook story slot card"
+                      width={1080}
+                      height={1920}
+                      unoptimized
+                      className="h-auto w-full rounded-md border border-border"
+                    />
+                    <a href={shareImageStoryUrl} download="slots-story.png" className="text-sm underline text-primary">
+                      Download story image
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </PageSection>
 
         {feedback && (
           <StatusBanner

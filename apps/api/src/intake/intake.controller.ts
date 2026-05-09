@@ -11,10 +11,14 @@ import { getDb } from "@suki/database";
 import { customers, businesses } from "@suki/database";
 import { eq } from "drizzle-orm";
 import { CustomerTemplatesService } from "../customers/customer-templates.service";
+import { IntakeBookingService } from "./intake-booking.service";
 
 @Controller("intake")
 export class IntakeController {
-  constructor(private readonly templatesService: CustomerTemplatesService) {}
+  constructor(
+    private readonly templatesService: CustomerTemplatesService,
+    private readonly bookingService: IntakeBookingService,
+  ) {}
 
   @Get("config")
   async getConfig(@Query("businessId") businessId: string) {
@@ -39,6 +43,7 @@ export class IntakeController {
       mobile?: string;
       email?: string;
       notes?: string;
+      source?: string;
     },
   ) {
     if (!body.businessId || !body.name?.trim()) {
@@ -53,6 +58,10 @@ export class IntakeController {
     if (!biz) {
       throw new BadRequestException("Business not found");
     }
+    const source = body.source?.trim();
+    const sourceLine = source ? `Lead source: ${source}` : "";
+    const mergedNotes = [sourceLine, body.notes?.trim() ?? ""].filter(Boolean).join("\n\n") || null;
+
     const [c] = await db
       .insert(customers)
       .values({
@@ -60,9 +69,56 @@ export class IntakeController {
         name: body.name.trim(),
         mobile: body.mobile?.trim() || null,
         email: body.email?.trim() || null,
-        notes: body.notes?.trim() || null,
+        notes: mergedNotes,
       })
       .returning();
     return { customer: c, success: true };
+  }
+
+  @Get("availability")
+  async availability(
+    @Query("businessId") businessId: string,
+    @Query("month") month: string,
+  ) {
+    if (!businessId?.trim()) {
+      throw new BadRequestException("businessId required");
+    }
+    if (!month?.trim()) {
+      throw new BadRequestException("month required");
+    }
+    return this.bookingService.getAvailability(businessId, month);
+  }
+
+  @Post("hold")
+  async hold(
+    @Body()
+    body: {
+      businessId: string;
+      customerId: string;
+      mobile: string;
+      scheduledAt: string;
+    },
+  ) {
+    if (!body.businessId || !body.customerId || !body.mobile || !body.scheduledAt) {
+      throw new BadRequestException("businessId, customerId, mobile, scheduledAt required");
+    }
+    const hold = await this.bookingService.createHold(body);
+    return { hold, success: true };
+  }
+
+  @Post("otp/send")
+  async sendOtp(@Body() body: { holdId: string }) {
+    if (!body.holdId?.trim()) {
+      throw new BadRequestException("holdId required");
+    }
+    return this.bookingService.sendOtp(body.holdId);
+  }
+
+  @Post("otp/verify")
+  async verifyOtp(@Body() body: { holdId: string; code: string }) {
+    if (!body.holdId?.trim() || !body.code?.trim()) {
+      throw new BadRequestException("holdId and code required");
+    }
+    return this.bookingService.verifyAndConfirm(body.holdId, body.code);
   }
 }
