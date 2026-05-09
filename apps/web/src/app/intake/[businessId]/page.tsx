@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { normalizeApiError } from "./error-utils";
+import { buildWizardSteps, type ScheduleSubStep } from "./wizard-progress";
+import { filterDayKeysByMonth, formatDayLabel } from "./schedule-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const OTP_LENGTH = 6;
@@ -28,7 +30,7 @@ interface Availability {
   byDay: Record<string, string[]>;
 }
 
-type Step = "form" | "schedule" | "otp" | "done";
+type Step = "form" | "schedule" | "review" | "otp" | "done";
 
 function composeDescription(fields: TemplateField[], values: Record<string, string>): string {
   const lines = fields
@@ -77,6 +79,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [scheduleSubStep, setScheduleSubStep] = useState<ScheduleSubStep>("date");
   const [holdId, setHoldId] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState("");
   const [otpSubmitting, setOtpSubmitting] = useState(false);
@@ -150,15 +153,22 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       .then((data) => {
         if (cancelled) return;
         setAvailability(data);
-        setSelectedDay(null);
-        setSelectedSlot(null);
+        const sortedDays = Object.keys(data.byDay ?? {}).sort();
+        const firstDay = sortedDays[0] ?? null;
+        setSelectedDay(firstDay);
+        setSelectedSlot(firstDay ? (data.byDay[firstDay]?.[0] ?? null) : null);
+        setScheduleSubStep("date");
       })
       .catch((e) => {
         if (!cancelled) {
-          setAvailabilityError(
-            e instanceof Error
+          const message =
+            e instanceof Error && e.message.trim().length > 0
               ? e.message
-              : "We’re having trouble loading available slots right now. Please try again.",
+              : "We’re having trouble loading available slots right now. Please try again.";
+          setAvailabilityError(
+            message === "Internal server error"
+              ? "We’re having trouble loading available slots right now. Please try again."
+              : message,
           );
         }
       })
@@ -172,8 +182,63 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   }, [step, businessId, month, availabilityReloadNonce]);
 
   const fields = template?.fieldsConfig ?? [];
-  const dayKeys = Object.keys(availability?.byDay ?? {}).sort();
+  const dayKeys = filterDayKeysByMonth(Object.keys(availability?.byDay ?? {}).sort(), month);
   const slotsForDay = selectedDay ? availability?.byDay[selectedDay] ?? [] : [];
+  const wizardSteps = buildWizardSteps(step, scheduleSubStep);
+  const selectedDateLabel = selectedDay
+    ? new Date(selectedDay).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })
+    : "None selected";
+  const selectedTimeLabel = selectedSlot ? formatSlotLabel(selectedSlot) : "None selected";
+
+  const jumpToWizardStep = (stepId: "details" | "date" | "time" | "review" | "verify") => {
+    if (stepId === "details") setStep("form");
+    if (stepId === "date") {
+      setStep("schedule");
+      setScheduleSubStep("date");
+    }
+    if (stepId === "time" && selectedDay) {
+      setStep("schedule");
+      setScheduleSubStep("time");
+    }
+    if (stepId === "review" && selectedSlot) setStep("review");
+  };
+
+  const renderWizardProgress = () => (
+    <ol className="mb-8 grid grid-cols-5 items-start gap-2" aria-label="Booking progress">
+      {wizardSteps.map((wizardStep, index) => (
+        <li key={wizardStep.id} className="relative">
+          {index < wizardSteps.length - 1 && (
+            <span
+              aria-hidden="true"
+              className="absolute left-[calc(50%+18px)] top-[15px] h-[2px] w-[calc(100%-12px)] bg-border"
+            />
+          )}
+          <div
+            data-testid="intake-progress-step"
+            data-state={wizardStep.state}
+            aria-current={wizardStep.ariaCurrent}
+            className="space-y-1 text-center"
+          >
+            <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted/20 text-xs font-semibold text-foreground data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=done]:border-primary/60 data-[state=done]:bg-primary/20">
+              {index + 1}
+            </div>
+            <p className="text-xs font-medium text-muted-foreground data-[state=active]:text-foreground">
+              {wizardStep.label.replace(/^\d+\s/, "")}
+            </p>
+          </div>
+          {wizardStep.state === "done" && wizardStep.id !== "verify" && (
+            <button
+              type="button"
+              className="mx-auto mt-1 block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              onClick={() => jumpToWizardStep(wizardStep.id)}
+            >
+              Edit
+            </button>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
 
   const handleFieldChange = (key: string, value: string) => {
     setFieldValues((prev) => ({ ...prev, [key]: value }));
@@ -338,6 +403,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   if (step === "otp") {
     return (
       <div className="mx-auto max-w-md px-4 py-16">
+        {renderWizardProgress()}
         <h1 className="text-center text-2xl font-semibold text-foreground">Verify your booking</h1>
         <p className="mt-2 text-center text-base text-muted-foreground">
           Enter the 6-digit OTP sent to {mobile || "your mobile"}.
@@ -402,12 +468,68 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     );
   }
 
+  if (step === "review") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        {renderWizardProgress()}
+        <h1 className="text-center text-2xl font-semibold text-foreground">Review your booking</h1>
+        <p className="mt-2 text-center text-base text-muted-foreground">
+          Please confirm your details before we send an OTP to verify this booking.
+        </p>
+
+        <div className="mt-8 space-y-4 rounded-lg border border-border bg-card p-4">
+          <div className="grid gap-1">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Appointment</p>
+            <p className="text-sm font-medium text-foreground">
+              {selectedDateLabel} at {selectedTimeLabel}
+            </p>
+          </div>
+          <div className="grid gap-1">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
+            <p className="text-sm text-foreground">{name || "No name provided"}</p>
+            <p className="text-sm text-muted-foreground">{mobile || "No mobile provided"}</p>
+            {email && <p className="text-sm text-muted-foreground">{email}</p>}
+          </div>
+        </div>
+
+        {error && (
+          <p className="mt-4 text-base text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-[44px] w-full"
+            onClick={() => {
+              setStep("schedule");
+              setScheduleSubStep("time");
+            }}
+          >
+            Back to time
+          </Button>
+          <Button
+            type="button"
+            className="min-h-[44px] w-full"
+            disabled={!selectedSlot || submitting}
+            onClick={handleHoldAndSendOtp}
+          >
+            {submitting ? "Preparing OTP…" : "Proceed to OTP"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (step === "schedule") {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16">
+        {renderWizardProgress()}
         <h1 className="text-center text-2xl font-semibold text-foreground">Choose your appointment</h1>
         <p className="mt-2 text-center text-base text-muted-foreground">
-          Pick a month, day, then your available time slot.
+          Pick your date first, then choose a time slot.
         </p>
 
         <div className="mt-6">
@@ -422,38 +544,100 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         </div>
 
         {availabilityLoading ? (
-          <p className="mt-6 text-muted-foreground">Loading available slots…</p>
+          <div className="mt-6 space-y-3" aria-live="polite">
+            <p className="text-muted-foreground">Loading available slots…</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, idx) => (
+                <div key={idx} className="h-11 animate-pulse rounded-md border border-border bg-muted/30" />
+              ))}
+            </div>
+          </div>
         ) : (
           <>
-            <div className="mt-6">
-              <h2 className="mb-2 text-sm font-medium text-foreground">Available days</h2>
-              <div className="flex flex-wrap gap-2">
-                {dayKeys.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No slots available in this month.</p>
-                )}
-                {dayKeys.map((day) => (
-                  <Button
-                    key={day}
-                    variant={selectedDay === day ? "default" : "outline"}
-                    onClick={() => {
-                      setSelectedDay(day);
-                      setSelectedSlot(null);
-                    }}
-                  >
-                    {new Date(day).toLocaleDateString([], { month: "short", day: "numeric" })}
-                  </Button>
-                ))}
-              </div>
+            <div
+              data-testid="intake-selected-summary"
+              className="sticky top-3 z-10 mt-6 rounded-md border border-border bg-background/95 p-3 backdrop-blur"
+            >
+              <p className="text-sm text-muted-foreground">Selected appointment</p>
+              <p className="text-sm font-medium text-foreground">
+                {selectedDateLabel} at {selectedTimeLabel}
+              </p>
             </div>
 
-            {selectedDay && (
+            {scheduleSubStep === "date" && (
+              <div className="mt-6">
+                <h2 className="mb-2 text-sm font-medium text-foreground">Available days</h2>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {dayKeys.length === 0 && (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">No slots available in this month.</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-[44px]"
+                        onClick={() => {
+                          const [year, monthValue] = month.split("-").map((item) => Number(item));
+                          if (!year || !monthValue) return;
+                          const next = new Date(year, monthValue, 1);
+                          setMonth(toLocalMonthValue(next));
+                        }}
+                      >
+                        Try another month
+                      </Button>
+                    </div>
+                  )}
+                  {dayKeys.map((day) => (
+                    <Button
+                      key={day}
+                      variant={selectedDay === day ? "default" : "outline"}
+                      className="min-h-[44px] w-full"
+                      onClick={() => {
+                        setSelectedDay(day);
+                        const daySlots = availability?.byDay[day] ?? [];
+                        setSelectedSlot(daySlots[0] ?? null);
+                      }}
+                    >
+                      {formatDayLabel(day)}
+                    </Button>
+                  ))}
+                </div>
+                <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-[44px] w-full"
+                    onClick={() => setStep("form")}
+                  >
+                    Back to form
+                  </Button>
+                  <Button
+                    type="button"
+                    className="min-h-[44px] w-full"
+                    disabled={!selectedDay}
+                    onClick={() => {
+                      if (!selectedDay) return;
+                      if (!selectedSlot) {
+                        const first = availability?.byDay[selectedDay]?.[0] ?? null;
+                        setSelectedSlot(first);
+                      }
+                      setScheduleSubStep("time");
+                    }}
+                  >
+                    Continue to time
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {scheduleSubStep === "time" && selectedDay && (
               <div className="mt-6">
                 <h2 className="mb-2 text-sm font-medium text-foreground">Available time slots</h2>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {slotsForDay.map((slot) => (
                     <Button
                       key={slot}
                       variant={selectedSlot === slot ? "default" : "outline"}
+                      className="min-h-[44px] w-full"
                       onClick={() => setSelectedSlot(slot)}
                     >
                       {formatSlotLabel(slot)}
@@ -463,24 +647,26 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
               </div>
             )}
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-[44px] w-full"
-                onClick={() => setStep("form")}
-              >
-                Back to form
-              </Button>
-              <Button
-                type="button"
-                className="min-h-[44px] w-full"
-                disabled={!selectedSlot || submitting}
-                onClick={handleHoldAndSendOtp}
-              >
-                {submitting ? "Reserving…" : "Confirm slot"}
-              </Button>
-            </div>
+            {scheduleSubStep === "time" && selectedDay && (
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-[44px] w-full"
+                  onClick={() => setScheduleSubStep("date")}
+                >
+                  Back to date
+                </Button>
+                <Button
+                  type="button"
+                  className="min-h-[44px] w-full"
+                  disabled={!selectedSlot || submitting}
+                  onClick={() => setStep("review")}
+                >
+                  Continue to review
+                </Button>
+              </div>
+            )}
           </>
         )}
 
@@ -509,6 +695,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
+      {renderWizardProgress()}
       <h1 className="text-center text-2xl font-semibold text-foreground">Customer intake</h1>
       <p className="mt-2 text-center text-base text-muted-foreground">
         Fill out once and we will remember your details on this device.
