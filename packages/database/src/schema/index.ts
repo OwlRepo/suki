@@ -329,6 +329,21 @@ export const appointments = pgTable(
   ],
 );
 
+export const appointmentShareTemplates = pgTable(
+  "appointment_share_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slots: jsonb("slots").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [unique("appointment_share_templates_business_name_unique").on(t.businessId, t.name)],
+);
+
 // Booking holds — temporary slot reservation pending OTP verification
 export const bookingHolds = pgTable(
   "booking_holds",

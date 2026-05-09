@@ -53,6 +53,13 @@ interface Appointment {
 }
 
 type ShareBackgroundTemplate = "classic" | "sunrise" | "mint" | "photo";
+interface ShareTemplate {
+  id: string;
+  businessId: string;
+  name: string;
+  slots: string[];
+  updatedAt: string;
+}
 
 function formatSlotLabel(isoString: string) {
   return new Date(isoString).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -93,6 +100,11 @@ function AppointmentsPageContent() {
   const [shareBackgroundPhoto, setShareBackgroundPhoto] = useState<string | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [shareTemplates, setShareTemplates] = useState<ShareTemplate[]>([]);
+  const [shareTemplatesLoading, setShareTemplatesLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [templateNameInput, setTemplateNameInput] = useState("");
+  const [templateActionBusy, setTemplateActionBusy] = useState(false);
 
   const loadCustomers = async () => {
     if (!selectedBiz) return;
@@ -103,6 +115,27 @@ function AppointmentsPageContent() {
       { token },
     );
     setCustomers(res.customers);
+  };
+
+  const loadShareTemplates = async () => {
+    if (!selectedBiz) return;
+    const token = await getToken();
+    if (!token) return;
+    setShareTemplatesLoading(true);
+    try {
+      const res = await apiRequest<{ templates: ShareTemplate[] }>(
+        `/appointments/share-templates?businessId=${encodeURIComponent(selectedBiz)}`,
+        { token },
+      );
+      setShareTemplates(res.templates ?? []);
+      setSelectedTemplateId((prev) =>
+        prev && (res.templates ?? []).some((t) => t.id === prev) ? prev : "",
+      );
+    } catch (err) {
+      setFeedback({ type: "error", message: fromError(err, "Failed to load slot templates.") });
+    } finally {
+      setShareTemplatesLoading(false);
+    }
   };
 
   const loadAppointments = async () => {
@@ -129,6 +162,7 @@ function AppointmentsPageContent() {
   useEffect(() => {
     if (!selectedBiz) return;
     loadCustomers();
+    loadShareTemplates();
   }, [selectedBiz]);
 
   useEffect(() => {
@@ -428,6 +462,148 @@ function AppointmentsPageContent() {
     reader.readAsDataURL(file);
   };
 
+  const selectedTemplate = shareTemplates.find((t) => t.id === selectedTemplateId) ?? null;
+
+  const saveNewTemplate = async () => {
+    if (!selectedBiz) return;
+    if (shareTemplates.length >= 3) {
+      setShareError("You can save up to 3 templates. Delete one to save a new one.");
+      return;
+    }
+    const name = templateNameInput.trim();
+    if (!name) {
+      setShareError("Please enter a template name.");
+      return;
+    }
+    const slots = parseSlots();
+    if (!slots.length) {
+      setShareError("Add at least one time slot.");
+      return;
+    }
+    const token = await getToken();
+    if (!token) return;
+    setTemplateActionBusy(true);
+    setShareError(null);
+    try {
+      const res = await apiRequest<{ template: ShareTemplate }>("/appointments/share-templates", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ businessId: selectedBiz, name, slots }),
+      });
+      setShareTemplates((prev) => [res.template, ...prev]);
+      setSelectedTemplateId(res.template.id);
+      setTemplateNameInput("");
+      setFeedback({ type: "success", message: "Template saved." });
+      setTimeout(() => setFeedback(null), 2500);
+    } catch (err) {
+      setShareError(fromError(err, "Failed to save template."));
+    } finally {
+      setTemplateActionBusy(false);
+    }
+  };
+
+  const applySelectedTemplate = () => {
+    if (!selectedTemplate) return;
+    setShareSlots(selectedTemplate.slots);
+    setFeedback({ type: "success", message: `Applied template: ${selectedTemplate.name}` });
+    setTimeout(() => setFeedback(null), 2500);
+  };
+
+  const renameSelectedTemplate = async () => {
+    if (!selectedTemplate || !selectedBiz) return;
+    const name = templateNameInput.trim();
+    if (!name) {
+      setShareError("Please enter a template name.");
+      return;
+    }
+    const token = await getToken();
+    if (!token) return;
+    setTemplateActionBusy(true);
+    setShareError(null);
+    try {
+      const res = await apiRequest<{ template: ShareTemplate }>(`/appointments/share-templates/${selectedTemplate.id}`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({ businessId: selectedBiz, name }),
+      });
+      setShareTemplates((prev) => prev.map((t) => (t.id === res.template.id ? res.template : t)));
+      setTemplateNameInput("");
+      setFeedback({ type: "success", message: "Template renamed." });
+      setTimeout(() => setFeedback(null), 2500);
+    } catch (err) {
+      setShareError(fromError(err, "Failed to rename template."));
+    } finally {
+      setTemplateActionBusy(false);
+    }
+  };
+
+  const updateSelectedTemplateSlots = async () => {
+    if (!selectedTemplate || !selectedBiz) return;
+    const slots = parseSlots();
+    if (!slots.length) {
+      setShareError("Add at least one time slot.");
+      return;
+    }
+    const token = await getToken();
+    if (!token) return;
+    setTemplateActionBusy(true);
+    setShareError(null);
+    try {
+      const res = await apiRequest<{ template: ShareTemplate }>(`/appointments/share-templates/${selectedTemplate.id}`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({ businessId: selectedBiz, slots }),
+      });
+      setShareTemplates((prev) => prev.map((t) => (t.id === res.template.id ? res.template : t)));
+      setFeedback({ type: "success", message: "Template updated from current slots." });
+      setTimeout(() => setFeedback(null), 2500);
+    } catch (err) {
+      setShareError(fromError(err, "Failed to update template."));
+    } finally {
+      setTemplateActionBusy(false);
+    }
+  };
+
+  const deleteSelectedTemplate = async () => {
+    if (!selectedTemplate || !selectedBiz) return;
+    const token = await getToken();
+    if (!token) return;
+    setTemplateActionBusy(true);
+    setShareError(null);
+    try {
+      await apiRequest(`/appointments/share-templates/${selectedTemplate.id}?businessId=${encodeURIComponent(selectedBiz)}`, {
+        method: "DELETE",
+        token,
+      });
+      setShareTemplates((prev) => prev.filter((t) => t.id !== selectedTemplate.id));
+      setSelectedTemplateId("");
+      setFeedback({ type: "success", message: "Template deleted." });
+      setTimeout(() => setFeedback(null), 2500);
+    } catch (err) {
+      setShareError(fromError(err, "Failed to delete template."));
+    } finally {
+      setTemplateActionBusy(false);
+    }
+  };
+
+  const forceDownload = async (url: string, filename: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  };
+
+  const handleSaveBothImages = async () => {
+    if (!shareImageFeedUrl || !shareImageStoryUrl) return;
+    await forceDownload(shareImageFeedUrl, "slots-feed.png");
+    await forceDownload(shareImageStoryUrl, "slots-story.png");
+    setFeedback({ type: "success", message: "Saved 2 images: Feed and Story." });
+    setTimeout(() => setFeedback(null), 3000);
+  };
+
   if (!workspace?.loading && !businesses.length) {
     return (
       <div className="space-y-6">
@@ -485,6 +661,56 @@ function AppointmentsPageContent() {
             </p>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Step 1: Add available times</Label>
+              <p className="text-xs text-muted-foreground">
+                Reuse a saved template or add times one by one. You can save up to 3 templates.
+              </p>
+              <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                <Select value={selectedTemplateId || "__none__"} onValueChange={(v) => setSelectedTemplateId(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="w-full min-h-[44px]">
+                    <SelectValue placeholder={shareTemplatesLoading ? "Loading templates..." : "Choose a saved template"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No template selected</SelectItem>
+                    {shareTemplates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" onClick={applySelectedTemplate} disabled={!selectedTemplate}>
+                  Use template
+                </Button>
+              </div>
+              <div className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto]">
+                <Input
+                  value={templateNameInput}
+                  onChange={(e) => setTemplateNameInput(e.target.value)}
+                  placeholder="Template name (e.g. Weekday Slots)"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={saveNewTemplate}
+                  disabled={templateActionBusy || shareTemplates.length >= 3 || parseSlots().length === 0}
+                >
+                  Save template
+                </Button>
+                <Button type="button" variant="outline" onClick={renameSelectedTemplate} disabled={templateActionBusy || !selectedTemplate}>
+                  Rename
+                </Button>
+                <Button type="button" variant="outline" onClick={updateSelectedTemplateSlots} disabled={templateActionBusy || !selectedTemplate}>
+                  Update slots
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={deleteSelectedTemplate} disabled={templateActionBusy || !selectedTemplate}>
+                  Delete selected template
+                </Button>
+                <p className="text-xs text-muted-foreground self-center">
+                  Saved templates: {shareTemplates.length}/3
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 <Input
                   type="time"
@@ -532,7 +758,7 @@ function AppointmentsPageContent() {
               <Input id="share-link" value={shareLink} readOnly />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" onClick={generateShareAssets} disabled={shareBusy}>
+              <Button type="button" onClick={generateShareAssets} disabled={shareBusy || parseSlots().length === 0}>
                 {shareBusy ? "Generating..." : "Generate post assets"}
               </Button>
               <Button type="button" variant="outline" onClick={() => copyText(shareLink, "Booking link copied.")}>
@@ -556,9 +782,6 @@ function AppointmentsPageContent() {
                       unoptimized
                       className="h-auto w-full rounded-md border border-border"
                     />
-                    <a href={shareImageFeedUrl} download="slots-feed.png" className="text-sm underline text-primary">
-                      Download feed image
-                    </a>
                   </div>
                 )}
                 {shareImageStoryUrl && (
@@ -572,11 +795,29 @@ function AppointmentsPageContent() {
                       unoptimized
                       className="h-auto w-full rounded-md border border-border"
                     />
-                    <a href={shareImageStoryUrl} download="slots-story.png" className="text-sm underline text-primary">
-                      Download story image
-                    </a>
                   </div>
                 )}
+              </div>
+            )}
+            {!!(shareImageFeedUrl && shareImageStoryUrl) && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+                <p className="text-sm font-medium">Final step: Save and post</p>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="w-full min-h-[52px] text-base"
+                  onClick={handleSaveBothImages}
+                >
+                  Save Both Images
+                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => shareImageFeedUrl && forceDownload(shareImageFeedUrl, "slots-feed.png")}>
+                    Save Feed Only
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => shareImageStoryUrl && forceDownload(shareImageStoryUrl, "slots-story.png")}>
+                    Save Story Only
+                  </Button>
+                </div>
               </div>
             )}
           </div>

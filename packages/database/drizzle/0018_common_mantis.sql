@@ -1,0 +1,2 @@
+-- Compatibility migration kept for environments that already recorded this tag.
+-- Intentionally no-op to avoid duplicate table/enum changes.

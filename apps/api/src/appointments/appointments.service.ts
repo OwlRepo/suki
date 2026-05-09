@@ -1,6 +1,6 @@
-import { Injectable, ForbiddenException } from "@nestjs/common";
+import { Injectable, ForbiddenException, BadRequestException } from "@nestjs/common";
 import { getDb } from "@suki/database";
-import { appointments, businesses } from "@suki/database";
+import { appointments, businesses, appointmentShareTemplates } from "@suki/database";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AutomationSendService } from "../automation/automation-send.service";
 
@@ -139,6 +139,91 @@ export class AppointmentsService {
       .where(eq(appointments.id, id))
       .returning();
     return updated!;
+  }
+
+  async listShareTemplates(businessId: string, organizationId: string) {
+    await this.assertBusinessAccess(businessId, organizationId);
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(appointmentShareTemplates)
+      .where(eq(appointmentShareTemplates.businessId, businessId))
+      .orderBy(desc(appointmentShareTemplates.updatedAt));
+    return rows;
+  }
+
+  async createShareTemplate(
+    businessId: string,
+    organizationId: string,
+    data: { name: string; slots: string[] },
+  ) {
+    await this.assertBusinessAccess(businessId, organizationId);
+    const db = getDb();
+    const name = data.name.trim();
+    const slots = data.slots.map((s) => s.trim()).filter(Boolean);
+    if (!name) throw new BadRequestException("Template name is required.");
+    if (!slots.length) throw new BadRequestException("Add at least one time slot.");
+
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(appointmentShareTemplates)
+      .where(eq(appointmentShareTemplates.businessId, businessId));
+    if ((count ?? 0) >= 3) {
+      throw new BadRequestException("You can save up to 3 templates. Delete one to save a new one.");
+    }
+
+    const [created] = await db
+      .insert(appointmentShareTemplates)
+      .values({ businessId, name, slots })
+      .returning();
+    return created!;
+  }
+
+  async updateShareTemplate(
+    id: string,
+    businessId: string,
+    organizationId: string,
+    data: { name?: string; slots?: string[] },
+  ) {
+    await this.assertBusinessAccess(businessId, organizationId);
+    const db = getDb();
+    const [existing] = await db
+      .select()
+      .from(appointmentShareTemplates)
+      .where(and(eq(appointmentShareTemplates.id, id), eq(appointmentShareTemplates.businessId, businessId)))
+      .limit(1);
+    if (!existing) throw new BadRequestException("Template not found.");
+
+    const nextName = data.name?.trim();
+    const nextSlots = data.slots?.map((s) => s.trim()).filter(Boolean);
+    if (nextName !== undefined && !nextName) {
+      throw new BadRequestException("Template name is required.");
+    }
+    if (nextSlots !== undefined && !nextSlots.length) {
+      throw new BadRequestException("Add at least one time slot.");
+    }
+
+    const [updated] = await db
+      .update(appointmentShareTemplates)
+      .set({
+        ...(nextName !== undefined && { name: nextName }),
+        ...(nextSlots !== undefined && { slots: nextSlots }),
+        updatedAt: new Date(),
+      })
+      .where(eq(appointmentShareTemplates.id, id))
+      .returning();
+    return updated!;
+  }
+
+  async deleteShareTemplate(id: string, businessId: string, organizationId: string) {
+    await this.assertBusinessAccess(businessId, organizationId);
+    const db = getDb();
+    const [deleted] = await db
+      .delete(appointmentShareTemplates)
+      .where(and(eq(appointmentShareTemplates.id, id), eq(appointmentShareTemplates.businessId, businessId)))
+      .returning();
+    if (!deleted) throw new BadRequestException("Template not found.");
+    return deleted;
   }
 
   private async assertBusinessAccess(businessId: string, organizationId: string) {

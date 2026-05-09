@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -74,6 +75,64 @@ export class AppointmentsController {
       },
     );
     return { appointment: appt };
+  }
+
+  @Get("share-templates")
+  async listShareTemplates(
+    @Query("businessId") businessId: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!businessId || !orgId) throw new BadRequestException("businessId required");
+    const templates = await this.appointmentsService.listShareTemplates(businessId, orgId);
+    return { templates };
+  }
+
+  @Post("share-templates")
+  async createShareTemplate(
+    @Body()
+    body: {
+      businessId: string;
+      name: string;
+      slots: string[];
+    },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!body.businessId || !orgId) throw new BadRequestException("businessId required");
+    const template = await this.appointmentsService.createShareTemplate(body.businessId, orgId, {
+      name: body.name,
+      slots: body.slots ?? [],
+    });
+    return { template };
+  }
+
+  @Patch("share-templates/:id")
+  async updateShareTemplate(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      businessId: string;
+      name?: string;
+      slots?: string[];
+    },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!body.businessId || !orgId) throw new BadRequestException("businessId required");
+    const template = await this.appointmentsService.updateShareTemplate(id, body.businessId, orgId, {
+      name: body.name,
+      slots: body.slots,
+    });
+    return { template };
+  }
+
+  @Delete("share-templates/:id")
+  async deleteShareTemplate(
+    @Param("id") id: string,
+    @Query("businessId") businessId: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!businessId || !orgId) throw new BadRequestException("businessId required");
+    const deleted = await this.appointmentsService.deleteShareTemplate(id, businessId, orgId);
+    return { template: deleted, success: true };
   }
 
   @Get(":id")
