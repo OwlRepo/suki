@@ -9,4 +9,5 @@
 | `apps/api/src/ai/ai-execution.service.ts` | Guardrailed AI execution wrapper | Used by messaging and AI module | AI policy-bound text generation |
 | `apps/api/src/imports/imports.service.ts` | Import pipeline orchestration | Uses mapping/migration/provider adapters | Batch import processing |
 | `apps/api/src/intake/intake-booking.service.ts` | Intake booking and OTP flow | Uses messaging/external providers | Public booking journey backend |
+| `apps/api/src/help/answer-source.service.ts` | Normalized source-grounded answer envelope assembly | Composes insights, SMS metering, billing, and AI usage services | Read-only assistant prep data responses with deterministic fallbacks |
 | `apps/api/src/security/pii-crypto.service.ts` | PII encryption/decryption utilities | Used by security/privacy services | Sensitive data protection |

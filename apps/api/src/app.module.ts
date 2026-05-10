@@ -20,6 +20,7 @@ import { OnboardingModule } from "./onboarding/onboarding.module";
 import { AutomationModule } from "./automation/automation.module";
 import { AutomationPolicyModule } from "./automation/automation-policy.module";
 import { SecurityModule } from "./security/security.module";
+import { HelpModule } from "./help/help.module";
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { SecurityModule } from "./security/security.module";
     AiModule,
     OnboardingModule,
     SecurityModule,
+    HelpModule,
   ],
 })
 export class AppModule {}

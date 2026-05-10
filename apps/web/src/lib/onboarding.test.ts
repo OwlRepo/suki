@@ -4,6 +4,7 @@ import {
   getStepGuidance,
   STEP_GUIDANCE,
 } from "./onboarding";
+import { getGuidedOnboardingModules } from "./help-content";
 
 describe("isPathAllowedForStep", () => {
   it("allows /onboarding for any step", () => {
@@ -55,5 +56,11 @@ describe("getStepGuidance", () => {
   it("uses deterministic default guidance for known business types in MVP", () => {
     const step3 = getStepGuidance(3, "salon");
     expect(step3.title).toBe(STEP_GUIDANCE[3].title);
+  });
+
+  it("keeps guided onboarding modules aligned with onboarding steps", () => {
+    const modules = getGuidedOnboardingModules("en");
+    expect(modules.length).toBe(6);
+    expect(modules.map((m) => m.sourceStepId)).toEqual([1, 2, 3, 4, 5, 6]);
   });
 });

@@ -8,5 +8,6 @@
 | `apps/api/src/billing/billing-webhook.controller.ts` | PayMongo webhook ingestion | Uses billing webhook handling service | External payment event processing |
 | `apps/api/src/messaging/messaging.controller.ts` | Messaging generation and metering endpoints | Uses messaging + AI execution services | Outbound message workflows |
 | `apps/api/src/imports/imports.controller.ts` | Contact import endpoints | Uses import/mapping/migration services | Parse/validate/commit/rollback |
+| `apps/api/src/help/answer-source.controller.ts` | Assistant-ready read endpoints for app-scoped answers | Uses `AnswerSourceService` + `ClerkAuthGuard` | Source-only business summary, SMS usage, billing status, AI usage responses |
 | `apps/api/src/security/privacy.controller.ts` | Privacy export/correct/anonymize endpoints | Uses security services and owner guard | PII-sensitive operations |
 | `apps/api/src/licensing/licensing.controller.ts` | License activation and challenge endpoints | Uses licensing services | Activation and attestation |

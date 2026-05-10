@@ -10,5 +10,6 @@ import { SecurityModule } from "../security/security.module";
   imports: [AuthModule, SecurityModule],
   controllers: [BillingController, BillingWebhookController],
   providers: [BillingService, PaymongoService],
+  exports: [BillingService],
 })
 export class BillingModule {}

@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   CalendarDays,
+  CircleHelp,
   Home,
   Import,
   Settings,
@@ -50,6 +51,7 @@ export function getDashboardNavGroups(_showPipeline: boolean): NavGroup[] {
         { href: "/imports", label: "Import", icon: Import },
         { href: "/setup", label: "Setup", icon: Settings2 },
         { href: "/settings", label: "Settings", icon: Settings },
+        { href: "/help", label: "Help Center", icon: CircleHelp },
       ],
     },
   ];

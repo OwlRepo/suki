@@ -9,6 +9,7 @@
 | `apps/web/src/app/intake/[businessId]/error-utils.ts` | Intake error normalization helpers | Used by intake page API submit/OTP flows | Converts variable API error shapes into stable user-facing messages |
 | `apps/web/src/lib/dev-mode.ts` | Development mode feature toggles | Works with `dev-store` and UI feedback | Local dev simulations |
 | `apps/web/src/lib/share-slots-copy.ts` | Share-slots page copy constants | Consumed by share-slots workflow and tests | Centralizes platform-neutral title/description text for slot-sharing UX |
+| `apps/web/src/lib/help-content.ts` | Help Center content contracts, bilingual article data, and search utilities | Reuses onboarding step guidance and feeds help/onboarding-demo routes | Indexed documentation search and guided onboarding replay data source |
 | `apps/api/src/common/feature-flags.service.ts` | Feature flag evaluation | Used by health and domain modules | Server-side capability gating |
 | `apps/api/src/common/plan-capacity.service.ts` | Plan-based limits and checks | Used by billing/messaging/ai modules | Capacity gating and policy checks |
 | `apps/api/src/common/http-exception.filter.ts` | Standard API error response mapping | Registered in `main.ts` | Global error normalization |
