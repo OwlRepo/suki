@@ -41,7 +41,7 @@ const COACHMARK_KEY = "suki-assistant-coachmark-dismissed-v1";
 const ASSISTANT_HEADER_COLLAPSED_KEY = "suki-assistant-header-collapsed-v1";
 const COACHMARK_STEPS = [
   "Ask Suki Assistant how to do tasks in simple language.",
-  "Check AI usage and reset date before you run out.",
+  "Check today’s AI usage and daily reset time before you run out.",
   "Use Help Center and Settings shortcuts when you need more details.",
 ];
 
@@ -126,6 +126,10 @@ export function SukiAssistant() {
           tokensLimit: 0,
           requestsUsed: 0,
           requestsLimit: 0,
+          dailyTokensUsed: 0,
+          dailyTokensLimit: 0,
+          dailyRequestsUsed: 0,
+          dailyRequestsLimit: 0,
           aiEnabled: true,
         },
       ),
@@ -161,6 +165,7 @@ export function SukiAssistant() {
         plainAnswer: string;
         nextStep: string;
         details?: string;
+        fallback?: { reason?: string };
         actionChips?: Array<{ label: string; href: string; kind: "primary" | "secondary" }>;
       }>("/help/assistant/chat", {
         method: "POST",
@@ -172,6 +177,9 @@ export function SukiAssistant() {
         }),
       });
       if (res.threadId) setThreadId(res.threadId);
+      if (res.fallback?.reason === "capped") {
+        setShowCapDialog(true);
+      }
       return {
         id: `a-${Date.now()}`,
         role: "assistant",
@@ -238,6 +246,7 @@ export function SukiAssistant() {
     let actionChips: AssistantMessage["actionChips"] = [];
     let sawDoneEvent = false;
     let hadProtocolError = false;
+    let sawErrorEvent = false;
     const decoder = new TextDecoder();
     const reader = response.body.getReader();
     let buffer = "";
@@ -285,16 +294,25 @@ export function SukiAssistant() {
         setAssistantState("read");
       }
       if (eventType === "error") {
-        hadProtocolError = true;
+        sawErrorEvent = true;
+        const errorPayload = payload as {
+          message?: string;
+          code?: string;
+          actionChips?: AssistantMessage["actionChips"];
+        };
+        const isCapError = typeof errorPayload.code === "string" && errorPayload.code.includes("CAP");
+        if (isCapError) {
+          setShowCapDialog(true);
+        }
         setAssistantState("error");
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === messageId
               ? {
                   ...msg,
-                  text: text || "I hit a connection issue. Please try again.",
+                  text: text || errorPayload.message || "I hit a connection issue. Please try again.",
                   state: "error",
-                  actionChips: [
+                  actionChips: errorPayload.actionChips ?? [
                     { label: "Retry", href: "#", kind: "primary" },
                     { label: "Open Help Center", href: "/help", kind: "secondary" },
                   ],
@@ -323,6 +341,12 @@ export function SukiAssistant() {
           hadProtocolError = true;
         }
       }
+    }
+
+    // SSE transport/protocol failures should fallback to /chat.
+    // Stream-level assistant "error" events are valid terminal events and should not fallback.
+    if (sawErrorEvent) {
+      return true;
     }
 
     if (!sawDoneEvent || hadProtocolError) {
@@ -422,39 +446,47 @@ export function SukiAssistant() {
 
             {headerCollapsed ? (
               <div className="mt-2 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                {usageModel.resetLabel}. Remaining: {usageModel.messages.remaining} messages, {usageModel.tokens.remaining} AI credits.
+                Daily AI limit: {usageModel.daily.messages.used}/{usageModel.daily.messages.limit} messages, {usageModel.daily.tokens.used}/{usageModel.daily.tokens.limit} credits. {usageModel.dailyResetLabel}.
               </div>
             ) : (
               <div className="mt-3 space-y-2.5 rounded-xl border border-border/80 bg-muted/35 p-3">
                 <p className="text-sm font-semibold tracking-tight">AI Usage Snapshot</p>
-                <p className="text-xs leading-relaxed text-muted-foreground">{usageModel.resetLabel}</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">Daily reset: {usageModel.dailyResetLabel}</p>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span>AI message credits</span>
-                    <span>{usageModel.messages.used}/{usageModel.messages.limit}</span>
+                    <span>Daily AI message limit</span>
+                    <span>{usageModel.daily.messages.used}/{usageModel.daily.messages.limit}</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-muted">
                     <div
-                      className={cn("h-2.5 rounded-full transition-all duration-300", usageBarClass(usageModel.messages.state))}
-                      style={{ width: `${Math.min(100, Math.round(usageModel.messages.pct * 100))}%` }}
+                      className={cn("h-2.5 rounded-full transition-all duration-300", usageBarClass(usageModel.daily.messages.state))}
+                      style={{ width: `${Math.min(100, Math.round(usageModel.daily.messages.pct * 100))}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">Remaining: {usageModel.messages.remaining}</p>
+                  <p className="text-xs text-muted-foreground">Daily remaining: {usageModel.daily.messages.remaining}</p>
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span>AI token credits</span>
-                    <span>{usageModel.tokens.used}/{usageModel.tokens.limit}</span>
+                    <span>Daily AI credits limit</span>
+                    <span>{usageModel.daily.tokens.used}/{usageModel.daily.tokens.limit}</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-muted">
                     <div
-                      className={cn("h-2.5 rounded-full transition-all duration-300", usageBarClass(usageModel.tokens.state))}
-                      style={{ width: `${Math.min(100, Math.round(usageModel.tokens.pct * 100))}%` }}
+                      className={cn("h-2.5 rounded-full transition-all duration-300", usageBarClass(usageModel.daily.tokens.state))}
+                      style={{ width: `${Math.min(100, Math.round(usageModel.daily.tokens.pct * 100))}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">Remaining: {usageModel.tokens.remaining}</p>
+                  <p className="text-xs text-muted-foreground">Daily remaining: {usageModel.daily.tokens.remaining}</p>
+                </div>
+
+                <div className="space-y-1.5 border-t border-border/70 pt-2">
+                  <p className="text-xs font-semibold text-muted-foreground">This month</p>
+                  <p className="text-xs text-muted-foreground">
+                    Messages: {usageModel.messages.used}/{usageModel.messages.limit} • AI credits: {usageModel.tokens.used}/{usageModel.tokens.limit}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{usageModel.resetLabel}</p>
                 </div>
               </div>
             )}
@@ -476,7 +508,7 @@ export function SukiAssistant() {
 
             {usageModel.capped && (
               <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-xs text-red-700">
-                AI limit reached for now. Check reset date and usage details below.
+                Daily AI limit reached for now. Check daily reset and usage details below.
               </div>
             )}
           </div>
@@ -574,12 +606,12 @@ export function SukiAssistant() {
           <DialogHeader>
             <DialogTitle className="tracking-tight">AI limit reached</DialogTitle>
             <DialogDescription>
-              You have reached your AI monthly limit. {usageModel.resetLabel}.
+              You reached today’s AI limit. {usageModel.dailyResetLabel}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 text-sm leading-relaxed">
-            <p>Reason: your message or token credits are at cap.</p>
-            <p>Next steps: review usage, continue with Help Center guides, or upgrade for higher limits.</p>
+            <p>Reason: your daily AI message or daily AI credits limit is at cap.</p>
+            <p>Next steps: review daily usage, continue with Help Center guides, or upgrade for higher limits.</p>
           </div>
           <DialogFooter showCloseButton>
             <Link href="/settings" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">View usage</Link>

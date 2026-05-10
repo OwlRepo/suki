@@ -32,7 +32,7 @@ export const AI_QUOTAS: Record<PlanType, AiQuotaConfig> = {
     maxInputPromptTokens: 2_000,
     maxContextRecords: 50,
     idempotencyWindowSec: 60,
-    dailyCapPct: 0.08,
+    dailyCapPct: 0.2,
     perFeatureMaxOutputTokens: {
       drafting: 600,
       summarization: 400,
@@ -52,7 +52,7 @@ export const AI_QUOTAS: Record<PlanType, AiQuotaConfig> = {
     maxInputPromptTokens: 2_000,
     maxContextRecords: 50,
     idempotencyWindowSec: 60,
-    dailyCapPct: 0.08,
+    dailyCapPct: 0.2,
     perFeatureMaxOutputTokens: {
       drafting: 600,
       summarization: 400,
@@ -76,7 +76,7 @@ export const AI_QUOTAS: Record<PlanType, AiQuotaConfig> = {
     maxInputPromptTokens: 2_000,
     maxContextRecords: 50,
     idempotencyWindowSec: 60,
-    dailyCapPct: 0.08,
+    dailyCapPct: 0.2,
     perFeatureMaxOutputTokens: {
       drafting: 1_200,
       summarization: 800,

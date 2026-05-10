@@ -31,3 +31,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - DTO/body/query declarations in controller signatures
 - class-validator/class-transformer + ValidationPipe
 - module-specific service return types
+
+## Assistant Route Notes
+- `POST /help/assistant/chat/stream` is the primary path and emits SSE event phases (`meta`, `state`, `stage`, `delta`, `actions`, `done`, `error`) while sharing the same orchestration core as `/help/assistant/chat`.
+- Assistant orchestration enforces canonical intent-tool contracts before release of user-visible payloads.

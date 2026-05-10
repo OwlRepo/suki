@@ -16,11 +16,13 @@ function main() {
   const changed = getChangedFiles();
   const assistantContextFiles = changed.filter((file) => file.startsWith("docs/assistant-context/"));
   const aiIndexFiles = changed.filter((file) => file.startsWith(".ai/file-index/"));
+  const aiArchitectureFiles = changed.filter((file) => file.startsWith(".ai/architecture/"));
 
   const result = evaluateAssistantContextGovernance({
     changedFiles: changed,
     assistantContextFiles,
     aiIndexFiles,
+    aiArchitectureFiles,
   });
 
   if (!result.ok) {

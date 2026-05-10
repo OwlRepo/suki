@@ -57,7 +57,24 @@ function toIntent(entry: AssistantContextEntry): AssistantIntent {
   return "general";
 }
 
-function topHelpArticles(locale: "en" | "tl", intent: AssistantIntent): AssistantContextEntry[] {
+function scoreEntryForQuery(entry: AssistantContextEntry, query: string): number {
+  const q = query.toLowerCase();
+  if (!q) return 0;
+  let score = 0;
+  for (const intent of entry.intents) {
+    if (q.includes(intent.toLowerCase())) score += 6;
+  }
+  for (const route of entry.relatedRoutes) {
+    const routeName = route.replace(/^\//, "").toLowerCase();
+    if (q.includes(routeName)) score += 8;
+    if (routeName.includes("share-slots") && (q.includes("slot") || q.includes("share"))) score += 8;
+    if (routeName.includes("promos") && (q.includes("promo") || q.includes("campaign"))) score += 8;
+    if (routeName.includes("pipeline") && (q.includes("pipeline") || q.includes("deal"))) score += 8;
+  }
+  return score;
+}
+
+function topHelpArticles(locale: "en" | "tl", intent: AssistantIntent, query: string): AssistantContextEntry[] {
   const rootDir = detectDocRootFromCwd();
   const all = loadAssistantContextEntries(rootDir).filter((entry) => entry.locale === locale);
 
@@ -66,6 +83,8 @@ function topHelpArticles(locale: "en" | "tl", intent: AssistantIntent): Assistan
   const merged = [...exact, ...fallback];
   merged.sort((a, b) => {
     const score = (p: string) => (p === "high" ? 3 : p === "medium" ? 2 : 1);
+    const queryScore = scoreEntryForQuery(b, query) - scoreEntryForQuery(a, query);
+    if (queryScore !== 0) return queryScore;
     return score(b.priority) - score(a.priority);
   });
   return merged.slice(0, 8);
@@ -74,10 +93,11 @@ function topHelpArticles(locale: "en" | "tl", intent: AssistantIntent): Assistan
 export function buildAssistantContextPack(input: {
   intent: AssistantIntent;
   locale: "en" | "tl";
+  query?: string;
   memory: { summary: string; turns: Array<{ role: "user" | "assistant"; text: string }> };
   dataContext: Record<string, unknown>;
 }) {
-  const helpArticles = topHelpArticles(input.locale, input.intent).map((a) => ({
+  const helpArticles = topHelpArticles(input.locale, input.intent, input.query ?? "").map((a) => ({
     source: "docs/assistant-context",
     title: a.id,
     quickAnswer: a.quickAnswer,

@@ -21,8 +21,36 @@ export type AssistantChatResponse = {
 export type AssistantChatStreamEvent =
   | { type: "meta"; threadId: string; intent: string }
   | { type: "state"; state: "sending" | "streaming" | "sent" | "read" | "error" }
+  | {
+      type: "stage";
+      stage: "normalize" | "intent" | "context" | "tools" | "openai" | "validate" | "finalize";
+    }
   | { type: "delta"; chunk: string }
   | { type: "actions"; actionChips: AssistantActionChip[] }
-  | { type: "usage"; usage: { tokensUsed: number; tokensLimit: number; requestsUsed: number; requestsLimit: number; resetDate?: string } }
+  | {
+      type: "usage";
+      usage: {
+        tokensUsed: number;
+        tokensLimit: number;
+        requestsUsed: number;
+        requestsLimit: number;
+        dailyTokensUsed?: number;
+        dailyTokensLimit?: number;
+        dailyRequestsUsed?: number;
+        dailyRequestsLimit?: number;
+        dailyResetDateTime?: string;
+        resetDate?: string;
+      };
+    }
   | { type: "done"; response: AssistantChatResponse }
-  | { type: "error"; message: string };
+  | {
+      type: "error";
+      message: string;
+      code?: string;
+      actionChips?: AssistantActionChip[];
+      meta?: {
+        dailyTokensRemaining?: number;
+        dailyRequestsRemaining?: number;
+        dailyResetDateTime?: string;
+      };
+    };

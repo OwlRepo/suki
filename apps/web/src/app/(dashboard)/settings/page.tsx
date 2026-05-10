@@ -166,6 +166,13 @@ function SettingsPageContent() {
     softCapPct: number;
     allowedFeatures: string[];
     resetDate: string;
+    dailyTokensUsed?: number;
+    dailyTokensLimit?: number;
+    dailyTokensRemaining?: number;
+    dailyRequestsUsed?: number;
+    dailyRequestsLimit?: number;
+    dailyRequestsRemaining?: number;
+    dailyResetDateTime?: string;
     projectedDaysToLimit: number | null;
   } | null>(null);
   const [aiBreakdown, setAiBreakdown] = useState<{
@@ -316,6 +323,13 @@ function SettingsPageContent() {
               softCapPct: number;
               allowedFeatures: string[];
               resetDate: string;
+              dailyTokensUsed?: number;
+              dailyTokensLimit?: number;
+              dailyTokensRemaining?: number;
+              dailyRequestsUsed?: number;
+              dailyRequestsLimit?: number;
+              dailyRequestsRemaining?: number;
+              dailyResetDateTime?: string;
               projectedDaysToLimit: number | null;
             }>("/ai/usage/summary", { token }).catch(() => null),
             apiRequest<{
@@ -1493,16 +1507,26 @@ function SettingsPageContent() {
                   AI is free by default with usage caps.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Tokens: {aiUsage.tokensUsed.toLocaleString()} /{" "}
-                  {aiUsage.tokensLimit > 0
-                    ? aiUsage.tokensLimit.toLocaleString()
+                  Daily AI credits limit: {(aiUsage.dailyTokensUsed ?? 0).toLocaleString()} /{" "}
+                  {(aiUsage.dailyTokensLimit ?? 0) > 0
+                    ? (aiUsage.dailyTokensLimit ?? 0).toLocaleString()
                     : "0"}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Requests: {aiUsage.requestsUsed} / {aiUsage.requestsLimit}
+                  Daily AI message limit: {aiUsage.dailyRequestsUsed ?? 0} / {aiUsage.dailyRequestsLimit ?? 0}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Quota resets: {aiUsage.resetDate}
+                  Daily remaining: {(aiUsage.dailyRequestsRemaining ?? 0).toLocaleString()} messages, {(aiUsage.dailyTokensRemaining ?? 0).toLocaleString()} AI credits
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Daily reset: {aiUsage.dailyResetDateTime ?? "Not available"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  This month: {aiUsage.requestsUsed} / {aiUsage.requestsLimit} requests, {aiUsage.tokensUsed.toLocaleString()} /{" "}
+                  {aiUsage.tokensLimit > 0 ? aiUsage.tokensLimit.toLocaleString() : "0"} tokens
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Monthly reset: {aiUsage.resetDate}
                 </p>
                 {aiUsage.projectedDaysToLimit != null &&
                   aiUsage.projectedDaysToLimit > 0 && (

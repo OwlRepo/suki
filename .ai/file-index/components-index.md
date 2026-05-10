@@ -10,6 +10,6 @@
 | `apps/web/src/components/onboarding/onboarding-wizard.tsx` | Onboarding flow UI | Uses onboarding hooks/services | Progressive onboarding state |
 | `apps/web/src/components/customers/customer-form-modal.tsx` | Customer create/edit modal | Calls API via lib/hook layer | CRUD workflow UI |
 | `apps/web/src/components/insights/insights-charts.tsx` | Insights chart rendering | Consumes analytics data contracts | Dashboard analytics visualizations |
-| `apps/web/src/components/suki-assistant.tsx` | Global assistant launcher and compact chat panel UX | Mounted by adaptive app shell; consumes auth/workspace/help/usage utilities | SSE-first assistant chat with cookie-first auth headers, collapsible header snapshot, horizontal prompt chip row, lifecycle states (`sending/streaming/sent/read/error`), and `/chat` fallback only on stream failure |
+| `apps/web/src/components/suki-assistant.tsx` | Global assistant launcher and compact chat panel UX | Mounted by adaptive app shell; consumes auth/workspace/help/usage utilities | SSE-first assistant chat with cookie-first auth headers, collapsible header snapshot, horizontal prompt chip row, lifecycle states (`sending/streaming/sent/read/error`), and `/chat` fallback only for stream transport/protocol failure (not stream `error` events) |
 | `apps/web/src/components/ui/button.tsx` | Shared UI primitive | Used across feature components | Reusable design-system control |
 | `packages/ui/src/Button.tsx` | Workspace-level UI button | Shared package for cross-app reuse | Foundation UI component |

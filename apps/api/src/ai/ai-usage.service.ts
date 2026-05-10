@@ -24,6 +24,11 @@ function getDayStartUTC(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
 }
 
+function getNextDayStartUTC(): Date {
+  const start = getDayStartUTC();
+  return new Date(start.getTime() + 24 * 60 * 60 * 1000);
+}
+
 function getEnvInt(name: string, fallback: number): number {
   const raw = process.env[name];
   const parsed = Number(raw);
@@ -76,6 +81,23 @@ export class AiUsageService {
     const requestLimit = budgetRow?.requestLimit ?? quota.monthlyRequestLimit;
     const aiEnabled = budgetRow?.aiEnabled !== "false";
     const softCapPct = budgetRow?.softCapPct ?? 90;
+    const [dailyRow] = await db
+      .select({
+        dailyTokens: sql<number>`coalesce(sum(${aiUsageEvents.totalTokens}), 0)::int`,
+        dailyRequests: sql<number>`count(*)::int`,
+      })
+      .from(aiUsageEvents)
+      .where(
+        and(
+          eq(aiUsageEvents.organizationId, organizationId),
+          gte(aiUsageEvents.createdAt, getDayStartUTC()),
+        ),
+      );
+
+    const dailyTokensUsed = Number(dailyRow?.dailyTokens ?? 0);
+    const dailyRequestsUsed = Number(dailyRow?.dailyRequests ?? 0);
+    const dailyTokensLimit = Math.floor(quota.monthlyTokenLimit * (quota.dailyCapPct ?? 0.2));
+    const dailyRequestsLimit = getEnvInt("AI_DAILY_REQUEST_LIMIT", AI_DAILY_REQUEST_LIMIT_DEFAULT);
 
     return {
       plan,
@@ -88,6 +110,13 @@ export class AiUsageService {
       softCapPct,
       allowedFeatures: quota.allowedFeatures,
       resetDate: this.getResetDate(targetMonth),
+      dailyTokensUsed,
+      dailyTokensLimit,
+      dailyTokensRemaining: Math.max(0, dailyTokensLimit - dailyTokensUsed),
+      dailyRequestsUsed,
+      dailyRequestsLimit,
+      dailyRequestsRemaining: Math.max(0, dailyRequestsLimit - dailyRequestsUsed),
+      dailyResetDateTime: getNextDayStartUTC().toISOString(),
       projectedDaysToLimit:
         requestsUsed > 0 && requestLimit > 0
           ? Math.floor(

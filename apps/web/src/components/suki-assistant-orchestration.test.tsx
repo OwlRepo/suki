@@ -11,6 +11,11 @@ const { apiRequestMock } = vi.hoisted(() => ({
         requestsUsed: 10,
         requestsLimit: 100,
         resetDate: "2026-06-01",
+        dailyTokensUsed: 50,
+        dailyTokensLimit: 200,
+        dailyRequestsUsed: 2,
+        dailyRequestsLimit: 10,
+        dailyResetDateTime: "2026-05-10T16:00:00.000Z",
         aiEnabled: true,
       };
     }
@@ -72,7 +77,8 @@ describe("SukiAssistant orchestration UI", () => {
   });
 
   it("falls back to /chat only when stream transport fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, body: null }));
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, body: null });
+    vi.stubGlobal("fetch", fetchMock);
     apiRequestMock.mockClear();
 
     render(<SukiAssistant />);
@@ -87,6 +93,44 @@ describe("SukiAssistant orchestration UI", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const chatCalls = apiRequestMock.mock.calls.filter(([path]) => path === "/help/assistant/chat");
+    expect(chatCalls).toHaveLength(1);
+    expect(await screen.findByText(/add customers from the customers page\./i)).toBeInTheDocument();
+  });
+
+  it("falls back to /chat once when SSE frame sequence is malformed", async () => {
+    const encoder = new TextEncoder();
+    const malformedStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n' +
+              'event: delta\ndata: {"type":"delta","chunk":"Open Customers."\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, body: malformedStream });
+    vi.stubGlobal("fetch", fetchMock);
+    apiRequestMock.mockClear();
+
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
+    fireEvent.change(input, { target: { value: "How do I add a customer?" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => {
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/help/assistant/chat",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const chatCalls = apiRequestMock.mock.calls.filter(([path]) => path === "/help/assistant/chat");
+    expect(chatCalls).toHaveLength(1);
     expect(await screen.findByText(/add customers from the customers page\./i)).toBeInTheDocument();
   });
 
@@ -172,5 +216,32 @@ describe("SukiAssistant orchestration UI", () => {
     const options = fetchMock.mock.calls[0][1] as RequestInit;
     const headers = options.headers as Record<string, string>;
     expect(headers.Authorization).toBeUndefined();
+  });
+
+  it("does not fallback to /chat when stream returns assistant error event", async () => {
+    const streamBody = [
+      'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
+      'event: error\ndata: {"type":"error","message":"You reached today\\u2019s AI limit.","code":"AI_DAILY_CAP_EXCEEDED","actionChips":[{"label":"View AI Usage","href":"/settings","kind":"primary"}]}\n\n',
+    ].join("");
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(streamBody));
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
+    apiRequestMock.mockClear();
+
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
+    fireEvent.change(input, { target: { value: "How do I add a customer?" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect((await screen.findAllByText(/you reached today’s ai limit\./i)).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("link", { name: /view usage/i })).toBeInTheDocument();
+    const chatCalls = apiRequestMock.mock.calls.filter(([path]) => path === "/help/assistant/chat");
+    expect(chatCalls).toHaveLength(0);
   });
 });

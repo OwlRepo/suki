@@ -15,6 +15,11 @@ vi.mock("@/lib/api", () => ({
         requestsUsed: 10,
         requestsLimit: 100,
         resetDate: "2026-06-01",
+        dailyTokensUsed: 50,
+        dailyTokensLimit: 200,
+        dailyRequestsUsed: 2,
+        dailyRequestsLimit: 10,
+        dailyResetDateTime: "2026-05-10T16:00:00.000Z",
         aiEnabled: true,
       };
     }
@@ -32,7 +37,7 @@ describe("SukiAssistant", () => {
     fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/resets on/i)).toBeInTheDocument();
+      expect(screen.getByText(/daily ai limit/i)).toBeInTheDocument();
     });
 
     expect(screen.getByText(/what can i ask/i)).toBeInTheDocument();

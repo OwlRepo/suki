@@ -4,11 +4,27 @@ export type AssistantDocCoverageReport = {
   missing: string[];
 };
 
+function isBehaviorImpactingWebFile(file: string): boolean {
+  if (!file.startsWith("apps/web/src/")) return false;
+  if (file.endsWith(".test.ts") || file.endsWith(".test.tsx")) return false;
+  if (file.endsWith(".spec.ts") || file.endsWith(".spec.tsx")) return false;
+  if (file.endsWith(".css") || file.endsWith(".md")) return false;
+  return (
+    file.startsWith("apps/web/src/app/(dashboard)/") ||
+    file.startsWith("apps/web/src/components/") ||
+    file.startsWith("apps/web/src/lib/help-content")
+  );
+}
+
+function isBehaviorImpactingApiFile(file: string): boolean {
+  if (!file.startsWith("apps/api/src/")) return false;
+  if (file.endsWith(".test.ts") || file.endsWith(".spec.ts")) return false;
+  return file.startsWith("apps/api/src/help/") || file.startsWith("apps/api/src/ai/");
+}
+
 export function needsAssistantContextUpdate(changedFiles: string[]): boolean {
   return changedFiles.some((file) =>
-    file.startsWith("apps/web/src/") ||
-    file.startsWith("apps/api/src/help/") ||
-    file.startsWith("apps/api/src/ai/")
+    isBehaviorImpactingWebFile(file) || isBehaviorImpactingApiFile(file),
   );
 }
 
@@ -16,6 +32,7 @@ export function evaluateAssistantContextGovernance(input: {
   changedFiles: string[];
   assistantContextFiles: string[];
   aiIndexFiles: string[];
+  aiArchitectureFiles: string[];
 }): AssistantDocCoverageReport {
   const needs = needsAssistantContextUpdate(input.changedFiles);
   if (!needs) {
@@ -28,6 +45,9 @@ export function evaluateAssistantContextGovernance(input: {
   }
   if (input.aiIndexFiles.length === 0) {
     missing.push(".ai/file-index/* updates");
+  }
+  if (input.aiArchitectureFiles.length === 0) {
+    missing.push(".ai/architecture/* updates");
   }
 
   return {

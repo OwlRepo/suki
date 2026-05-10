@@ -4,6 +4,13 @@ export type AiUsageSummary = {
   requestsUsed: number;
   requestsLimit: number;
   resetDate?: string;
+  dailyTokensUsed?: number;
+  dailyTokensLimit?: number;
+  dailyTokensRemaining?: number;
+  dailyRequestsUsed?: number;
+  dailyRequestsLimit?: number;
+  dailyRequestsRemaining?: number;
+  dailyResetDateTime?: string;
   aiEnabled?: boolean;
 };
 
@@ -12,8 +19,14 @@ export type UsageState = "normal" | "warning" | "capped";
 export type UsageModel = {
   tokens: { used: number; limit: number; remaining: number; pct: number; state: UsageState };
   messages: { used: number; limit: number; remaining: number; pct: number; state: UsageState };
+  daily: {
+    tokens: { used: number; limit: number; remaining: number; pct: number; state: UsageState };
+    messages: { used: number; limit: number; remaining: number; pct: number; state: UsageState };
+  };
   resetLabel: string;
+  dailyResetLabel: string;
   capped: boolean;
+  dailyCapped: boolean;
   aiEnabled: boolean;
 };
 
@@ -40,6 +53,23 @@ export function buildUsageModel(summary: AiUsageSummary): UsageModel {
 
   const tokensRemaining = Math.max(0, tokensLimit - tokensUsed);
   const messagesRemaining = Math.max(0, messageLimit - messageUsed);
+  const dailyTokensLimit = Math.max(0, summary.dailyTokensLimit ?? 0);
+  const dailyTokensUsed = Math.max(0, summary.dailyTokensUsed ?? 0);
+  const dailyMessageLimit = Math.max(0, summary.dailyRequestsLimit ?? 0);
+  const dailyMessageUsed = Math.max(0, summary.dailyRequestsUsed ?? 0);
+  const dailyTokenPct = dailyTokensLimit > 0 ? dailyTokensUsed / dailyTokensLimit : 0;
+  const dailyMessagePct = dailyMessageLimit > 0 ? dailyMessageUsed / dailyMessageLimit : 0;
+  const dailyTokensRemaining = Math.max(
+    0,
+    summary.dailyTokensRemaining ?? dailyTokensLimit - dailyTokensUsed,
+  );
+  const dailyMessagesRemaining = Math.max(
+    0,
+    summary.dailyRequestsRemaining ?? dailyMessageLimit - dailyMessageUsed,
+  );
+  const dailyCapped =
+    (dailyTokensLimit > 0 && dailyTokensRemaining <= 0) ||
+    (dailyMessageLimit > 0 && dailyMessagesRemaining <= 0);
 
   return {
     tokens: {
@@ -56,9 +86,26 @@ export function buildUsageModel(summary: AiUsageSummary): UsageModel {
       pct: messagePct,
       state: stateFromPct(messagePct),
     },
+    daily: {
+      tokens: {
+        used: dailyTokensUsed,
+        limit: dailyTokensLimit,
+        remaining: dailyTokensRemaining,
+        pct: dailyTokenPct,
+        state: stateFromPct(dailyTokenPct),
+      },
+      messages: {
+        used: dailyMessageUsed,
+        limit: dailyMessageLimit,
+        remaining: dailyMessagesRemaining,
+        pct: dailyMessagePct,
+        state: stateFromPct(dailyMessagePct),
+      },
+    },
     resetLabel: formatResetLabel(summary.resetDate),
-    capped: tokensRemaining <= 0 || messagesRemaining <= 0,
+    dailyResetLabel: formatResetLabel(summary.dailyResetDateTime),
+    capped: tokensRemaining <= 0 || messagesRemaining <= 0 || dailyCapped,
+    dailyCapped,
     aiEnabled: summary.aiEnabled !== false,
   };
 }
-
