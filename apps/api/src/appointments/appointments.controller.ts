@@ -77,6 +77,97 @@ export class AppointmentsController {
     return { appointment: appt };
   }
 
+  @Get("booking/availability")
+  async bookingAvailability(
+    @Query("businessId") businessId: string,
+    @Query("month") month: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!businessId || !month || !orgId) throw new BadRequestException("businessId and month required");
+    return this.appointmentsService.getAvailabilityForBooking(businessId, orgId, month);
+  }
+
+  @Post("booking/hold")
+  async bookingHold(
+    @Body() body: { businessId: string; customerId: string; mobile: string; scheduledAt: string },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId || !body.businessId || !body.customerId || !body.mobile || !body.scheduledAt) {
+      throw new BadRequestException("businessId, customerId, mobile, scheduledAt required");
+    }
+    const hold = await this.appointmentsService.createHoldForBooking(orgId, body);
+    return { hold, success: true };
+  }
+
+  @Post("booking/otp/send")
+  async bookingOtpSend(
+    @Body() body: { holdId: string },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId || !body.holdId) throw new BadRequestException("holdId required");
+    return this.appointmentsService.sendBookingOtp(orgId, body.holdId);
+  }
+
+  @Post("booking/otp/verify")
+  async bookingOtpVerify(
+    @Body() body: { holdId: string; code: string },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId || !body.holdId || !body.code) throw new BadRequestException("holdId and code required");
+    return this.appointmentsService.verifyBookingOtp(orgId, body.holdId, body.code);
+  }
+
+  @Post("booking/pin")
+  async bookingPinConfirm(
+    @Body() body: { businessId: string; holdId: string; pin: string; reason: string; staffName?: string },
+    @Tenant() tenant?: { organizationId: string; userId?: string; role?: "owner" | "staff" },
+  ) {
+    if (!tenant?.organizationId || !tenant.userId || !tenant.role) {
+      throw new UnauthorizedException("Unauthorized");
+    }
+    if (!body.businessId || !body.holdId || !body.pin || !body.reason) {
+      throw new BadRequestException("businessId, holdId, pin and reason required");
+    }
+    return this.appointmentsService.confirmWithPinOverride({
+      holdId: body.holdId,
+      businessId: body.businessId,
+      organizationId: tenant.organizationId,
+      actorUserId: tenant.userId,
+      actorRole: tenant.role,
+      pin: body.pin,
+      reason: body.reason,
+      staffName: body.staffName,
+    });
+  }
+
+
+  @Get("booking/security")
+  async getBookingSecurityStatus(
+    @Query("businessId") businessId: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!businessId || !orgId) throw new BadRequestException("businessId required");
+    return this.appointmentsService.getBookingSecurityStatus(businessId, orgId);
+  }
+
+  @Post("booking/security/pin")
+  async setBookingPin(
+    @Body() body: { businessId: string; pin: string },
+    @Tenant() tenant?: { organizationId: string; userId?: string; role?: "owner" | "staff" },
+  ) {
+    if (!tenant?.organizationId || !tenant.userId || !tenant.role) {
+      throw new UnauthorizedException("Unauthorized");
+    }
+    if (!body.businessId || !body.pin) throw new BadRequestException("businessId and pin required");
+    return this.appointmentsService.setOtpSkipPin({
+      businessId: body.businessId,
+      organizationId: tenant.organizationId,
+      actorUserId: tenant.userId,
+      actorRole: tenant.role,
+      pin: body.pin,
+    });
+  }
+
   @Get("share-templates")
   async listShareTemplates(
     @Query("businessId") businessId: string,

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -28,6 +27,14 @@ import { useWorkspace } from "@/contexts/workspace-context";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 import { fromError } from "@/lib/ui-feedback";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { buildAppointmentWizardSteps, type BookingStep } from "./wizard-progress";
+import {
+  canSubmitVerify,
+  defaultVerifyMode,
+  normalizeBookingError,
+  shouldShowManagerPinSetupOnAppointments,
+  type VerifyMode,
+} from "./booking-flow";
 
 interface Customer {
   id: string;
@@ -45,6 +52,12 @@ interface Appointment {
   createdAt: string;
 }
 
+interface Availability {
+  month: string;
+  slotDurationMins: number;
+  byDay: Record<string, string[]>;
+}
+
 function AppointmentsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
@@ -58,6 +71,8 @@ function AppointmentsPageContent() {
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [step, setStep] = useState<BookingStep>("customer");
+  const [entryMode, setEntryMode] = useState<"existing" | "new">("existing");
   const [formData, setFormData] = useState({
     customerId: "",
     scheduledAt: "",
@@ -68,6 +83,17 @@ function AppointmentsPageContent() {
   const [dateTo, setDateTo] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newCustomer, setNewCustomer] = useState({ name: "", mobile: "", email: "", notes: "" });
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [holdId, setHoldId] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [pin, setPin] = useState("");
+  const [skipReason, setSkipReason] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [verifyMode, setVerifyMode] = useState<VerifyMode>("otp");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [pendingCancel, setPendingCancel] = useState<{ id: string; customerName: string } | null>(null);
 
@@ -113,6 +139,32 @@ function AppointmentsPageContent() {
     loadAppointments();
   }, [selectedBiz, dateFrom, dateTo]);
 
+  useEffect(() => {
+    if (!showForm || !selectedBiz) return;
+    if (step !== "date" && step !== "time") return;
+    const run = async () => {
+      const token = await getToken();
+      if (!token) return;
+      setAvailabilityLoading(true);
+      try {
+        const data = await apiRequest<Availability>(
+          `/appointments/booking/availability?businessId=${selectedBiz}&month=${month}`,
+          { token },
+        );
+        setAvailability(data);
+        const day = Object.keys(data.byDay ?? {}).sort()[0] ?? null;
+        setSelectedDay(day);
+        const slot = day ? (data.byDay[day]?.[0] ?? "") : "";
+        setFormData((prev) => ({ ...prev, scheduledAt: slot ? slot.slice(0, 16) : prev.scheduledAt }));
+      } catch (err) {
+        setError(fromError(err, "Failed to load availability."));
+      } finally {
+        setAvailabilityLoading(false);
+      }
+    };
+    void run();
+  }, [showForm, selectedBiz, step, month]);
+
   const resetForm = () => {
     const today = new Date();
     const defaultTime = new Date(today);
@@ -126,14 +178,16 @@ function AppointmentsPageContent() {
     setEditingId(null);
     setShowForm(false);
     setError(null);
-  };
-
-  const applyTimePreset = (preset: "morning" | "afternoon" | "evening") => {
-    const d = formData.scheduledAt ? new Date(formData.scheduledAt) : new Date();
-    if (preset === "morning") d.setHours(9, 0, 0, 0);
-    else if (preset === "afternoon") d.setHours(14, 0, 0, 0);
-    else d.setHours(18, 0, 0, 0);
-    setFormData((prev) => ({ ...prev, scheduledAt: d.toISOString().slice(0, 16) }));
+    setStep("customer");
+    setEntryMode("existing");
+    setNewCustomer({ name: "", mobile: "", email: "", notes: "" });
+    setAvailability(null);
+    setSelectedDay(null);
+    setHoldId(null);
+    setOtpCode("");
+    setPin("");
+    setSkipReason("");
+    setVerifyMode("otp");
   };
 
   const handleEdit = (a: Appointment) => {
@@ -188,6 +242,96 @@ function AppointmentsPageContent() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const ensureCustomerForWizard = async () => {
+    const token = await getToken();
+    if (!token || !selectedBiz) return null;
+    if (entryMode === "existing") {
+      return formData.customerId || null;
+    }
+    if (!newCustomer.name.trim()) throw new Error("Customer name is required.");
+    const res = await apiRequest<{ customer: { id: string } }>("/customers", {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        businessId: selectedBiz,
+        name: newCustomer.name.trim(),
+        mobile: newCustomer.mobile.trim() || undefined,
+        email: newCustomer.email.trim() || undefined,
+        notes: newCustomer.notes.trim() || undefined,
+      }),
+    });
+    await loadCustomers();
+    setFormData((prev) => ({ ...prev, customerId: res.customer.id }));
+    return res.customer.id;
+  };
+
+  const startOtpFlow = async () => {
+    if (!selectedBiz || !formData.scheduledAt) return;
+    const customerId = await ensureCustomerForWizard();
+    if (!customerId) throw new Error("Select or create a customer first.");
+    const token = await getToken();
+    if (!token) return;
+    const mobile =
+      entryMode === "new"
+        ? newCustomer.mobile.trim()
+        : (customers.find((c) => c.id === customerId)?.mobile ?? "").trim();
+    const holdMobile = mobile || "NO_PHONE_AVAILABLE";
+    const holdRes = await apiRequest<{ hold: { id: string } }>("/appointments/booking/hold", {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        businessId: selectedBiz,
+        customerId,
+        mobile: holdMobile,
+        scheduledAt: new Date(formData.scheduledAt).toISOString(),
+      }),
+    });
+    if (mobile) {
+      await apiRequest("/appointments/booking/otp/send", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ holdId: holdRes.hold.id }),
+      });
+    }
+    setHoldId(holdRes.hold.id);
+    setVerifyMode(defaultVerifyMode({ mobile }));
+    setStep("verify");
+  };
+
+  const completeWithOtp = async () => {
+    if (!holdId) return;
+    const token = await getToken();
+    if (!token) return;
+    await apiRequest("/appointments/booking/otp/verify", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ holdId, code: otpCode }),
+    });
+    await loadAppointments();
+    setFeedback({ type: "success", message: "Appointment created." });
+    setStep("done");
+  };
+
+  const completeWithPinOverride = async () => {
+    if (!holdId || !selectedBiz) return;
+    const token = await getToken();
+    if (!token) return;
+    await apiRequest("/appointments/booking/pin", {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        businessId: selectedBiz,
+        holdId,
+        pin,
+        reason: skipReason,
+        staffName: staffName.trim() || undefined,
+      }),
+    });
+    await loadAppointments();
+    setFeedback({ type: "success", message: "Appointment created with manager override." });
+    setStep("done");
   };
 
   const handleStatus = async (id: string, status: "scheduled" | "completed" | "missed" | "cancelled") => {
@@ -275,6 +419,14 @@ function AppointmentsPageContent() {
           }
           hintText="Pick a customer first, then choose a time preset or exact date and time."
         />
+        {!shouldShowManagerPinSetupOnAppointments() && (
+          <div className="rounded-md border border-border bg-card p-4">
+            <p className="text-sm font-medium text-foreground">Manager override</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              PIN setup is managed in Settings. Use manager override only when customer OTP is not possible.
+            </p>
+          </div>
+        )}
         {feedback && (
           <StatusBanner
             variant={feedback.type}
@@ -303,91 +455,164 @@ function AppointmentsPageContent() {
         />
 
       {showForm && (
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-md border border-border bg-card p-4"
-        >
-          <h2 className="text-lg font-medium">{editingId ? "Reschedule" : "New appointment"}</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="customer-select" className="mb-1 block">
-                Customer
-              </Label>
-              <Select
-                value={formData.customerId || "__none__"}
-                onValueChange={(v) =>
-                  setFormData((d) => ({ ...d, customerId: v === "__none__" ? "" : v }))
-                }
-                disabled={!!editingId}
-              >
-                <SelectTrigger id="customer-select" className="w-full min-h-[44px]">
-                  <SelectValue placeholder="Select customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Select customer</SelectItem>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="mb-1 block">Date & time</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => applyTimePreset("morning")}>
-                  Morning
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => applyTimePreset("afternoon")}>
-                  Afternoon
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => applyTimePreset("evening")}>
-                  Evening
-                </Button>
+        <div className="space-y-4 rounded-md border border-border bg-card p-4">
+          {editingId ? (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <h2 className="text-lg font-medium">Reschedule</h2>
+              <div>
+                <Label className="mb-1 block">Date & time</Label>
+                <Input
+                  type="datetime-local"
+                  value={formData.scheduledAt}
+                  onChange={(e) => setFormData((d) => ({ ...d, scheduledAt: e.target.value }))}
+                  required
+                />
               </div>
-              <Input
-                type="datetime-local"
-                value={formData.scheduledAt}
-                onChange={(e) => setFormData((d) => ({ ...d, scheduledAt: e.target.value }))}
-                required
-                className="mt-2"
-              />
-            </div>
-          </div>
-          {!editingId && (
-            <div className="flex items-center gap-2 rounded-md bg-muted/50 p-3">
-              <Checkbox
-                id="reminders-on"
-                checked={formData.remindersOn}
-                onCheckedChange={(checked) =>
-                  setFormData((d) => ({ ...d, remindersOn: checked === true }))
-                }
-              />
-              <Label htmlFor="reminders-on" className="cursor-pointer text-sm text-foreground">
-                We&apos;ll remind the customer so you don&apos;t have to.
-              </Label>
-            </div>
+              <div>
+                <Label className="mb-1 block">Notes</Label>
+                <Input
+                  value={formData.notes}
+                  onChange={(e) => setFormData((d) => ({ ...d, notes: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <div className="flex gap-2">
+                <Button type="submit" disabled={submitting}>{submitting ? "Saving..." : "Update"}</Button>
+                <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <h2 className="text-lg font-medium">Book appointment</h2>
+              <ol className="grid grid-cols-5 gap-2 text-xs">
+                {buildAppointmentWizardSteps(step).map((s, idx) => (
+                  <li key={s.id} className={s.state === "active" ? "font-semibold text-foreground" : "text-muted-foreground"}>
+                    {idx + 1}. {s.id}
+                  </li>
+                ))}
+              </ol>
+              {step === "customer" && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Button type="button" variant={entryMode === "existing" ? "default" : "outline"} onClick={() => setEntryMode("existing")}>Existing customer</Button>
+                    <Button type="button" variant={entryMode === "new" ? "default" : "outline"} onClick={() => setEntryMode("new")}>New customer</Button>
+                  </div>
+                  {entryMode === "existing" ? (
+                    <div>
+                      <Label className="mb-1 block">Customer</Label>
+                      <Select value={formData.customerId || "__none__"} onValueChange={(v) => setFormData((d) => ({ ...d, customerId: v === "__none__" ? "" : v }))}>
+                        <SelectTrigger className="min-h-[44px]"><SelectValue placeholder="Select customer" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Select customer</SelectItem>
+                          {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input placeholder="Customer name" value={newCustomer.name} onChange={(e) => setNewCustomer((v) => ({ ...v, name: e.target.value }))} />
+                      <Input placeholder="Mobile" value={newCustomer.mobile} onChange={(e) => setNewCustomer((v) => ({ ...v, mobile: e.target.value }))} />
+                      <Input placeholder="Email (optional)" value={newCustomer.email} onChange={(e) => setNewCustomer((v) => ({ ...v, email: e.target.value }))} />
+                      <Textarea placeholder="Notes (optional)" value={newCustomer.notes} onChange={(e) => setNewCustomer((v) => ({ ...v, notes: e.target.value }))} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {(step === "date" || step === "time") && (
+                <div className="space-y-3">
+                  <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-48" />
+                  {availabilityLoading ? <p className="text-sm text-muted-foreground">Loading available slots...</p> : (
+                    <>
+                      {step === "date" && (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {Object.keys(availability?.byDay ?? {}).sort().map((day) => (
+                            <Button key={day} type="button" variant={selectedDay === day ? "default" : "outline"} onClick={() => setSelectedDay(day)}>
+                              {new Date(day).toLocaleDateString()}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                      {step === "time" && selectedDay && (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {(availability?.byDay[selectedDay] ?? []).map((slot) => (
+                            <Button key={slot} type="button" variant={formData.scheduledAt === slot.slice(0, 16) ? "default" : "outline"} onClick={() => setFormData((d) => ({ ...d, scheduledAt: slot.slice(0, 16) }))}>
+                              {new Date(slot).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+              {step === "review" && (
+                <div className="space-y-2">
+                  <p className="text-sm">Customer: {entryMode === "existing" ? getCustomerName(formData.customerId) : newCustomer.name || "—"}</p>
+                  <p className="text-sm">Appointment: {formData.scheduledAt ? new Date(formData.scheduledAt).toLocaleString() : "—"}</p>
+                  <Input placeholder="Notes (optional)" value={formData.notes} onChange={(e) => setFormData((d) => ({ ...d, notes: e.target.value }))} />
+                </div>
+              )}
+              {step === "verify" && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Button type="button" variant={verifyMode === "otp" ? "default" : "outline"} onClick={() => setVerifyMode("otp")}>
+                      Verify via OTP
+                    </Button>
+                    <Button type="button" variant={verifyMode === "override" ? "default" : "outline"} onClick={() => setVerifyMode("override")}>
+                      Manager override
+                    </Button>
+                  </div>
+                  {verifyMode === "otp" && (
+                    <div>
+                      <Label className="mb-1 block">OTP code</Label>
+                      <Input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="6-digit OTP" />
+                      <Button type="button" className="mt-2" onClick={() => void completeWithOtp()} disabled={submitting || !canSubmitVerify({ mode: "otp", otpCode })}>Verify OTP and confirm</Button>
+                    </div>
+                  )}
+                  {verifyMode === "override" && (
+                    <div className="rounded-md border border-border p-3">
+                      <p className="text-sm font-medium">Manager override (when customer OTP is not possible)</p>
+                      <Input className="mt-2" type="password" placeholder="Manager PIN" value={pin} onChange={(e) => setPin(e.target.value)} />
+                      <Input className="mt-2" placeholder="Reason for OTP skip" value={skipReason} onChange={(e) => setSkipReason(e.target.value)} />
+                      <Input className="mt-2" placeholder="Staff name (optional)" value={staffName} onChange={(e) => setStaffName(e.target.value)} />
+                      <Button type="button" className="mt-2" variant="outline" onClick={() => void completeWithPinOverride()} disabled={!canSubmitVerify({ mode: "override", pin, reason: skipReason })}>
+                        Confirm with manager override
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {step === "done" && <p className="text-sm text-green-700">Appointment booked successfully.</p>}
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <div className="flex gap-2">
+                {step !== "done" && step !== "verify" && (
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setError(null);
+                      try {
+                        if (step === "customer") setStep("date");
+                        else if (step === "date") setStep("time");
+                        else if (step === "time") setStep("review");
+                        else if (step === "review") await startOtpFlow();
+                      } catch (err) {
+                        setError(normalizeBookingError(fromError(err, "Unable to continue.")));
+                      }
+                    }}
+                  >
+                    Continue
+                  </Button>
+                )}
+                {step === "done" ? (
+                  <Button type="button" onClick={resetForm}>Close</Button>
+                ) : (
+                  <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>
+                )}
+              </div>
+            </>
           )}
-          <p className="text-sm text-muted-foreground">Nothing is final until you confirm.</p>
-          <div>
-            <Label className="mb-1 block">Notes</Label>
-            <Input
-              value={formData.notes}
-              onChange={(e) => setFormData((d) => ({ ...d, notes: e.target.value }))}
-              placeholder="Optional"
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex gap-2">
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : editingId ? "Update" : "Create"}
-            </Button>
-            <Button type="button" variant="outline" onClick={resetForm}>
-              Cancel
-            </Button>
-          </div>
-        </form>
+        </div>
       )}
 
       <PageSection>

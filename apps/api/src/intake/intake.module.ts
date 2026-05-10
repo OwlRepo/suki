@@ -7,5 +7,6 @@ import { IntakeBookingService } from "./intake-booking.service";
   imports: [CustomersModule],
   controllers: [IntakeController],
   providers: [IntakeBookingService],
+  exports: [IntakeBookingService],
 })
 export class IntakeModule {}

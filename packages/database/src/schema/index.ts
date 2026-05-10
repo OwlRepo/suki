@@ -33,6 +33,10 @@ export const appointmentStatusEnum = pgEnum("appointment_status", [
   "missed",
   "cancelled",
 ]);
+export const appointmentVerificationModeEnum = pgEnum("appointment_verification_mode", [
+  "otp_verified",
+  "pin_override",
+]);
 export const messagePurposeEnum = pgEnum("message_purpose", [
   "transactional",
   "promotional",
@@ -319,6 +323,10 @@ export const appointments = pgTable(
     reminder72hSentAt: timestamp("reminder_72h_sent_at"),
     missedRecoverySentAt: timestamp("missed_recovery_sent_at"),
     staffName: text("staff_name"),
+    verificationMode: appointmentVerificationModeEnum("verification_mode").notNull().default("otp_verified"),
+    otpSkipReason: text("otp_skip_reason"),
+    verifiedByUserId: uuid("verified_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    verifiedAt: timestamp("verified_at").defaultNow().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -326,6 +334,41 @@ export const appointments = pgTable(
     index("appointments_scheduled_at_idx").on(t.scheduledAt),
     index("appointments_reminder_24h_sent_at_idx").on(t.reminder24hSentAt),
     index("appointments_reminder_72h_sent_at_idx").on(t.reminder72hSentAt),
+  ],
+);
+
+export const bookingSecuritySettings = pgTable("booking_security_settings", {
+  businessId: uuid("business_id")
+    .primaryKey()
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  otpSkipPinHash: text("otp_skip_pin_hash").notNull(),
+  otpSkipPinSetByUserId: uuid("otp_skip_pin_set_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  otpSkipPinSetAt: timestamp("otp_skip_pin_set_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const bookingPinAttemptLogs = pgTable(
+  "booking_pin_attempt_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    success: text("success").notNull().default("false"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("booking_pin_attempt_logs_business_user_created_idx").on(
+      t.businessId,
+      t.actorUserId,
+      t.createdAt,
+    ),
   ],
 );
 

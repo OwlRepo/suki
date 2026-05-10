@@ -134,6 +134,13 @@
       "when": 1778315632526,
       "tag": "0018_common_mantis",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1778331305810,
+      "tag": "0019_harsh_tyrannus",
+      "breakpoints": true
     }
   ]
 }
