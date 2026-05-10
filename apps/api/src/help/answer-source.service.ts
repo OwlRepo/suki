@@ -85,7 +85,22 @@ export class AnswerSourceService {
     };
   }
 
-  async getAiUsageSummary(input: { organizationId: string }): Promise<AnswerSourceResponse<{ plan: string; month: string; tokensUsed: number; tokensLimit: number; requestsUsed: number; requestsLimit: number }>> {
+  async getAiUsageSummary(input: { organizationId: string }): Promise<AnswerSourceResponse<{
+    plan: string;
+    month: string;
+    tokensUsed: number;
+    tokensLimit: number;
+    requestsUsed: number;
+    requestsLimit: number;
+    dailyTokensUsed: number;
+    dailyTokensLimit: number;
+    dailyTokensRemaining: number;
+    dailyRequestsUsed: number;
+    dailyRequestsLimit: number;
+    dailyRequestsRemaining: number;
+    dailyResetDateTime: string;
+    resetDate: string;
+  }>> {
     const summary = await this.aiUsage.getSummary(input.organizationId);
     return {
       domain: "ai_usage",
@@ -97,6 +112,14 @@ export class AnswerSourceService {
         tokensLimit: summary.tokensLimit,
         requestsUsed: summary.requestsUsed,
         requestsLimit: summary.requestsLimit,
+        dailyTokensUsed: summary.dailyTokensUsed,
+        dailyTokensLimit: summary.dailyTokensLimit,
+        dailyTokensRemaining: summary.dailyTokensRemaining,
+        dailyRequestsUsed: summary.dailyRequestsUsed,
+        dailyRequestsLimit: summary.dailyRequestsLimit,
+        dailyRequestsRemaining: summary.dailyRequestsRemaining,
+        dailyResetDateTime: summary.dailyResetDateTime,
+        resetDate: summary.resetDate,
       },
       humanReadable: `AI usage this month: ${summary.tokensUsed}/${summary.tokensLimit} tokens and ${summary.requestsUsed}/${summary.requestsLimit} requests.`,
       asOf: new Date().toISOString(),

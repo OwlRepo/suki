@@ -23,6 +23,20 @@ describe("AssistantService", () => {
     vi.clearAllMocks();
     threadMemory.getThreadMemory.mockResolvedValue({ summary: "", turns: [] });
     threadMemory.saveThreadMemory.mockResolvedValue(undefined);
+    answerSource.getAiUsageSummary.mockResolvedValue({
+      canonical: {
+        tokensUsed: 1100,
+        tokensLimit: 100000,
+        requestsUsed: 11,
+        requestsLimit: 100,
+        dailyTokensUsed: 550,
+        dailyTokensLimit: 20000,
+        dailyRequestsUsed: 3,
+        dailyRequestsLimit: 150,
+        dailyResetDateTime: "2026-05-11T00:00:00.000Z",
+        resetDate: "2026-06-01",
+      },
+    });
   });
 
   it("returns plain-language response with primary action chip", async () => {
@@ -287,6 +301,15 @@ describe("AssistantService", () => {
     expect(events[1]?.type).toBe("state");
     expect(events.some((event) => event.type === "stage")).toBe(true);
     expect(events.some((event) => event.type === "delta")).toBe(true);
+    const usageIndex = events.findIndex((event) => event.type === "usage");
+    const doneIndex = events.findIndex((event) => event.type === "done");
+    expect(usageIndex).toBeGreaterThan(-1);
+    expect(doneIndex).toBeGreaterThan(usageIndex);
+    const usageEvent = events.find((event) => event.type === "usage");
+    if (usageEvent?.type === "usage") {
+      expect(usageEvent.usage.dailyTokensUsed).toBe(550);
+      expect(usageEvent.usage.dailyTokensLimit).toBe(20000);
+    }
     expect(events.at(-1)?.type).toBe("done");
   });
 

@@ -191,6 +191,10 @@ export class AssistantService {
         events.push({ type: "delta", chunk });
       }
       events.push({ type: "actions", actionChips: run.response.actionChips });
+      const usageEvent = await this.buildUsageStreamEvent(input.organizationId);
+      if (usageEvent) {
+        events.push(usageEvent);
+      }
       events.push({ type: "state", state: "sent" });
       events.push({ type: "state", state: "read" });
       events.push({ type: "done", response: run.response });
@@ -793,6 +797,31 @@ export class AssistantService {
 
   private withThreadId(response: AssistantChatResponse, threadId: string): AssistantChatResponse {
     return { ...response, threadId };
+  }
+
+  private async buildUsageStreamEvent(organizationId: string): Promise<Extract<AssistantChatStreamEvent, { type: "usage" }> | null> {
+    try {
+      const usage = await this.answerSource.getAiUsageSummary({ organizationId });
+      const canonical = usage.canonical;
+      if (!canonical) return null;
+      return {
+        type: "usage",
+        usage: {
+          tokensUsed: canonical.tokensUsed,
+          tokensLimit: canonical.tokensLimit,
+          requestsUsed: canonical.requestsUsed,
+          requestsLimit: canonical.requestsLimit,
+          dailyTokensUsed: canonical.dailyTokensUsed,
+          dailyTokensLimit: canonical.dailyTokensLimit,
+          dailyRequestsUsed: canonical.dailyRequestsUsed,
+          dailyRequestsLimit: canonical.dailyRequestsLimit,
+          dailyResetDateTime: canonical.dailyResetDateTime,
+          resetDate: canonical.resetDate,
+        },
+      };
+    } catch {
+      return null;
+    }
   }
 
   private chunkText(text: string): string[] {

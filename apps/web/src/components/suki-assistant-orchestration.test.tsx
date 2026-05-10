@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SukiAssistant } from "./suki-assistant";
 
@@ -47,6 +47,39 @@ vi.mock("@/lib/api", () => ({
 }));
 
 describe("SukiAssistant orchestration UI", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+    apiRequestMock.mockImplementation(async (path: string) => {
+      if (path.startsWith("/ai/usage/summary")) {
+        return {
+          tokensUsed: 100,
+          tokensLimit: 1000,
+          requestsUsed: 10,
+          requestsLimit: 100,
+          resetDate: "2026-06-01",
+          dailyTokensUsed: 50,
+          dailyTokensLimit: 200,
+          dailyRequestsUsed: 2,
+          dailyRequestsLimit: 10,
+          dailyResetDateTime: "2026-05-10T16:00:00.000Z",
+          aiEnabled: true,
+        };
+      }
+      if (path.startsWith("/help/assistant/chat")) {
+        return {
+          plainAnswer: "Add customers from the Customers page.",
+          nextStep: "Tap Add customer now.",
+          details: "This helps you track visits and appointments.",
+          actionChips: [
+            { label: "Add customer now", href: "/customers", kind: "primary" },
+            { label: "Learn in Help Center", href: "/help", kind: "secondary" },
+          ],
+        };
+      }
+      return {};
+    });
+  });
+
   it("uses stream endpoint as normal path and does not call /chat fallback", async () => {
     const streamBody = [
       'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
@@ -189,6 +222,93 @@ describe("SukiAssistant orchestration UI", () => {
       expect.stringMatching(/^\/help\/assistant\/chat$/),
       expect.anything(),
     );
+  });
+
+  it("applies usage event immediately before usage refetch resolves", async () => {
+    let usageCall = 0;
+    apiRequestMock.mockImplementation(async (path: string) => {
+      if (path.startsWith("/ai/usage/summary")) {
+        usageCall += 1;
+        if (usageCall === 1) {
+          return {
+            tokensUsed: 100,
+            tokensLimit: 1000,
+            requestsUsed: 10,
+            requestsLimit: 100,
+            resetDate: "2026-06-01",
+            dailyTokensUsed: 50,
+            dailyTokensLimit: 200,
+            dailyRequestsUsed: 2,
+            dailyRequestsLimit: 10,
+            dailyResetDateTime: "2026-05-10T16:00:00.000Z",
+            aiEnabled: true,
+          };
+        }
+        return new Promise(() => {});
+      }
+      if (path.startsWith("/help/assistant/chat")) {
+        return {
+          plainAnswer: "Add customers from the Customers page.",
+          nextStep: "Tap Add customer now.",
+          details: "This helps you track visits and appointments.",
+          actionChips: [
+            { label: "Add customer now", href: "/customers", kind: "primary" },
+            { label: "Learn in Help Center", href: "/help", kind: "secondary" },
+          ],
+        };
+      }
+      return {};
+    });
+
+    const streamBody = [
+      'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
+      'event: usage\ndata: {"type":"usage","usage":{"tokensUsed":1400,"tokensLimit":100000,"requestsUsed":23,"requestsLimit":100,"dailyTokensUsed":180,"dailyTokensLimit":200,"dailyRequestsUsed":8,"dailyRequestsLimit":10,"dailyResetDateTime":"2026-05-10T16:00:00.000Z","resetDate":"2026-06-01"}}\n\n',
+      'event: done\ndata: {"type":"done","response":{"threadId":"thread-1","plainAnswer":"Open Customers.","nextStep":"Tap Add customer now.","actionChips":[{"label":"Add customer now","href":"/customers","kind":"primary"}],"confidence":0.95}}\n\n',
+    ].join("");
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(streamBody));
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
+
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
+    fireEvent.change(input, { target: { value: "How do I add a customer?" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("180/200")).toBeInTheDocument();
+  });
+
+  it("refetches usage summary after successful streamed reply", async () => {
+    const streamBody = [
+      'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
+      'event: done\ndata: {"type":"done","response":{"threadId":"thread-1","plainAnswer":"Open Customers.","nextStep":"Tap Add customer now.","actionChips":[{"label":"Add customer now","href":"/customers","kind":"primary"}],"confidence":0.95}}\n\n',
+    ].join("");
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(streamBody));
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
+    apiRequestMock.mockClear();
+
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
+    fireEvent.change(input, { target: { value: "How do I add a customer?" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    await screen.findByText(/open customers\./i);
+    await waitFor(() => {
+      const usageCalls = apiRequestMock.mock.calls.filter(([path]) => path === "/ai/usage/summary");
+      expect(usageCalls.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it("omits placeholder bearer token from stream headers (cookie-first auth)", async () => {

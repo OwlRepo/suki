@@ -88,6 +88,18 @@ export function SukiAssistant() {
   const [assistantState, setAssistantState] = useState<AssistantMessage["state"]>("read");
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
+  const refreshUsageSummary = async () => {
+    const token = await getToken();
+    try {
+      const summary = await apiRequest<AiUsageSummary>("/ai/usage/summary", {
+        token: isUsableBearerToken(token) ? token : undefined,
+      });
+      setUsage(summary);
+    } catch {
+      // Non-fatal: keep last known snapshot.
+    }
+  };
+
   useEffect(() => {
     const id = `thread-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     setThreadId(id);
@@ -106,15 +118,7 @@ export function SukiAssistant() {
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const token = await getToken();
-      try {
-        const summary = await apiRequest<AiUsageSummary>("/ai/usage/summary", {
-          token: isUsableBearerToken(token) ? token : undefined,
-        });
-        setUsage(summary);
-      } catch {
-        setUsage(null);
-      }
+      await refreshUsageSummary();
     })();
   }, [open, getToken]);
 
@@ -273,6 +277,25 @@ export function SukiAssistant() {
       if (eventType === "actions" && Array.isArray(payload.actionChips)) {
         actionChips = payload.actionChips as AssistantMessage["actionChips"];
       }
+      if (eventType === "usage" && payload.usage && typeof payload.usage === "object") {
+        const usagePayload = payload.usage as Record<string, unknown>;
+        const asNumber = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+        const nextUsage: AiUsageSummary = {
+          tokensUsed: asNumber(usagePayload.tokensUsed) ?? 0,
+          tokensLimit: asNumber(usagePayload.tokensLimit) ?? 0,
+          requestsUsed: asNumber(usagePayload.requestsUsed) ?? 0,
+          requestsLimit: asNumber(usagePayload.requestsLimit) ?? 0,
+          dailyTokensUsed: asNumber(usagePayload.dailyTokensUsed) ?? 0,
+          dailyTokensLimit: asNumber(usagePayload.dailyTokensLimit) ?? 0,
+          dailyRequestsUsed: asNumber(usagePayload.dailyRequestsUsed) ?? 0,
+          dailyRequestsLimit: asNumber(usagePayload.dailyRequestsLimit) ?? 0,
+          dailyResetDateTime:
+            typeof usagePayload.dailyResetDateTime === "string" ? usagePayload.dailyResetDateTime : undefined,
+          resetDate: typeof usagePayload.resetDate === "string" ? usagePayload.resetDate : undefined,
+          aiEnabled: true,
+        };
+        setUsage(nextUsage);
+      }
       if (eventType === "done" && payload.response && typeof payload.response === "object") {
         sawDoneEvent = true;
         const finalResponse = payload.response as {
@@ -292,6 +315,7 @@ export function SukiAssistant() {
           ),
         );
         setAssistantState("read");
+        void refreshUsageSummary();
       }
       if (eventType === "error") {
         sawErrorEvent = true;
@@ -368,7 +392,8 @@ export function SukiAssistant() {
     setInput("");
     setAssistantState("sending");
     const streamed = await streamAnswerQuery(trimmed).catch(() => false);
-    if (streamed) {
+      if (streamed) {
+      void refreshUsageSummary();
       setMessages((prev) =>
         prev.map((msg) =>
           msg.role === "user" && msg.state === "sending" ? { ...msg, state: "sent" as const } : msg,
@@ -377,6 +402,7 @@ export function SukiAssistant() {
       return;
     }
     const reply = await answerQuery(trimmed);
+    void refreshUsageSummary();
     setMessages((prev) => [
       ...prev.map((msg) =>
         msg.role === "user" && msg.state === "sending" ? { ...msg, state: "sent" as const } : msg,
