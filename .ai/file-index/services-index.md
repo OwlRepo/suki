@@ -2,12 +2,17 @@
 
 | File Path | Purpose | Relationships | Usage Patterns |
 |---|---|---|---|
-| `apps/api/src/auth/auth.service.ts` | Auth principal and access logic | Used by `ClerkAuthGuard`, auth controller | Access checks and identity sync |
+| `apps/api/src/auth/auth.service.ts` | First-party auth service (OTP, password fallback, sessions) | Used by `auth.controller` and `ClerkAuthGuard` compatibility guard | Issues/verifies OTP challenges, creates sessions, and resolves signed-in user context |
+| `apps/api/src/auth/auth.bootstrap.service.ts` | Startup default-account bootstrap service | Invoked from API startup path | Ensures env-configured test owner account exists without overwriting existing identity |
 | `apps/api/src/customers/customers.service.ts` | Customer domain logic | Called by customers controller | Customer CRUD and visit logic |
 | `apps/api/src/billing/billing.service.ts` | Billing application logic | Calls PayMongo + plan capacity services | Plan transitions and status |
 | `apps/api/src/messaging/messaging.service.ts` | Message generation and dispatch logic | Uses AI execution, providers, metering | Message creation/send orchestration |
+| `apps/api/src/messaging/email-metering.service.ts` | Email monthly cap metering and usage tracking | Used by `MessageDispatchService` and `MessagingController` | Enforces free-mode monthly email cap and records per-send usage |
 | `apps/api/src/ai/ai-execution.service.ts` | Guardrailed AI execution wrapper | Used by messaging and AI module | AI policy-bound text generation |
 | `apps/api/src/imports/imports.service.ts` | Import pipeline orchestration | Uses mapping/migration/provider adapters | Batch import processing |
 | `apps/api/src/intake/intake-booking.service.ts` | Intake booking and OTP flow | Uses messaging/external providers | Public booking journey backend |
 | `apps/api/src/help/answer-source.service.ts` | Normalized source-grounded answer envelope assembly | Composes insights, SMS metering, billing, and AI usage services | Read-only assistant prep data responses with deterministic fallbacks |
+| `apps/api/src/help/assistant.service.ts` | OpenAI-native assistant orchestration and response shaping service | Composes `AiExecutionService` + answer-source data services | Intent-scoped context injection, confidence retries, readability simplification, and action-chip-safe outputs |
+| `apps/api/src/help/assistant-context.ts` | Layered assistant context-pack builder | Used by `assistant.service` and markdown loader | Builds token-budgeted `core/task/data/memory/tools` slices from `docs/assistant-context/*.md` plus runtime memory/data contexts |
+| `apps/api/src/help/assistant-thread-memory.service.ts` | Persistent thread memory store for assistant conversations | Uses database schema table `assistant_thread_memories` | Loads/saves rolling summary and last N turns by org/user/thread id |
 | `apps/api/src/security/pii-crypto.service.ts` | PII encryption/decryption utilities | Used by security/privacy services | Sensitive data protection |

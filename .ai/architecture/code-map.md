@@ -6,7 +6,7 @@
 - API module root: `apps/api/src/app.module.ts`
 
 ## Core Application Flows
-- Auth/session: `apps/web/src/lib/clerk.ts` <-> `apps/api/src/auth/*`
+- Auth/session: `apps/web/src/lib/auth.tsx` + `apps/web/src/lib/auth-client.ts` <-> `apps/api/src/auth/*`
 - Web route protection: `apps/web/src/proxy.ts` + `apps/web/src/lib/protected-routes.ts`
 - Onboarding: web onboarding pages/components + `apps/api/src/onboarding/*`
 - Customers/CRM: dashboard pages + `apps/api/src/customers/*`, `apps/api/src/crm/*`
@@ -16,7 +16,7 @@
 - Imports: `apps/web/src/app/(dashboard)/imports/page.tsx` + `apps/api/src/imports/*`
 
 ## External Integrations
-- Clerk auth, PayMongo billing, Twilio, Resend, OpenAI, CRM provider APIs
+- First-party auth + Resend email delivery, PayMongo billing, Twilio, OpenAI, CRM provider APIs
 
 ## Semantic Search Order
 1. `.ai/file-index/*`

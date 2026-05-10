@@ -12,7 +12,6 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.0.0",
     "@suki/database": "workspace:*",
     "@suki/types": "workspace:*",
     "@suki/ui": "workspace:*",

@@ -1,18 +1,18 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { isProtectedPath, isPublicPath } from "@/lib/protected-routes";
+import { NextRequest, NextResponse } from "next/server";
+import { isProtectedPath } from "@/lib/protected-routes";
 
-const hasClerk =
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
-  !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes("placeholder");
-
-const isPublicRoute = createRouteMatcher(["/", "/sign-in(.*)", "/sign-up(.*)", "/intake(.*)"]);
-
-export default clerkMiddleware(async (auth, req) => {
+export default function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-  const shouldProtect =
-    !isPublicRoute(req) && !isPublicPath(pathname) && isProtectedPath(pathname);
-
-  if (hasClerk && shouldProtect) {
-    await auth.protect();
+  if (!isProtectedPath(pathname)) {
+    return NextResponse.next();
   }
-});
+
+  const session = req.cookies.get("suki_session")?.value;
+  if (!session) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/sign-in";
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import { WorkspaceProvider } from "@/contexts/workspace-context";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { OnboardingGate } from "./onboarding-gate";

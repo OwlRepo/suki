@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import Image from "next/image";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { useWorkspace } from "@/contexts/workspace-context";

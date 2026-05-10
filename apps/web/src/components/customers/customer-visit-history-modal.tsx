@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import {
   Dialog,
   DialogContent,

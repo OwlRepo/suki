@@ -2,6 +2,40 @@ import { Injectable, ForbiddenException } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { automationSettings, businesses } from "@suki/database";
 import { eq, and } from "drizzle-orm";
+import type { AutomationKey } from "@suki/types";
+
+type TemplateMap = Partial<Record<AutomationKey, { sms?: string; email?: string }>>;
+
+const DEFAULT_MESSAGE_TEMPLATES: Record<AutomationKey, { sms: string; email: string }> = {
+  appointment_confirmation: {
+    sms: "Hi {customerName}! Your appointment{staffName} is confirmed for {dateTime}.",
+    email: "Hi {customerName}, your appointment{staffName} is confirmed for {dateTime}.",
+  },
+  appointment_reminder_24h: {
+    sms: "Reminder: Your appointment{staffName} is tomorrow. Reschedule: {link}.",
+    email: "Reminder: Your appointment{staffName} is tomorrow. Reschedule here: {link}.",
+  },
+  appointment_reminder_72h: {
+    sms: "Reminder: Your appointment{staffName} is in 3 days. Reschedule: {link}.",
+    email: "Reminder: Your appointment{staffName} is in 3 days. Reschedule here: {link}.",
+  },
+  missed_recovery: {
+    sms: "We noticed you missed your appointment. We'd love to see you—rebook here: {link}.",
+    email: "We noticed you missed your appointment. We'd love to see you again. Rebook here: {link}.",
+  },
+  post_visit_followup: {
+    sms: "Thank you for visiting! We hope to see you again soon. Book your next visit: {link}.",
+    email: "Thank you for visiting! We hope to see you again soon. Book your next visit here: {link}.",
+  },
+  inactivity_winback: {
+    sms: "We miss you! Come back and save on your next visit.",
+    email: "We miss you! Come back soon and enjoy your next visit.",
+  },
+  loyalty_unlock: {
+    sms: "Congratulations! You've unlocked your reward. Claim it on your next visit.",
+    email: "Congratulations! You've unlocked your reward. Claim it on your next visit.",
+  },
+};
 
 export interface AutomationSettingsResponse {
   id: string;
@@ -14,6 +48,7 @@ export interface AutomationSettingsResponse {
   loyaltyUnlockEnabled: boolean;
   inactivityDays: number;
   autoSendChannel: "sms" | "email";
+  messageTemplates: TemplateMap;
 }
 
 @Injectable()
@@ -46,6 +81,7 @@ export class AutomationSettingsService {
         loyaltyUnlockEnabled: "true",
         inactivityDays: 60,
         autoSendChannel: "sms",
+        messageTemplates: {},
       })
       .returning();
 
@@ -64,6 +100,7 @@ export class AutomationSettingsService {
       loyaltyUnlockEnabled?: boolean;
       inactivityDays?: number;
       autoSendChannel?: "sms" | "email";
+      messageTemplates?: TemplateMap;
     },
   ): Promise<AutomationSettingsResponse> {
     await this.assertBusinessAccess(businessId, organizationId);
@@ -83,6 +120,7 @@ export class AutomationSettingsService {
       updates.loyaltyUnlockEnabled = data.loyaltyUnlockEnabled ? "true" : "false";
     if (data.inactivityDays !== undefined) updates.inactivityDays = data.inactivityDays;
     if (data.autoSendChannel !== undefined) updates.autoSendChannel = data.autoSendChannel;
+    if (data.messageTemplates !== undefined) updates.messageTemplates = data.messageTemplates;
 
     const [updated] = await db
       .update(automationSettings)
@@ -101,23 +139,28 @@ export class AutomationSettingsService {
     await this.assertBusinessAccess(businessId, organizationId);
     const settings = await this.getOrCreate(businessId, organizationId);
     const channel = settings.autoSendChannel ?? "sms";
+    const templates = this.mergeTemplateDefaults(settings.messageTemplates);
+    const pick = (key: AutomationKey) => templates[key]?.[channel] ?? templates[key]?.sms ?? "";
     return {
-      appointment_confirmation:
-        "Hi! Your appointment is confirmed for [date/time]. Reply STOP to opt out. Sent automatically by Suki",
-      appointment_reminder_24h:
-        "Reminder: Your appointment is tomorrow. Reschedule: [link]. Reply STOP to opt out. Sent automatically by Suki",
-      appointment_reminder_72h:
-        "Reminder: Your appointment is in 3 days. Reschedule: [link]. Reply STOP to opt out. Sent automatically by Suki",
-      missed_recovery:
-        "We noticed you missed your appointment. We'd love to see you—rebook here: [link]. Reply STOP to opt out. Sent automatically by Suki",
-      post_visit_followup:
-        "Thank you for visiting! We hope to see you again soon. Book your next visit: [link]. Reply STOP to opt out. Sent automatically by Suki",
-      inactivity_winback:
-        "We miss you! Come back and save. [Offer details]. Reply STOP to opt out. Sent automatically by Suki",
-      loyalty_unlock:
-        "Congratulations! You've unlocked your reward. Claim it on your next visit. Reply STOP to opt out. Sent automatically by Suki",
+      appointment_confirmation: pick("appointment_confirmation"),
+      appointment_reminder_24h: pick("appointment_reminder_24h"),
+      appointment_reminder_72h: pick("appointment_reminder_72h"),
+      missed_recovery: pick("missed_recovery"),
+      post_visit_followup: pick("post_visit_followup"),
+      inactivity_winback: pick("inactivity_winback"),
+      loyalty_unlock: pick("loyalty_unlock"),
       channel,
+      messageTemplates: templates,
     };
+  }
+
+  getDefaultTemplateFor(
+    settings: AutomationSettingsResponse,
+    key: AutomationKey,
+    channel: "sms" | "email",
+  ): string {
+    const templates = this.mergeTemplateDefaults(settings.messageTemplates);
+    return templates[key]?.[channel] ?? templates[key]?.sms ?? "";
   }
 
   private toResponse(row: {
@@ -131,6 +174,7 @@ export class AutomationSettingsService {
     loyaltyUnlockEnabled: string;
     inactivityDays: number;
     autoSendChannel: string;
+    messageTemplates?: TemplateMap;
   }) {
     return {
       id: row.id,
@@ -143,6 +187,41 @@ export class AutomationSettingsService {
       loyaltyUnlockEnabled: row.loyaltyUnlockEnabled === "true",
       inactivityDays: row.inactivityDays,
       autoSendChannel: row.autoSendChannel as "sms" | "email",
+      messageTemplates: row.messageTemplates ?? {},
+    };
+  }
+
+  private mergeTemplateDefaults(templates?: TemplateMap): Record<AutomationKey, { sms?: string; email?: string }> {
+    const incoming = templates ?? {};
+    return {
+      appointment_confirmation: {
+        ...DEFAULT_MESSAGE_TEMPLATES.appointment_confirmation,
+        ...(incoming.appointment_confirmation ?? {}),
+      },
+      appointment_reminder_24h: {
+        ...DEFAULT_MESSAGE_TEMPLATES.appointment_reminder_24h,
+        ...(incoming.appointment_reminder_24h ?? {}),
+      },
+      appointment_reminder_72h: {
+        ...DEFAULT_MESSAGE_TEMPLATES.appointment_reminder_72h,
+        ...(incoming.appointment_reminder_72h ?? {}),
+      },
+      missed_recovery: {
+        ...DEFAULT_MESSAGE_TEMPLATES.missed_recovery,
+        ...(incoming.missed_recovery ?? {}),
+      },
+      post_visit_followup: {
+        ...DEFAULT_MESSAGE_TEMPLATES.post_visit_followup,
+        ...(incoming.post_visit_followup ?? {}),
+      },
+      inactivity_winback: {
+        ...DEFAULT_MESSAGE_TEMPLATES.inactivity_winback,
+        ...(incoming.inactivity_winback ?? {}),
+      },
+      loyalty_unlock: {
+        ...DEFAULT_MESSAGE_TEMPLATES.loyalty_unlock,
+        ...(incoming.loyalty_unlock ?? {}),
+      },
     };
   }
 

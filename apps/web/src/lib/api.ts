@@ -36,8 +36,14 @@ export async function apiRequest<T>(
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
+
   const baseUrl = getApiBaseUrl();
-  const res = await fetch(`${baseUrl}${path}`, { ...init, headers });
+  const res = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers,
+    credentials: "include",
+  });
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }));
     const err = new Error((body as { message?: string }).message || "Request failed");

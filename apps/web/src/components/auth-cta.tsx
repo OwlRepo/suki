@@ -2,30 +2,20 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
-
-import { hasClerk } from "@/lib/clerk";
+import { useSession } from "@/hooks/use-session";
 
 export function AuthCta() {
-  if (!hasClerk) {
+  const { isSignedIn } = useSession();
+  if (!isSignedIn) {
     return (
       <Button asChild className="min-w-[100px] sm:min-w-0">
-        <Link href="/dashboard">Go to Dashboard</Link>
+        <Link href="/sign-in">Log in</Link>
       </Button>
     );
   }
   return (
-    <>
-      <SignedOut>
-        <Button asChild className="min-w-[100px] sm:min-w-0">
-          <Link href="/sign-in">Log in</Link>
-        </Button>
-      </SignedOut>
-      <SignedIn>
-        <Button asChild className="min-w-[100px] sm:min-w-0">
-          <Link href="/dashboard">Go to Dashboard</Link>
-        </Button>
-      </SignedIn>
-    </>
+    <Button asChild className="min-w-[100px] sm:min-w-0">
+      <Link href="/dashboard">Go to Dashboard</Link>
+    </Button>
   );
 }

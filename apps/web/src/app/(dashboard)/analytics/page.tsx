@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { apiRequest } from "@/lib/api";
 import { PageHeader } from "@/components/ui/page-header";

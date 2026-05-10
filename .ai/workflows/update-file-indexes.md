@@ -33,3 +33,12 @@ Before finalizing index updates:
 - verify every referenced path exists
 - verify relationships reflect current imports/usage
 - verify no unrelated shards were modified
+- verify stale integration docs are updated when contracts/flows changed (`.ai/architecture/*`, env docs, API route docs as applicable)
+- fail task completion if drift remains between changed code and AI docs/indexes
+
+## Final Gate Checklist (Mandatory After Implementation)
+1. Run `git status`.
+2. Map changed files to affected index shards.
+3. Update only affected `.ai/file-index/*` files.
+4. Update related integration docs when runtime contracts/flows changed.
+5. Confirm no unresolved documentation drift before closing the task.

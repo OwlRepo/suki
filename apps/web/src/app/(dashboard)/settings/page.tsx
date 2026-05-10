@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -87,8 +87,6 @@ const SETTINGS_SEARCH_INDEX: Record<
   "dev-tools": ["dev", "developer", "simulation", "mock", "api"],
 };
 
-type PlanType = "starter" | "growth" | "pro";
-
 interface Organization {
   id: string;
   name: string;
@@ -154,7 +152,6 @@ function SettingsPageContent() {
   const [savingOrg, setSavingOrg] = useState(false);
   const [editingBiz, setEditingBiz] = useState<string | null>(null);
   const [editBizName, setEditBizName] = useState("");
-  const [simulatedPlan, setSimulatedPlan] = useState<PlanType | null>(null);
   const [devApiUrl, setDevApiUrlState] = useState("");
   const [devMockLatencyMs, setDevMockLatencyMsState] = useState(0);
   const [devMockFailure, setDevMockFailureState] = useState(false);
@@ -180,12 +177,32 @@ function SettingsPageContent() {
     message: string;
   } | null>(null);
   const [smsUsage, setSmsUsage] = useState<SmsUsage | null>(null);
+  const [emailUsage, setEmailUsage] = useState<{
+    included: number;
+    used: number;
+    total: number;
+    remaining: number;
+    at80Pct: boolean;
+    at100Pct: boolean;
+  } | null>(null);
   interface AutomationSettingsApi {
     appointmentRemindersEnabled: boolean;
     appointmentReminder72hEnabled: boolean;
     inactivityWinbackEnabled: boolean;
     inactivityDays: number;
     autoSendChannel: "sms" | "email";
+    messageTemplates?: Partial<
+      Record<
+        | "appointment_confirmation"
+        | "appointment_reminder_24h"
+        | "appointment_reminder_72h"
+        | "missed_recovery"
+        | "post_visit_followup"
+        | "inactivity_winback"
+        | "loyalty_unlock",
+        { sms?: string; email?: string }
+      >
+    >;
   }
   const automationDefaults: AutomationSettingsApi = {
     appointmentRemindersEnabled: true,
@@ -193,6 +210,7 @@ function SettingsPageContent() {
     inactivityWinbackEnabled: true,
     inactivityDays: 60,
     autoSendChannel: "sms",
+    messageTemplates: {},
   };
   const [automationSettingsByBiz, setAutomationSettingsByBiz] = useState<
     Record<string, AutomationSettingsApi>
@@ -280,7 +298,7 @@ function SettingsPageContent() {
       try {
         const token = await getToken();
         if (!token) return;
-        const [orgRes, bizRes, billRes, aiRes, breakdownRes, smsRes] =
+      const [orgRes, bizRes, billRes, aiRes, breakdownRes, smsRes, emailRes] =
           await Promise.all([
             apiRequest<{ organization: Organization }>("/organizations/me", {
               token,
@@ -308,6 +326,14 @@ function SettingsPageContent() {
             apiRequest<SmsUsage>("/messaging/sms-usage", { token }).catch(
               () => null,
             ),
+            apiRequest<{
+              included: number;
+              used: number;
+              total: number;
+              remaining: number;
+              at80Pct: boolean;
+              at100Pct: boolean;
+            }>("/messaging/email-usage", { token }).catch(() => null),
           ]);
         setOrg(orgRes.organization ?? null);
         setAiUsage(aiRes);
@@ -316,6 +342,7 @@ function SettingsPageContent() {
         setBusinesses(bizRes.businesses);
         setBilling(billRes);
         setSmsUsage(smsRes ?? null);
+        setEmailUsage(emailRes ?? null);
       } finally {
         setLoading(false);
       }
@@ -879,7 +906,7 @@ function SettingsPageContent() {
               <SettingsSectionCard
                 id="automation"
                 title="Automation Controls"
-                description="Choose how Suki sends automated reminders and follow-ups for each business."
+                description="All automations are free by default. Configure channels, caps-aware messaging, and templates per business."
                 visible={visibleSections.has("automation")}
               >
                 <ul className="space-y-6">
@@ -938,6 +965,101 @@ function SettingsPageContent() {
                                 </SelectItem>
                               </SelectContent>
                             </Select>
+                          </div>
+                          <div className="space-y-3">
+                            <Label className="text-base">
+                              Message templates ({s.autoSendChannel.toUpperCase()})
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                              Edit what gets sent per automation. Keep placeholders like {"{customerName}"}, {"{dateTime}"}, {"{staffName}"}, and {"{link}"}.
+                            </p>
+                            {(
+                              [
+                                "appointment_confirmation",
+                                "appointment_reminder_24h",
+                                "appointment_reminder_72h",
+                                "missed_recovery",
+                                "post_visit_followup",
+                                "inactivity_winback",
+                                "loyalty_unlock",
+                              ] as const
+                            ).map((key) => {
+                              const channel = s.autoSendChannel;
+                              const current =
+                                s.messageTemplates?.[key]?.[channel] ?? "";
+                              return (
+                                <div key={key} className="space-y-2 rounded border border-border p-3">
+                                  <p className="text-sm font-medium">{key.replaceAll("_", " ")}</p>
+                                  <Input
+                                    value={current}
+                                    onChange={(e) => {
+                                      const next = {
+                                        ...(s.messageTemplates ?? {}),
+                                        [key]: {
+                                          ...(s.messageTemplates?.[key] ?? {}),
+                                          [channel]: e.target.value,
+                                        },
+                                      };
+                                      setAutomationSettingsByBiz((prev) => ({
+                                        ...prev,
+                                        [b.id]: {
+                                          ...s,
+                                          messageTemplates: next,
+                                        },
+                                      }));
+                                    }}
+                                    onBlur={async () => {
+                                      await updateAutomationSettings(b.id, {
+                                        messageTemplates: s.messageTemplates ?? {},
+                                      });
+                                    }}
+                                    placeholder={`Template for ${key.replaceAll("_", " ")}`}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={saving || !current.trim()}
+                                    onClick={async () => {
+                                      try {
+                                        const token = await getToken();
+                                        if (!token) return;
+                                        const refined = await apiRequest<{ refinedMessage: string }>(
+                                          "/automation/refine-message",
+                                          {
+                                            method: "PATCH",
+                                            token,
+                                            body: JSON.stringify({
+                                              businessId: b.id,
+                                              automationKey: key,
+                                              channel,
+                                              draft: current,
+                                            }),
+                                          },
+                                        );
+                                        const next = {
+                                          ...(s.messageTemplates ?? {}),
+                                          [key]: {
+                                            ...(s.messageTemplates?.[key] ?? {}),
+                                            [channel]: refined.refinedMessage,
+                                          },
+                                        };
+                                        await updateAutomationSettings(b.id, {
+                                          messageTemplates: next,
+                                        });
+                                      } catch (err) {
+                                        setFeedback({
+                                          type: "error",
+                                          message: fromError(err, "Failed to refine template."),
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    Refine with AI
+                                  </Button>
+                                </div>
+                              );
+                            })}
                           </div>
 
                           <div className="flex items-start justify-between gap-6">
@@ -1295,11 +1417,11 @@ function SettingsPageContent() {
           {(
             <SettingsSectionCard
               id="messaging"
-              title="Messaging & SMS"
-              description="SMS usage and credits."
+              title="Messaging Usage Caps"
+              description="Free by default with monthly safety caps."
               visible={visibleSections.has("messaging")}
             >
-              <div className="space-y-6 max-w-lg">
+              <div className="space-y-8 max-w-lg">
                 {smsUsage != null && (
                   <div>
                     <p className="text-base font-medium text-foreground">
@@ -1331,6 +1453,30 @@ function SettingsPageContent() {
                     )}
                   </div>
                 )}
+                {emailUsage != null && (
+                  <div>
+                    <p className="text-base font-medium text-foreground">
+                      Email usage this month
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {emailUsage.used} / {emailUsage.total} used ({emailUsage.included} included)
+                    </p>
+                    <div className="mt-3 h-3 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          emailUsage.at100Pct
+                            ? "bg-destructive"
+                            : emailUsage.at80Pct
+                              ? "bg-amber-500"
+                              : "bg-primary"
+                        }`}
+                        style={{
+                          width: `${emailUsage.total > 0 ? Math.min(100, (emailUsage.used / emailUsage.total) * 100) : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </SettingsSectionCard>
           )}
@@ -1344,7 +1490,7 @@ function SettingsPageContent() {
             >
               <div className="space-y-4 max-w-lg">
                 <p className="text-sm text-muted-foreground">
-                  Plan: {aiUsage.plan}
+                  AI is free by default with usage caps.
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Tokens: {aiUsage.tokensUsed.toLocaleString()} /{" "}
@@ -1494,39 +1640,11 @@ function SettingsPageContent() {
             <SettingsSectionCard
               id="dev-tools"
               title="Dev Tools"
-              description="Plan simulation, API overrides, and debug helpers. Development only."
+              description="API overrides and debug helpers. Development only."
               collapsedByDefault
               visible={visibleSections.has("dev-tools")}
             >
               <div className="space-y-6 max-w-2xl">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Plan simulation (UI only)
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Override displayed plan without changing backend. Use to
-                    test UI behavior across plans.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {(["starter", "growth", "pro"] as const).map((p) => (
-                      <Button
-                        key={p}
-                        size="sm"
-                        variant={simulatedPlan === p ? "default" : "outline"}
-                        onClick={() => setSimulatedPlan(p)}
-                      >
-                        {p}
-                      </Button>
-                    ))}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setSimulatedPlan(null)}
-                    >
-                      Clear simulation
-                    </Button>
-                  </div>
-                </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">
                     API base URL override
@@ -1621,7 +1739,6 @@ function SettingsPageContent() {
                       setDevApiUrlState("");
                       setDevMockLatencyMsState(0);
                       setDevMockFailureState(false);
-                      setSimulatedPlan(null);
                       window.location.reload();
                     }}
                   >

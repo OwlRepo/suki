@@ -16,3 +16,5 @@ Always write or update tests before implementation code unless the task is docum
 Do not implement production code before the failing test exists.
 
 For bug fixes, always add or update a regression test that fails before applying the fix.
+
+After any code change, update affected `.ai/file-index/*` and affected `.ai/architecture/*` entries before completion so AI context stays current.

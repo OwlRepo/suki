@@ -1,7 +1,7 @@
 # External Services Map
 
 ## Providers
-- Clerk: authentication and identity sync
+- First-party auth (in-app): authentication/session logic
 - OpenAI: AI generation/policy flows
 - Twilio: SMS outbound/inbound/webhook status
 - Resend: email delivery
@@ -17,3 +17,9 @@
 
 ## Risk Classification
 All external-provider contract changes are HIGH risk and require contract/regression tests.
+
+## Documentation Drift Guard
+When auth/provider/integration behavior changes:
+- update `.ai/file-index/*` shards for touched files
+- update `.ai/architecture/*` flow/docs affected by the change
+- update `.env.example` and README env/API notes when interface changes

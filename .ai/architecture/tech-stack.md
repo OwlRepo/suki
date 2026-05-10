@@ -16,7 +16,7 @@
 ## Frameworks
 - Frontend: Next.js 16, React 19
 - Backend: NestJS 10
-- API auth SDK: Clerk
+- API auth: first-party auth module (`apps/api/src/auth/*`) with cookie sessions + OTP/password flows
 
 ## Data / ORM
 - `@suki/database` workspace package

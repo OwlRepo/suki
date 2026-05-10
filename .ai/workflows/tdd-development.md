@@ -60,6 +60,14 @@ Include:
 - verification commands run
 - unrun tests and reasons
 - any TDD limitation encountered
+- index/integration doc sync performed (`.ai/file-index/*`, `.ai/architecture/*`, env/API docs as needed)
+
+## 9) Documentation Drift Guard (Mandatory)
+After GREEN + verification, update AI context docs for changed behavior:
+- file index shards for changed files
+- architecture docs for flow/contract changes
+- env docs for new/changed variables
+- API route docs for endpoint behavior changes
 
 ## TDD Exceptions
 TDD may be skipped only for:

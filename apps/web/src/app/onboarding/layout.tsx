@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import { AuthButton } from "@/components/auth-button";
 import { WorkspaceProvider } from "@/contexts/workspace-context";
 import { useAuthSync } from "@/hooks/use-auth-sync";

@@ -60,13 +60,18 @@ export class AutomationSendService {
     if (!settings.appointmentRemindersEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const template = this.settingsService.getDefaultTemplateFor(
+      settings,
+      "appointment_confirmation",
+      channel,
+    );
     const rawMessage = this.composer.compose("appointment_confirmation", {
       customerName: cust.name,
       scheduledAt: appt.scheduledAt,
       staffName: appt.staffName ?? undefined,
       rescheduleLink: RESCHEDULE_LINK_PLACEHOLDER,
       businessName: undefined,
-    });
+    }, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,
@@ -120,11 +125,16 @@ export class AutomationSendService {
     if (!settings.appointmentRemindersEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const template = this.settingsService.getDefaultTemplateFor(
+      settings,
+      "appointment_reminder_24h",
+      channel,
+    );
     const rawMessage = this.composer.compose("appointment_reminder_24h", {
       scheduledAt: appt.scheduledAt,
       staffName: appt.staffName ?? undefined,
       rescheduleLink: RESCHEDULE_LINK_PLACEHOLDER,
-    });
+    }, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,
@@ -179,11 +189,16 @@ export class AutomationSendService {
       return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const template = this.settingsService.getDefaultTemplateFor(
+      settings,
+      "appointment_reminder_72h",
+      channel,
+    );
     const rawMessage = this.composer.compose("appointment_reminder_72h", {
       scheduledAt: appt.scheduledAt,
       staffName: appt.staffName ?? undefined,
       rescheduleLink: RESCHEDULE_LINK_PLACEHOLDER,
-    });
+    }, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,
@@ -237,9 +252,14 @@ export class AutomationSendService {
     if (!settings.missedRecoveryEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const template = this.settingsService.getDefaultTemplateFor(
+      settings,
+      "missed_recovery",
+      channel,
+    );
     const rawMessage = this.composer.compose("missed_recovery", {
       rebookLink: REBOOK_LINK_PLACEHOLDER,
-    });
+    }, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,
@@ -289,9 +309,14 @@ export class AutomationSendService {
     if (!settings.postVisitFollowUpEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const template = this.settingsService.getDefaultTemplateFor(
+      settings,
+      "post_visit_followup",
+      channel,
+    );
     const rawMessage = this.composer.compose("post_visit_followup", {
       rebookLink: REBOOK_LINK_PLACEHOLDER,
-    });
+    }, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,
@@ -337,7 +362,12 @@ export class AutomationSendService {
     if (!settings.loyaltyUnlockEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
-    const rawMessage = this.composer.compose("loyalty_unlock", {});
+    const template = this.settingsService.getDefaultTemplateFor(
+      settings,
+      "loyalty_unlock",
+      channel,
+    );
+    const rawMessage = this.composer.compose("loyalty_unlock", {}, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,
@@ -382,7 +412,12 @@ export class AutomationSendService {
     if (!settings.inactivityWinbackEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
-    const rawMessage = this.composer.compose("inactivity_winback", {});
+    const template = this.settingsService.getDefaultTemplateFor(
+      settings,
+      "inactivity_winback",
+      channel,
+    );
+    const rawMessage = this.composer.compose("inactivity_winback", {}, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,

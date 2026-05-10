@@ -1,150 +1,371 @@
 import { Injectable } from "@nestjs/common";
-import { verifyToken } from "@clerk/backend";
 import { getDb } from "@suki/database";
-import { organizations, users, subscriptions } from "@suki/database";
-import { eq } from "drizzle-orm";
+import {
+  authIdentities,
+  authOtpChallenges,
+  authSessions,
+  organizations,
+  subscriptions,
+  users,
+} from "@suki/database";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { FeatureFlagsService } from "../common/feature-flags.service";
 
-const UNIQUE_VIOLATION = "23505";
-const USERS_CLERK_ID_CONSTRAINT = "users_clerk_id_unique";
 export const ACCESS_NOT_APPROVED = "ACCESS_NOT_APPROVED";
+
+const OTP_PURPOSE_SIGN_IN = "sign_in";
+const OTP_PURPOSE_SIGN_UP = "sign_up";
+const OTP_TTL_MINUTES = Number(process.env.AUTH_OTP_TTL_MINUTES || 10);
+const OTP_MAX_ATTEMPTS = Number(process.env.AUTH_OTP_MAX_ATTEMPTS || 3);
+const SESSION_TTL_DAYS = Number(process.env.AUTH_SESSION_TTL_DAYS || 30);
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function hashValue(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function makePasswordHash(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const actual = scryptSync(password, salt, 64).toString("hex");
+  return timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(actual, "hex"));
+}
 
 @Injectable()
 export class AuthService {
   constructor(private readonly featureFlags: FeatureFlagsService) {}
 
-  async syncUser(clerkId: string, email?: string) {
+  private async sendOtpEmail(email: string, code: string): Promise<void> {
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const from = process.env.RESEND_FROM_EMAIL?.trim();
+    if (!apiKey || !from) return;
+
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: email,
+        subject: "Your Suki verification code",
+        html: `<p>Your verification code is <strong>${code}</strong>.</p><p>This expires in ${OTP_TTL_MINUTES} minutes.</p>`,
+      }),
+    }).catch(() => undefined);
+  }
+
+  private async createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
     const db = getDb();
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = hashValue(token);
+    const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
 
-    try {
-      return await db.transaction(async (tx) => {
-        const [existing] = await tx
-          .select({
-            id: users.id,
-            clerkId: users.clerkId,
-            organizationId: users.organizationId,
-            role: users.role,
-            email: users.email,
-            createdAt: users.createdAt,
-            updatedAt: users.updatedAt,
-          })
-          .from(users)
-          .where(eq(users.clerkId, clerkId))
-          .limit(1);
+    await db.insert(authSessions).values({
+      userId,
+      tokenHash,
+      expiresAt,
+    });
 
-        if (existing) {
-          const [org] = await tx
-            .select()
-            .from(organizations)
-            .where(eq(organizations.id, existing.organizationId))
-            .limit(1);
-          return { user: existing, organization: org, isNew: false };
-        }
+    return { token, expiresAt };
+  }
 
-        if (
-          this.featureFlags.founderLedModeEnabled() &&
-          !this.featureFlags.publicSignupEnabled()
-        ) {
-          throw new Error(ACCESS_NOT_APPROVED);
-        }
+  private async findUserByEmail(email: string) {
+    const db = getDb();
+    const normalized = normalizeEmail(email);
 
-        const [org] = await tx
-          .insert(organizations)
-          .values({ name: "My Organization" })
-          .returning();
-        if (!org) throw new Error("Failed to create organization");
+    const [identity] = await db
+      .select()
+      .from(authIdentities)
+      .where(eq(authIdentities.email, normalized))
+      .limit(1);
 
-        const now = new Date();
+    if (!identity) return null;
+
+    const [user] = await db
+      .select({
+        id: users.id,
+        organizationId: users.organizationId,
+        role: users.role,
+        email: users.email,
+      })
+      .from(users)
+      .where(eq(users.id, identity.userId))
+      .limit(1);
+
+    if (!user) return null;
+    return { user, identity };
+  }
+
+  async startOtp(email: string, purpose: "sign_in" | "sign_up") {
+    const db = getDb();
+    const normalized = normalizeEmail(email);
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = hashValue(code);
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+
+    await db.insert(authOtpChallenges).values({
+      email: normalized,
+      purpose,
+      codeHash,
+      attempts: 0,
+      maxAttempts: OTP_MAX_ATTEMPTS,
+      expiresAt,
+    });
+
+    await this.sendOtpEmail(normalized, code);
+    return { ok: true };
+  }
+
+  async verifyOtpAndSignIn(email: string, code: string) {
+    const db = getDb();
+    const normalized = normalizeEmail(email);
+    const now = new Date();
+
+    const [challenge] = await db
+      .select()
+      .from(authOtpChallenges)
+      .where(
+        and(
+          eq(authOtpChallenges.email, normalized),
+          eq(authOtpChallenges.purpose, OTP_PURPOSE_SIGN_IN),
+          isNull(authOtpChallenges.consumedAt),
+        ),
+      )
+      .orderBy(desc(authOtpChallenges.createdAt))
+      .limit(1);
+
+    if (!challenge || challenge.expiresAt < now) {
+      return { ok: false, message: "Code expired", fallbackUnlocked: false };
+    }
+
+    const codeOk = challenge.codeHash === hashValue(code.trim());
+    if (!codeOk) {
+      const attempts = challenge.attempts + 1;
+      await db
+        .update(authOtpChallenges)
+        .set({ attempts, updatedAt: new Date() })
+        .where(eq(authOtpChallenges.id, challenge.id));
+      return {
+        ok: false,
+        message: "Invalid code",
+        fallbackUnlocked: attempts >= OTP_MAX_ATTEMPTS,
+      };
+    }
+
+    const found = await this.findUserByEmail(normalized);
+    if (!found) return { ok: false, message: "Account not found", fallbackUnlocked: false };
+
+    await db
+      .update(authOtpChallenges)
+      .set({ consumedAt: now, updatedAt: now })
+      .where(eq(authOtpChallenges.id, challenge.id));
+
+    const session = await this.createSession(found.user.id);
+    return { ok: true, session, user: found.user };
+  }
+
+  async verifyOtpAndSignUp(email: string, code: string) {
+    const db = getDb();
+    const normalized = normalizeEmail(email);
+    const now = new Date();
+
+    const [challenge] = await db
+      .select()
+      .from(authOtpChallenges)
+      .where(
+        and(
+          eq(authOtpChallenges.email, normalized),
+          eq(authOtpChallenges.purpose, OTP_PURPOSE_SIGN_UP),
+          isNull(authOtpChallenges.consumedAt),
+        ),
+      )
+      .orderBy(desc(authOtpChallenges.createdAt))
+      .limit(1);
+
+    if (!challenge || challenge.expiresAt < now) {
+      return { ok: false, message: "Code expired" };
+    }
+
+    if (challenge.codeHash !== hashValue(code.trim())) {
+      await db
+        .update(authOtpChallenges)
+        .set({ attempts: challenge.attempts + 1, updatedAt: now })
+        .where(eq(authOtpChallenges.id, challenge.id));
+      return { ok: false, message: "Invalid code" };
+    }
+
+    const existing = await this.findUserByEmail(normalized);
+    let userId = existing?.user.id;
+
+    if (!userId) {
+      if (this.featureFlags.founderLedModeEnabled() && !this.featureFlags.publicSignupEnabled()) {
+        throw new Error(ACCESS_NOT_APPROVED);
+      }
+
+      const org = await db.transaction(async (tx) => {
+        const [newOrg] = await tx.insert(organizations).values({ name: "My Organization" }).returning();
+        if (!newOrg) throw new Error("Failed to create organization");
+
         const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const periodEnd = new Date(
-          now.getFullYear(),
-          now.getMonth() + 1,
-          0,
-          23,
-          59,
-          59
-        );
+        const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         await tx.insert(subscriptions).values({
-          organizationId: org.id,
+          organizationId: newOrg.id,
           planType: "starter",
           status: "trialing",
           currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
         });
 
-        const [user] = await tx
+        const syntheticClerkId = `local_${randomUUID()}`;
+        const [newUser] = await tx
           .insert(users)
           .values({
-            clerkId,
-            organizationId: org.id,
+            clerkId: syntheticClerkId,
+            organizationId: newOrg.id,
             role: "owner",
-            email: email ?? null,
+            email: normalized,
           })
-          .returning({
-            id: users.id,
-            clerkId: users.clerkId,
-            organizationId: users.organizationId,
-            role: users.role,
-            email: users.email,
-            createdAt: users.createdAt,
-            updatedAt: users.updatedAt,
-          });
+          .returning({ id: users.id });
 
-        if (!user) throw new Error("Failed to create user");
-        return { user, organization: org, isNew: true };
+        if (!newUser) throw new Error("Failed to create user");
+
+        await tx.insert(authIdentities).values({
+          userId: newUser.id,
+          email: normalized,
+          emailVerifiedAt: now,
+        });
+
+        return { userId: newUser.id };
       });
-    } catch (error) {
-      const err = (error as { cause?: unknown })?.cause ?? error;
-      const e = err as { code?: string; constraint?: string; constraint_name?: string; message?: string };
-      const constraint = e.constraint ?? e.constraint_name;
-      const isClerkIdConflict =
-        e.code === UNIQUE_VIOLATION &&
-        (constraint === USERS_CLERK_ID_CONSTRAINT || e.message?.includes("users_clerk_id"));
 
-      if (isClerkIdConflict) {
-        const [existing] = await db
-          .select({
-            id: users.id,
-            clerkId: users.clerkId,
-            organizationId: users.organizationId,
-            role: users.role,
-            email: users.email,
-            createdAt: users.createdAt,
-            updatedAt: users.updatedAt,
-          })
-          .from(users)
-          .where(eq(users.clerkId, clerkId))
-          .limit(1);
-
-        if (existing) {
-          const [org] = await db
-            .select()
-            .from(organizations)
-            .where(eq(organizations.id, existing.organizationId))
-            .limit(1);
-          return { user: existing, organization: org, isNew: false };
-        }
-      }
-
-      throw error;
+      userId = org.userId;
     }
+
+    await db
+      .update(authOtpChallenges)
+      .set({ consumedAt: now, updatedAt: now })
+      .where(eq(authOtpChallenges.id, challenge.id));
+
+    const session = await this.createSession(userId);
+    return { ok: true, session };
   }
 
-  async verifyToken(
-    token: string
-  ): Promise<{ clerkId: string; email?: string } | null> {
-    const secretKey = process.env.CLERK_SECRET_KEY;
-    if (!secretKey) return null;
-    try {
-      const payload = await verifyToken(token, { secretKey });
-      const sub = payload?.sub;
-      if (!sub) return null;
-      return {
-        clerkId: sub,
-        email: (payload as { email?: string }).email,
-      };
-    } catch {
-      return null;
+  async setPasswordAfterOtpLock(email: string, password: string) {
+    const db = getDb();
+    const normalized = normalizeEmail(email);
+
+    const [challenge] = await db
+      .select()
+      .from(authOtpChallenges)
+      .where(
+        and(
+          eq(authOtpChallenges.email, normalized),
+          eq(authOtpChallenges.purpose, OTP_PURPOSE_SIGN_IN),
+          isNull(authOtpChallenges.consumedAt),
+        ),
+      )
+      .orderBy(desc(authOtpChallenges.createdAt))
+      .limit(1);
+
+    if (!challenge || challenge.attempts < OTP_MAX_ATTEMPTS) {
+      return { ok: false, message: "Password fallback not unlocked" };
     }
+
+    const found = await this.findUserByEmail(normalized);
+    if (!found) return { ok: false, message: "Account not found" };
+
+    await db
+      .update(authIdentities)
+      .set({ passwordHash: makePasswordHash(password), updatedAt: new Date() })
+      .where(eq(authIdentities.userId, found.user.id));
+
+    return { ok: true };
+  }
+
+  async signInWithPassword(email: string, password: string) {
+    const found = await this.findUserByEmail(email);
+    if (!found || !found.identity.passwordHash) {
+      return { ok: false, message: "Invalid credentials" };
+    }
+    if (!verifyPassword(password, found.identity.passwordHash)) {
+      return { ok: false, message: "Invalid credentials" };
+    }
+
+    const session = await this.createSession(found.user.id);
+    return { ok: true, session, user: found.user };
+  }
+
+  async validateSession(token: string) {
+    const db = getDb();
+    const tokenHash = hashValue(token);
+    const now = new Date();
+
+    const [session] = await db
+      .select()
+      .from(authSessions)
+      .where(
+        and(
+          eq(authSessions.tokenHash, tokenHash),
+          isNull(authSessions.revokedAt),
+          gt(authSessions.expiresAt, now),
+        ),
+      )
+      .limit(1);
+
+    if (!session) return null;
+
+    const [user] = await db
+      .select({
+        id: users.id,
+        organizationId: users.organizationId,
+        role: users.role,
+        email: users.email,
+      })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
+
+    if (!user) return null;
+    return { session, user };
+  }
+
+  async signOut(token: string) {
+    const db = getDb();
+    await db
+      .update(authSessions)
+      .set({ revokedAt: new Date(), updatedAt: new Date() })
+      .where(eq(authSessions.tokenHash, hashValue(token)));
+  }
+
+  async syncFromSession(token: string) {
+    const active = await this.validateSession(token);
+    if (!active) return null;
+    const db = getDb();
+    const [org] = await db
+      .select({ id: organizations.id, name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, active.user.organizationId))
+      .limit(1);
+    if (!org) return null;
+
+    return {
+      user: {
+        id: active.user.id,
+        organizationId: active.user.organizationId,
+      },
+      organization: org,
+      isNew: false,
+    };
   }
 }

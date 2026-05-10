@@ -155,6 +155,52 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const authIdentities = pgTable("auth_identities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash"),
+  emailVerifiedAt: timestamp("email_verified_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const authOtpChallenges = pgTable(
+  "auth_otp_challenges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    purpose: text("purpose").notNull(),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    expiresAt: timestamp("expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("auth_otp_challenges_email_purpose_idx").on(t.email, t.purpose, t.createdAt)],
+);
+
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("auth_sessions_user_id_idx").on(t.userId)],
+);
+
 // Customers — name, mobile, notes, visit_count, last_visit, business_id
 export const customers = pgTable(
   "customers",
@@ -538,6 +584,27 @@ export const onboardingProgress = pgTable("onboarding_progress", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Assistant thread memory — per-org/user/thread rolling summary + recent turns
+export const assistantThreadMemories = pgTable(
+  "assistant_thread_memories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    threadId: text("thread_id").notNull(),
+    summary: text("summary").notNull().default(""),
+    lastTurns: jsonb("last_turns")
+      .$type<Array<{ role: "user" | "assistant"; text: string }>>()
+      .notNull()
+      .default([]),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [unique("assistant_thread_memories_unique").on(t.organizationId, t.userId, t.threadId)],
+);
+
 // Automation settings — per-business toggle and channel config
 export const automationSettings = pgTable(
   "automation_settings",
@@ -566,6 +633,23 @@ export const automationSettings = pgTable(
       .default("true"),
     inactivityDays: integer("inactivity_days").notNull().default(60),
     autoSendChannel: text("auto_send_channel").notNull().default("sms"),
+    messageTemplates: jsonb("message_templates")
+      .$type<
+        Partial<
+          Record<
+            | "appointment_confirmation"
+            | "appointment_reminder_24h"
+            | "appointment_reminder_72h"
+            | "missed_recovery"
+            | "post_visit_followup"
+            | "inactivity_winback"
+            | "loyalty_unlock",
+            { sms?: string; email?: string }
+          >
+        >
+      >()
+      .notNull()
+      .default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -647,6 +731,40 @@ export const smsUsageEvents = pgTable("sms_usage_events", {
   units: integer("units").notNull().default(1),
   status: text("status").notNull().default("consumed"),
   costMicros: integer("cost_micros"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Email credits — per org, monthly allocation and usage
+export const emailCredits = pgTable(
+  "email_credits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    month: text("month").notNull(), // YYYY-MM
+    included: integer("included").notNull().default(0),
+    used: integer("used").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [unique("email_credits_org_month_unique").on(t.organizationId, t.month)],
+);
+
+// Email usage events — per send, links to message_event
+export const emailUsageEvents = pgTable("email_usage_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  messageEventId: uuid("message_event_id")
+    .notNull()
+    .references(() => messageEvents.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  units: integer("units").notNull().default(1),
+  status: text("status").notNull().default("consumed"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

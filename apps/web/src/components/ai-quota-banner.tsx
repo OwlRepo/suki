@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";

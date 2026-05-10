@@ -1,7 +1,7 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
-import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth";
+import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
 
 interface SyncResult {
@@ -46,8 +46,6 @@ async function syncAuthForUser(
 
 export function useAuthSync() {
   const { getToken, isLoaded, isSignedIn, userId } = useAuth();
-  const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
 
   const [retryTrigger, setRetryTrigger] = useState(0);
   const [data, setData] = useState<SyncResult | null>(() =>
@@ -64,22 +62,27 @@ export function useAuthSync() {
 
   useEffect(() => {
     if (!isLoaded) {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
     if (!isSignedIn || !userId) {
       resultCache.clear();
       inFlight.clear();
-      setData(null);
-      setError(null);
-      setLoading(false);
+      queueMicrotask(() => {
+        setData(null);
+        setError(null);
+        setLoading(false);
+      });
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    syncAuthForUser(userId, () => getTokenRef.current())
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setError(null);
+    });
+    syncAuthForUser(userId, getToken)
       .then((result) => {
         if (!cancelled) setData(result);
       })
@@ -111,7 +114,7 @@ export function useAuthSync() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn, userId, retryTrigger]);
+  }, [isLoaded, isSignedIn, userId, retryTrigger, getToken]);
 
   return { data, loading, error, retry };
 }

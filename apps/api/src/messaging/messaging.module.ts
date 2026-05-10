@@ -12,6 +12,7 @@ import { AutomationPolicyModule } from "../automation/automation-policy.module";
 import { SecurityModule } from "../security/security.module";
 import { MessageDispatchService } from "./message-dispatch.service";
 import { SmsMeteringService } from "./sms-metering.service";
+import { EmailMeteringService } from "./email-metering.service";
 import { NoopSmsProvider } from "./providers/sms.provider";
 import { NoopEmailProvider } from "./providers/email.provider";
 import { TwilioSmsProvider } from "./providers/twilio-sms.provider";
@@ -45,6 +46,7 @@ function isResendConfigured(): boolean {
     PlanAiMessagingGuard,
     MessageDispatchService,
     SmsMeteringService,
+    EmailMeteringService,
     MessagingWebhookService,
     NoopSmsProvider,
     NoopEmailProvider,
@@ -63,6 +65,6 @@ function isResendConfigured(): boolean {
       inject: [ResendEmailProvider, NoopEmailProvider],
     },
   ],
-  exports: [MessagingService, MessageDispatchService, SmsMeteringService],
+  exports: [MessagingService, MessageDispatchService, SmsMeteringService, EmailMeteringService],
 })
 export class MessagingModule {}

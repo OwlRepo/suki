@@ -2,6 +2,31 @@ import { Injectable } from "@nestjs/common";
 
 @Injectable()
 export class AutomationMessageComposerService {
+  private applyTemplate(
+    template: string,
+    context: {
+      customerName?: string;
+      scheduledAt?: Date;
+      staffName?: string;
+      rescheduleLink?: string;
+      rebookLink?: string;
+      businessName?: string;
+    },
+  ): string {
+    const time =
+      context.scheduledAt?.toLocaleString("en-PH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }) ?? "[date/time]";
+    const link = context.rescheduleLink ?? context.rebookLink ?? "[link]";
+    return template
+      .replaceAll("{customerName}", context.customerName ?? "")
+      .replaceAll("{dateTime}", time)
+      .replaceAll("{staffName}", context.staffName ?? "")
+      .replaceAll("{link}", link)
+      .replaceAll("{businessName}", context.businessName ?? "We");
+  }
+
   compose(
     automationKey: string,
     context: {
@@ -12,7 +37,11 @@ export class AutomationMessageComposerService {
       rebookLink?: string;
       businessName?: string;
     },
+    customTemplate?: string,
   ): string {
+    if (customTemplate?.trim()) {
+      return this.applyTemplate(customTemplate.trim(), context);
+    }
     const time =
       context.scheduledAt?.toLocaleString("en-PH", {
         dateStyle: "medium",

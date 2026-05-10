@@ -5,7 +5,7 @@ import { useAuthSync, __resetAuthSyncForTests } from "./use-auth-sync";
 const mockGetToken = vi.fn();
 const mockUseAuth = vi.fn();
 
-vi.mock("@clerk/nextjs", () => ({
+vi.mock("@/lib/auth", () => ({
   useAuth: () => mockUseAuth(),
 }));
 

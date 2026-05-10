@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { MessagingService } from "./messaging.service";
 import { SmsMeteringService } from "./sms-metering.service";
+import { EmailMeteringService } from "./email-metering.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { PlanAiMessagingGuard } from "./plan-module.guard";
 import { Tenant } from "../common/tenant.decorator";
@@ -22,6 +23,7 @@ export class MessagingController {
     private readonly messagingService: MessagingService,
     private readonly planCapacity: PlanCapacityService,
     private readonly smsMetering: SmsMeteringService,
+    private readonly emailMetering: EmailMeteringService,
   ) {}
 
   @Get("credits")
@@ -36,6 +38,12 @@ export class MessagingController {
   async getSmsUsage(@Tenant("organizationId") orgId?: string) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
     return this.smsMetering.getOrCreateCredits(orgId);
+  }
+
+  @Get("email-usage")
+  async getEmailUsage(@Tenant("organizationId") orgId?: string) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+    return this.emailMetering.getOrCreateCredits(orgId);
   }
 
   @Post("generate")

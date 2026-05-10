@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { useOnboardingProgress, FINAL_WIZARD_STEP } from "@/hooks/use-onboarding-progress";
 import { useWorkspace } from "@/contexts/workspace-context";

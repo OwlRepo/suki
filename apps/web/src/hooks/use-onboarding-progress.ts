@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 
 /** Sentinel step meaning onboarding is complete; user never sees wizard again */

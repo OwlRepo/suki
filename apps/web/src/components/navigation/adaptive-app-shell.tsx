@@ -16,6 +16,7 @@ import { DesktopSidebarNav } from "./desktop-sidebar-nav";
 import { MobileBottomNav, BOTTOM_NAV_HEIGHT } from "./mobile-bottom-nav";
 import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { cn } from "@/lib/utils";
+import { SukiAssistant } from "@/components/suki-assistant";
 
 const SIDEBAR_WIDTH = 240;
 
@@ -119,6 +120,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
         />
+        <SukiAssistant />
       </div>
     </DashboardOnboardingWrapper>
   );

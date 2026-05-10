@@ -3,6 +3,27 @@ import { ValidationPipe } from "@nestjs/common";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
+import { AuthBootstrapService } from "./auth/auth.bootstrap.service";
+
+function cookieParser(req: { headers: { cookie?: string }; cookies?: Record<string, string> }, _: unknown, next: () => void) {
+  const raw = req.headers.cookie;
+  req.cookies = {};
+  if (!raw) {
+    next();
+    return;
+  }
+  const pairs = raw.split(";");
+  for (const pair of pairs) {
+    const trimmed = pair.trim();
+    if (!trimmed) continue;
+    const i = trimmed.indexOf("=");
+    if (i === -1) continue;
+    const key = decodeURIComponent(trimmed.slice(0, i));
+    const value = decodeURIComponent(trimmed.slice(i + 1));
+    req.cookies[key] = value;
+  }
+  next();
+}
 
 function validateEnv() {
   const required = ["DATABASE_URL"];
@@ -43,6 +64,7 @@ async function bootstrap() {
   });
 
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.use(cookieParser as never);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -55,6 +77,9 @@ async function bootstrap() {
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
   });
+
+  const authBootstrap = app.get(AuthBootstrapService);
+  await authBootstrap.ensureDefaultAccount();
 
   const port = process.env.PORT || 3001;
   await app.listen(port);

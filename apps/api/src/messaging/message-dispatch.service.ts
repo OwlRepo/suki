@@ -6,6 +6,7 @@ import type { AutomationKey, MessagePurpose } from "@suki/types";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { AutomationPolicyService } from "../automation/automation-policy.service";
 import { SmsMeteringService } from "./sms-metering.service";
+import { EmailMeteringService } from "./email-metering.service";
 import type { ISmsProvider } from "./providers/sms.provider";
 import type { IEmailProvider } from "./providers/email.provider";
 import { SMS_PROVIDER, EMAIL_PROVIDER } from "./providers/provider.tokens";
@@ -64,6 +65,7 @@ export class MessageDispatchService {
     private readonly planCapacity: PlanCapacityService,
     private readonly policy: AutomationPolicyService,
     private readonly smsMetering: SmsMeteringService,
+    private readonly emailMetering: EmailMeteringService,
     @Inject(SMS_PROVIDER) private readonly smsProvider: ISmsProvider,
     @Inject(EMAIL_PROVIDER) private readonly emailProvider: IEmailProvider,
   ) {}
@@ -150,6 +152,14 @@ export class MessageDispatchService {
         return this.recordSkipped(
           input,
           canConsume.reason ?? "sms_cap_reached",
+        );
+      }
+    } else {
+      const canConsume = await this.emailMetering.canConsume(input.organizationId, 1);
+      if (!canConsume.allowed) {
+        return this.recordSkipped(
+          input,
+          canConsume.reason ?? "email_cap_reached",
         );
       }
     }
@@ -305,6 +315,12 @@ export class MessageDispatchService {
           providerMessageId: emailResult.providerMessageId,
           messageEventId,
         };
+        await this.emailMetering.consume(
+          input.organizationId,
+          input.businessId,
+          messageEventId,
+          1,
+        );
       } else {
         await db
           .update(messageEvents)

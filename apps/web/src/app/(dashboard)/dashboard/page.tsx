@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
@@ -64,18 +64,19 @@ function DashboardPageContent() {
 
   const businessId = workspace?.activeBusinessId ?? "";
   const businesses = workspace?.businesses ?? [];
+  const organizationId = syncData?.organization?.id ?? null;
 
   useEffect(() => {
-    if (syncData) {
+    if (organizationId) {
       recordOnboardingEvent(
         "dashboard_viewed",
-        syncData.organization?.id ?? null,
+        organizationId,
       );
     }
-  }, [syncData]);
+  }, [organizationId]);
 
   useEffect(() => {
-    if (!syncData) return;
+    if (!organizationId) return;
     (async () => {
       try {
         const token = await getToken();
@@ -88,7 +89,7 @@ function DashboardPageContent() {
         setLoading(false);
       }
     })();
-  }, [syncData, getToken]);
+  }, [organizationId, getToken]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -109,7 +110,7 @@ function DashboardPageContent() {
   }, [businessId, getToken]);
 
   useEffect(() => {
-    if (!syncData) return;
+    if (!organizationId) return;
     (async () => {
       const token = await getToken();
       if (!token) return;
@@ -130,7 +131,7 @@ function DashboardPageContent() {
         setActivities([]);
       }
     })();
-  }, [syncData, businessId, getToken]);
+  }, [organizationId, businessId, getToken]);
 
   // upcomingAppointments comes from usage when businessId is set; otherwise fetch separately
   useEffect(() => {

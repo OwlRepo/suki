@@ -1,40 +1,117 @@
 import {
+  Body,
   Controller,
-  Post,
-  Headers,
-  UnauthorizedException,
   ForbiddenException,
+  Get,
+  Headers,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
 } from "@nestjs/common";
+import type { Request, Response } from "express";
 import { AuthService, ACCESS_NOT_APPROVED } from "./auth.service";
+
+const COOKIE_NAME = "suki_session";
 
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post("sync")
-  async sync(@Headers("authorization") authHeader?: string) {
-    const token = authHeader?.replace(/^Bearer\s+/i, "");
-    if (!token) {
-      throw new UnauthorizedException("Missing Authorization header");
-    }
-    const payload = await this.authService.verifyToken(token);
-    if (!payload) {
-      throw new UnauthorizedException("Invalid token");
-    }
+  private setSessionCookie(res: Response, token: string, expiresAt: Date) {
+    res.cookie(COOKIE_NAME, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      expires: expiresAt,
+    });
+  }
+
+  @Post("sign-in/start")
+  async signInStart(@Body() body: { email: string }) {
+    return this.authService.startOtp(body.email, "sign_in");
+  }
+
+  @Post("sign-in/verify")
+  async signInVerify(@Body() body: { email: string; code: string }, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.verifyOtpAndSignIn(body.email, body.code);
+    if (!result.ok || !result.session) return result;
+    this.setSessionCookie(res, result.session.token, result.session.expiresAt);
+    return { ok: true };
+  }
+
+  @Post("sign-up/start")
+  async signUpStart(@Body() body: { email: string }) {
+    return this.authService.startOtp(body.email, "sign_up");
+  }
+
+  @Post("sign-up/verify")
+  async signUpVerify(@Body() body: { email: string; code: string }, @Res({ passthrough: true }) res: Response) {
     try {
-      const result = await this.authService.syncUser(payload.clerkId, payload.email);
-      return {
-        user: result.user,
-        organization: result.organization,
-        isNew: result.isNew,
-      };
+      const result = await this.authService.verifyOtpAndSignUp(body.email, body.code);
+      if (!result.ok || !result.session) return result;
+      this.setSessionCookie(res, result.session.token, result.session.expiresAt);
+      return { ok: true };
     } catch (err) {
       if (err instanceof Error && err.message === ACCESS_NOT_APPROVED) {
-        throw new ForbiddenException(
-          "Access is invite-only. Contact us to get started.",
-        );
+        throw new ForbiddenException("Access is invite-only. Contact us to get started.");
       }
       throw err;
     }
+  }
+
+  @Post("password/set")
+  async setPassword(@Body() body: { email: string; password: string }) {
+    return this.authService.setPasswordAfterOtpLock(body.email, body.password);
+  }
+
+  @Post("sign-in/password")
+  async signInPassword(@Body() body: { email: string; password: string }, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.signInWithPassword(body.email, body.password);
+    if (!result.ok || !result.session) return result;
+    this.setSessionCookie(res, result.session.token, result.session.expiresAt);
+    return { ok: true };
+  }
+
+  @Get("me")
+  async me(@Req() req: Request) {
+    const token = (req as Request & { cookies?: Record<string, string> }).cookies?.[COOKIE_NAME];
+    if (!token) throw new UnauthorizedException("No active session");
+    const session = await this.authService.validateSession(token);
+    if (!session) throw new UnauthorizedException("Invalid session");
+    return { user: { id: session.user.id, email: session.user.email } };
+  }
+
+  @Post("sign-out")
+  async signOut(
+    @Headers("authorization") authHeader: string | undefined,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const bearer = authHeader?.replace(/^Bearer\s+/i, "").trim();
+    const token =
+      bearer || (req as Request & { cookies?: Record<string, string> }).cookies?.[COOKIE_NAME];
+    if (token) {
+      await this.authService.signOut(token);
+    }
+    res.clearCookie(COOKIE_NAME, { path: "/" });
+    return { ok: true };
+  }
+
+  @Post("sync")
+  async sync(@Headers("authorization") authHeader: string | undefined, @Req() req: Request) {
+    const tokenFromHeader = authHeader?.replace(/^Bearer\s+/i, "").trim();
+    const token =
+      (req as Request & { cookies?: Record<string, string> }).cookies?.[COOKIE_NAME] ||
+      tokenFromHeader;
+    if (!token) {
+      throw new UnauthorizedException("Missing Authorization header");
+    }
+    const result = await this.authService.syncFromSession(token);
+    if (!result) {
+      throw new UnauthorizedException("Invalid token");
+    }
+    return result;
   }
 }

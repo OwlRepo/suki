@@ -190,6 +190,25 @@ Runs:
 
 Requires [Docker](https://docs.docker.com/get-docker/)
 
+## Auth Setup (Local First-Party Auth)
+
+Suki now uses first-party auth with Resend email OTP and session cookies.
+
+- Web auth pages: `/sign-in`, `/sign-up`
+- API auth routes: `/auth/*`
+- Required env keys:
+  - `AUTH_SESSION_SECRET`
+  - `AUTH_SESSION_TTL_DAYS`
+  - `AUTH_OTP_TTL_MINUTES`
+  - `AUTH_OTP_MAX_ATTEMPTS`
+  - `RESEND_API_KEY`
+  - `RESEND_FROM_EMAIL`
+- Optional startup bootstrap account (local/staging):
+  - `AUTH_BOOTSTRAP_DEFAULT_ACCOUNT`
+  - `AUTH_BOOTSTRAP_EMAIL`
+  - `AUTH_BOOTSTRAP_PASSWORD`
+  - `AUTH_BOOTSTRAP_ORG_NAME`
+
 ---
 
 ## Developer Quick Context
