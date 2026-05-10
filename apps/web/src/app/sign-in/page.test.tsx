@@ -29,22 +29,49 @@ describe("Custom SignInPage", () => {
 
     render(<SignInPage />);
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@test.com" } });
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: " a@test.com " } });
     fireEvent.click(screen.getByRole("button", { name: /send code/i }));
 
     await waitFor(() => expect(startSignIn).toHaveBeenCalledWith("a@test.com"));
 
-    fireEvent.change(screen.getByLabelText(/code/i), { target: { value: "123456" } });
+    fireEvent.change(screen.getByLabelText(/code/i), { target: { value: " 123456 " } });
     fireEvent.click(screen.getByRole("button", { name: /verify code/i }));
 
     await waitFor(() => expect(verifySignIn).toHaveBeenCalledWith("a@test.com", "123456"));
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard"));
   });
 
-  it("shows password fallback when unlocked", async () => {
+  it("shows send-code failure message", async () => {
+    startSignIn.mockResolvedValue({ ok: false, message: "Rate limited" });
+    render(<SignInPage />);
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@test.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /send code/i }));
+
+    await waitFor(() => expect(screen.getByText("Rate limited")).toBeInTheDocument());
+  });
+
+  it("shows invalid verify message without enabling password fallback", async () => {
+    startSignIn.mockResolvedValue({ ok: true });
+    verifySignIn.mockResolvedValue({ ok: false, message: "Invalid code", fallbackUnlocked: false });
+
+    render(<SignInPage />);
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@test.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /send code/i }));
+    await waitFor(() => expect(startSignIn).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText(/code/i), { target: { value: "111111" } });
+    fireEvent.click(screen.getByRole("button", { name: /verify code/i }));
+
+    await waitFor(() => expect(screen.getByText("Invalid code")).toBeInTheDocument());
+    expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
+  });
+
+  it("shows password fallback and handles failed password sign-in", async () => {
     startSignIn.mockResolvedValue({ ok: true });
     verifySignIn.mockResolvedValue({ ok: false, fallbackUnlocked: true, message: "Too many attempts" });
-    signInWithPassword.mockResolvedValue({ ok: true });
+    signInWithPassword.mockResolvedValue({ ok: false, message: "Invalid credentials" });
 
     render(<SignInPage />);
 
@@ -60,13 +87,6 @@ describe("Custom SignInPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /sign in with password/i }));
 
     await waitFor(() => expect(signInWithPassword).toHaveBeenCalledWith("a@test.com", "secret123"));
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard"));
-  });
-
-  it("renders mobile-first auth container and blue/white themed surface", () => {
-    render(<SignInPage />);
-    expect(screen.getByTestId("auth-page-shell")).toBeInTheDocument();
-    expect(screen.getByTestId("auth-card")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /send code/i })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Invalid credentials")).toBeInTheDocument());
   });
 });

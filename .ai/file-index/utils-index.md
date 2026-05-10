@@ -19,3 +19,4 @@
 | `apps/api/src/common/feature-flags.service.ts` | Feature flag evaluation | Used by health and domain modules | Server-side capability gating |
 | `apps/api/src/common/plan-capacity.service.ts` | Plan-based limits and checks | Used by billing/messaging/ai modules | Capacity gating and policy checks |
 | `apps/api/src/common/http-exception.filter.ts` | Standard API error response mapping | Registered in `main.ts` | Global error normalization |
+| `apps/api/src/messaging/smoke/provider-smoke.preflight.ts` | Real-provider smoke preflight validator for messaging tests | Used by provider smoke specs | Gated Twilio/Resend env readiness checks with deterministic skip diagnostics |

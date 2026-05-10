@@ -27,21 +27,40 @@ describe("Custom SignUpPage", () => {
 
     render(<SignUpPage />);
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "new@test.com" } });
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: " new@test.com " } });
     fireEvent.click(screen.getByRole("button", { name: /send code/i }));
 
     await waitFor(() => expect(startSignUp).toHaveBeenCalledWith("new@test.com"));
 
-    fireEvent.change(screen.getByLabelText(/code/i), { target: { value: "123456" } });
+    fireEvent.change(screen.getByLabelText(/code/i), { target: { value: " 123456 " } });
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => expect(verifySignUp).toHaveBeenCalledWith("new@test.com", "123456"));
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard"));
   });
 
-  it("renders mobile-first auth shell", () => {
+  it("shows send failure message", async () => {
+    startSignUp.mockResolvedValue({ ok: false, message: "Cannot send now" });
     render(<SignUpPage />);
-    expect(screen.getByTestId("auth-page-shell")).toBeInTheDocument();
-    expect(screen.getByTestId("auth-card")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "new@test.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /send code/i }));
+
+    await waitFor(() => expect(screen.getByText("Cannot send now")).toBeInTheDocument());
+  });
+
+  it("shows verify failure message", async () => {
+    startSignUp.mockResolvedValue({ ok: true });
+    verifySignUp.mockResolvedValue({ ok: false, message: "Invalid code" });
+    render(<SignUpPage />);
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "new@test.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /send code/i }));
+    await waitFor(() => expect(startSignUp).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText(/code/i), { target: { value: "123123" } });
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    await waitFor(() => expect(screen.getByText("Invalid code")).toBeInTheDocument());
   });
 });

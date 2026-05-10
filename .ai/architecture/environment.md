@@ -5,6 +5,7 @@
 - Database: connection variables used by `@suki/database`
 - Billing: PayMongo credentials/webhook secrets
 - Messaging: Twilio SID/token and sender config; Resend API key
+- Messaging smoke (optional): `SMOKE_REAL_PROVIDERS`, `SMOKE_TWILIO_TO`, `SMOKE_RESEND_TO`
 - AI: OpenAI keys and policy-related settings
 - App runtime: `NODE_ENV`, app URLs, tenant/business context flags
 
