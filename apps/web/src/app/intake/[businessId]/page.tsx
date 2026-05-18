@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MonthPicker } from "@/components/ui/date-pickers";
+import { AvailabilityCalendar } from "@/components/ui/availability-calendar";
 import { normalizeApiError } from "./error-utils";
 import { buildWizardSteps, type ScheduleSubStep } from "./wizard-progress";
-import { filterDayKeysByMonth, formatDayLabel } from "./schedule-utils";
+import { filterDayKeysByMonth } from "./schedule-utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const OTP_LENGTH = 6;
@@ -533,14 +535,8 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         </p>
 
         <div className="mt-6">
-          <Label htmlFor="booking-month" className="mb-1 block">Month</Label>
-          <Input
-            id="booking-month"
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="w-full sm:w-60"
-          />
+          <Label className="mb-1 block">Month</Label>
+          <MonthPicker value={month} onChange={setMonth} className="w-full sm:w-60 justify-start" />
         </div>
 
         {availabilityLoading ? (
@@ -567,7 +563,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
             {scheduleSubStep === "date" && (
               <div className="mt-6">
                 <h2 className="mb-2 text-sm font-medium text-foreground">Available days</h2>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div>
                   {dayKeys.length === 0 && (
                     <div className="space-y-3">
                       <p className="text-sm text-muted-foreground">No slots available in this month.</p>
@@ -586,20 +582,16 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                       </Button>
                     </div>
                   )}
-                  {dayKeys.map((day) => (
-                    <Button
-                      key={day}
-                      variant={selectedDay === day ? "default" : "outline"}
-                      className="min-h-[44px] w-full"
-                      onClick={() => {
-                        setSelectedDay(day);
-                        const daySlots = availability?.byDay[day] ?? [];
-                        setSelectedSlot(daySlots[0] ?? null);
-                      }}
-                    >
-                      {formatDayLabel(day)}
-                    </Button>
-                  ))}
+                  <AvailabilityCalendar
+                    month={month}
+                    selectedDay={selectedDay}
+                    availableDays={dayKeys}
+                    onSelect={(day) => {
+                      setSelectedDay(day);
+                      const daySlots = availability?.byDay[day] ?? [];
+                      setSelectedSlot(daySlots[0] ?? null);
+                    }}
+                  />
                 </div>
                 <div className="mt-8 grid gap-3 sm:grid-cols-2">
                   <Button

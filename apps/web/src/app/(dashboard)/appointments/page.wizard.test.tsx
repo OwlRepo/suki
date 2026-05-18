@@ -30,7 +30,7 @@ vi.mock("@/lib/clerk", () => ({ hasClerk: true }));
 
 vi.mock("@/lib/onboarding-metrics", () => ({ recordOnboardingEvent: vi.fn() }));
 
-function setupApi(options?: { holdError?: Error }) {
+function setupApi(options?: { createError?: Error }) {
   mockApiRequest.mockImplementation((path: string, init?: { method?: string; body?: string }) => {
     if (path.startsWith("/customers?")) {
       return Promise.resolve({ customers: [{ id: "c1", name: "Alice", mobile: "0917" }] });
@@ -48,13 +48,10 @@ function setupApi(options?: { holdError?: Error }) {
     if (path === "/customers" && init?.method === "POST") {
       return Promise.resolve({ customer: { id: "newc" } });
     }
-    if (path === "/appointments/booking/hold") {
-      if (options?.holdError) return Promise.reject(options.holdError);
-      return Promise.resolve({ hold: { id: "hold1" } });
+    if (path === "/appointments" && init?.method === "POST") {
+      if (options?.createError) return Promise.reject(options.createError);
+      return Promise.resolve({ appointment: { id: "a-new" } });
     }
-    if (path === "/appointments/booking/otp/send") return Promise.resolve({ success: true });
-    if (path === "/appointments/booking/otp/verify") return Promise.resolve({ success: true });
-    if (path === "/appointments/booking/pin") return Promise.resolve({ success: true });
     return Promise.resolve({});
   });
 }
@@ -65,14 +62,15 @@ describe("Appointments wizard component", () => {
     setupApi();
   });
 
-  it("hides editable manager PIN setup and shows settings guidance", async () => {
+  it("does not show OTP or manager override guidance in booking section", async () => {
     render(<AppointmentsPage />);
-    expect(await screen.findByText(/PIN setup is managed in Settings/i)).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/Set 4-8 digit PIN/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/PIN setup is managed in Settings/i)).toBeInTheDocument();
+    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
+    expect(await screen.findByText(/Book appointment/i)).toBeInTheDocument();
+    expect(screen.queryByText(/PIN setup is managed in Settings/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Verify via OTP/i)).not.toBeInTheDocument();
   });
 
-  it("progresses new-customer flow and defaults verify mode to OTP when mobile exists", async () => {
+  it("progresses new-customer flow and confirms without OTP step", async () => {
     render(<AppointmentsPage />);
 
     fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
@@ -81,46 +79,19 @@ describe("Appointments wizard component", () => {
     fireEvent.change(screen.getByPlaceholderText(/^Mobile$/i), { target: { value: "0917" } });
 
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
+    expect(await screen.findByRole("button", { name: /5\/12\/2026 unavailable/i })).toBeDisabled();
     fireEvent.click(await screen.findByRole("button", { name: /5\/10\/2026/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM|11:00 AM/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
 
-    expect(await screen.findByRole("button", { name: /Verify via OTP/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Manager override/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Verify OTP and confirm/i })).toBeDisabled();
-
-    fireEvent.change(screen.getByPlaceholderText(/6-digit OTP/i), { target: { value: "123456" } });
-    expect(screen.getByRole("button", { name: /Verify OTP and confirm/i })).toBeEnabled();
-  });
-
-  it("defaults verify mode to manager override when mobile is missing", async () => {
-    render(<AppointmentsPage />);
-
-    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
-    fireEvent.click(screen.getByRole("button", { name: /new customer/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Customer name/i), { target: { value: "NoMobile" } });
-
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    fireEvent.click(await screen.findByRole("button", { name: /5\/10\/2026/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM|11:00 AM/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-
-    expect(await screen.findByText(/Manager override \(when customer OTP is not possible\)/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Confirm with manager override/i })).toBeDisabled();
-
-    fireEvent.change(screen.getByPlaceholderText(/Manager PIN/i), { target: { value: "1234" } });
-    fireEvent.change(screen.getByPlaceholderText(/Reason for OTP skip/i), {
-      target: { value: "Customer has no phone" },
-    });
-    expect(screen.getByRole("button", { name: /Confirm with manager override/i })).toBeEnabled();
+    expect(await screen.findByText(/Appointment booked successfully/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Verify via OTP/i })).not.toBeInTheDocument();
   });
 
   it("shows friendly conflict message instead of raw exception", async () => {
-    setupApi({ holdError: new Error("Conflict Exception") });
+    setupApi({ createError: new Error("Conflict Exception") });
     render(<AppointmentsPage />);
 
     fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
@@ -152,5 +123,56 @@ describe("Appointments wizard component", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
     expect(screen.getByRole("button", { name: /existing customer/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new customer/i })).toBeInTheDocument();
+  });
+
+  it("shows calendar-day agenda and highlights new appointments", async () => {
+    const recent = new Date(Date.now() - 1000 * 60 * 10).toISOString();
+    const old = new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString();
+
+    mockApiRequest.mockImplementation((path: string, init?: { method?: string; body?: string }) => {
+      if (path.startsWith("/customers?")) {
+        return Promise.resolve({ customers: [{ id: "c1", name: "Alice", mobile: "0917" }] });
+      }
+      if (path.startsWith("/appointments?")) {
+        return Promise.resolve({
+          appointments: [
+            {
+              id: "a1",
+              customerId: "c1",
+              businessId: "biz1",
+              scheduledAt: "2026-05-10T10:00:00.000Z",
+              status: "scheduled",
+              createdAt: recent,
+            },
+            {
+              id: "a2",
+              customerId: "c1",
+              businessId: "biz1",
+              scheduledAt: "2026-05-11T11:00:00.000Z",
+              status: "completed",
+              createdAt: old,
+            },
+          ],
+        });
+      }
+      if (path.startsWith("/appointments/booking/availability")) {
+        return Promise.resolve({
+          month: "2026-05",
+          slotDurationMins: 30,
+          byDay: { "2026-05-10": ["2026-05-10T10:00:00.000Z"] },
+        });
+      }
+      if (path === "/appointments/booking/hold") return Promise.resolve({ hold: { id: "hold1" } });
+      if (path === "/appointments/booking/otp/send") return Promise.resolve({ success: true });
+      if (path === "/appointments/booking/otp/verify") return Promise.resolve({ success: true });
+      if (path === "/appointments/booking/pin") return Promise.resolve({ success: true });
+      return Promise.resolve({});
+    });
+
+    render(<AppointmentsPage />);
+
+    expect(await screen.findByText(/selected day agenda/i)).toBeInTheDocument();
+    expect(screen.getByText(/^New$/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 appointments in this month/i)).toBeInTheDocument();
   });
 });

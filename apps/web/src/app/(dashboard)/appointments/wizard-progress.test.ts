@@ -6,6 +6,6 @@ describe("buildAppointmentWizardSteps", () => {
     const steps = buildAppointmentWizardSteps("review");
     expect(steps.find((s) => s.id === "customer")?.state).toBe("done");
     expect(steps.find((s) => s.id === "review")?.state).toBe("active");
-    expect(steps.find((s) => s.id === "verify")?.state).toBe("pending");
+    expect(steps.find((s) => s.id === "time")?.state).toBe("done");
   });
 });

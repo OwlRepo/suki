@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/date-pickers";
 import {
   Select,
   SelectContent,
@@ -336,12 +337,7 @@ export function OnboardingWizard() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Input
-                    type="datetime-local"
-                    value={appointmentWhen}
-                    onChange={(e) => setAppointmentWhen(e.target.value)}
-                    className="min-h-[44px] text-base"
-                  />
+                  <DateTimePicker value={appointmentWhen} onChange={setAppointmentWhen} aria-label="Onboarding appointment date and time" />
                   <Button size="lg" className="min-h-[44px] text-base" onClick={handleCreateAppointment} disabled={busy}>
                     {busy ? "Saving…" : guidance.primaryActionLabel}
                   </Button>

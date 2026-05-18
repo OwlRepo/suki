@@ -1,8 +1,8 @@
-export type BookingStep = "customer" | "date" | "time" | "review" | "verify" | "done";
+export type BookingStep = "customer" | "date" | "time" | "review" | "done";
 
 export type WizardState = "done" | "active" | "pending";
 
-const order: BookingStep[] = ["customer", "date", "time", "review", "verify", "done"];
+const order: BookingStep[] = ["customer", "date", "time", "review", "done"];
 
 export function buildAppointmentWizardSteps(current: BookingStep) {
   const currentIdx = order.indexOf(current);

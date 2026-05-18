@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { DatePicker, DateTimePicker, MonthPicker } from "@/components/ui/date-pickers";
+import { AvailabilityCalendar } from "@/components/ui/availability-calendar";
 import {
   Select,
   SelectContent,
@@ -19,7 +21,6 @@ import { hasClerk } from "@/lib/clerk";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { PageSection } from "@/components/ui/page-section";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
@@ -29,11 +30,7 @@ import { fromError } from "@/lib/ui-feedback";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { buildAppointmentWizardSteps, type BookingStep } from "./wizard-progress";
 import {
-  canSubmitVerify,
-  defaultVerifyMode,
   normalizeBookingError,
-  shouldShowManagerPinSetupOnAppointments,
-  type VerifyMode,
 } from "./booking-flow";
 
 interface Customer {
@@ -58,6 +55,29 @@ interface Availability {
   byDay: Record<string, string[]>;
 }
 
+function monthKey(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+function dayKey(iso: string): string {
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
+function buildMonthCells(month: string): string[] {
+  const [year, monthNum] = month.split("-").map(Number);
+  const first = new Date(year, monthNum - 1, 1);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay());
+  return Array.from({ length: 42 }).map((_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d.toISOString().slice(0, 10);
+  });
+}
+
 function AppointmentsPageContent() {
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
@@ -79,8 +99,8 @@ function AppointmentsPageContent() {
     notes: "",
     remindersOn: true,
   });
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [calendarMonth, setCalendarMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedAgendaDay, setSelectedAgendaDay] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newCustomer, setNewCustomer] = useState({ name: "", mobile: "", email: "", notes: "" });
@@ -88,12 +108,6 @@ function AppointmentsPageContent() {
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [holdId, setHoldId] = useState<string | null>(null);
-  const [otpCode, setOtpCode] = useState("");
-  const [pin, setPin] = useState("");
-  const [skipReason, setSkipReason] = useState("");
-  const [staffName, setStaffName] = useState("");
-  const [verifyMode, setVerifyMode] = useState<VerifyMode>("otp");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [pendingCancel, setPendingCancel] = useState<{ id: string; customerName: string } | null>(null);
 
@@ -114,11 +128,18 @@ function AppointmentsPageContent() {
     if (!token) return;
     setAppointmentsLoading(true);
     try {
+      const [y, m] = calendarMonth.split("-").map(Number);
+      const from = new Date(y, m - 1, 1);
+      const to = new Date(y, m, 0, 23, 59, 59, 999);
       let url = `/appointments?businessId=${selectedBiz}`;
-      if (dateFrom) url += `&from=${new Date(dateFrom).toISOString()}`;
-      if (dateTo) url += `&to=${new Date(dateTo).toISOString()}`;
+      url += `&from=${from.toISOString()}`;
+      url += `&to=${to.toISOString()}`;
       const res = await apiRequest<{ appointments: Appointment[] }>(url, { token });
       setAppointments(res.appointments);
+      const firstDay = res.appointments
+        .map((a) => dayKey(a.scheduledAt))
+        .sort()[0] ?? null;
+      setSelectedAgendaDay((prev) => (prev && res.appointments.some((a) => dayKey(a.scheduledAt) === prev) ? prev : firstDay));
     } finally {
       setAppointmentsLoading(false);
     }
@@ -137,7 +158,7 @@ function AppointmentsPageContent() {
   useEffect(() => {
     if (!selectedBiz) return;
     loadAppointments();
-  }, [selectedBiz, dateFrom, dateTo]);
+  }, [selectedBiz, calendarMonth]);
 
   useEffect(() => {
     if (!showForm || !selectedBiz) return;
@@ -183,11 +204,6 @@ function AppointmentsPageContent() {
     setNewCustomer({ name: "", mobile: "", email: "", notes: "" });
     setAvailability(null);
     setSelectedDay(null);
-    setHoldId(null);
-    setOtpCode("");
-    setPin("");
-    setSkipReason("");
-    setVerifyMode("otp");
   };
 
   const handleEdit = (a: Appointment) => {
@@ -267,70 +283,24 @@ function AppointmentsPageContent() {
     return res.customer.id;
   };
 
-  const startOtpFlow = async () => {
+  const completeWizardBooking = async () => {
     if (!selectedBiz || !formData.scheduledAt) return;
     const customerId = await ensureCustomerForWizard();
     if (!customerId) throw new Error("Select or create a customer first.");
     const token = await getToken();
     if (!token) return;
-    const mobile =
-      entryMode === "new"
-        ? newCustomer.mobile.trim()
-        : (customers.find((c) => c.id === customerId)?.mobile ?? "").trim();
-    const holdMobile = mobile || "NO_PHONE_AVAILABLE";
-    const holdRes = await apiRequest<{ hold: { id: string } }>("/appointments/booking/hold", {
+    await apiRequest("/appointments", {
       method: "POST",
       token,
       body: JSON.stringify({
         businessId: selectedBiz,
         customerId,
-        mobile: holdMobile,
         scheduledAt: new Date(formData.scheduledAt).toISOString(),
+        notes: formData.notes.trim() || undefined,
       }),
-    });
-    if (mobile) {
-      await apiRequest("/appointments/booking/otp/send", {
-        method: "POST",
-        token,
-        body: JSON.stringify({ holdId: holdRes.hold.id }),
-      });
-    }
-    setHoldId(holdRes.hold.id);
-    setVerifyMode(defaultVerifyMode({ mobile }));
-    setStep("verify");
-  };
-
-  const completeWithOtp = async () => {
-    if (!holdId) return;
-    const token = await getToken();
-    if (!token) return;
-    await apiRequest("/appointments/booking/otp/verify", {
-      method: "POST",
-      token,
-      body: JSON.stringify({ holdId, code: otpCode }),
     });
     await loadAppointments();
     setFeedback({ type: "success", message: "Appointment created." });
-    setStep("done");
-  };
-
-  const completeWithPinOverride = async () => {
-    if (!holdId || !selectedBiz) return;
-    const token = await getToken();
-    if (!token) return;
-    await apiRequest("/appointments/booking/pin", {
-      method: "POST",
-      token,
-      body: JSON.stringify({
-        businessId: selectedBiz,
-        holdId,
-        pin,
-        reason: skipReason,
-        staffName: staffName.trim() || undefined,
-      }),
-    });
-    await loadAppointments();
-    setFeedback({ type: "success", message: "Appointment created with manager override." });
     setStep("done");
   };
 
@@ -370,6 +340,18 @@ function AppointmentsPageContent() {
   const getCustomerName = (customerId: string) =>
     customers.find((c) => c.id === customerId)?.name ?? "—";
 
+  const calendarCells = buildMonthCells(calendarMonth);
+  const appointmentsForMonth = appointments.filter((a) => monthKey(a.scheduledAt) === calendarMonth);
+  const appointmentsByDay = appointmentsForMonth.reduce<Record<string, Appointment[]>>((acc, appointment) => {
+    const key = dayKey(appointment.scheduledAt);
+    acc[key] ??= [];
+    acc[key].push(appointment);
+    return acc;
+  }, {});
+  const agenda = selectedAgendaDay
+    ? (appointmentsByDay[selectedAgendaDay] ?? []).slice().sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
+    : [];
+
   if (!workspace?.loading && !businesses.length) {
     return (
       <div className="space-y-6">
@@ -392,21 +374,15 @@ function AppointmentsPageContent() {
           whatToDoNext={appointments.length === 0 ? "Create your first appointment." : "Update the next appointment status."}
           actions={
             <div className="flex flex-wrap gap-2">
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                placeholder="From"
-                className="w-36"
-                aria-label="From date"
-              />
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                placeholder="To"
-                className="w-36"
-                aria-label="To date"
+              <MonthPicker value={calendarMonth} onChange={setCalendarMonth} className="w-44" />
+              <DatePicker
+                value={selectedAgendaDay ?? ""}
+                onChange={(value) => {
+                  setSelectedAgendaDay(value);
+                  setCalendarMonth(value.slice(0, 7));
+                }}
+                placeholder="Pick day"
+                aria-label="Focus day"
               />
             </div>
           }
@@ -419,14 +395,6 @@ function AppointmentsPageContent() {
           }
           hintText="Pick a customer first, then choose a time preset or exact date and time."
         />
-        {!shouldShowManagerPinSetupOnAppointments() && (
-          <div className="rounded-md border border-border bg-card p-4">
-            <p className="text-sm font-medium text-foreground">Manager override</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              PIN setup is managed in Settings. Use manager override only when customer OTP is not possible.
-            </p>
-          </div>
-        )}
         {feedback && (
           <StatusBanner
             variant={feedback.type}
@@ -461,11 +429,10 @@ function AppointmentsPageContent() {
               <h2 className="text-lg font-medium">Reschedule</h2>
               <div>
                 <Label className="mb-1 block">Date & time</Label>
-                <Input
-                  type="datetime-local"
+                <DateTimePicker
                   value={formData.scheduledAt}
-                  onChange={(e) => setFormData((d) => ({ ...d, scheduledAt: e.target.value }))}
-                  required
+                  onChange={(value) => setFormData((d) => ({ ...d, scheduledAt: value }))}
+                  aria-label="Reschedule date and time"
                 />
               </div>
               <div>
@@ -521,17 +488,16 @@ function AppointmentsPageContent() {
               )}
               {(step === "date" || step === "time") && (
                 <div className="space-y-3">
-                  <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-48" />
+                  <MonthPicker value={month} onChange={setMonth} className="w-48" />
                   {availabilityLoading ? <p className="text-sm text-muted-foreground">Loading available slots...</p> : (
                     <>
                       {step === "date" && (
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          {Object.keys(availability?.byDay ?? {}).sort().map((day) => (
-                            <Button key={day} type="button" variant={selectedDay === day ? "default" : "outline"} onClick={() => setSelectedDay(day)}>
-                              {new Date(day).toLocaleDateString()}
-                            </Button>
-                          ))}
-                        </div>
+                        <AvailabilityCalendar
+                          month={month}
+                          selectedDay={selectedDay}
+                          availableDays={Object.keys(availability?.byDay ?? {}).sort()}
+                          onSelect={(day) => setSelectedDay(day)}
+                        />
                       )}
                       {step === "time" && selectedDay && (
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -553,40 +519,10 @@ function AppointmentsPageContent() {
                   <Input placeholder="Notes (optional)" value={formData.notes} onChange={(e) => setFormData((d) => ({ ...d, notes: e.target.value }))} />
                 </div>
               )}
-              {step === "verify" && (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Button type="button" variant={verifyMode === "otp" ? "default" : "outline"} onClick={() => setVerifyMode("otp")}>
-                      Verify via OTP
-                    </Button>
-                    <Button type="button" variant={verifyMode === "override" ? "default" : "outline"} onClick={() => setVerifyMode("override")}>
-                      Manager override
-                    </Button>
-                  </div>
-                  {verifyMode === "otp" && (
-                    <div>
-                      <Label className="mb-1 block">OTP code</Label>
-                      <Input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="6-digit OTP" />
-                      <Button type="button" className="mt-2" onClick={() => void completeWithOtp()} disabled={submitting || !canSubmitVerify({ mode: "otp", otpCode })}>Verify OTP and confirm</Button>
-                    </div>
-                  )}
-                  {verifyMode === "override" && (
-                    <div className="rounded-md border border-border p-3">
-                      <p className="text-sm font-medium">Manager override (when customer OTP is not possible)</p>
-                      <Input className="mt-2" type="password" placeholder="Manager PIN" value={pin} onChange={(e) => setPin(e.target.value)} />
-                      <Input className="mt-2" placeholder="Reason for OTP skip" value={skipReason} onChange={(e) => setSkipReason(e.target.value)} />
-                      <Input className="mt-2" placeholder="Staff name (optional)" value={staffName} onChange={(e) => setStaffName(e.target.value)} />
-                      <Button type="button" className="mt-2" variant="outline" onClick={() => void completeWithPinOverride()} disabled={!canSubmitVerify({ mode: "override", pin, reason: skipReason })}>
-                        Confirm with manager override
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
               {step === "done" && <p className="text-sm text-green-700">Appointment booked successfully.</p>}
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="flex gap-2">
-                {step !== "done" && step !== "verify" && (
+                {step !== "done" && (
                   <Button
                     type="button"
                     onClick={async () => {
@@ -595,7 +531,7 @@ function AppointmentsPageContent() {
                         if (step === "customer") setStep("date");
                         else if (step === "date") setStep("time");
                         else if (step === "time") setStep("review");
-                        else if (step === "review") await startOtpFlow();
+                        else if (step === "review") await completeWizardBooking();
                       } catch (err) {
                         setError(normalizeBookingError(fromError(err, "Unable to continue.")));
                       }
@@ -615,81 +551,125 @@ function AppointmentsPageContent() {
         </div>
       )}
 
-      <PageSection>
-        <p className="text-sm text-muted-foreground">{appointments.length} appointment{appointments.length !== 1 ? "s" : ""}</p>
+      <section className="space-y-4">
         {!syncReady || workspace?.loading || (!!selectedBiz && appointmentsLoading) ? (
           <ListSkeleton rowCount={5} className="mt-4" />
         ) : (
           <>
-        <ul className="mt-4 divide-y divide-border">
-          {appointments.map((a) => (
-            <li
-              key={a.id}
-              className="flex flex-wrap items-center justify-between gap-2 py-5 first:pt-0"
-            >
-              <div>
-                <span className="font-medium">{getCustomerName(a.customerId)}</span>
-                <Badge
-                  variant={a.status === "cancelled" ? "destructive" : a.status === "completed" ? "secondary" : "outline"}
-                  className={a.status !== "cancelled" && a.status !== "completed" ? "bg-primary/10 border-primary/20 capitalize" : "capitalize"}
-                >
-                  {a.status}
-                </Badge>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {new Date(a.scheduledAt).toLocaleString()}
-                  {a.notes && ` · ${a.notes}`}
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
+              <div className="rounded-md border border-border bg-card p-4">
+                <p className="text-sm font-medium">Calendar view</p>
+                <p className="text-xs text-muted-foreground">{appointmentsForMonth.length} appointments in this month</p>
+                <div className="mt-3 grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                    <span key={d}>{d}</span>
+                  ))}
+                </div>
+                <div className="mt-2 grid grid-cols-7 gap-2">
+                  {calendarCells.map((day) => {
+                    const dayAppointments = appointmentsByDay[day] ?? [];
+                    const inMonth = day.startsWith(calendarMonth);
+                    const isSelected = selectedAgendaDay === day;
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`relative rounded-md border p-2 text-left text-xs ${isSelected ? "border-primary bg-primary/10" : "border-border"} ${inMonth ? "" : "opacity-50"}`}
+                        onClick={() => setSelectedAgendaDay(day)}
+                      >
+                        <p className="font-medium">{new Date(day).getDate()}</p>
+                        {dayAppointments.length > 0 && (
+                          <>
+                            <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-primary/80" aria-hidden />
+                            {dayAppointments.length > 1 && (
+                              <span className="absolute bottom-1 right-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                                {dayAppointments.length}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="rounded-md border border-border bg-card p-4">
+                <p className="text-sm font-medium">Selected day agenda</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedAgendaDay ? new Date(selectedAgendaDay).toLocaleDateString() : "No day selected"}
                 </p>
+                <ul className="mt-3 divide-y divide-border">
+                  {agenda.map((a) => {
+                    const isNew = Date.now() - new Date(a.createdAt).getTime() < 1000 * 60 * 60 * 24;
+                    return (
+                      <li key={a.id} className="py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{getCustomerName(a.customerId)}</span>
+                          <Badge
+                            variant={a.status === "cancelled" ? "destructive" : a.status === "completed" ? "secondary" : "outline"}
+                            className="capitalize"
+                          >
+                            {a.status}
+                          </Badge>
+                          {isNew && <Badge className="bg-emerald-600 text-white">New</Badge>}
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {new Date(a.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {a.notes && ` · ${a.notes}`}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {a.status === "scheduled" && (
+                            <Button size="sm" variant="outline" onClick={() => handleReminderSent(a.id)}>
+                              Reminder sent
+                            </Button>
+                          )}
+                          <Select
+                            value={a.status}
+                            onValueChange={(v) => {
+                              const status = v as "scheduled" | "completed" | "missed" | "cancelled";
+                              if (status === "cancelled") setPendingCancel({ id: a.id, customerName: getCustomerName(a.customerId) });
+                              else handleStatus(a.id, status);
+                            }}
+                          >
+                            <SelectTrigger className="min-h-[40px] capitalize" aria-label="Change status">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="scheduled">Scheduled</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                              <SelectItem value="missed">Missed</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {a.status === "scheduled" && (
+                            <Button size="sm" variant="outline" onClick={() => handleEdit(a as Appointment)}>
+                              Reschedule
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {agenda.length === 0 && (
+                  <p className="mt-3 text-sm text-muted-foreground">No appointments for this day.</p>
+                )}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                    {a.status === "scheduled" && (
-                      <Button size="sm" variant="outline" onClick={() => handleReminderSent(a.id)}>
-                        Reminder sent
-                      </Button>
-                    )}
-                    <Select
-                      value={a.status}
-                      onValueChange={(v) => {
-                        const status = v as "scheduled" | "completed" | "missed" | "cancelled";
-                        if (status === "cancelled") {
-                          setPendingCancel({ id: a.id, customerName: getCustomerName(a.customerId) });
-                        } else {
-                          handleStatus(a.id, status);
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="min-h-[44px] capitalize" aria-label="Change status">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="scheduled">Scheduled</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="missed">Missed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {a.status === "scheduled" && (
-                      <Button size="sm" variant="outline" onClick={() => handleEdit(a as Appointment)}>
-                        Reschedule
-                      </Button>
-                    )}
-              </div>
-            </li>
-          ))}
-        </ul>
-        {appointments.length === 0 && (
-          <EmptyState
-            what="No appointments yet"
-            why="Appointments help you plan your day — but you can use the app without them."
-            nextAction={
-              <Button onClick={() => { resetForm(); setShowForm(true); }}>
-                Create first appointment
-              </Button>
-            }
-          />
-        )}
+            </div>
+            {appointments.length === 0 && (
+              <EmptyState
+                what="No appointments yet"
+                why="Appointments help you plan your day — but you can use the app without them."
+                nextAction={
+                  <Button onClick={() => { resetForm(); setShowForm(true); }}>
+                    Create first appointment
+                  </Button>
+                }
+              />
+            )}
           </>
         )}
-      </PageSection>
+      </section>
     </div>
   );
 }
