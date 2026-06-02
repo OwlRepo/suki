@@ -6,12 +6,30 @@ import { useRouter } from "next/navigation";
 import { startSignUp, verifySignUp } from "@/lib/auth-client";
 import { invalidateSessionCache } from "@/hooks/use-session";
 
-function TyveraMark() {
+type TyveraMarkProps = {
+  className?: string;
+};
+
+function TyveraMark({ className = "h-8 w-8" }: TyveraMarkProps) {
   return (
-    <span className="relative flex h-10 w-10 items-center justify-center" aria-hidden="true">
-      <span className="absolute top-1 h-3 w-9 rounded-full bg-linear-to-r from-blue-700 via-blue-500 to-sky-300" />
-      <span className="absolute top-2 h-8 w-4 rounded-b-xl rounded-t-md bg-linear-to-b from-blue-600 to-blue-500" />
-    </span>
+    <svg
+      aria-hidden="true"
+      className={className}
+      viewBox="0 0 48 48"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect x="5" y="6" width="38" height="10" rx="5" fill="currentColor" />
+      <rect
+        x="19"
+        y="14"
+        width="10"
+        height="28"
+        rx="5"
+        fill="currentColor"
+        opacity="0.72"
+      />
+    </svg>
   );
 }
 
