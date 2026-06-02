@@ -28,6 +28,7 @@ All external-provider contract changes are HIGH risk and require contract/regres
 - Subscription and add-on checkout URLs are created server-side from an allowlisted variant catalog.
 - Billing webhook verification uses the raw request body plus `X-Signature` HMAC SHA-256 with timing-safe comparison.
 - Customer portal access is treated as short-lived and fetched server-side rather than trusted from client input.
+- Subscription webhook reconciliation now upserts provider-neutral subscription fields, updates organization billing state, and raises included verified-booking credits on mid-cycle upgrades without resetting usage.
 
 ## Documentation Drift Guard
 When auth/provider/integration behavior changes:

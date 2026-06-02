@@ -45,7 +45,7 @@ export class BillingWebhookController {
 
     const duplicate = await this.billingService.isWebhookEventProcessed(eventId);
     if (!duplicate) {
-      await this.billingService.recordWebhookEventId(eventId, eventName);
+      await this.billingService.reconcileWebhookEvent(payload);
     }
 
     return {

@@ -27,14 +27,14 @@ describe("BillingWebhookController", () => {
   });
 
   it("records verified webhook events idempotently", async () => {
-    const recordWebhookEventId = vi.fn().mockResolvedValue(undefined);
+    const reconcileWebhookEvent = vi.fn().mockResolvedValue(undefined);
     const controller = new BillingWebhookController(
       {
         verifyWebhookSignature: vi.fn().mockReturnValue(true),
       } as never,
       {
         isWebhookEventProcessed: vi.fn().mockResolvedValue(false),
-        recordWebhookEventId,
+        reconcileWebhookEvent,
       } as never,
     );
 
@@ -61,9 +61,16 @@ describe("BillingWebhookController", () => {
       ),
     ).resolves.toEqual({ received: true, duplicate: false });
 
-    expect(recordWebhookEventId).toHaveBeenCalledWith(
-      "evt_123",
-      "subscription_created",
-    );
+    expect(reconcileWebhookEvent).toHaveBeenCalledWith({
+      meta: {
+        event_name: "subscription_created",
+        custom_data: {
+          organization_id: "org-1",
+        },
+      },
+      data: {
+        id: "evt_123",
+      },
+    });
   });
 });
