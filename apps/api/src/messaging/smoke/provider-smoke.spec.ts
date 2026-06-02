@@ -11,7 +11,7 @@ runSmoke("real provider smoke (Twilio/Resend)", () => {
     const provider = new TwilioSmsProvider();
     const result = await provider.send({
       to: process.env.SMOKE_TWILIO_TO as string,
-      body: "Suki smoke test SMS",
+      body: "Tyvera smoke test SMS",
       clientRef: `smoke-${Date.now()}`,
     });
 
@@ -23,8 +23,8 @@ runSmoke("real provider smoke (Twilio/Resend)", () => {
     const provider = new ResendEmailProvider();
     const result = await provider.send({
       to: process.env.SMOKE_RESEND_TO as string,
-      subject: "Suki smoke test email",
-      body: "Suki smoke test email body",
+      subject: "Tyvera smoke test email",
+      body: "Tyvera smoke test email body",
       clientRef: `smoke-${Date.now()}`,
     });
 

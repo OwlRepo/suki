@@ -11,8 +11,8 @@ import { OrgBillingStateService } from "../common/org-billing-state.service";
 import { FeatureFlagsService } from "../common/feature-flags.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { Tenant } from "../common/tenant.decorator";
-import { getDb } from "@suki/database";
-import { organizations } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { organizations } from "@tyvera/database";
 import { eq } from "drizzle-orm";
 
 @Controller("billing")

@@ -28,7 +28,7 @@ export type StepGuidance = {
 export const STEP_GUIDANCE: Record<number, StepGuidance> = {
   1: {
     title: "Set up your business",
-    whatThisIs: "We need your business name and type to personalize Suki for you.",
+    whatThisIs: "We need your business name and type to personalize Tyvera for you.",
     whyThisMatters: "This lets us show you the right terms and suggestions (e.g. customers vs patients, appointments vs bookings).",
     doThisNow: "Enter your business name and select your business type below.",
     successFeedback: "Your business profile is ready. You can edit this anytime in Settings.",
@@ -73,7 +73,7 @@ export const STEP_GUIDANCE: Record<number, StepGuidance> = {
     whatThisIs: "You're almost done. If you already have a customer list elsewhere, you can paste names or notes here for later import.",
     whyThisMatters: "Importing in small batches lets you review each group before adding more. You can also skip and import later.",
     doThisNow: "Paste any names or notes below if you want, or simply finish. You can always import more customers later.",
-    successFeedback: "Setup complete. Welcome to Suki!",
+    successFeedback: "Setup complete. Welcome to Tyvera!",
     primaryActionLabel: "Finish setup",
     secondaryActionLabel: "Skip import for now",
     allowSkip: true,

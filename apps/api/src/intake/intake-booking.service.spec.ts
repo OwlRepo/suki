@@ -10,7 +10,7 @@ const updateWhereMock = vi.fn();
 const setMock = vi.fn();
 const updateMock = vi.fn();
 
-vi.mock("@suki/database", () => ({
+vi.mock("@tyvera/database", () => ({
   getDb: () => ({
     select: selectMock,
     from: fromMock,

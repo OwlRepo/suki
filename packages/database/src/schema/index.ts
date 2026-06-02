@@ -682,7 +682,7 @@ export const messageEvents = pgTable(
     costMicros: integer("cost_micros"),
     providerMessageId: text("provider_message_id"),
     failureReason: text("failure_reason"),
-    sentBy: text("sent_by").notNull().default("auto_suki"),
+    sentBy: text("sent_by").notNull().default("auto_tyvera"),
     sentAt: timestamp("sent_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

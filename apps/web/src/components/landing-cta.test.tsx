@@ -14,6 +14,6 @@ describe("LandingCta", () => {
   it("shows login and sign-up links for signed-out users", () => {
     render(<LandingCta />);
     expect(screen.getByRole("link", { name: /log in/i })).toHaveAttribute("href", "/sign-in");
-    expect(screen.getByRole("link", { name: /try suki free/i })).toHaveAttribute("href", "/sign-up");
+    expect(screen.getByRole("link", { name: /try tyvera free/i })).toHaveAttribute("href", "/sign-up");
   });
 });

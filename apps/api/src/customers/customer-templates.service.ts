@@ -1,10 +1,10 @@
 import { Injectable, ForbiddenException, NotFoundException } from "@nestjs/common";
-import { getDb } from "@suki/database";
+import { getDb } from "@tyvera/database";
 import {
   customerDescriptionTemplates,
   businessDefaultDescriptionTemplates,
   businesses,
-} from "@suki/database";
+} from "@tyvera/database";
 import { eq, and, or, isNull, asc } from "drizzle-orm";
 
 export type TemplateFieldConfig = { key: string; label: string; placeholder?: string };

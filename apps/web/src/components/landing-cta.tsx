@@ -39,7 +39,7 @@ export function LandingCta({ singlePrimary }: LandingCtaProps) {
       </Button>
       {flags.public_signup_enabled && (
         <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-          <Link href="/sign-up">Try Suki Free</Link>
+          <Link href="/sign-up">Try Tyvera Free</Link>
         </Button>
       )}
     </div>

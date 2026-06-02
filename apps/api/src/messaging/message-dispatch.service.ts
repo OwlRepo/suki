@@ -1,8 +1,8 @@
 import { Injectable, Inject } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { businesses, customers, messageEvents } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { businesses, customers, messageEvents } from "@tyvera/database";
 import { eq, and, gte, sql } from "drizzle-orm";
-import type { AutomationKey, MessagePurpose } from "@suki/types";
+import type { AutomationKey, MessagePurpose } from "@tyvera/types";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { AutomationPolicyService } from "../automation/automation-policy.service";
 import { SmsMeteringService } from "./sms-metering.service";
@@ -12,7 +12,7 @@ import type { IEmailProvider } from "./providers/email.provider";
 import { SMS_PROVIDER, EMAIL_PROVIDER } from "./providers/provider.tokens";
 
 const SMS_STOP = " Reply STOP to opt out.";
-const AUTO_FOOTER = " Sent automatically by Suki";
+const AUTO_FOOTER = " Sent automatically by Tyvera";
 const FOLLOWUP_DAILY_ORG_LIMIT_DEFAULT = 500;
 const FOLLOWUP_DAILY_BUSINESS_LIMIT_DEFAULT = 300;
 const FOLLOWUP_DAILY_USER_LIMIT_DEFAULT = 120;
@@ -72,7 +72,7 @@ export class MessageDispatchService {
 
   async dispatch(input: DispatchInput): Promise<DispatchResult> {
     const db = getDb();
-    const sentBy = input.actorUserId ? `user:${input.actorUserId}` : "auto_suki";
+    const sentBy = input.actorUserId ? `user:${input.actorUserId}` : "auto_tyvera";
 
     const [cust] = await db
       .select()
@@ -172,7 +172,7 @@ export class MessageDispatchService {
       if (!body.endsWith(AUTO_FOOTER)) body += AUTO_FOOTER;
     }
 
-    const clientRef = `suki-${input.automationKey}-${input.customerId}-${Date.now()}`;
+    const clientRef = `tyvera-${input.automationKey}-${input.customerId}-${Date.now()}`;
 
     const [evt] = await db
       .insert(messageEvents)
@@ -295,7 +295,7 @@ export class MessageDispatchService {
       }
       const emailResult = await this.emailProvider.send({
         to,
-        subject: input.subject ?? "Message from Suki",
+        subject: input.subject ?? "Message from Tyvera",
         body,
         clientRef,
       });
@@ -366,7 +366,7 @@ export class MessageDispatchService {
         channel: input.channel,
         content: input.rawMessage,
         status: "skipped",
-        sentBy: input.actorUserId ? `user:${input.actorUserId}` : "auto_suki",
+        sentBy: input.actorUserId ? `user:${input.actorUserId}` : "auto_tyvera",
         failureReason: reason,
       })
       .returning();

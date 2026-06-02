@@ -16,7 +16,7 @@ import { DesktopSidebarNav } from "./desktop-sidebar-nav";
 import { MobileBottomNav, BOTTOM_NAV_HEIGHT } from "./mobile-bottom-nav";
 import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { cn } from "@/lib/utils";
-import { SukiAssistant } from "@/components/suki-assistant";
+import { TyveraAssistant } from "@/components/tyvera-assistant";
 
 const SIDEBAR_WIDTH = 240;
 
@@ -55,7 +55,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
                 href="/dashboard"
                 className="text-lg font-semibold text-foreground"
               >
-                Suki
+                Tyvera
               </Link>
             </div>
             <DesktopSidebarNav groups={navGroups} className="flex-1" />
@@ -82,7 +82,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
                   href="/dashboard"
                   className="text-lg font-semibold text-foreground"
                 >
-                  Suki
+                  Tyvera
                 </Link>
               </div>
               <div className="hidden lg:flex lg:flex-1" aria-hidden />
@@ -120,7 +120,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
         />
-        <SukiAssistant />
+        <TyveraAssistant />
       </div>
     </DashboardOnboardingWrapper>
   );

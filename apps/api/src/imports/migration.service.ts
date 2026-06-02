@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { customers, businesses, importBatches } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { customers, businesses, importBatches } from "@tyvera/database";
 import { eq, and, inArray } from "drizzle-orm";
 import type {
   MigrationValidationReport,

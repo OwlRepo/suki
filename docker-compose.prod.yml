@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: suki
+      POSTGRES_DB: tyvera
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     healthcheck:
@@ -28,7 +28,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/suki
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tyvera
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       NODE_ENV: production
     depends_on:

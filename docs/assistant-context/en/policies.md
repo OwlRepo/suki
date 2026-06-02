@@ -7,7 +7,7 @@ relatedRoutes: ["/help", "/settings"]
 toolBindings: ["route_guidance"]
 priority: high
 lastUpdated: 2026-05-10
-quickAnswer: Suki Assistant answers from trusted app context and approved tools only.
+quickAnswer: Tyvera Assistant answers from trusted app context and approved tools only.
 ---
 - Assistant responses must be grounded in app context, docs, and approved tool outputs.
 - Avoid speculative numbers, guessed limits, or unverified billing claims.

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { AI_QUOTAS } from "./ai-quotas";
-import type { PlanType } from "@suki/types";
+import type { PlanType } from "@tyvera/types";
 
 @Injectable()
 export class AiPolicyService {

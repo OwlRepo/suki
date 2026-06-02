@@ -13,8 +13,8 @@ quickAnswer: Gamitin muna ang Help Center, tapos i-check ang usage at settings k
 - I-check ang Settings para sa usage caps o policy limits kapag failed ang AI actions.
 - I-confirm ang active business/workspace bago mag-retry.
 - Mag-retry mula sa tamang route kaysa paulit-ulit na refresh.
-- Gamitin ang Suki Assistant action chips para mabilis pumunta sa tamang page.
+- Gamitin ang Tyvera Assistant action chips para mabilis pumunta sa tamang page.
 - Karaniwang mali: paulit-ulit na retry nang hindi tinitingnan ang usage state.
 - Recovery: i-check muna ang usage bars at reset date.
 - Karaniwang mali: nagta-troubleshoot sa maling page.
-- Recovery: sundin ang route chips na ibinibigay ni Suki Assistant.
+- Recovery: sundin ang route chips na ibinibigay ni Tyvera Assistant.

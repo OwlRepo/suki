@@ -41,7 +41,7 @@ Do not:
 
 ## Troubleshooting
 ### `bun run update:ai-indexes` fails with command/script errors
-- Confirm you are at repo root: `/Users/romeoangelesjr/Documents/personal/suki`.
+- Confirm you are at the repository root before running workspace commands.
 - Confirm Bun is installed and available: `bun --version`.
 - Confirm scripts exist:
   - `scripts/update-ai-indexes.ts`

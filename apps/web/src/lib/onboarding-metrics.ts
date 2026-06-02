@@ -29,7 +29,7 @@ export interface OnboardingEvent {
   timestamp: string;
 }
 
-const STORAGE_KEY = "suki-onboarding-events";
+const STORAGE_KEY = "tyvera-onboarding-events";
 
 export function recordOnboardingEvent(
   type: OnboardingEventType,

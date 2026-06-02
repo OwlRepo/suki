@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { onboardingProgress } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { onboardingProgress } from "@tyvera/database";
 import { eq, and, isNull } from "drizzle-orm";
 
 @Injectable()

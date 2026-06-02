@@ -34,7 +34,7 @@ describe("proxy protected-route matrix", () => {
 
   it("allows all protected routes when session cookie exists", () => {
     for (const route of PROTECTED_ROUTES) {
-      const res = proxy(makeRequest(route, "suki_session=test"));
+      const res = proxy(makeRequest(route, "tyvera_session=test"));
       expect(res.status).toBe(200);
     }
   });

@@ -1,6 +1,6 @@
 # Shared base: installs all workspace dependencies.
-# Build from repo root: docker build -f Dockerfile.base -t suki-base .
-# Other Dockerfiles may COPY --from=suki-base /app/node_modules .
+# Build from repo root: docker build -f Dockerfile.base -t tyvera-base .
+# Other Dockerfiles may COPY --from=tyvera-base /app/node_modules .
 FROM oven/bun:1.2-alpine AS deps
 
 WORKDIR /app

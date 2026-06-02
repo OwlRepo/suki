@@ -61,7 +61,7 @@ export default function SignUpPage() {
         >
           <div className="mb-6 space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Create account</h1>
-            <p className="text-sm text-slate-600">Get started with Suki in a few steps.</p>
+            <p className="text-sm text-slate-600">Get started with Tyvera in a few steps.</p>
           </div>
 
           <div className="space-y-4">

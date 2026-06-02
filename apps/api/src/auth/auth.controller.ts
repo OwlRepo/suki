@@ -11,7 +11,7 @@ import {
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 
-const COOKIE_NAME = "suki_session";
+const COOKIE_NAME = "tyvera_session";
 
 @Controller("auth")
 export class AuthController {

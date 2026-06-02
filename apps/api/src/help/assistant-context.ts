@@ -7,7 +7,7 @@ import {
 export type AssistantIntent = "usage" | "metrics" | "how_to" | "troubleshooting" | "general";
 
 const MASTER_APP_CONTEXT = {
-  product: "Suki",
+  product: "Tyvera",
   audience: "Non-technical small business users",
   tone: "Simple, plain-language, action-first",
   guardrails: [

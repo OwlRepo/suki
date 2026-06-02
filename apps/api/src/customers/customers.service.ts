@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, ConflictException } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { customers, businesses, messageEvents, visitAdjustmentHistory } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { customers, businesses, messageEvents, visitAdjustmentHistory } from "@tyvera/database";
 import { eq, and, ilike, like, or, sql, desc, gte, lt, isNull } from "drizzle-orm";
 import { AutomationSendService } from "../automation/automation-send.service";
 

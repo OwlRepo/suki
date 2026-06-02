@@ -3,7 +3,7 @@
 ## Web -> API
 - Web app uses utility clients in `apps/web/src/lib` to call REST endpoints served by `apps/api`.
 - Auth/session alignment is handled through Clerk integration in both apps.
-- Suki Assistant UI updates usage bars immediately from stream `usage` events and still refetches `/ai/usage/summary` after successful streamed/non-streamed replies for reconciliation.
+- Tyvera Assistant UI updates usage bars immediately from stream `usage` events and still refetches `/ai/usage/summary` after successful streamed/non-streamed replies for reconciliation.
 
 ## External Integrations
 - Payments: PayMongo webhook and billing services

@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { smsCredits, smsUsageEvents } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { smsCredits, smsUsageEvents } from "@tyvera/database";
 import { eq, and, sql } from "drizzle-orm";
-import type { PlanType, SmsPausedReason } from "@suki/types";
+import type { PlanType, SmsPausedReason } from "@tyvera/types";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 
 /** SMS included per plan per month */

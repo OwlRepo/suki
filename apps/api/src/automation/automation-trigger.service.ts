@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { messageEvents } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { messageEvents } from "@tyvera/database";
 
 export interface RecordMessageEventInput {
   businessId: string;
@@ -32,7 +32,7 @@ export class AutomationTriggerService {
         status: input.status,
         providerMessageId: input.providerMessageId ?? null,
         failureReason: input.failureReason ?? null,
-        sentBy: "auto_suki",
+        sentBy: "auto_tyvera",
         sentAt: input.status === "sent" ? new Date() : null,
       })
       .returning();

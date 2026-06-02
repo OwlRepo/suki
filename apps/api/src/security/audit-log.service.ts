@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { auditLogs } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { auditLogs } from "@tyvera/database";
 
 export type AuditAction =
   | "consent_change"

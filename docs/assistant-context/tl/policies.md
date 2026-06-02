@@ -7,7 +7,7 @@ relatedRoutes: ["/help", "/settings"]
 toolBindings: ["route_guidance"]
 priority: high
 lastUpdated: 2026-05-10
-quickAnswer: Sumasagot si Suki Assistant gamit lang ang trusted app context at approved tools.
+quickAnswer: Sumasagot si Tyvera Assistant gamit lang ang trusted app context at approved tools.
 ---
 - Dapat naka-ground ang sagot sa app context, docs, at approved tool outputs.
 - Iwasan ang hulang numbers, guessed limits, o hindi verified na billing claims.

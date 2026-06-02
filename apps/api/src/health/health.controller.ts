@@ -1,5 +1,5 @@
 import { Controller, Get } from "@nestjs/common";
-import { getDb } from "@suki/database";
+import { getDb } from "@tyvera/database";
 import { sql } from "drizzle-orm";
 import { FeatureFlagsService } from "../common/feature-flags.service";
 

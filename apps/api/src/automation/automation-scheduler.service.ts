@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { getDb } from "@suki/database";
-import { appointments, customers, automationSettings, businesses } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { appointments, customers, automationSettings, businesses } from "@tyvera/database";
 import { eq, and, gte, lte, or, lt, isNull } from "drizzle-orm";
 import { AutomationSendService } from "./automation-send.service";
 import { FeatureFlagsService } from "../common/feature-flags.service";

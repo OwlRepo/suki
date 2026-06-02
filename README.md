@@ -1,4 +1,4 @@
-# Suki
+# Tyvera
 
 **Bring customers back automatically. No more forgotten follow-ups.**
 
@@ -15,9 +15,9 @@ It’s just that **everyone forgets**.
 
 ---
 
-## What Suki Does
+## What Tyvera Does
 
-Suki helps service businesses **recover lost customers automatically**.
+Tyvera helps service businesses **recover lost customers automatically**.
 
 It captures your customers, tracks visits, and sends reminders and follow-ups at the right time—so customers come back without you needing to remember.
 
@@ -59,7 +59,7 @@ You set it once. It runs for you.
 
 ## Who This Is For
 
-Suki is built for **service businesses with repeat customers**:
+Tyvera is built for **service businesses with repeat customers**:
 
 - Salons & barbershops  
 - Clinics & dental clinics  
@@ -74,13 +74,13 @@ Suki is built for **service businesses with repeat customers**:
 - Convenience stores  
 - One-time transaction businesses  
 
-If customers don’t come back regularly, Suki won’t add much value.
+If customers don’t come back regularly, Tyvera won’t add much value.
 
 ---
 
 ## 💰 Pricing (Early Access)
 
-Suki is currently offered as a **customer follow-up automation service**.
+Tyvera is currently offered as a **customer follow-up automation service**.
 
 You don’t pay for “software”—you pay for:
 > **customers coming back automatically**
@@ -143,13 +143,13 @@ Billing:
 
 ---
 
-## 🧠 Why Businesses Use Suki
+## 🧠 Why Businesses Use Tyvera
 
 One recovered customer often covers the monthly cost.
 
 Example:
 - Missed appointment = ₱500–₱1,000 lost  
-- Suki reminder = brings them back  
+- Tyvera reminder = brings them back  
 
 That’s already ROI.
 
@@ -157,7 +157,7 @@ That’s already ROI.
 
 ## 🤝 Current Setup (Early Stage)
 
-Suki is currently offered with **direct support and setup**.
+Tyvera is currently offered with **direct support and setup**.
 
 - Setup is handled with you  
 - Billing is sent monthly (GCash / bank transfer)  
@@ -192,7 +192,7 @@ Requires [Docker](https://docs.docker.com/get-docker/)
 
 ## Auth Setup (Local First-Party Auth)
 
-Suki now uses first-party auth with Resend email OTP and session cookies.
+Tyvera now uses first-party auth with Resend email OTP and session cookies.
 
 - Web auth pages: `/sign-in`, `/sign-up`
 - API auth routes: `/auth/*`

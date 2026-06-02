@@ -5,8 +5,8 @@ import {
   InternalServerErrorException,
   Logger,
 } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { appointments, bookingHolds, businesses } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { appointments, bookingHolds, businesses } from "@tyvera/database";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 const HOLD_MINUTES = 5;

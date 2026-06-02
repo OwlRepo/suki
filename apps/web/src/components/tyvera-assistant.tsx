@@ -37,10 +37,10 @@ const PROMPTS = [
   "How many SMS do I have left?",
 ];
 
-const COACHMARK_KEY = "suki-assistant-coachmark-dismissed-v1";
-const ASSISTANT_HEADER_COLLAPSED_KEY = "suki-assistant-header-collapsed-v1";
+const COACHMARK_KEY = "tyvera-assistant-coachmark-dismissed-v1";
+const ASSISTANT_HEADER_COLLAPSED_KEY = "tyvera-assistant-header-collapsed-v1";
 const COACHMARK_STEPS = [
-  "Ask Suki Assistant how to do tasks in simple language.",
+  "Ask Tyvera Assistant how to do tasks in simple language.",
   "Check today’s AI usage and daily reset time before you run out.",
   "Use Help Center and Settings shortcuts when you need more details.",
 ];
@@ -65,7 +65,7 @@ function isUsableBearerToken(token: string | null | undefined): token is string 
   return true;
 }
 
-export function SukiAssistant() {
+export function TyveraAssistant() {
   const { getToken } = useAuth();
   const workspace = useWorkspace();
   const [open, setOpen] = useState(false);
@@ -78,7 +78,7 @@ export function SukiAssistant() {
     {
       id: "welcome",
       role: "assistant",
-      text: "Hi, I’m Suki Assistant. I can help you navigate the app and check your usage.",
+      text: "Hi, I’m Tyvera Assistant. I can help you navigate the app and check your usage.",
       sources: ["Help Center"],
     },
   ]);
@@ -190,7 +190,7 @@ export function SukiAssistant() {
         text: `${res.plainAnswer} ${res.nextStep}`.trim(),
         details: res.details,
         actionChips: res.actionChips ?? [],
-        sources: ["Suki Assistant"],
+        sources: ["Tyvera Assistant"],
       };
     } catch {
       // Fallback to local docs search below.
@@ -310,7 +310,7 @@ export function SukiAssistant() {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === messageId
-              ? { ...msg, text: finalText || text, details, actionChips, sources: ["Suki Assistant"], state: "read" }
+              ? { ...msg, text: finalText || text, details, actionChips, sources: ["Tyvera Assistant"], state: "read" }
               : msg,
           ),
         );
@@ -418,7 +418,7 @@ export function SukiAssistant() {
         {showCoachmark && (
           <Card className="mb-3 w-80 border-primary/30 bg-card/95 shadow-xl backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-200 motion-reduce:animate-none">
             <CardContent className="space-y-3 p-5">
-              <p className="text-base font-semibold tracking-tight">Try Suki Assistant</p>
+              <p className="text-base font-semibold tracking-tight">Try Tyvera Assistant</p>
               <p className="text-sm leading-relaxed text-muted-foreground">Step {coachmarkStep + 1} of {COACHMARK_STEPS.length}: {COACHMARK_STEPS[coachmarkStep]}</p>
               <div className="flex gap-2 pt-1">
                 <Button size="sm" className="min-h-[42px] px-4 text-sm" onClick={() => { setOpen(true); dismissCoachmark(); }}>Open now</Button>
@@ -430,23 +430,23 @@ export function SukiAssistant() {
           </Card>
         )}
         <Button
-          aria-label="Open Suki Assistant"
+          aria-label="Open Tyvera Assistant"
           className="min-h-[54px] rounded-full border border-primary/20 bg-primary px-6 text-base font-medium shadow-xl shadow-primary/20 transition-transform duration-200 motion-safe:hover:scale-[1.02] motion-safe:active:scale-[0.98] motion-reduce:transform-none"
           onClick={() => setOpen(true)}
         >
           <MessageCircle className="mr-2 size-5" aria-hidden />
-          Suki Assistant
+          Tyvera Assistant
         </Button>
       </div>
 
       {open && (
         <section
-          aria-label="Suki Assistant Panel"
+          aria-label="Tyvera Assistant Panel"
           className="fixed right-0 bottom-0 z-50 flex h-[84vh] w-full max-w-[26rem] flex-col border-l border-border/80 bg-background shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-200 motion-reduce:animate-none"
         >
           <div className="border-b border-border/80 p-3.5">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-lg font-semibold tracking-tight">Suki Assistant</p>
+              <p className="text-lg font-semibold tracking-tight">Tyvera Assistant</p>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
@@ -618,7 +618,7 @@ export function SukiAssistant() {
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask Suki Assistant..."
+                placeholder="Ask Tyvera Assistant..."
                 className="min-h-[48px] rounded-xl border-border/80 text-base"
               />
               <Button type="submit" className="min-h-[48px] rounded-xl px-4 text-sm font-semibold">Send</Button>

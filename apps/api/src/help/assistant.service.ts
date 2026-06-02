@@ -518,7 +518,7 @@ export class AssistantService {
     registry: AssistantIntentRegistry[AssistantIntent],
   ): string {
     const base = [
-      "You are Suki Assistant for non-technical users.",
+      "You are Tyvera Assistant for non-technical users.",
       "Return strict JSON with keys: plainAnswer, nextStep, details, actionChips, confidence, intentKey, usedTools.",
       "plainAnswer must be short and easy to understand.",
       "nextStep must be one direct action sentence.",

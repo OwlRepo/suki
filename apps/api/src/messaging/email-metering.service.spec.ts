@@ -10,7 +10,7 @@ const mockValues = vi.fn();
 const mockReturning = vi.fn();
 let queuedWhereResults: unknown[] = [];
 
-vi.mock("@suki/database", () => ({
+vi.mock("@tyvera/database", () => ({
   getDb: () => ({
     select: mockSelect,
     from: mockFrom,

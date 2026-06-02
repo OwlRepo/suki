@@ -26,7 +26,7 @@ jobs:
           script_stop: true
           script: |
             set -eu
-            cd ~/apps/suki
+            cd ~/apps/tyvera
 
             command -v docker >/dev/null
             docker compose version >/dev/null

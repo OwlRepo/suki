@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Suki - Customer Engagement for Small Business",
+  title: "Tyvera - Customer Engagement for Small Business",
   description:
     "Reduce no-shows and bring customers back automatically. Appointment reminders and follow-ups for salons, clinics, gyms, and spas worldwide.",
 };

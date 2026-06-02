@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getDbMock = vi.fn();
 
-vi.mock("@suki/database", async () => {
-  const actual = await vi.importActual<typeof import("@suki/database")>("@suki/database");
+vi.mock("@tyvera/database", async () => {
+  const actual = await vi.importActual<typeof import("@tyvera/database")>("@tyvera/database");
   return {
     ...actual,
     getDb: () => getDbMock(),

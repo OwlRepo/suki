@@ -61,14 +61,14 @@ const HOW_IT_WORKS = [
     icon: Users,
     title: "Capture customers once",
     description:
-      "Use QR signup, manual entry, or imports. Suki keeps one organized customer record with visit history.",
+      "Use QR signup, manual entry, or imports. Tyvera keeps one organized customer record with visit history.",
   },
   {
     step: "2",
     icon: CalendarCheck,
     title: "Track visits and appointments",
     description:
-      "Suki knows who booked, who visited, who missed, and who has not returned in a while.",
+      "Tyvera knows who booked, who visited, who missed, and who has not returned in a while.",
   },
   {
     step: "3",
@@ -116,16 +116,16 @@ const BEFORE_AFTER = {
 
 const FAQ = [
   {
-    q: "Is Suki free to use?",
-    a: "Yes. Suki is currently in free mode with all core features enabled.",
+    q: "Is Tyvera free to use?",
+    a: "Yes. Tyvera is currently in free mode with all core features enabled.",
   },
   {
     q: "How do usage limits work?",
-    a: "Suki enforces daily limits for AI and follow-up sending to prevent abuse and keep usage healthy.",
+    a: "Tyvera enforces daily limits for AI and follow-up sending to prevent abuse and keep usage healthy.",
   },
   {
-    q: "Is Suki only for the Philippines?",
-    a: "Suki is designed first for Philippine service businesses, especially salons, clinics, gyms, spas, and appointment-based businesses.",
+    q: "Is Tyvera only for the Philippines?",
+    a: "Tyvera is designed first for Philippine service businesses, especially salons, clinics, gyms, spas, and appointment-based businesses.",
   },
 ] as const;
 
@@ -135,7 +135,7 @@ export default function Home() {
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="text-xl font-semibold text-foreground">
-            Suki
+            Tyvera
           </Link>
           <AuthCta />
         </div>
@@ -158,7 +158,7 @@ export default function Home() {
               </h1>
 
               <p className="max-w-lg text-lg leading-relaxed text-muted-foreground">
-                Suki helps Philippine service businesses reduce no-shows, send
+                Tyvera helps Philippine service businesses reduce no-shows, send
                 follow-ups, and bring customers back automatically.
               </p>
 
@@ -205,7 +205,7 @@ export default function Home() {
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-center leading-relaxed text-muted-foreground">
             Customers forget appointments. Staff get busy. Follow-ups are missed.
-            Suki makes sure the right message still gets sent.
+            Tyvera makes sure the right message still gets sent.
           </p>
 
           <ul className="mx-auto mt-8 max-w-xl list-inside list-disc space-y-2 text-muted-foreground">
@@ -219,10 +219,10 @@ export default function Home() {
           <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
             <div>
               <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
-                Set it once. Suki keeps working.
+                Set it once. Tyvera keeps working.
               </h2>
               <p className="mt-3 leading-relaxed text-muted-foreground">
-                Suki stores your customer list, tracks visits, and sends
+                Tyvera stores your customer list, tracks visits, and sends
                 reminders or winback messages automatically. You do not need to
                 open it every day.
               </p>
@@ -294,7 +294,7 @@ export default function Home() {
               Automations that recover customers
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">
-              Suki runs the messages that business owners and staff usually
+              Tyvera runs the messages that business owners and staff usually
               forget.
             </p>
 
@@ -332,7 +332,7 @@ export default function Home() {
 
             <Card className="border-primary/30 bg-primary/5 p-6">
               <CardContent className="p-0">
-                <h3 className="font-semibold text-foreground">After Suki</h3>
+                <h3 className="font-semibold text-foreground">After Tyvera</h3>
                 <ul className="mt-4 list-inside list-disc space-y-2 text-sm text-foreground">
                   {BEFORE_AFTER.after.map((item) => (
                     <li key={item}>{item}</li>
@@ -349,7 +349,7 @@ export default function Home() {
               Built first for Philippine service businesses
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-muted-foreground">
-              Suki works best when customers book ahead or come back regularly.
+              Tyvera works best when customers book ahead or come back regularly.
             </p>
 
             <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -374,7 +374,7 @@ export default function Home() {
             </div>
 
             <p className="mt-2 text-muted-foreground">
-              Suki helps you organize your customer list and automate follow-ups.
+              Tyvera helps you organize your customer list and automate follow-ups.
               You can view and export your data anytime.
             </p>
 
@@ -401,7 +401,7 @@ export default function Home() {
                 </h2>
 
                 <p className="max-w-lg leading-relaxed text-muted-foreground">
-                  Suki is built for small service businesses that want fewer
+                  Tyvera is built for small service businesses that want fewer
                   no-shows, more repeat visits, and less manual texting.
                 </p>
 
@@ -420,7 +420,7 @@ export default function Home() {
 
       <footer className="border-t border-border py-12">
         <div className="mx-auto max-w-6xl px-4 text-center text-sm text-muted-foreground sm:px-6">
-          Suki — Customer recovery automation for Philippine service businesses.
+          Tyvera — Customer recovery automation for Philippine service businesses.
         </div>
       </footer>
     </div>

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@suki/database";
+import { getDb } from "@tyvera/database";
 import {
   authIdentities,
   authOtpChallenges,
@@ -7,7 +7,7 @@ import {
   organizations,
   subscriptions,
   users,
-} from "@suki/database";
+} from "@tyvera/database";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { FeatureFlagsService } from "../common/feature-flags.service";
@@ -55,7 +55,7 @@ export class AuthService {
       body: JSON.stringify({
         from,
         to: email,
-        subject: "Your Suki verification code",
+        subject: "Your Tyvera verification code",
         html: `<p>Your verification code is <strong>${code}</strong>.</p><p>This expires in ${OTP_TTL_MINUTES} minutes.</p>`,
       }),
     }).catch(() => undefined);

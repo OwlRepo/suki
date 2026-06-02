@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { aiUsageEvents, aiBudgets } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { aiUsageEvents, aiBudgets } from "@tyvera/database";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { AI_QUOTAS } from "./ai-quotas";

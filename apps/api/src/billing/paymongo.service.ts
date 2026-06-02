@@ -71,8 +71,8 @@ export class PaymongoService {
               name: params.planType ? `${params.planType} plan` : "SMS Add-on",
               quantity: 1,
               description: params.planType
-                ? `Suki ${params.planType} subscription`
-                : "Suki +300 SMS pack",
+                ? `Tyvera ${params.planType} subscription`
+                : "Tyvera +300 SMS pack",
             },
           ],
           payment_method_types: ["card", "gcash"],

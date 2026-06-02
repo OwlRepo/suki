@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import { Injectable, ForbiddenException } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { licenseActivations, licenseChallenges } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { licenseActivations, licenseChallenges } from "@tyvera/database";
 import { eq, and } from "drizzle-orm";
 import {
   verifyLicense,

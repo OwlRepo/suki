@@ -29,13 +29,13 @@ function validateEnv() {
   const required = ["DATABASE_URL"];
   const missing = required.filter((k) => !process.env[k]?.trim() || String(process.env[k]).includes("placeholder"));
   if (missing.length) {
-    console.warn(`[Suki API] Missing or placeholder env: ${missing.join(", ")}. Some features may be unavailable.`);
+    console.warn(`[Tyvera API] Missing or placeholder env: ${missing.join(", ")}. Some features may be unavailable.`);
   }
   if (process.env.OPENAI_API_KEY?.includes("placeholder")) {
-    console.warn("[Suki API] OPENAI_API_KEY is placeholder. AI messaging will be disabled.");
+    console.warn("[Tyvera API] OPENAI_API_KEY is placeholder. AI messaging will be disabled.");
   }
   if (process.env.PAYMONGO_SECRET_KEY?.includes("placeholder") || !process.env.PAYMONGO_SECRET_KEY) {
-    console.warn("[Suki API] PayMongo not configured. Billing checkout will be unavailable.");
+    console.warn("[Tyvera API] PayMongo not configured. Billing checkout will be unavailable.");
   }
   const twilioOk =
     process.env.TWILIO_ACCOUNT_SID?.trim() &&
@@ -52,7 +52,7 @@ function validateEnv() {
     !resendOk
   ) {
     console.warn(
-      "[Suki API] Messaging flags enabled but Twilio/Resend not configured. Auto-sends will use noop (no real delivery).",
+      "[Tyvera API] Messaging flags enabled but Twilio/Resend not configured. Auto-sends will use noop (no real delivery).",
     );
   }
 }
@@ -83,7 +83,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Suki API running on http://localhost:${port}`);
+  console.log(`Tyvera API running on http://localhost:${port}`);
 }
 
 bootstrap();

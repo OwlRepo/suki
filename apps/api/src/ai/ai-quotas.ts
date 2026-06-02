@@ -1,4 +1,4 @@
-import type { PlanType } from "@suki/types";
+import type { PlanType } from "@tyvera/types";
 
 export interface AiQuotaConfig {
   monthlyTokenLimit: number;

@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Suki is a Bun + Turborepo monorepo with:
+Tyvera is a Bun + Turborepo monorepo with:
 - `apps/web`: Next.js 16 frontend (App Router, React 19)
 - `apps/api`: NestJS 10 REST API
 - `packages/database`: shared Drizzle SQL schema/migrations/scripts

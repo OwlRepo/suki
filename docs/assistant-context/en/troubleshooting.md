@@ -13,8 +13,8 @@ quickAnswer: Use Help Center first, then verify usage and settings when features
 - Check Settings for usage caps or policy limits when AI actions fail.
 - Confirm active business/workspace before retrying the workflow.
 - Retry from the recommended route instead of refreshing repeatedly.
-- Use Suki Assistant route chips to jump directly to corrective pages.
+- Use Tyvera Assistant route chips to jump directly to corrective pages.
 - Common mistake: repeated retries without checking usage state.
 - Recovery: verify usage bars and reset date first.
 - Common mistake: trying to troubleshoot from the wrong page.
-- Recovery: navigate to the route suggested by Suki Assistant chips.
+- Recovery: navigate to the route suggested by Tyvera Assistant chips.

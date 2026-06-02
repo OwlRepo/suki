@@ -11,8 +11,8 @@ import {
   ForbiddenException,
   BadRequestException,
 } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { customers, businesses } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { customers, businesses } from "@tyvera/database";
 import { eq, and } from "drizzle-orm";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { OwnerGuard } from "../common/owner.guard";

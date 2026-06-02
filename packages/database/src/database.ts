@@ -6,7 +6,7 @@ import * as schema from "./schema";
 function getConnectionString(): string {
   const envUrl = process.env.DATABASE_URL;
   if (envUrl) return envUrl;
-  const localConnection = "postgresql://postgres:postgres@localhost:5432/suki";
+  const localConnection = "postgresql://postgres:postgres@localhost:5432/tyvera";
   console.warn(
     "[DATABASE] DATABASE_URL not set, using local fallback (localhost:5432)"
   );

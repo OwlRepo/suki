@@ -1,4 +1,4 @@
-# GitHub Copilot Instructions for Suki
+# GitHub Copilot Instructions for Tyvera
 
 For all development tasks, use `.ai/` as the canonical AI knowledge system.
 

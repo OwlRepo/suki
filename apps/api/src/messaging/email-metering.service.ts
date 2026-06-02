@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { emailCredits, emailUsageEvents } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { emailCredits, emailUsageEvents } from "@tyvera/database";
 import { eq, and, sql } from "drizzle-orm";
 
 const EMAIL_INCLUDED_DEFAULT = 300;

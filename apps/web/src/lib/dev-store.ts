@@ -2,7 +2,7 @@
  * Dev-only localStorage keys for API overrides.
  * Only read in development (NODE_ENV=development).
  */
-const PREFIX = "suki_dev_";
+const PREFIX = "tyvera_dev_";
 
 export const DEV_KEYS = {
   API_URL: `${PREFIX}api_url`,

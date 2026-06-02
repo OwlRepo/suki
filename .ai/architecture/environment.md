@@ -2,7 +2,7 @@
 
 ## Core Variables (by usage)
 - Auth: Clerk keys/tokens (web + api auth flows)
-- Database: connection variables used by `@suki/database`
+- Database: connection variables used by `@tyvera/database`
 - Billing: PayMongo credentials/webhook secrets
 - Messaging: Twilio SID/token and sender config; Resend API key
 - Messaging smoke (optional): `SMOKE_REAL_PROVIDERS`, `SMOKE_TWILIO_TO`, `SMOKE_RESEND_TO`

@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { subscriptions, processedWebhookEvents, smsCredits, smsAddons } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { subscriptions, processedWebhookEvents, smsCredits, smsAddons } from "@tyvera/database";
 import { eq, desc, and } from "drizzle-orm";
-import type { PlanType } from "@suki/types";
+import type { PlanType } from "@tyvera/types";
 
 const GRACE_DAYS = 7;
 

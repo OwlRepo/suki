@@ -16,9 +16,9 @@ import { Tenant } from "../common/tenant.decorator";
 import { FounderGuard } from "../common/founder.guard";
 import { OrgBillingStateService } from "../common/org-billing-state.service";
 import { OrganizationsService } from "../organizations/organizations.service";
-import { getDb } from "@suki/database";
-import { customers, businesses, appointments, promos } from "@suki/database";
-import type { OrgBillingStatus, PlanType } from "@suki/types";
+import { getDb } from "@tyvera/database";
+import { customers, businesses, appointments, promos } from "@tyvera/database";
+import type { OrgBillingStatus, PlanType } from "@tyvera/types";
 
 @Controller("admin")
 @UseGuards(ClerkAuthGuard)

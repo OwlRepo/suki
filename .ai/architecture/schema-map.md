@@ -3,7 +3,7 @@
 ## Request Validation Sources
 - Nest DTO-like typed bodies/queries in controllers
 - Global `ValidationPipe` in `apps/api/src/main.ts`
-- TypeScript interfaces/types from `@suki/types` and module-local declarations
+- TypeScript interfaces/types from `@tyvera/types` and module-local declarations
 
 ## Response Shape Sources
 - Service method return objects serialized by controllers

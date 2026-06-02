@@ -1,5 +1,5 @@
 import { Injectable, ForbiddenException, BadRequestException } from "@nestjs/common";
-import { getDb } from "@suki/database";
+import { getDb } from "@tyvera/database";
 import {
   appointments,
   businesses,
@@ -7,7 +7,7 @@ import {
   bookingHolds,
   bookingSecuritySettings,
   bookingPinAttemptLogs,
-} from "@suki/database";
+} from "@tyvera/database";
 import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import { AutomationSendService } from "../automation/automation-send.service";
 import { IntakeBookingService } from "../intake/intake-booking.service";

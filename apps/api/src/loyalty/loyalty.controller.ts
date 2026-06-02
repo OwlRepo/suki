@@ -1,8 +1,8 @@
 import { Controller, Get, Query, UseGuards, BadRequestException } from "@nestjs/common";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { Tenant } from "../common/tenant.decorator";
-import { getDb } from "@suki/database";
-import { customers, businesses } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { customers, businesses } from "@tyvera/database";
 import { eq, and, gte, desc, like, or } from "drizzle-orm";
 
 @Controller("loyalty")

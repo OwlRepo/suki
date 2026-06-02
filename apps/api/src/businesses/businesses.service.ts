@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { businesses, organizations } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { businesses, organizations } from "@tyvera/database";
 import { eq, sql } from "drizzle-orm";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 

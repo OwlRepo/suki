@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { createHmac } from "crypto";
 import { Webhook } from "svix";
-import { getDb } from "@suki/database";
-import { messageEvents } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { messageEvents } from "@tyvera/database";
 import { eq } from "drizzle-orm";
 
 const TERMINAL_STATUSES = ["delivered", "failed", "bounced", "rejected"] as const;

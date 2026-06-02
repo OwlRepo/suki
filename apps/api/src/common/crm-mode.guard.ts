@@ -5,8 +5,8 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { Request } from "express";
-import { getDb } from "@suki/database";
-import { businesses } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { businesses } from "@tyvera/database";
 import { eq } from "drizzle-orm";
 
 @Injectable()

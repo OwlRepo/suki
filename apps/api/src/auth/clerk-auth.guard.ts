@@ -8,7 +8,7 @@ import { Request } from "express";
 import { AuthService } from "./auth.service";
 import type { TenantContext } from "../common/tenant.decorator";
 
-const COOKIE_NAME = "suki_session";
+const COOKIE_NAME = "tyvera_session";
 
 function readCookie(rawCookieHeader?: string): Record<string, string> {
   if (!rawCookieHeader) return {};

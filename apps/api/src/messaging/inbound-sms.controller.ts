@@ -6,8 +6,8 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { customers, businesses, consentAuditLogs } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { customers, businesses, consentAuditLogs } from "@tyvera/database";
 import { eq, or } from "drizzle-orm";
 import { AuditLogService } from "../security/audit-log.service";
 

@@ -2684,7 +2684,7 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'auto_suki'"
+          "default": "'auto_tyvera'"
         },
         "sent_at": {
           "name": "sent_at",

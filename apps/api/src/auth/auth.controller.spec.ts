@@ -49,14 +49,14 @@ describe("AuthController", () => {
   it("handles me/sync/sign-out token branches", async () => {
     const { controller, service } = makeController();
 
-    await expect(controller.me({ cookies: { suki_session: "tok" } } as unknown as Request)).resolves.toEqual({
+    await expect(controller.me({ cookies: { tyvera_session: "tok" } } as unknown as Request)).resolves.toEqual({
       user: { id: "u1", email: "a@test.com" },
     });
 
     await expect(controller.me({ cookies: {} } as unknown as Request)).rejects.toBeInstanceOf(UnauthorizedException);
 
     const res = makeRes();
-    await expect(controller.signOut(undefined, { cookies: { suki_session: "tok" } } as unknown as Request, res)).resolves.toEqual({ ok: true });
+    await expect(controller.signOut(undefined, { cookies: { tyvera_session: "tok" } } as unknown as Request, res)).resolves.toEqual({ ok: true });
     expect(service.signOut).toHaveBeenCalledWith("tok");
     expect(res.clearCookie).toHaveBeenCalled();
 

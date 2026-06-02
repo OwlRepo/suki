@@ -30,7 +30,7 @@ CREATE TABLE "message_events" (
 	"status" "message_event_status" DEFAULT 'queued' NOT NULL,
 	"provider_message_id" text,
 	"failure_reason" text,
-	"sent_by" text DEFAULT 'auto_suki' NOT NULL,
+	"sent_by" text DEFAULT 'auto_tyvera' NOT NULL,
 	"sent_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );

@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { promos, businesses } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { promos, businesses } from "@tyvera/database";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 @Injectable()

@@ -7,8 +7,8 @@ import {
   BadRequestException,
   NotFoundException,
 } from "@nestjs/common";
-import { getDb } from "@suki/database";
-import { customers, businesses } from "@suki/database";
+import { getDb } from "@tyvera/database";
+import { customers, businesses } from "@tyvera/database";
 import { eq } from "drizzle-orm";
 import { CustomerTemplatesService } from "../customers/customer-templates.service";
 import { IntakeBookingService } from "./intake-booking.service";

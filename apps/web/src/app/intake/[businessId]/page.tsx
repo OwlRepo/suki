@@ -59,7 +59,7 @@ function formatSlotLabel(iso: string): string {
 
 export default function IntakePage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = use(params);
-  const localStorageKey = useMemo(() => `suki:intake:${businessId}`, [businessId]);
+  const localStorageKey = useMemo(() => `tyvera:intake:${businessId}`, [businessId]);
 
   const [step, setStep] = useState<Step>("form");
   const [name, setName] = useState("");

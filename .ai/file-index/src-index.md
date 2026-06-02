@@ -8,5 +8,5 @@
 | `apps/api/src/main.ts` | Nest application bootstrap | Loads `AppModule`, global pipe/filter, and auth bootstrap service | API process entry point including optional default-account initialization |
 | `apps/api/src/app.module.ts` | Top-level API module composition | Imports domain modules and shared modules | Central dependency wiring |
 | `apps/api/src/intake/intake-booking.service.ts` | Intake slot availability, hold, and OTP confirmation logic | Called by intake controller and uses DB schema | Prevents slot conflicts and confirms booking intent via OTP |
-| `apps/web/src/components/suki-assistant.tsx` | Global floating assistant panel entrypoint for dashboard surfaces | Integrated by adaptive app shell and powered by help-content + AI usage APIs | Guided chat + usage transparency UX for non-technical users |
+| `apps/web/src/components/tyvera-assistant.tsx` | Global floating assistant panel entrypoint for dashboard surfaces | Integrated by adaptive app shell and powered by help-content + AI usage APIs | Guided chat + usage transparency UX for non-technical users |
 | `packages/database/src/index.ts` | DB package public exports | Re-exports schema/db helpers | Imported by API services |

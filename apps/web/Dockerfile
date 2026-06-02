@@ -23,7 +23,7 @@ COPY apps/web/package.json ./apps/api/package.json ./apps/web/ ./apps/api/
 COPY packages/ ./packages/
 
 # Build packages only (skip db:setup during image build)
-RUN bunx turbo run build --filter=@suki/database --filter=@suki/types --filter=@suki/ui || true
+RUN bunx turbo run build --filter=@tyvera/database --filter=@tyvera/types --filter=@tyvera/ui || true
 
 WORKDIR /app
 
@@ -43,7 +43,7 @@ COPY . .
 
 # Build entire workspace for web (includes packages + web)
 ENV NODE_ENV=production
-RUN bunx turbo run build --filter=@suki/web...
+RUN bunx turbo run build --filter=@tyvera/web...
 
 WORKDIR /app/apps/web
 

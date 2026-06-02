@@ -7,7 +7,7 @@ export default function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = req.cookies.get("suki_session")?.value;
+  const session = req.cookies.get("tyvera_session")?.value;
   if (!session) {
     const url = req.nextUrl.clone();
     url.pathname = "/sign-in";

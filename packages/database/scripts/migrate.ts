@@ -8,7 +8,7 @@ config({ path: resolve(import.meta.dir, "../../../.env"), override: false });
 
 const connectionString =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/suki";
+  "postgresql://postgres:postgres@localhost:5432/tyvera";
 const sql = postgres(connectionString, { max: 1 });
 const db = drizzle(sql);
 

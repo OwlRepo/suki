@@ -8,10 +8,10 @@ config({ path: resolve(import.meta.dir, "../../../.env"), override: false });
 
 const fullConnectionString =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/suki";
+  "postgresql://postgres:postgres@localhost:5432/tyvera";
 
 const url = new URL(fullConnectionString.replace("postgresql://", "http://"));
-const databaseName = url.pathname.slice(1) || "suki";
+const databaseName = url.pathname.slice(1) || "tyvera";
 const adminConnectionString = fullConnectionString.replace(
   `/${databaseName}`,
   "/postgres"

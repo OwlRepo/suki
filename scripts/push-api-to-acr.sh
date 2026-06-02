@@ -12,8 +12,8 @@ if [ -z "$TAG" ]; then
   fi
 fi
 
-IMAGE=suki-api
-REMOTE=sukiacr.azurecr.io/suki-api:$TAG
+IMAGE=tyvera-api
+REMOTE=tyveraacr.azurecr.io/tyvera-api:$TAG
 
 echo "Building $IMAGE (linux/amd64 for Azure)..."
 docker build --platform linux/amd64 -f apps/api/Dockerfile -t "$IMAGE" .

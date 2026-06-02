@@ -46,7 +46,7 @@ export default function OnboardingLayout({ children }: { children: ReactNode }) 
                 href="/onboarding"
                 className="text-lg font-semibold text-foreground"
               >
-                Suki
+                Tyvera
               </Link>
               <p className="text-xs text-muted-foreground">
                 Your progress is saved. You can finish anytime.

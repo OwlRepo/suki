@@ -19,7 +19,7 @@
 - API auth: first-party auth module (`apps/api/src/auth/*`) with cookie sessions + OTP/password flows
 
 ## Data / ORM
-- `@suki/database` workspace package
+- `@tyvera/database` workspace package
 - Drizzle migrations under `packages/database/drizzle`
 
 ## Testing

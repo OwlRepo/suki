@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { getDb, assistantThreadMemories } from "@suki/database";
+import { getDb, assistantThreadMemories } from "@tyvera/database";
 import { and, eq } from "drizzle-orm";
 
 type ThreadTurn = { role: "user" | "assistant"; text: string };
