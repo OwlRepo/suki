@@ -1,6 +1,11 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-type ApiResult = { ok: boolean; message?: string; fallbackUnlocked?: boolean };
+type ApiResult = {
+  ok: boolean;
+  message?: string;
+  fallbackUnlocked?: boolean;
+  redirectTo?: "/onboarding" | "/dashboard";
+};
 
 async function post(path: string, body: Record<string, unknown>): Promise<ApiResult> {
   const res = await fetch(`${API_BASE}${path}`, {

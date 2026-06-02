@@ -3,7 +3,7 @@
 ## Primary Auth System
 - First-party auth integrated across web and api.
 - Web auth uses `/sign-in` (email/password) and `/sign-up` (email/password plus OTP email verification) pages with first-party session APIs.
-- API login uses `POST /auth/sign-in/password` only; public sign-up uses `POST /auth/sign-up/start` to send OTP and `POST /auth/sign-up/verify` with email, code, and password to create the account/session.
+- API login uses `POST /auth/sign-in/password` only and returns post-login redirect metadata based on onboarding completion; public sign-up uses `POST /auth/sign-up/start` to send OTP and `POST /auth/sign-up/verify` with email, code, and password to create the account/session.
 - API session cookie canonical name is `tyvera_session`; `suki_session` is accepted and cleared only as a legacy rebrand transition cookie.
 - Web middleware in `apps/web/src/proxy.ts` no longer blocks dashboard routes using a web-origin cookie; client guards validate the API-backed session through `/auth/me`.
 
@@ -24,6 +24,7 @@
 - `apps/web/src/lib/auth.tsx` keeps `getToken` referentially stable for effect safety in auth-aware pages/hooks.
 - `apps/web/src/hooks/use-session.ts` dedupes `/auth/me` calls across concurrent consumers using module-level cache + in-flight promise, and exposes cache invalidation for login/signup/signout transitions.
 - Sign-in/sign-up responses clear legacy `suki_session` while setting `tyvera_session`; sign-out clears both cookie names.
+- Successful sign-up routes users to `/onboarding`; successful password sign-in routes to `/onboarding` when user-specific onboarding progress is missing or incomplete (`currentStep < 7`), otherwise to `/dashboard`.
 - Protected-route regression coverage includes route-matrix checks (`apps/web/src/proxy.test.ts`) and dashboard bounded-call checks (`apps/web/src/app/(dashboard)/dashboard.loop.test.tsx`).
 
 ## Key Modules

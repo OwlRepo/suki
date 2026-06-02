@@ -47,7 +47,7 @@ export class AuthController {
     const result = await this.authService.signInWithPassword(body.email, body.password);
     if (!result.ok || !result.session) return result;
     this.setSessionCookie(res, result.session.token, result.session.expiresAt);
-    return { ok: true };
+    return { ok: true, redirectTo: result.redirectTo };
   }
 
   @Get("me")

@@ -15,7 +15,7 @@ export default function SignInPage() {
     const res = await signInWithPassword(email.trim(), password);
     if (res.ok) {
       invalidateSessionCache();
-      router.push("/dashboard");
+      router.push(res.redirectTo ?? "/dashboard");
       router.refresh();
       return;
     }

@@ -1,3 +1,4 @@
+import { scryptSync } from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthService } from "./auth.service";
 
@@ -19,6 +20,10 @@ const dbMock = vi.hoisted(() => ({
       organizationId: "users.organizationId",
       role: "users.role",
       email: "users.email",
+    },
+    onboardingProgress: {
+      organizationId: "onboardingProgress.organizationId",
+      userId: "onboardingProgress.userId",
     },
   },
   insertValuesMock: vi.fn(),
@@ -169,5 +174,39 @@ describe("AuthService", () => {
   it("does not expose OTP sign-in verify path", () => {
     const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never) as unknown as Record<string, unknown>;
     expect(service.verifyOtpAndSignIn).toBeUndefined();
+  });
+
+  it("redirects password login to onboarding when progress is missing", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+    const salt = "0123456789abcdef0123456789abcdef";
+    const passwordHash = `${salt}:${scryptSync("secret123", salt, 64).toString("hex")}`;
+    selectQueue = [
+      [{ userId: "user-1", email: "user@test.com", passwordHash }],
+      [{ id: "user-1", organizationId: "org-1", role: "owner", email: "user@test.com" }],
+      [],
+    ];
+
+    await expect(service.signInWithPassword("user@test.com", "secret123")).resolves.toMatchObject({
+      ok: true,
+      redirectTo: "/onboarding",
+      session: expect.objectContaining({ token: expect.any(String), expiresAt: expect.any(Date) }),
+    });
+  });
+
+  it("redirects password login to dashboard when onboarding is complete", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+    const salt = "0123456789abcdef0123456789abcdef";
+    const passwordHash = `${salt}:${scryptSync("secret123", salt, 64).toString("hex")}`;
+    selectQueue = [
+      [{ userId: "user-1", email: "user@test.com", passwordHash }],
+      [{ id: "user-1", organizationId: "org-1", role: "owner", email: "user@test.com" }],
+      [{ currentStep: 7 }],
+    ];
+
+    await expect(service.signInWithPassword("user@test.com", "secret123")).resolves.toMatchObject({
+      ok: true,
+      redirectTo: "/dashboard",
+      session: expect.objectContaining({ token: expect.any(String), expiresAt: expect.any(Date) }),
+    });
   });
 });

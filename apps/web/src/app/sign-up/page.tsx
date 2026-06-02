@@ -45,7 +45,7 @@ export default function SignUpPage() {
     const res = await verifySignUp(normalizedEmail, normalizedCode, password);
     if (res.ok) {
       invalidateSessionCache();
-      router.push("/dashboard");
+      router.push("/onboarding");
       router.refresh();
       return;
     }
