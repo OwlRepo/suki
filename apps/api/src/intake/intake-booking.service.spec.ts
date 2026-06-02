@@ -1,6 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { IntakeBookingService, isBookingHoldsCompatibilityError } from "./intake-booking.service";
+import type { AutomationSendService } from "../automation/automation-send.service";
+import {
+  IntakeBookingService,
+  isBookingHoldsCompatibilityError,
+} from "./intake-booking.service";
 
 const limitMock = vi.fn();
 const whereMock = vi.fn();
@@ -10,6 +14,10 @@ const updateWhereMock = vi.fn();
 const setMock = vi.fn();
 const updateMock = vi.fn();
 
+const automationSendMock = {
+  sendAppointmentConfirmation: vi.fn(),
+} as unknown as AutomationSendService;
+
 vi.mock("@tyvera/database", () => ({
   getDb: () => ({
     select: selectMock,
@@ -17,7 +25,9 @@ vi.mock("@tyvera/database", () => ({
     where: whereMock,
     update: updateMock,
   }),
-  bookingHolds: { id: "id" },
+  bookingHolds: {
+    id: "id",
+  },
 }));
 
 describe("isBookingHoldsCompatibilityError", () => {
@@ -27,18 +37,39 @@ describe("isBookingHoldsCompatibilityError", () => {
   });
 
   it("returns false for unrelated database errors", () => {
-    expect(isBookingHoldsCompatibilityError({ code: "23505", message: "duplicate" })).toBe(false);
+    expect(
+      isBookingHoldsCompatibilityError({
+        code: "23505",
+        message: "duplicate",
+      }),
+    ).toBe(false);
   });
 });
 
 describe("IntakeBookingService OTP", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    selectMock.mockReturnValue({ from: fromMock });
-    fromMock.mockReturnValue({ where: whereMock });
-    whereMock.mockReturnValue({ limit: limitMock });
-    updateMock.mockReturnValue({ set: setMock });
-    setMock.mockReturnValue({ where: updateWhereMock });
+
+    selectMock.mockReturnValue({
+      from: fromMock,
+    });
+
+    fromMock.mockReturnValue({
+      where: whereMock,
+    });
+
+    whereMock.mockReturnValue({
+      limit: limitMock,
+    });
+
+    updateMock.mockReturnValue({
+      set: setMock,
+    });
+
+    setMock.mockReturnValue({
+      where: updateWhereMock,
+    });
+
     updateWhereMock.mockResolvedValue(undefined);
 
     delete process.env.TWILIO_ACCOUNT_SID;
@@ -47,17 +78,30 @@ describe("IntakeBookingService OTP", () => {
   });
 
   it("rejects when hold is not found", async () => {
-    const service = new IntakeBookingService();
+    const service = new IntakeBookingService(automationSendMock);
+
     limitMock.mockResolvedValueOnce([]);
-    await expect(service.sendOtp("hold_1")).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.sendOtp("hold_1"),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("rejects when provider env is missing", async () => {
-    const service = new IntakeBookingService();
+    const service = new IntakeBookingService(automationSendMock);
+
     limitMock.mockResolvedValueOnce([
-      { id: "h1", status: "held", expiresAt: new Date(Date.now() + 60_000), mobile: "+639171234567" },
+      {
+        id: "h1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+      },
     ]);
-    await expect(service.sendOtp("hold_1")).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.sendOtp("hold_1"),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("updates otp sid on successful send", async () => {
@@ -65,17 +109,33 @@ describe("IntakeBookingService OTP", () => {
     process.env.TWILIO_AUTH_TOKEN = "tok";
     process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
 
-    const service = new IntakeBookingService();
+    const service = new IntakeBookingService(automationSendMock);
+
     limitMock.mockResolvedValueOnce([
-      { id: "h1", status: "held", expiresAt: new Date(Date.now() + 60_000), mobile: "+639171234567" },
+      {
+        id: "h1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+      },
     ]);
 
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sid: "VE123" }) }) as unknown as typeof fetch,
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          sid: "VE123",
+        }),
+      }) as unknown as typeof fetch,
     );
 
-    await expect(service.sendOtp("hold_1")).resolves.toEqual({ success: true });
+    await expect(
+      service.sendOtp("hold_1"),
+    ).resolves.toEqual({
+      success: true,
+    });
+
     expect(updateMock).toHaveBeenCalled();
   });
 });
