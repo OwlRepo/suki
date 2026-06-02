@@ -6,8 +6,17 @@ import { useAuth } from "@/lib/auth";
 import { AuthButton } from "@/components/auth-button";
 import { WorkspaceProvider } from "@/contexts/workspace-context";
 import { useAuthSync } from "@/hooks/use-auth-sync";
+import { RequireSession } from "@/components/require-session";
 
 export default function OnboardingLayout({ children }: { children: ReactNode }) {
+  return (
+    <RequireSession>
+      <OnboardingLayoutContent>{children}</OnboardingLayoutContent>
+    </RequireSession>
+  );
+}
+
+function OnboardingLayoutContent({ children }: { children: ReactNode }) {
   const { getToken } = useAuth();
   const { data: syncData, loading: syncLoading, error: syncError, retry: retrySync } = useAuthSync();
   const organizationId = syncData?.organization?.id ?? null;

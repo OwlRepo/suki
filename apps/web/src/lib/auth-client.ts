@@ -1,9 +1,14 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { buildApiUrl } from "./api-base";
 
-type ApiResult = { ok: boolean; message?: string; fallbackUnlocked?: boolean };
+type ApiResult = {
+  ok: boolean;
+  message?: string;
+  fallbackUnlocked?: boolean;
+  redirectTo?: "/onboarding" | "/dashboard";
+};
 
 async function post(path: string, body: Record<string, unknown>): Promise<ApiResult> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(buildApiUrl(path), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -37,7 +42,7 @@ export async function signOut() {
 }
 
 export async function getSession() {
-  const res = await fetch(`${API_BASE}/auth/me`, {
+  const res = await fetch(buildApiUrl("/auth/me"), {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
   });

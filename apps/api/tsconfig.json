@@ -4,8 +4,8 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@tyvera/database": ["../../packages/database/src/index.ts"],
-      "@tyvera/types": ["../../packages/types/src/index.ts"]
+      "@tyvera/database": ["../../packages/database/src"],
+      "@tyvera/types": ["../../packages/types/src"]
     }
   },
   "include": ["src/**/*"],

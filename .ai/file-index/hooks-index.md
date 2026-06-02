@@ -7,4 +7,4 @@
 | `apps/web/src/hooks/use-billing-status.ts` | Fetch/use billing state | Uses API billing endpoints | Feature gating and banner decisions |
 | `apps/web/src/hooks/use-feature-flags.ts` | Fetch and consume feature flags | Tied to health/feature-flags route | Conditional rendering by capability |
 | `apps/web/src/hooks/use-account-freshness.ts` | Determine account status freshness | Uses profile/workspace signals | Refresh and stale-state handling |
-| `apps/web/src/hooks/use-session.ts` | Session state hook for first-party auth | Uses `auth-client` `/auth/me` endpoint | Client-side signed-in checks with module-level `/auth/me` request dedupe/cache |
+| `apps/web/src/hooks/use-session.ts` | Session state hook for first-party auth | Uses `auth-client` `/auth/me` endpoint | Client-side signed-in checks with module-level `/auth/me` request dedupe/cache and explicit invalidation after login/signup/signout |

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TyveraAssistant } from "./tyvera-assistant";
 
@@ -47,6 +47,10 @@ vi.mock("@/lib/api", () => ({
 }));
 
 describe("TyveraAssistant orchestration UI", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     apiRequestMock.mockReset();
     apiRequestMock.mockImplementation(async (path: string) => {
@@ -81,6 +85,8 @@ describe("TyveraAssistant orchestration UI", () => {
   });
 
   it("uses stream endpoint as normal path and does not call /chat fallback", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
     const streamBody = [
       'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
       'event: state\ndata: {"type":"state","state":"streaming"}\n\n',
@@ -107,6 +113,7 @@ describe("TyveraAssistant orchestration UI", () => {
       expect.stringMatching(/^\/help\/assistant\/chat$/),
       expect.anything(),
     );
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/api/help/assistant/chat/stream");
   });
 
   it("falls back to /chat only when stream transport fails", async () => {

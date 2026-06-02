@@ -19,10 +19,27 @@ describe("deploy workflow governance", () => {
     const workflow = readDeployWorkflow();
 
     expect(workflow).toMatch(/legacy_project="\$\(printf '\\\\163\\\\165\\\\153\\\\151'\)"/);
+    expect(workflow).toMatch(/docker compose -f docker-compose\.yml down --remove-orphans \|\| true/);
+    expect(workflow).toMatch(
+      /docker compose -p "\$legacy_project" -f docker-compose\.yml down --remove-orphans \|\| true/,
+    );
     expect(workflow).toMatch(
       /docker compose -p "\$legacy_project" -f docker-compose\.prod\.yml down --remove-orphans \|\| true/,
     );
     expect(workflow).not.toMatch(/down --volumes/);
     expect(workflow).not.toMatch(/down -v/);
+  });
+
+  it("fails deployment if the public web response still serves dev artifacts or localhost API URLs", () => {
+    const workflow = readDeployWorkflow();
+
+    expect(workflow).toMatch(/public_web_html="\$\(mktemp\)"/);
+    expect(workflow).toMatch(/curl -fsS --max-time 15 https:\/\/tyvera\.app\/sign-up -o "\$public_web_html"/);
+    expect(workflow).toContain("public_web_js_urls");
+    expect(workflow).toContain("https://tyvera.app$js_path");
+    expect(workflow).toMatch(/hmr-client/);
+    expect(workflow).toMatch(/next-devtools/);
+    expect(workflow).toContain(".next/dev");
+    expect(workflow).toMatch(/http:\/\/localhost:3001/);
   });
 });

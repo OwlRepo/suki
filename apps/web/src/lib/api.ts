@@ -3,15 +3,14 @@ import {
   getDevMockFailure,
   getDevMockLatencyMs,
 } from "./dev-store";
-
-const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { getApiBaseUrl as getDefaultApiBaseUrl } from "./api-base";
 
 function getApiBaseUrl(): string {
   if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
     const override = getDevApiUrl();
     if (override && override.trim()) return override.trim();
   }
-  return DEFAULT_API_URL;
+  return getDefaultApiBaseUrl();
 }
 
 export async function apiRequest<T>(
@@ -37,8 +36,7 @@ export async function apiRequest<T>(
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
-  const baseUrl = getApiBaseUrl();
-  const res = await fetch(`${baseUrl}${path}`, {
+  const res = await fetch(`${getApiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`, {
     ...init,
     headers,
     credentials: "include",

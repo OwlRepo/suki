@@ -16,6 +16,8 @@ describe("auth-client login contract", () => {
   });
 
   it("posts password with sign-up verification", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({}),
@@ -29,6 +31,26 @@ describe("auth-client login contract", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ email: "new@test.com", code: "123456", password: "secret123" }),
+      }),
+    );
+  });
+
+  it("uses the same-origin API proxy for production sign-up", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({}),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(authClient.startSignUp("new@test.com")).resolves.toEqual({ ok: true });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/auth/sign-up/start",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ email: "new@test.com" }),
       }),
     );
   });

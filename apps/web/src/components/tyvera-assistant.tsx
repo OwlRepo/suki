@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MessageCircle, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
+import { buildApiUrl } from "@/lib/api-base";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -231,7 +232,7 @@ export function TyveraAssistant() {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}/help/assistant/chat/stream`, {
+    const response = await fetch(buildApiUrl("/help/assistant/chat/stream"), {
       method: "POST",
       headers,
       credentials: "include",

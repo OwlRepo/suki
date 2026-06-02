@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { startSignUp, verifySignUp } from "@/lib/auth-client";
+import { invalidateSessionCache } from "@/hooks/use-session";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -43,7 +44,9 @@ export default function SignUpPage() {
 
     const res = await verifySignUp(normalizedEmail, normalizedCode, password);
     if (res.ok) {
-      router.push("/dashboard");
+      invalidateSessionCache();
+      router.push("/onboarding");
+      router.refresh();
       return;
     }
     setMessage(res.message || "Invalid code");

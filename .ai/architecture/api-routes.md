@@ -27,6 +27,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - Additional guards enforce plan/billing/owner/crm-mode/founder controls by route.
 - Intake endpoints are public-facing for external customers; server-side validation and business scoping are required for every request.
 - Public account creation is allowed through `/auth/sign-up/start` + `/auth/sign-up/verify`; verify accepts email, OTP code, and password, then creates the owner account and session.
+- `POST /auth/sign-in/password` sets the session cookie on success and returns `{ ok: true, redirectTo }`, where `redirectTo` is `/onboarding` until user onboarding progress reaches `currentStep >= 7`, otherwise `/dashboard`.
 
 ## Request/Response Schema Sources
 - DTO/body/query declarations in controller signatures

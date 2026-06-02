@@ -4,6 +4,7 @@ import {
   authIdentities,
   authOtpChallenges,
   authSessions,
+  onboardingProgress,
   organizations,
   subscriptions,
   users,
@@ -15,6 +16,7 @@ import { FeatureFlagsService } from "../common/feature-flags.service";
 const OTP_PURPOSE_SIGN_UP = "sign_up";
 const OTP_TTL_MINUTES = Number(process.env.AUTH_OTP_TTL_MINUTES || 10);
 const SESSION_TTL_DAYS = Number(process.env.AUTH_SESSION_TTL_DAYS || 30);
+const ONBOARDING_COMPLETE_STEP = 7;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -101,6 +103,24 @@ export class AuthService {
 
     if (!user) return null;
     return { user, identity };
+  }
+
+  private async getPostLoginRedirectTo(user: { id: string; organizationId: string }) {
+    const db = getDb();
+    const [progress] = await db
+      .select({ currentStep: onboardingProgress.currentStep })
+      .from(onboardingProgress)
+      .where(
+        and(
+          eq(onboardingProgress.organizationId, user.organizationId),
+          eq(onboardingProgress.userId, user.id),
+        ),
+      )
+      .limit(1);
+
+    return progress && progress.currentStep >= ONBOARDING_COMPLETE_STEP
+      ? "/dashboard"
+      : "/onboarding";
   }
 
   async startOtp(email: string, purpose: "sign_up") {
@@ -218,8 +238,9 @@ export class AuthService {
       return { ok: false, message: "Invalid credentials" };
     }
 
+    const redirectTo = await this.getPostLoginRedirectTo(found.user);
     const session = await this.createSession(found.user.id);
-    return { ok: true, session, user: found.user };
+    return { ok: true, session, user: found.user, redirectTo };
   }
 
   async validateSession(token: string) {

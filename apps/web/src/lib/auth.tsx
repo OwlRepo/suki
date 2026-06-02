@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/hooks/use-session";
+import { invalidateSessionCache, useSession } from "@/hooks/use-session";
 import { signOut } from "@/lib/auth-client";
 
 export function useAuth() {
@@ -41,7 +41,9 @@ export function UserButton({ afterSignOutUrl = "/" }: { afterSignOutUrl?: string
       className="rounded border px-3 py-1 text-sm"
       onClick={async () => {
         await signOut();
+        invalidateSessionCache();
         router.push(afterSignOutUrl);
+        router.refresh();
       }}
     >
       Sign out
