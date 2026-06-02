@@ -10,8 +10,8 @@ import { AvailabilityCalendar } from "@/components/ui/availability-calendar";
 import { normalizeApiError } from "./error-utils";
 import { buildWizardSteps, type ScheduleSubStep } from "./wizard-progress";
 import { filterDayKeysByMonth } from "./schedule-utils";
+import { buildApiUrl } from "@/lib/api-base";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const OTP_LENGTH = 6;
 
 interface TemplateField {
@@ -90,7 +90,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     let cancelled = false;
     setConfigLoading(true);
     setConfigError(null);
-    fetch(`${API_URL}/intake/config?businessId=${encodeURIComponent(businessId)}`)
+    fetch(buildApiUrl(`/intake/config?businessId=${encodeURIComponent(businessId)}`))
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -139,7 +139,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     setAvailabilityLoading(true);
     setAvailabilityError(null);
 
-    fetch(`${API_URL}/intake/availability?businessId=${encodeURIComponent(businessId)}&month=${encodeURIComponent(month)}`)
+    fetch(buildApiUrl(`/intake/availability?businessId=${encodeURIComponent(businessId)}&month=${encodeURIComponent(month)}`))
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -257,7 +257,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       const extra = customNotes.trim();
       const notes = [composed.trim(), extra].filter(Boolean).join("\n\n") || undefined;
 
-      const res = await fetch(`${API_URL}/intake`, {
+      const res = await fetch(buildApiUrl("/intake"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -306,7 +306,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     setSubmitting(true);
     setError(null);
     try {
-      const holdRes = await fetch(`${API_URL}/intake/hold`, {
+      const holdRes = await fetch(buildApiUrl("/intake/hold"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -324,7 +324,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       const createdHoldId = (holdData as { hold?: { id: string } }).hold?.id;
       if (!createdHoldId) throw new Error("Failed to create hold");
 
-      const otpRes = await fetch(`${API_URL}/intake/otp/send`, {
+      const otpRes = await fetch(buildApiUrl("/intake/otp/send"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ holdId: createdHoldId }),
@@ -349,7 +349,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     setOtpSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/intake/otp/verify`, {
+      const res = await fetch(buildApiUrl("/intake/otp/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ holdId, code }),
@@ -447,7 +447,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
               setSubmitting(true);
               setError(null);
               try {
-                const res = await fetch(`${API_URL}/intake/otp/send`, {
+                const res = await fetch(buildApiUrl("/intake/otp/send"), {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ holdId }),

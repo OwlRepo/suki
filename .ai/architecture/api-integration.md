@@ -2,6 +2,8 @@
 
 ## Web -> API
 - Web app uses utility clients in `apps/web/src/lib` to call REST endpoints served by `apps/api`.
+- Production browser requests default to same-origin `/api/*`; `apps/web/next.config.ts` rewrites those requests to the Docker API service at `http://api:3001/*`.
+- Development browser requests default to `http://localhost:3001/*` unless `NEXT_PUBLIC_API_URL` is explicitly set.
 - Auth/session alignment is handled through Clerk integration in both apps.
 - Tyvera Assistant UI updates usage bars immediately from stream `usage` events and still refetches `/ai/usage/summary` after successful streamed/non-streamed replies for reconciliation.
 
