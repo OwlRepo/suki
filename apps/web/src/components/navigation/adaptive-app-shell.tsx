@@ -120,7 +120,6 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
         />
-        <p>process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED: {process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED}</p>
        { process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED === "true" && <TyveraAssistant /> }
       </div>
     </DashboardOnboardingWrapper>
