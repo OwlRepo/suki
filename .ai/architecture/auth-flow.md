@@ -2,7 +2,8 @@
 
 ## Primary Auth System
 - First-party auth integrated across web and api.
-- Web auth uses `/sign-in` (email/password) and `/sign-up` (OTP verification) pages with first-party session APIs.
+- Web auth uses `/sign-in` (email/password) and `/sign-up` (email/password plus OTP email verification) pages with first-party session APIs.
+- API login uses `POST /auth/sign-in/password` only; public sign-up uses `POST /auth/sign-up/start` to send OTP and `POST /auth/sign-up/verify` with email, code, and password to create the account/session.
 - Web middleware in `apps/web/src/proxy.ts` applies route-level protection using path policies from `apps/web/src/lib/protected-routes.ts` and session cookie checks.
 
 ## API Flow

@@ -7,18 +7,41 @@ import { startSignUp, verifySignUp } from "@/lib/auth-client";
 export default function SignUpPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function onSendCode() {
-    const res = await startSignUp(email.trim());
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      setMessage("Email is required");
+      return;
+    }
+    if (password.length < 8) {
+      setMessage("Password must be at least 8 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setMessage("Passwords do not match");
+      return;
+    }
+
+    const res = await startSignUp(normalizedEmail);
     setMessage(res.ok ? "Code sent" : res.message || "Failed to send code");
     if (res.ok) setCodeSent(true);
   }
 
   async function onCreateAccount() {
-    const res = await verifySignUp(email.trim(), code.trim());
+    const normalizedEmail = email.trim();
+    const normalizedCode = code.trim();
+    if (!normalizedCode) {
+      setMessage("Verification code is required");
+      return;
+    }
+
+    const res = await verifySignUp(normalizedEmail, normalizedCode, password);
     if (res.ok) {
       router.push("/dashboard");
       return;
@@ -42,17 +65,38 @@ export default function SignUpPage() {
           </div>
 
           <div className="space-y-4">
-            <label className="text-sm font-medium text-slate-700" htmlFor="email">Email</label>
-            <input
-              id="email"
-              className="min-h-[46px] w-full rounded-xl border border-blue-200 bg-white px-4 py-2 text-base outline-none ring-blue-200 transition focus:ring-2"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
             {!codeSent ? (
-              <button className="min-h-[46px] w-full rounded-xl bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700" onClick={onSendCode}>Send code</button>
+              <>
+                <label className="text-sm font-medium text-slate-700" htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  className="min-h-[46px] w-full rounded-xl border border-blue-200 bg-white px-4 py-2 text-base outline-none ring-blue-200 transition focus:ring-2"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <label className="text-sm font-medium text-slate-700" htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  type="password"
+                  className="min-h-[46px] w-full rounded-xl border border-blue-200 bg-white px-4 py-2 text-base outline-none ring-blue-200 transition focus:ring-2"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <label className="text-sm font-medium text-slate-700" htmlFor="confirm-password">Confirm password</label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  className="min-h-[46px] w-full rounded-xl border border-blue-200 bg-white px-4 py-2 text-base outline-none ring-blue-200 transition focus:ring-2"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+                <button className="min-h-[46px] w-full rounded-xl bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700" onClick={onSendCode}>Send code</button>
+              </>
             ) : (
               <>
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  Enter the code sent to {email.trim()}.
+                </p>
                 <label className="text-sm font-medium text-slate-700" htmlFor="code">Code</label>
                 <input
                   id="code"

@@ -20,28 +20,16 @@ async function post(path: string, body: Record<string, unknown>): Promise<ApiRes
   return { ok: true, ...(data as Record<string, unknown>) } as ApiResult;
 }
 
-export function startSignIn(email: string) {
-  return post("/auth/sign-in/start", { email });
-}
-
-export function verifySignIn(email: string, code: string) {
-  return post("/auth/sign-in/verify", { email, code });
-}
-
 export function startSignUp(email: string) {
   return post("/auth/sign-up/start", { email });
 }
 
-export function verifySignUp(email: string, code: string) {
-  return post("/auth/sign-up/verify", { email, code });
+export function verifySignUp(email: string, code: string, password: string) {
+  return post("/auth/sign-up/verify", { email, code, password });
 }
 
 export function signInWithPassword(email: string, password: string) {
   return post("/auth/sign-in/password", { email, password });
-}
-
-export function setPassword(email: string, password: string) {
-  return post("/auth/password/set", { email, password });
 }
 
 export async function signOut() {

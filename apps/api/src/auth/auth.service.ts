@@ -12,12 +12,8 @@ import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { FeatureFlagsService } from "../common/feature-flags.service";
 
-export const ACCESS_NOT_APPROVED = "ACCESS_NOT_APPROVED";
-
-const OTP_PURPOSE_SIGN_IN = "sign_in";
 const OTP_PURPOSE_SIGN_UP = "sign_up";
 const OTP_TTL_MINUTES = Number(process.env.AUTH_OTP_TTL_MINUTES || 10);
-const OTP_MAX_ATTEMPTS = Number(process.env.AUTH_OTP_MAX_ATTEMPTS || 3);
 const SESSION_TTL_DAYS = Number(process.env.AUTH_SESSION_TTL_DAYS || 30);
 
 function normalizeEmail(email: string): string {
@@ -43,7 +39,7 @@ function verifyPassword(password: string, stored: string): boolean {
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly featureFlags: FeatureFlagsService) {}
+  constructor(_featureFlags: FeatureFlagsService) {}
 
   private async sendOtpEmail(email: string, code: string): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY?.trim();
@@ -107,7 +103,7 @@ export class AuthService {
     return { user, identity };
   }
 
-  async startOtp(email: string, purpose: "sign_in" | "sign_up") {
+  async startOtp(email: string, purpose: "sign_up") {
     const db = getDb();
     const normalized = normalizeEmail(email);
     const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -119,7 +115,7 @@ export class AuthService {
       purpose,
       codeHash,
       attempts: 0,
-      maxAttempts: OTP_MAX_ATTEMPTS,
+      maxAttempts: Number(process.env.AUTH_OTP_MAX_ATTEMPTS || 3),
       expiresAt,
     });
 
@@ -127,58 +123,14 @@ export class AuthService {
     return { ok: true };
   }
 
-  async verifyOtpAndSignIn(email: string, code: string) {
+  async verifyOtpAndSignUp(email: string, code: string, password: string) {
     const db = getDb();
     const normalized = normalizeEmail(email);
     const now = new Date();
 
-    const [challenge] = await db
-      .select()
-      .from(authOtpChallenges)
-      .where(
-        and(
-          eq(authOtpChallenges.email, normalized),
-          eq(authOtpChallenges.purpose, OTP_PURPOSE_SIGN_IN),
-          isNull(authOtpChallenges.consumedAt),
-        ),
-      )
-      .orderBy(desc(authOtpChallenges.createdAt))
-      .limit(1);
-
-    if (!challenge || challenge.expiresAt < now) {
-      return { ok: false, message: "Code expired", fallbackUnlocked: false };
+    if (!password || password.length < 8) {
+      return { ok: false, message: "Password must be at least 8 characters" };
     }
-
-    const codeOk = challenge.codeHash === hashValue(code.trim());
-    if (!codeOk) {
-      const attempts = challenge.attempts + 1;
-      await db
-        .update(authOtpChallenges)
-        .set({ attempts, updatedAt: new Date() })
-        .where(eq(authOtpChallenges.id, challenge.id));
-      return {
-        ok: false,
-        message: "Invalid code",
-        fallbackUnlocked: attempts >= OTP_MAX_ATTEMPTS,
-      };
-    }
-
-    const found = await this.findUserByEmail(normalized);
-    if (!found) return { ok: false, message: "Account not found", fallbackUnlocked: false };
-
-    await db
-      .update(authOtpChallenges)
-      .set({ consumedAt: now, updatedAt: now })
-      .where(eq(authOtpChallenges.id, challenge.id));
-
-    const session = await this.createSession(found.user.id);
-    return { ok: true, session, user: found.user };
-  }
-
-  async verifyOtpAndSignUp(email: string, code: string) {
-    const db = getDb();
-    const normalized = normalizeEmail(email);
-    const now = new Date();
 
     const [challenge] = await db
       .select()
@@ -206,91 +158,55 @@ export class AuthService {
     }
 
     const existing = await this.findUserByEmail(normalized);
-    let userId = existing?.user.id;
+    if (existing) {
+      return { ok: false, message: "Account already exists" };
+    }
 
-    if (!userId) {
-      if (this.featureFlags.founderLedModeEnabled() && !this.featureFlags.publicSignupEnabled()) {
-        throw new Error(ACCESS_NOT_APPROVED);
-      }
+    const passwordHash = makePasswordHash(password);
+    const org = await db.transaction(async (tx) => {
+      const [newOrg] = await tx.insert(organizations).values({ name: "My Organization" }).returning();
+      if (!newOrg) throw new Error("Failed to create organization");
 
-      const org = await db.transaction(async (tx) => {
-        const [newOrg] = await tx.insert(organizations).values({ name: "My Organization" }).returning();
-        if (!newOrg) throw new Error("Failed to create organization");
-
-        const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-        await tx.insert(subscriptions).values({
-          organizationId: newOrg.id,
-          planType: "starter",
-          status: "trialing",
-          currentPeriodStart: periodStart,
-          currentPeriodEnd: periodEnd,
-        });
-
-        const syntheticClerkId = `local_${randomUUID()}`;
-        const [newUser] = await tx
-          .insert(users)
-          .values({
-            clerkId: syntheticClerkId,
-            organizationId: newOrg.id,
-            role: "owner",
-            email: normalized,
-          })
-          .returning({ id: users.id });
-
-        if (!newUser) throw new Error("Failed to create user");
-
-        await tx.insert(authIdentities).values({
-          userId: newUser.id,
-          email: normalized,
-          emailVerifiedAt: now,
-        });
-
-        return { userId: newUser.id };
+      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      await tx.insert(subscriptions).values({
+        organizationId: newOrg.id,
+        planType: "starter",
+        status: "trialing",
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
       });
 
-      userId = org.userId;
-    }
+      const syntheticClerkId = `local_${randomUUID()}`;
+      const [newUser] = await tx
+        .insert(users)
+        .values({
+          clerkId: syntheticClerkId,
+          organizationId: newOrg.id,
+          role: "owner",
+          email: normalized,
+        })
+        .returning({ id: users.id });
+
+      if (!newUser) throw new Error("Failed to create user");
+
+      await tx.insert(authIdentities).values({
+        userId: newUser.id,
+        email: normalized,
+        passwordHash,
+        emailVerifiedAt: now,
+      });
+
+      return { userId: newUser.id };
+    });
 
     await db
       .update(authOtpChallenges)
       .set({ consumedAt: now, updatedAt: now })
       .where(eq(authOtpChallenges.id, challenge.id));
 
-    const session = await this.createSession(userId);
+    const session = await this.createSession(org.userId);
     return { ok: true, session };
-  }
-
-  async setPasswordAfterOtpLock(email: string, password: string) {
-    const db = getDb();
-    const normalized = normalizeEmail(email);
-
-    const [challenge] = await db
-      .select()
-      .from(authOtpChallenges)
-      .where(
-        and(
-          eq(authOtpChallenges.email, normalized),
-          eq(authOtpChallenges.purpose, OTP_PURPOSE_SIGN_IN),
-          isNull(authOtpChallenges.consumedAt),
-        ),
-      )
-      .orderBy(desc(authOtpChallenges.createdAt))
-      .limit(1);
-
-    if (!challenge || challenge.attempts < OTP_MAX_ATTEMPTS) {
-      return { ok: false, message: "Password fallback not unlocked" };
-    }
-
-    const found = await this.findUserByEmail(normalized);
-    if (!found) return { ok: false, message: "Account not found" };
-
-    await db
-      .update(authIdentities)
-      .set({ passwordHash: makePasswordHash(password), updatedAt: new Date() })
-      .where(eq(authIdentities.userId, found.user.id));
-
-    return { ok: true };
   }
 
   async signInWithPassword(email: string, password: string) {

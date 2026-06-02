@@ -1,7 +1,7 @@
-import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
+import { UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import type { Request, Response } from "express";
-import { ACCESS_NOT_APPROVED, AuthService } from "./auth.service";
+import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 
 describe("AuthController", () => {
@@ -10,9 +10,7 @@ describe("AuthController", () => {
   function makeController(overrides: Partial<AuthService> = {}) {
     const service = {
       startOtp: vi.fn(async () => ({ ok: true })),
-      verifyOtpAndSignIn: vi.fn(async () => ({ ok: true, session: { token: "tok", expiresAt: now } })),
       verifyOtpAndSignUp: vi.fn(async () => ({ ok: true, session: { token: "tok", expiresAt: now } })),
-      setPasswordAfterOtpLock: vi.fn(async () => ({ ok: true })),
       signInWithPassword: vi.fn(async () => ({ ok: true, session: { token: "tok", expiresAt: now } })),
       validateSession: vi.fn(async () => ({ user: { id: "u1", email: "a@test.com" } })),
       signOut: vi.fn(async () => undefined),
@@ -26,25 +24,26 @@ describe("AuthController", () => {
     return { cookie: vi.fn(), clearCookie: vi.fn() } as unknown as Response;
   }
 
-  it("forwards start endpoints", async () => {
+  it("forwards sign-up start endpoint", async () => {
     const { controller, service } = makeController();
-    await controller.signInStart({ email: "x@test.com" });
     await controller.signUpStart({ email: "x@test.com" });
-    expect(service.startOtp).toHaveBeenCalledWith("x@test.com", "sign_in");
     expect(service.startOtp).toHaveBeenCalledWith("x@test.com", "sign_up");
   });
 
-  it("sets cookie on successful verify endpoints", async () => {
-    const { controller } = makeController();
+  it("forwards sign-up password and sets cookie on successful verify endpoint", async () => {
+    const { controller, service } = makeController();
     const res = makeRes();
-    await expect(controller.signInVerify({ email: "x@test.com", code: "123456" }, res)).resolves.toEqual({ ok: true });
-    await expect(controller.signUpVerify({ email: "x@test.com", code: "123456" }, res)).resolves.toEqual({ ok: true });
+    const body = { email: "x@test.com", code: "123456", password: "secret123" };
+    await expect(controller.signUpVerify(body, res)).resolves.toEqual({ ok: true });
+    expect(service.verifyOtpAndSignUp).toHaveBeenCalledWith("x@test.com", "123456", "secret123");
     expect(res.cookie).toHaveBeenCalled();
   });
 
-  it("maps invite-only sign-up rejection to forbidden", async () => {
-    const { controller } = makeController({ verifyOtpAndSignUp: vi.fn(async () => { throw new Error(ACCESS_NOT_APPROVED); }) as never });
-    await expect(controller.signUpVerify({ email: "x@test.com", code: "123456" }, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
+  it("sets cookie on successful password sign-in endpoint", async () => {
+    const { controller } = makeController();
+    const res = makeRes();
+    await expect(controller.signInPassword({ email: "x@test.com", password: "pw" }, res)).resolves.toEqual({ ok: true });
+    expect(res.cookie).toHaveBeenCalled();
   });
 
   it("handles me/sync/sign-out token branches", async () => {

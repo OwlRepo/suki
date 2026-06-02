@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   Headers,
   Post,
@@ -10,7 +9,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { AuthService, ACCESS_NOT_APPROVED } from "./auth.service";
+import { AuthService } from "./auth.service";
 
 const COOKIE_NAME = "suki_session";
 
@@ -28,42 +27,17 @@ export class AuthController {
     });
   }
 
-  @Post("sign-in/start")
-  async signInStart(@Body() body: { email: string }) {
-    return this.authService.startOtp(body.email, "sign_in");
-  }
-
-  @Post("sign-in/verify")
-  async signInVerify(@Body() body: { email: string; code: string }, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.verifyOtpAndSignIn(body.email, body.code);
-    if (!result.ok || !result.session) return result;
-    this.setSessionCookie(res, result.session.token, result.session.expiresAt);
-    return { ok: true };
-  }
-
   @Post("sign-up/start")
   async signUpStart(@Body() body: { email: string }) {
     return this.authService.startOtp(body.email, "sign_up");
   }
 
   @Post("sign-up/verify")
-  async signUpVerify(@Body() body: { email: string; code: string }, @Res({ passthrough: true }) res: Response) {
-    try {
-      const result = await this.authService.verifyOtpAndSignUp(body.email, body.code);
-      if (!result.ok || !result.session) return result;
-      this.setSessionCookie(res, result.session.token, result.session.expiresAt);
-      return { ok: true };
-    } catch (err) {
-      if (err instanceof Error && err.message === ACCESS_NOT_APPROVED) {
-        throw new ForbiddenException("Access is invite-only. Contact us to get started.");
-      }
-      throw err;
-    }
-  }
-
-  @Post("password/set")
-  async setPassword(@Body() body: { email: string; password: string }) {
-    return this.authService.setPasswordAfterOtpLock(body.email, body.password);
+  async signUpVerify(@Body() body: { email: string; code: string; password: string }, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.verifyOtpAndSignUp(body.email, body.code, body.password);
+    if (!result.ok || !result.session) return result;
+    this.setSessionCookie(res, result.session.token, result.session.expiresAt);
+    return { ok: true };
   }
 
   @Post("sign-in/password")

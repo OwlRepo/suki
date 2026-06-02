@@ -2,7 +2,7 @@
 
 | File Path | Purpose | Relationships | Usage Patterns |
 |---|---|---|---|
-| `apps/api/src/auth/auth.controller.ts` | First-party auth endpoints (`/auth/*`) | Uses `AuthService` and cookie session handling | Sign-in/sign-up OTP, password fallback, session introspection, and sign-out |
+| `apps/api/src/auth/auth.controller.ts` | First-party auth endpoints (`/auth/*`) | Uses `AuthService` and cookie session handling | Password-only sign-in, public email/password sign-up with OTP verification, session introspection, and sign-out |
 | `apps/api/src/customers/customers.controller.ts` | Customer/visit/template endpoints | Uses `CustomersService`, template service, guards | CRM operations |
 | `apps/api/src/billing/billing.controller.ts` | Billing and plan endpoints | Uses billing services and auth guard | Subscription and add-on flows |
 | `apps/api/src/billing/billing-webhook.controller.ts` | PayMongo webhook ingestion | Uses billing webhook handling service | External payment event processing |
