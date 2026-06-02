@@ -31,7 +31,7 @@
 
 ## Container / CI
 - Docker + docker-compose files present
-- GitHub Actions deploy workflow detected; VPS deploy allows cold Docker rebuilds with a 35-minute job timeout and 30-minute SSH command timeout
+- GitHub Actions deploy workflow detected; VPS deploy allows cold Docker rebuilds with a 35-minute job timeout and 30-minute SSH command timeout, and removes legacy Compose containers without deleting volumes before starting the renamed project
 
 ## Environment Files
 - `.env`

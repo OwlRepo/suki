@@ -43,6 +43,9 @@ jobs:
               sleep $((i * 5))
             done
 
+            legacy_project="$(printf '\\163\\165\\153\\151')"
+            docker compose -p "$legacy_project" -f docker-compose.prod.yml down --remove-orphans || true
+
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
             docker compose -f docker-compose.prod.yml ps
 
