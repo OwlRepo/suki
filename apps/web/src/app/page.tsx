@@ -22,6 +22,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
+import { TyveraMark } from "./sign-in/page";
 
 const TRUST_CHIPS = [
   "All core features available",
@@ -38,8 +39,10 @@ const OUTCOME_STATS = [
   },
   {
     label: "Recovered bookings",
-    value: "Recovered bookings help keep your calendar full and revenue steady.",
-    source: "Built for salons, clinics, gyms, spas, and repeat-visit businesses.",
+    value:
+      "Recovered bookings help keep your calendar full and revenue steady.",
+    source:
+      "Built for salons, clinics, gyms, spas, and repeat-visit businesses.",
   },
   {
     label: "Clear daily limits",
@@ -90,14 +93,15 @@ const KEY_AUTOMATIONS = [
   },
   {
     name: "Post-visit follow-ups",
-    benefit: "Thank customers and invite them to book again while the visit is fresh.",
+    benefit:
+      "Thank customers and invite them to book again while the visit is fresh.",
   },
   {
     name: "Inactivity winback",
-    benefit: "Automatically message customers who have not returned after 60+ days.",
+    benefit:
+      "Automatically message customers who have not returned after 60+ days.",
   },
 ] as const;
-
 
 const BEFORE_AFTER = {
   before: [
@@ -134,7 +138,11 @@ export default function Home() {
     <div className="min-h-screen bg-background font-sans">
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="text-xl font-semibold text-foreground">
+          <Link
+            href="/"
+            className="flex items-center gap-3 text-2xl font-bold tracking-tight text-slate-950"
+          >
+            <TyveraMark />
             Tyvera
           </Link>
           <AuthCta />
@@ -204,8 +212,8 @@ export default function Home() {
             The problem is not bad service. It is forgotten follow-up.
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-center leading-relaxed text-muted-foreground">
-            Customers forget appointments. Staff get busy. Follow-ups are missed.
-            Tyvera makes sure the right message still gets sent.
+            Customers forget appointments. Staff get busy. Follow-ups are
+            missed. Tyvera makes sure the right message still gets sent.
           </p>
 
           <ul className="mx-auto mt-8 max-w-xl list-inside list-disc space-y-2 text-muted-foreground">
@@ -349,17 +357,23 @@ export default function Home() {
               Built first for Philippine service businesses
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-muted-foreground">
-              Tyvera works best when customers book ahead or come back regularly.
+              Tyvera works best when customers book ahead or come back
+              regularly.
             </p>
 
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              {["Salons", "Barbershops", "Clinics", "Dental Clinics", "Gyms", "Spas"].map(
-                (biz) => (
-                  <Badge key={biz} variant="outline" className="text-sm">
-                    {biz}
-                  </Badge>
-                )
-              )}
+              {[
+                "Salons",
+                "Barbershops",
+                "Clinics",
+                "Dental Clinics",
+                "Gyms",
+                "Spas",
+              ].map((biz) => (
+                <Badge key={biz} variant="outline" className="text-sm">
+                  {biz}
+                </Badge>
+              ))}
             </div>
           </div>
         </section>
@@ -374,8 +388,8 @@ export default function Home() {
             </div>
 
             <p className="mt-2 text-muted-foreground">
-              Tyvera helps you organize your customer list and automate follow-ups.
-              You can view and export your data anytime.
+              Tyvera helps you organize your customer list and automate
+              follow-ups. You can view and export your data anytime.
             </p>
 
             <Accordion type="single" collapsible className="mt-8">
@@ -420,7 +434,8 @@ export default function Home() {
 
       <footer className="border-t border-border py-12">
         <div className="mx-auto max-w-6xl px-4 text-center text-sm text-muted-foreground sm:px-6">
-          Tyvera — Customer recovery automation for Philippine service businesses.
+          Tyvera — Customer recovery automation for Philippine service
+          businesses.
         </div>
       </footer>
     </div>
