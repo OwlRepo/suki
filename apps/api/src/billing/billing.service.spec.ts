@@ -4,7 +4,9 @@ import {
   getDb,
   organizations,
   processedWebhookEvents,
+  smsAddons,
   subscriptions,
+  verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
 } from "@tyvera/database";
 import { BillingService } from "./billing.service";
@@ -71,6 +73,8 @@ function createDbHarness(input?: {
     inserted: {
       subscriptions: [] as Array<Record<string, unknown>>,
       credits: [] as Array<Record<string, unknown>>,
+      bookingAddons: [] as Array<Record<string, unknown>>,
+      smsAddons: [] as Array<Record<string, unknown>>,
       reconciliation: [] as Array<Record<string, unknown>>,
       processedEvents: [] as Array<Record<string, unknown>>,
     },
@@ -110,6 +114,10 @@ function createDbHarness(input?: {
       } else if (table === verifiedOnlineBookingCredits) {
         state.inserted.credits.push(value);
         state.verifiedCredits = [value as unknown as CreditRow];
+      } else if (table === verifiedOnlineBookingAddons) {
+        state.inserted.bookingAddons.push(value);
+      } else if (table === smsAddons) {
+        state.inserted.smsAddons.push(value);
       } else if (table === creditReconciliationEvents) {
         state.inserted.reconciliation.push(value);
       } else if (table === processedWebhookEvents) {
@@ -180,6 +188,7 @@ describe("BillingService", () => {
   });
 
   it("builds a free fallback billing status when no subscription exists", async () => {
+    createDbHarness();
     const service = new BillingService({} as never);
     vi.spyOn(service, "getSubscription").mockResolvedValue(null as never);
 
@@ -188,6 +197,44 @@ describe("BillingService", () => {
       billingStatus: "free_active",
       billingInterval: null,
       subscription: null,
+    });
+  });
+
+  it("uses persisted verified booking ledger balances in billing status", async () => {
+    createDbHarness({
+      subscriptions: [
+        {
+          id: "sub-local",
+          organizationId: "org-1",
+          planType: "starter",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+        },
+      ],
+      verifiedCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          includedGranted: 30,
+          addonGranted: 25,
+          used: 4,
+          sourcePlan: "starter",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      verifiedOnlineBookingCredits: {
+        included: 30,
+        addon: 25,
+        used: 4,
+        total: 55,
+        remaining: 51,
+      },
     });
   });
 
@@ -394,6 +441,239 @@ describe("BillingService", () => {
     expect(state.updated.organizations[0]).toMatchObject({
       currentPlan: "free",
       billingStatus: "subscription_expired",
+    });
+  });
+
+  it("grants verified booking top-up credits from order_created events", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "starter", billingStatus: "subscription_active" }],
+      verifiedCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          includedGranted: 30,
+          addonGranted: 0,
+          used: 4,
+          sourcePlan: "starter",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_created",
+        custom_data: {
+          organization_id: "org-1",
+          purchase_kind: "online_booking_topup",
+          sku: "online-booking-topup-25",
+          user_id: "user-1",
+        },
+      },
+      data: {
+        id: "order_123",
+        attributes: {},
+      },
+    });
+
+    expect(state.updated.credits[0]).toMatchObject({
+      addonGranted: 25,
+      used: 4,
+    });
+    expect(state.inserted.bookingAddons[0]).toMatchObject({
+      organizationId: "org-1",
+      units: 25,
+      sku: "online-booking-topup-25",
+      providerOrderId: "order_123",
+      purchasedByUserId: "user-1",
+    });
+  });
+
+  it("changes to a higher plan immediately through Lemon Squeezy and waits for webhook activation", async () => {
+    createDbHarness({
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "starter",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    process.env.LEMONSQUEEZY_VARIANT_GROWTH_MONTHLY = "222";
+    const provider = {
+      updateSubscription: vi.fn().mockResolvedValue({
+        data: {
+          id: "sub_123",
+          attributes: { status: "active" },
+        },
+      }),
+    };
+    const service = new BillingService(provider as never);
+
+    await expect(
+      service.changePlan("org-1", { planType: "growth", billingInterval: "monthly" }),
+    ).resolves.toMatchObject({
+      organizationId: "org-1",
+      subscriptionId: "local-sub-1",
+      scheduled: false,
+      pendingWebhookSync: true,
+      planType: "growth",
+      billingInterval: "monthly",
+    });
+
+    expect(provider.updateSubscription).toHaveBeenCalledWith("sub_123", {
+      variantId: "222",
+      invoiceImmediately: true,
+    });
+  });
+
+  it("schedules lower-plan downgrades for the billing boundary and stores the scheduled target locally", async () => {
+    const { state } = createDbHarness({
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          renewsAt: new Date("2026-07-01T00:00:00.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    process.env.LEMONSQUEEZY_VARIANT_STARTER_MONTHLY = "111";
+    const provider = {
+      updateSubscription: vi.fn().mockResolvedValue({
+        data: {
+          id: "sub_123",
+          attributes: { status: "active" },
+        },
+      }),
+    };
+    const service = new BillingService(provider as never);
+
+    await expect(
+      service.changePlan("org-1", { planType: "starter", billingInterval: "monthly" }),
+    ).resolves.toMatchObject({
+      organizationId: "org-1",
+      subscriptionId: "local-sub-1",
+      scheduled: true,
+      pendingWebhookSync: true,
+      planType: "starter",
+      billingInterval: "monthly",
+    });
+
+    expect(provider.updateSubscription).toHaveBeenCalledWith("sub_123", {
+      variantId: "111",
+      disableProrations: true,
+    });
+    expect(state.updated.subscriptions[0]).toMatchObject({
+      scheduledPlanType: "starter",
+      scheduledBillingInterval: "monthly",
+      scheduledChangeEffectiveAt: new Date("2026-07-01T00:00:00.000Z"),
+    });
+  });
+
+  it("cancels an active subscription in Lemon Squeezy and persists pending cancellation metadata", async () => {
+    const { state } = createDbHarness({
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    const provider = {
+      cancelSubscription: vi.fn().mockResolvedValue({
+        data: {
+          id: "sub_123",
+          attributes: {
+            status: "cancelled",
+            ends_at: "2026-06-30T23:59:59.000Z",
+            renews_at: null,
+          },
+        },
+      }),
+    };
+    const service = new BillingService(provider as never);
+
+    await expect(service.cancel("org-1")).resolves.toMatchObject({
+      organizationId: "org-1",
+      subscriptionId: "local-sub-1",
+      cancellationScheduled: true,
+      pendingWebhookSync: true,
+      endsAt: "2026-06-30T23:59:59.000Z",
+    });
+
+    expect(provider.cancelSubscription).toHaveBeenCalledWith("sub_123");
+    expect(state.updated.subscriptions[0]).toMatchObject({
+      cancelled: "true",
+      status: "cancelled",
+    });
+  });
+
+  it("resumes a cancelled subscription through Lemon Squeezy before the period ends", async () => {
+    const { state } = createDbHarness({
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "cancelled",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          endsAt: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "true",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    const provider = {
+      updateSubscription: vi.fn().mockResolvedValue({
+        data: {
+          id: "sub_123",
+          attributes: {
+            status: "active",
+            cancelled: false,
+            ends_at: null,
+            renews_at: "2026-07-01T00:00:00.000Z",
+          },
+        },
+      }),
+    };
+    const service = new BillingService(provider as never);
+
+    await expect(service.resume("org-1")).resolves.toMatchObject({
+      organizationId: "org-1",
+      subscriptionId: "local-sub-1",
+      resumed: true,
+      pendingWebhookSync: true,
+    });
+
+    expect(provider.updateSubscription).toHaveBeenCalledWith("sub_123", {
+      cancelled: false,
+    });
+    expect(state.updated.subscriptions[0]).toMatchObject({
+      cancelled: "false",
+      status: "active",
+      endsAt: null,
     });
   });
 });

@@ -23,12 +23,14 @@ All external-provider contract changes are HIGH risk and require contract/regres
 - Inbound STOP and status callbacks require valid Twilio signatures.
 - SMS usage units represent estimated billable message segments, not only API requests.
 - Ambiguous network failures are recorded as unknown outcome and are not automatically retried.
+- Public booking OTP sends now check org billing state plus verified online-booking credits before sending, consume a credit only after Twilio Verify accepts the send, and return a safe generic message when billing blocks the action.
 
 ## Lemon Squeezy Notes
 - Subscription and add-on checkout URLs are created server-side from an allowlisted variant catalog.
 - Billing webhook verification uses the raw request body plus `X-Signature` HMAC SHA-256 with timing-safe comparison.
 - Customer portal access is treated as short-lived and fetched server-side rather than trusted from client input.
 - Subscription webhook reconciliation now upserts provider-neutral subscription fields, updates organization billing state, and raises included verified-booking credits on mid-cycle upgrades without resetting usage.
+- Direct owner actions now use Lemon Squeezy subscription APIs for plan changes, cancellation, and resumption, while plan activation still waits on the trusted webhook path.
 
 ## Documentation Drift Guard
 When auth/provider/integration behavior changes:

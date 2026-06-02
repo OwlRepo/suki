@@ -68,4 +68,96 @@ describe("LemonsqueezyService", () => {
       billing_interval: "monthly",
     });
   });
+
+  it("updates subscriptions through Lemon Squeezy's PATCH subscription endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: "sub_1",
+          attributes: {
+            status: "active",
+            variant_id: 222,
+          },
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const service = new LemonsqueezyService();
+    const result = await service.updateSubscription("sub_1", {
+      variantId: "222",
+      disableProrations: true,
+    });
+
+    expect(result).toMatchObject({
+      data: {
+        id: "sub_1",
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.lemonsqueezy.com/v1/subscriptions/sub_1",
+      expect.objectContaining({
+        method: "PATCH",
+      }),
+    );
+  });
+
+  it("cancels subscriptions through Lemon Squeezy's DELETE subscription endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: "sub_1",
+          attributes: {
+            status: "cancelled",
+          },
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const service = new LemonsqueezyService();
+    await service.cancelSubscription("sub_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.lemonsqueezy.com/v1/subscriptions/sub_1",
+      expect.objectContaining({
+        method: "DELETE",
+      }),
+    );
+  });
+
+  it("retrieves fresh signed portal URLs from Lemon Squeezy subscriptions", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: "sub_1",
+          attributes: {
+            urls: {
+              customer_portal: "https://billing.example/portal",
+              update_payment_method: "https://billing.example/payment",
+            },
+          },
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const service = new LemonsqueezyService();
+    const result = await service.getSubscription("sub_1");
+
+    expect(result).toMatchObject({
+      data: {
+        id: "sub_1",
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.lemonsqueezy.com/v1/subscriptions/sub_1",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+  });
 });

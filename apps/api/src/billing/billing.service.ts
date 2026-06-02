@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -8,14 +9,22 @@ import {
   creditReconciliationEvents,
   organizations,
   processedWebhookEvents,
+  smsAddons,
   subscriptions,
+  verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
 } from "@tyvera/database";
 import { and, desc, eq } from "drizzle-orm";
 import { createHash } from "crypto";
 import type { BillingInterval, PlanType } from "@tyvera/types";
-import { LemonsqueezyService } from "./lemonsqueezy.service";
-import { applyMonthlyIncludedUpgrade } from "./credit-reconciliation";
+import {
+  LemonsqueezyService,
+  type LemonSubscriptionResponse,
+} from "./lemonsqueezy.service";
+import {
+  applyMonthlyIncludedUpgrade,
+  computeCreditLedgerRemaining,
+} from "./credit-reconciliation";
 import {
   getPlanCatalogEntry,
   resolveAddonSku,
@@ -82,13 +91,22 @@ export class BillingService {
     const subscription = await this.getSubscription(organizationId);
     const fallbackPlanType = subscription?.planType ?? "free";
     const plan = getPlanCatalogEntry(fallbackPlanType);
-    const verifiedOnlineBookingCredits = {
-      included: plan.limits.verifiedOnlineBookingsPerMonth,
-      addon: 0,
-      used: 0,
-      total: plan.limits.verifiedOnlineBookingsPerMonth,
-      remaining: plan.limits.verifiedOnlineBookingsPerMonth,
-    };
+    const ledger = await this.getVerifiedBookingLedger(organizationId);
+    const verifiedOnlineBookingCredits = ledger
+      ? {
+          included: ledger.includedGranted,
+          addon: ledger.addonGranted,
+          used: ledger.used,
+          total: ledger.includedGranted + ledger.addonGranted,
+          remaining: computeCreditLedgerRemaining(ledger),
+        }
+      : {
+          included: plan.limits.verifiedOnlineBookingsPerMonth,
+          addon: 0,
+          used: 0,
+          total: plan.limits.verifiedOnlineBookingsPerMonth,
+          remaining: plan.limits.verifiedOnlineBookingsPerMonth,
+        };
 
     if (!subscription) {
       return {
@@ -181,11 +199,37 @@ export class BillingService {
 
   async createCustomerPortal(organizationId: string) {
     const subscription = await this.getSubscription(organizationId);
+    if (!subscription?.providerSubscriptionId) {
+      throw new NotFoundException("Billing portal is not available for this account.");
+    }
+
+    const providerSubscription = await this.lemonsqueezy.getSubscription(
+      subscription.providerSubscriptionId,
+    );
+    const providerUrls = providerSubscription.data?.attributes?.urls;
     const url =
-      subscription?.customerPortalUrl ?? subscription?.updatePaymentMethodUrl;
+      this.readString(providerUrls?.customer_portal) ??
+      this.readString(providerUrls?.update_payment_method) ??
+      subscription.customerPortalUrl ??
+      subscription.updatePaymentMethodUrl;
+
     if (!url) {
       throw new NotFoundException("Billing portal is not available for this account.");
     }
+
+    const db = getDb();
+    await db
+      .update(subscriptions)
+      .set({
+        customerPortalUrl: this.readString(providerUrls?.customer_portal) ?? subscription.customerPortalUrl ?? null,
+        updatePaymentMethodUrl:
+          this.readString(providerUrls?.update_payment_method) ??
+          subscription.updatePaymentMethodUrl ??
+          null,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, subscription.id));
+
     return { url };
   }
 
@@ -194,31 +238,134 @@ export class BillingService {
     input: { planType: PlanType; billingInterval?: BillingInterval },
   ) {
     const subscription = await this.getSubscription(organizationId);
+    if (!subscription?.providerSubscriptionId) {
+      throw new NotFoundException("Subscription not found.");
+    }
+
+    if (input.planType === "free") {
+      throw new BadRequestException("Use cancellation to return to the free plan.");
+    }
+
+    const targetInterval = input.billingInterval ?? this.resolveSubscriptionInterval(subscription);
+    if (!targetInterval) {
+      throw new BadRequestException("Billing interval required.");
+    }
+
+    const variantId = this.getRequiredEnv(
+      resolveSubscriptionVariantEnvKey(input.planType, targetInterval),
+    );
+    const scheduled = this.isScheduledDowngrade(
+      subscription.planType,
+      this.resolveSubscriptionInterval(subscription) ?? targetInterval,
+      input.planType,
+      targetInterval,
+    );
+
+    await this.lemonsqueezy.updateSubscription(subscription.providerSubscriptionId, {
+      variantId,
+      ...(scheduled
+        ? { disableProrations: true }
+        : { invoiceImmediately: true }),
+    });
+
+    const db = getDb();
+    if (scheduled) {
+      await db
+        .update(subscriptions)
+        .set({
+          scheduledPlanType: input.planType,
+          scheduledBillingInterval: targetInterval,
+          scheduledChangeEffectiveAt: subscription.renewsAt ?? subscription.currentPeriodEnd ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.id, subscription.id));
+    } else {
+      await db
+        .update(subscriptions)
+        .set({
+          scheduledPlanType: null,
+          scheduledBillingInterval: null,
+          scheduledChangeEffectiveAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.id, subscription.id));
+    }
+
     return {
       organizationId,
-      subscriptionId: subscription?.id ?? null,
-      scheduled: true,
+      subscriptionId: subscription.id ?? null,
+      scheduled,
+      pendingWebhookSync: true,
       planType: input.planType,
-      billingInterval: input.billingInterval ?? null,
+      billingInterval: targetInterval,
     };
   }
 
   async cancel(organizationId: string) {
     const subscription = await this.getSubscription(organizationId);
+    if (!subscription?.providerSubscriptionId) {
+      throw new NotFoundException("Subscription not found.");
+    }
+
+    const providerResponse = await this.lemonsqueezy.cancelSubscription(
+      subscription.providerSubscriptionId,
+    );
+    const endsAt = this.parseDate(providerResponse.data?.attributes?.ends_at);
+
+    const db = getDb();
+    await db
+      .update(subscriptions)
+      .set({
+        cancelled: "true",
+        status: "cancelled",
+        endsAt,
+        renewsAt: this.parseDate(providerResponse.data?.attributes?.renews_at),
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, subscription.id));
+
     return {
       organizationId,
-      subscriptionId: subscription?.id ?? null,
+      subscriptionId: subscription.id ?? null,
       cancellationScheduled: true,
-      endsAt: subscription?.endsAt?.toISOString() ?? null,
+      pendingWebhookSync: true,
+      endsAt: endsAt?.toISOString() ?? null,
     };
   }
 
   async resume(organizationId: string) {
     const subscription = await this.getSubscription(organizationId);
+    if (!subscription?.providerSubscriptionId) {
+      throw new NotFoundException("Subscription not found.");
+    }
+
+    const providerResponse = await this.lemonsqueezy.updateSubscription(
+      subscription.providerSubscriptionId,
+      {
+        cancelled: false,
+      },
+    );
+
+    const db = getDb();
+    await db
+      .update(subscriptions)
+      .set({
+        cancelled: "false",
+        status: this.resolveSubscriptionStatus(
+          "subscription_resumed",
+          this.readString(providerResponse.data?.attributes?.status),
+        ),
+        endsAt: this.parseDate(providerResponse.data?.attributes?.ends_at),
+        renewsAt: this.parseDate(providerResponse.data?.attributes?.renews_at),
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, subscription.id));
+
     return {
       organizationId,
-      subscriptionId: subscription?.id ?? null,
+      subscriptionId: subscription.id ?? null,
       resumed: true,
+      pendingWebhookSync: true,
     };
   }
 
@@ -260,6 +407,8 @@ export class BillingService {
     await db.transaction(async (tx) => {
       if (eventName.startsWith("subscription_")) {
         await this.reconcileSubscriptionEvent(tx, payload);
+      } else if (eventName === "order_created") {
+        await this.reconcileOrderCreatedEvent(tx, payload);
       }
 
       await tx.insert(processedWebhookEvents).values({
@@ -313,12 +462,15 @@ export class BillingService {
       .limit(1);
 
     const rawPlanType = this.readString(customData.plan_type);
+    const variantPlan = this.resolvePlanFromVariantId(
+      this.readString(attributes.variant_id),
+    );
     const planType = this.resolvePlanType(
-      rawPlanType,
+      rawPlanType ?? variantPlan?.planType ?? null,
       existingSubscription?.planType ?? "free",
     );
     const billingInterval = this.resolveBillingInterval(
-      this.readString(customData.billing_interval),
+      this.readString(customData.billing_interval) ?? variantPlan?.billingInterval ?? null,
       (existingSubscription?.billingInterval as BillingInterval | null) ?? null,
     );
     const status = this.resolveSubscriptionStatus(
@@ -342,13 +494,29 @@ export class BillingService {
         ? "true"
         : "false";
     const urls = (attributes.urls ?? {}) as Record<string, unknown>;
-    const nextOrgPlan = status === "expired" ? "free" : planType;
-    const planPricePhp =
-      nextOrgPlan === "free" ? 0 : getPlanCatalogEntry(nextOrgPlan).monthlyPricePhp;
+    const scheduledDowngrade =
+      !!existingSubscription &&
+      status === "active" &&
+      existingSubscription.status === "active" &&
+      planType !== "free" &&
+      this.isScheduledDowngrade(
+        existingSubscription.planType,
+        (existingSubscription.billingInterval as BillingInterval | null) ?? "monthly",
+        planType,
+        billingInterval ?? "monthly",
+      );
+    const appliedPlanType = scheduledDowngrade
+      ? existingSubscription?.planType
+      : planType;
+    const nextOrgPlan = status === "expired" ? "free" : appliedPlanType;
+    const planPricePhp = this.priceForPlan(
+      status === "expired" ? "free" : planType,
+      billingInterval,
+    );
 
     const subscriptionValues = {
       organizationId,
-      planType,
+      planType: appliedPlanType,
       status,
       provider: "lemonsqueezy" as const,
       providerSubscriptionId: payload.data?.id ?? existingSubscription?.providerSubscriptionId ?? null,
@@ -359,7 +527,7 @@ export class BillingService {
       providerSubscriptionItemId: this.readString(
         (attributes.first_subscription_item as Record<string, unknown> | undefined)?.id,
       ),
-      billingInterval,
+      billingInterval: billingInterval ?? existingSubscription?.billingInterval ?? null,
       cancelled,
       currentPeriodStart,
       currentPeriodEnd,
@@ -372,6 +540,11 @@ export class BillingService {
       customerPortalUrl: this.readString(urls.customer_portal),
       lastProviderEventId: eventId,
       planPricePhp,
+      scheduledPlanType: scheduledDowngrade ? planType : null,
+      scheduledBillingInterval: scheduledDowngrade ? billingInterval : null,
+      scheduledChangeEffectiveAt: scheduledDowngrade
+        ? renewsAt ?? currentPeriodEnd
+        : null,
     };
 
     if (existingSubscription?.id) {
@@ -393,12 +566,65 @@ export class BillingService {
       })
       .where(eq(organizations.id, organizationId));
 
-    if (nextOrgPlan !== "free" && status !== "expired") {
+    if (!scheduledDowngrade && nextOrgPlan !== "free" && status !== "expired") {
       await this.reconcileIncludedBookingCredits(tx, {
         organizationId,
         eventId,
         planType: nextOrgPlan,
         currentPeriodStart,
+      });
+    }
+  }
+
+  private async reconcileOrderCreatedEvent(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      insert: ReturnType<typeof getDb>["insert"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    payload: LemonWebhookPayload,
+  ): Promise<void> {
+    const eventId = payload.data?.id ?? null;
+    const customData = payload.meta?.custom_data ?? {};
+    const organizationId = this.readString(customData.organization_id);
+    const purchaseKind = this.readString(customData.purchase_kind);
+    const sku = this.readString(customData.sku);
+    const userId = this.readString(customData.user_id);
+    if (!organizationId || !purchaseKind || !sku) {
+      return;
+    }
+
+    const addon = resolveAddonSku(sku as AddonSku);
+    if (purchaseKind === "online_booking_topup") {
+      const ledger = await this.getOrCreateVerifiedBookingLedger(
+        tx,
+        organizationId,
+      );
+      await tx
+        .update(verifiedOnlineBookingCredits)
+        .set({
+          addonGranted: ledger.addonGranted + addon.units,
+          used: ledger.used,
+          updatedAt: new Date(),
+        })
+        .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId));
+      await tx.insert(verifiedOnlineBookingAddons).values({
+        organizationId,
+        units: addon.units,
+        pricePhp: addon.pricePhp,
+        sku: addon.sku,
+        providerOrderId: eventId,
+        purchasedByUserId: userId,
+      });
+      return;
+    }
+
+    if (purchaseKind === "sms_segment_topup") {
+      await tx.insert(smsAddons).values({
+        organizationId,
+        packSize: addon.units,
+        packPricePhp: addon.pricePhp,
+        purchasedByUserId: userId,
       });
     }
   }
@@ -487,11 +713,74 @@ export class BillingService {
     });
   }
 
+  private async getVerifiedBookingLedger(organizationId: string) {
+    const db = getDb();
+    const [ledger] = await db
+      .select()
+      .from(verifiedOnlineBookingCredits)
+      .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId))
+      .limit(1);
+    return ledger ?? null;
+  }
+
+  private async getOrCreateVerifiedBookingLedger(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      insert: ReturnType<typeof getDb>["insert"];
+    },
+    organizationId: string,
+  ) {
+    const [ledger] = await tx
+      .select()
+      .from(verifiedOnlineBookingCredits)
+      .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId))
+      .limit(1);
+    if (ledger) return ledger;
+
+    const nextLedger = {
+      organizationId,
+      month: this.toMonthKey(new Date()),
+      includedGranted: 0,
+      addonGranted: 0,
+      used: 0,
+      sourcePlan: "free" as const,
+      lastReconciledAt: new Date(),
+    };
+    await tx.insert(verifiedOnlineBookingCredits).values(nextLedger);
+    return nextLedger;
+  }
+
   private resolvePlanType(value: string | null, fallback: PlanType): PlanType {
     if (value === "free" || value === "starter" || value === "growth" || value === "pro") {
       return value;
     }
     return fallback;
+  }
+
+  private resolvePlanFromVariantId(
+    variantId: string | null,
+  ): { planType: Exclude<PlanType, "free">; billingInterval: BillingInterval } | null {
+    if (!variantId) return null;
+    const candidates: Array<{ planType: Exclude<PlanType, "free">; billingInterval: BillingInterval }> = [
+      { planType: "starter", billingInterval: "monthly" },
+      { planType: "starter", billingInterval: "annual" },
+      { planType: "growth", billingInterval: "monthly" },
+      { planType: "growth", billingInterval: "annual" },
+      { planType: "pro", billingInterval: "monthly" },
+      { planType: "pro", billingInterval: "annual" },
+    ];
+
+    for (const candidate of candidates) {
+      const envKey = resolveSubscriptionVariantEnvKey(
+        candidate.planType,
+        candidate.billingInterval,
+      );
+      if (process.env[envKey]?.trim() === variantId) {
+        return candidate;
+      }
+    }
+
+    return null;
   }
 
   private resolveBillingInterval(
@@ -552,5 +841,30 @@ export class BillingService {
 
   private toMonthKey(date: Date): string {
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+
+  private resolveSubscriptionInterval(
+    subscription: Awaited<ReturnType<BillingService["getSubscription"]>>,
+  ): BillingInterval | null {
+    const interval = subscription?.billingInterval;
+    return interval === "monthly" || interval === "annual" ? interval : null;
+  }
+
+  private isScheduledDowngrade(
+    currentPlan: PlanType,
+    currentInterval: BillingInterval,
+    nextPlan: Exclude<PlanType, "free">,
+    nextInterval: BillingInterval,
+  ): boolean {
+    return this.priceForPlan(currentPlan, currentInterval) > this.priceForPlan(nextPlan, nextInterval);
+  }
+
+  private priceForPlan(planType: PlanType, interval: BillingInterval | null | undefined): number {
+    if (planType === "free") return 0;
+    const plan = getPlanCatalogEntry(planType);
+    if (interval === "annual") {
+      return plan.annualPricePhp ?? plan.monthlyPricePhp;
+    }
+    return plan.monthlyPricePhp;
   }
 }

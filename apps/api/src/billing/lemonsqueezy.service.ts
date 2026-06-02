@@ -21,6 +21,40 @@ export interface CreateCheckoutInput {
   cancelUrl: string;
 }
 
+export interface UpdateSubscriptionInput {
+  variantId?: string;
+  cancelled?: boolean;
+  invoiceImmediately?: boolean;
+  disableProrations?: boolean;
+}
+
+export interface LemonSubscriptionResponse {
+  data?: {
+    id?: string;
+    attributes?: {
+      status?: string;
+      ends_at?: string | null;
+      renews_at?: string | null;
+      current_period_start?: string | null;
+      current_period_end?: string | null;
+      trial_ends_at?: string | null;
+      variant_id?: number | string | null;
+      product_id?: number | string | null;
+      customer_id?: number | string | null;
+      order_id?: number | string | null;
+      card_brand?: string | null;
+      card_last_four?: string | null;
+      cancelled?: boolean | null;
+      first_subscription_item?: { id?: number | string | null } | null;
+      urls?: {
+        customer_portal?: string | null;
+        update_payment_method?: string | null;
+        customer_portal_update_subscription?: string | null;
+      };
+    };
+  };
+}
+
 @Injectable()
 export class LemonsqueezyService {
   private readonly apiKey: string | null;
@@ -128,5 +162,80 @@ export class LemonsqueezyService {
     }
 
     return { checkoutUrl };
+  }
+
+  async getSubscription(subscriptionId: string): Promise<LemonSubscriptionResponse> {
+    return this.requestJson<LemonSubscriptionResponse>(
+      `${LEMONSQUEEZY_API}/subscriptions/${subscriptionId}`,
+      {
+        method: "GET",
+      },
+      "retrieve subscription",
+    );
+  }
+
+  async updateSubscription(
+    subscriptionId: string,
+    input: UpdateSubscriptionInput,
+  ): Promise<LemonSubscriptionResponse> {
+    return this.requestJson<LemonSubscriptionResponse>(
+      `${LEMONSQUEEZY_API}/subscriptions/${subscriptionId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          data: {
+            type: "subscriptions",
+            id: subscriptionId,
+            attributes: {
+              ...(input.variantId ? { variant_id: Number(input.variantId) } : {}),
+              ...(input.cancelled !== undefined ? { cancelled: input.cancelled } : {}),
+              ...(input.invoiceImmediately ? { invoice_immediately: true } : {}),
+              ...(input.disableProrations ? { disable_prorations: true } : {}),
+            },
+          },
+        }),
+      },
+      "update subscription",
+    );
+  }
+
+  async cancelSubscription(subscriptionId: string): Promise<LemonSubscriptionResponse> {
+    return this.requestJson<LemonSubscriptionResponse>(
+      `${LEMONSQUEEZY_API}/subscriptions/${subscriptionId}`,
+      {
+        method: "DELETE",
+      },
+      "cancel subscription",
+    );
+  }
+
+  private async requestJson<T>(
+    url: string,
+    init: RequestInit,
+    action: string,
+  ): Promise<T> {
+    if (!this.apiKey) {
+      throw new ServiceUnavailableException(
+        "Lemon Squeezy is not configured. Set LEMONSQUEEZY_API_KEY.",
+      );
+    }
+
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        Accept: "application/vnd.api+json",
+        "Content-Type": "application/vnd.api+json",
+        Authorization: `Bearer ${this.apiKey}`,
+        ...(init.headers ?? {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException(
+        `Lemon Squeezy ${action} failed with status ${response.status}.`,
+      );
+    }
+
+    return (await response.json()) as T;
   }
 }

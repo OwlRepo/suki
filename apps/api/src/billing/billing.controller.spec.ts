@@ -19,6 +19,18 @@ describe("BillingController", () => {
     createAddonCheckout: vi.fn().mockResolvedValue({
       checkoutUrl: "https://checkout.example/addon",
     }),
+    changePlan: vi.fn().mockResolvedValue({
+      scheduled: true,
+      pendingWebhookSync: true,
+    }),
+    cancel: vi.fn().mockResolvedValue({
+      cancellationScheduled: true,
+      pendingWebhookSync: true,
+    }),
+    resume: vi.fn().mockResolvedValue({
+      resumed: true,
+      pendingWebhookSync: true,
+    }),
   };
 
   const featureFlags = {
@@ -81,5 +93,24 @@ describe("BillingController", () => {
         "user-1",
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("forwards owner plan mutation calls to the billing service", async () => {
+    await expect(
+      controller.changePlan(
+        { planType: "growth", billingInterval: "monthly" },
+        "org-1",
+      ),
+    ).resolves.toMatchObject({
+      pendingWebhookSync: true,
+    });
+
+    await expect(controller.cancel("org-1")).resolves.toMatchObject({
+      cancellationScheduled: true,
+    });
+
+    await expect(controller.resume("org-1")).resolves.toMatchObject({
+      resumed: true,
+    });
   });
 });

@@ -6,16 +6,27 @@ import {
   Logger,
 } from "@nestjs/common";
 import { getDb } from "@tyvera/database";
-import { appointments, bookingHolds, businesses } from "@tyvera/database";
+import {
+  appointments,
+  bookingHolds,
+  businesses,
+  verifiedOnlineBookingCredits,
+  verifiedOnlineBookingUsageEvents,
+} from "@tyvera/database";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import {
   PH_MOBILE_E164_ERROR,
   normalizePhilippineMobileE164,
 } from "@tyvera/types";
 import { AutomationSendService } from "../automation/automation-send.service";
+import { OrgBillingStateService } from "../common/org-billing-state.service";
+import { getPlanCatalogEntry } from "../billing/plan-catalog";
 
 const HOLD_MINUTES = 5;
 const OTP_MAX_ATTEMPTS = 5;
+const OTP_RESEND_WINDOW_MS = 60_000;
+const SAFE_BOOKING_UNAVAILABLE_MESSAGE =
+  "Online booking verification is temporarily unavailable. Please contact the business directly.";
 
 type VerifyResult = {
   sid?: string;
@@ -49,6 +60,7 @@ export class IntakeBookingService {
 
   constructor(
     private readonly automationSend: AutomationSendService,
+    private readonly orgBillingState: OrgBillingStateService,
   ) {}
 
   async getAvailability(businessId: string, month: string) {
@@ -275,6 +287,44 @@ export class IntakeBookingService {
       throw new BadRequestException("Hold expired");
     }
 
+    if (
+      hold.otpSid &&
+      hold.updatedAt &&
+      Date.now() - hold.updatedAt.getTime() < OTP_RESEND_WINDOW_MS
+    ) {
+      return {
+        success: true,
+        reused: true,
+      };
+    }
+
+    const [business] = await db
+      .select({
+        organizationId: businesses.organizationId,
+      })
+      .from(businesses)
+      .where(eq(businesses.id, hold.businessId))
+      .limit(1);
+
+    if (!business?.organizationId) {
+      throw new BadRequestException("Business not found");
+    }
+
+    const state = await this.orgBillingState.getOrgBillingState(
+      business.organizationId,
+    );
+    if (state?.variableCostActionsBlocked) {
+      throw new BadRequestException(SAFE_BOOKING_UNAVAILABLE_MESSAGE);
+    }
+
+    const creditLedger = await this.ensureVerifiedBookingCredits(
+      business.organizationId,
+      state?.currentPlan ?? "free",
+    );
+    if (creditLedger.used >= creditLedger.includedGranted + creditLedger.addonGranted) {
+      throw new BadRequestException(SAFE_BOOKING_UNAVAILABLE_MESSAGE);
+    }
+
     const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
     const token = process.env.TWILIO_AUTH_TOKEN?.trim();
     const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
@@ -314,6 +364,24 @@ export class IntakeBookingService {
         updatedAt: new Date(),
       })
       .where(eq(bookingHolds.id, hold.id));
+
+    await db
+      .update(verifiedOnlineBookingCredits)
+      .set({
+        used: creditLedger.used + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(verifiedOnlineBookingCredits.organizationId, business.organizationId));
+
+    await db.insert(verifiedOnlineBookingUsageEvents).values({
+      organizationId: business.organizationId,
+      businessId: hold.businessId,
+      bookingHoldId: hold.id,
+      units: 1,
+      status: "consumed",
+      provider: "twilio_verify",
+      providerVerificationSid: data.sid ?? null,
+    });
 
     return {
       success: true,
@@ -467,5 +535,41 @@ export class IntakeBookingService {
       appointment,
       success: true,
     };
+  }
+
+  private async ensureVerifiedBookingCredits(
+    organizationId: string,
+    planType: "free" | "starter" | "growth" | "pro",
+  ) {
+    const db = getDb();
+    const month = this.toMonthKey(new Date());
+    const [ledger] = await db
+      .select()
+      .from(verifiedOnlineBookingCredits)
+      .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId))
+      .limit(1);
+
+    if (ledger) {
+      return ledger;
+    }
+
+    const includedGranted =
+      getPlanCatalogEntry(planType).limits.verifiedOnlineBookingsPerMonth;
+    const nextLedger = {
+      organizationId,
+      month,
+      includedGranted,
+      addonGranted: 0,
+      used: 0,
+      sourcePlan: planType,
+      lastReconciledAt: new Date(),
+    };
+
+    await db.insert(verifiedOnlineBookingCredits).values(nextLedger);
+    return nextLedger;
+  }
+
+  private toMonthKey(date: Date): string {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   }
 }
