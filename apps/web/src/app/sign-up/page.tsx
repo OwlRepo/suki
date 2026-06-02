@@ -5,7 +5,15 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { startSignUp, verifySignUp } from "@/lib/auth-client";
 import { invalidateSessionCache } from "@/hooks/use-session";
-import { TyveraMark } from "../sign-in/page";
+
+function TyveraMark() {
+  return (
+    <span className="relative flex h-10 w-10 items-center justify-center" aria-hidden="true">
+      <span className="absolute top-1 h-3 w-9 rounded-full bg-linear-to-r from-blue-700 via-blue-500 to-sky-300" />
+      <span className="absolute top-2 h-8 w-4 rounded-b-xl rounded-t-md bg-linear-to-b from-blue-600 to-blue-500" />
+    </span>
+  );
+}
 
 type IconProps = {
   className?: string;
