@@ -35,6 +35,14 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - class-validator/class-transformer + ValidationPipe
 - module-specific service return types
 
+## Mobile Number Contract
+- Tyvera currently accepts only Philippine mobile numbers in strict E.164 format: `+639171234567`.
+- `POST /customers` and `PATCH /customers/:id` allow blank optional `mobile`, but reject any nonblank value that is not `+639` followed by 9 digits.
+- `POST /intake` allows blank optional `mobile`, but rejects invalid nonblank values before persistence.
+- `POST /intake/hold` and `POST /appointments/booking/hold` require a valid `+639...` mobile because the value feeds OTP/Twilio flows.
+- `POST/GET /imports/*` validation and commit reject invalid nonblank mobile values; accepted imports persist normalized `+639...` values only.
+- Local formats (`09171234567`, `9171234567`), spaces, punctuation, and non-Philippine country codes are rejected instead of silently rewritten.
+
 ## Assistant Route Notes
 - `POST /help/assistant/chat/stream` is the primary path and emits SSE event phases (`meta`, `state`, `stage`, `delta`, `actions`, `done`, `error`) while sharing the same orchestration core as `/help/assistant/chat`.
 - Assistant orchestration enforces canonical intent-tool contracts before release of user-visible payloads.

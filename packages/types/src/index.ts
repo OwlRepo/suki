@@ -53,6 +53,18 @@ export type AiFeatureKey =
   | "migration_mapping"
   | "analytics_narrative";
 
+export const PH_MOBILE_E164_PLACEHOLDER = "+639171234567";
+export const PH_MOBILE_E164_ERROR = "Use +63 format, for example +639171234567.";
+
+export function isValidPhilippineMobileE164(value: string | null | undefined): boolean {
+  return /^\+639\d{9}$/.test(value?.trim() ?? "");
+}
+
+export function normalizePhilippineMobileE164(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return isValidPhilippineMobileE164(trimmed) ? trimmed : null;
+}
+
 export interface Plan {
   type: PlanType;
   name: string;

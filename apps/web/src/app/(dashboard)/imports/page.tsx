@@ -791,7 +791,7 @@ function ImportsPageContent() {
           <Textarea
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
-            placeholder="name,mobile,email,notes&#10;Alice,555-1234,alice@example.com,VIP&#10;Bob,555-5678,,Regular"
+            placeholder="name,mobile,email,notes&#10;Alice,+639171234567,alice@example.com,VIP&#10;Bob,+639171234568,,Regular"
             rows={10}
             className="min-h-[120px] w-full font-mono"
           />

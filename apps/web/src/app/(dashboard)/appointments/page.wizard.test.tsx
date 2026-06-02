@@ -33,16 +33,16 @@ vi.mock("@/lib/onboarding-metrics", () => ({ recordOnboardingEvent: vi.fn() }));
 function setupApi(options?: { createError?: Error }) {
   mockApiRequest.mockImplementation((path: string, init?: { method?: string; body?: string }) => {
     if (path.startsWith("/customers?")) {
-      return Promise.resolve({ customers: [{ id: "c1", name: "Alice", mobile: "0917" }] });
+      return Promise.resolve({ customers: [{ id: "c1", name: "Alice", mobile: "+639171234567" }] });
     }
     if (path.startsWith("/appointments?")) {
       return Promise.resolve({ appointments: [] });
     }
     if (path.startsWith("/appointments/booking/availability")) {
       return Promise.resolve({
-        month: "2026-05",
+        month: "2026-06",
         slotDurationMins: 30,
-        byDay: { "2026-05-10": ["2026-05-10T10:00:00.000Z", "2026-05-10T11:00:00.000Z"] },
+        byDay: { "2026-06-10": ["2026-06-10T10:00:00.000Z", "2026-06-10T11:00:00.000Z"] },
       });
     }
     if (path === "/customers" && init?.method === "POST") {
@@ -76,11 +76,11 @@ describe("Appointments wizard component", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
     fireEvent.click(screen.getByRole("button", { name: /new customer/i }));
     fireEvent.change(screen.getByPlaceholderText(/Customer name/i), { target: { value: "Ete" } });
-    fireEvent.change(screen.getByPlaceholderText(/^Mobile$/i), { target: { value: "0917" } });
+    fireEvent.change(screen.getByPlaceholderText("+639171234567"), { target: { value: "+639171234567" } });
 
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    expect(await screen.findByRole("button", { name: /5\/12\/2026 unavailable/i })).toBeDisabled();
-    fireEvent.click(await screen.findByRole("button", { name: /5\/10\/2026/i }));
+    expect(await screen.findByRole("button", { name: /6\/12\/2026 unavailable/i })).toBeDisabled();
+    fireEvent.click(await screen.findByRole("button", { name: /6\/10\/2026/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM|11:00 AM/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
@@ -90,6 +90,22 @@ describe("Appointments wizard component", () => {
     expect(screen.queryByRole("button", { name: /Verify via OTP/i })).not.toBeInTheDocument();
   });
 
+  it("blocks invalid new-customer mobile before leaving customer step", async () => {
+    render(<AppointmentsPage />);
+
+    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /new customer/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Customer name/i), { target: { value: "Ete" } });
+    fireEvent.change(screen.getByPlaceholderText("+639171234567"), { target: { value: "0917" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Use \+63 format/i).length).toBeGreaterThan(1);
+    });
+    expect(screen.queryByText(/Available days/i)).not.toBeInTheDocument();
+  });
+
   it("shows friendly conflict message instead of raw exception", async () => {
     setupApi({ createError: new Error("Conflict Exception") });
     render(<AppointmentsPage />);
@@ -97,10 +113,10 @@ describe("Appointments wizard component", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
     fireEvent.click(screen.getByRole("button", { name: /new customer/i }));
     fireEvent.change(screen.getByPlaceholderText(/Customer name/i), { target: { value: "Ete" } });
-    fireEvent.change(screen.getByPlaceholderText(/^Mobile$/i), { target: { value: "0917" } });
+    fireEvent.change(screen.getByPlaceholderText("+639171234567"), { target: { value: "+639171234567" } });
 
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    fireEvent.click(await screen.findByRole("button", { name: /5\/10\/2026/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /6\/10\/2026/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM|11:00 AM/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
@@ -131,7 +147,7 @@ describe("Appointments wizard component", () => {
 
     mockApiRequest.mockImplementation((path: string, init?: { method?: string; body?: string }) => {
       if (path.startsWith("/customers?")) {
-        return Promise.resolve({ customers: [{ id: "c1", name: "Alice", mobile: "0917" }] });
+        return Promise.resolve({ customers: [{ id: "c1", name: "Alice", mobile: "+639171234567" }] });
       }
       if (path.startsWith("/appointments?")) {
         return Promise.resolve({
@@ -140,7 +156,7 @@ describe("Appointments wizard component", () => {
               id: "a1",
               customerId: "c1",
               businessId: "biz1",
-              scheduledAt: "2026-05-10T10:00:00.000Z",
+              scheduledAt: "2026-06-10T10:00:00.000Z",
               status: "scheduled",
               createdAt: recent,
             },
@@ -148,7 +164,7 @@ describe("Appointments wizard component", () => {
               id: "a2",
               customerId: "c1",
               businessId: "biz1",
-              scheduledAt: "2026-05-11T11:00:00.000Z",
+              scheduledAt: "2026-06-11T11:00:00.000Z",
               status: "completed",
               createdAt: old,
             },
@@ -157,9 +173,9 @@ describe("Appointments wizard component", () => {
       }
       if (path.startsWith("/appointments/booking/availability")) {
         return Promise.resolve({
-          month: "2026-05",
+          month: "2026-06",
           slotDurationMins: 30,
-          byDay: { "2026-05-10": ["2026-05-10T10:00:00.000Z"] },
+          byDay: { "2026-06-10": ["2026-06-10T10:00:00.000Z"] },
         });
       }
       if (path === "/appointments/booking/hold") return Promise.resolve({ hold: { id: "hold1" } });

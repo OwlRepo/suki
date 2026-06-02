@@ -21,6 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/api";
+import {
+  PH_MOBILE_E164_ERROR,
+  PH_MOBILE_E164_PLACEHOLDER,
+  normalizePhilippineMobileE164,
+} from "@tyvera/types";
 
 interface TemplateField {
   key: string;
@@ -69,6 +74,7 @@ export function CustomerFormModal({
   const { getToken } = useAuth();
   const [name, setName] = React.useState("");
   const [mobile, setMobile] = React.useState("");
+  const [mobileError, setMobileError] = React.useState<string | null>(null);
   const [email, setEmail] = React.useState("");
   const [tags, setTags] = React.useState("");
   const [showMore, setShowMore] = React.useState(false);
@@ -86,6 +92,7 @@ export function CustomerFormModal({
     if (!open) {
       setName("");
       setMobile("");
+      setMobileError(null);
       setEmail("");
       setTags("");
       setShowMore(false);
@@ -133,12 +140,19 @@ export function CustomerFormModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    const normalizedMobile = mobile.trim()
+      ? normalizePhilippineMobileE164(mobile) ?? undefined
+      : undefined;
+    if (mobile.trim() && !normalizedMobile) {
+      setMobileError(PH_MOBILE_E164_ERROR);
+      return;
+    }
     const composed = composeDescription(fields, fieldValues);
     const extra = customNotes.trim();
     const notes = [composed.trim(), extra].filter(Boolean).join("\n\n") || undefined;
     onSubmit({
       name: name.trim(),
-      mobile: mobile.trim() || undefined,
+      mobile: normalizedMobile,
       email: email.trim() || undefined,
       notes,
       tags: showMore ? (tags.trim() || undefined) : undefined,
@@ -180,10 +194,21 @@ export function CustomerFormModal({
               id="customer-mobile"
               type="tel"
               value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              placeholder="e.g. +1 234 567 8900"
+              onChange={(e) => {
+                setMobile(e.target.value);
+                setMobileError(null);
+              }}
+              placeholder={PH_MOBILE_E164_PLACEHOLDER}
               className="w-full"
             />
+            <p className="mt-1 text-sm text-muted-foreground">
+              {PH_MOBILE_E164_ERROR}
+            </p>
+            {mobileError && (
+              <p className="mt-1 text-sm text-destructive" role="alert">
+                {mobileError}
+              </p>
+            )}
           </div>
 
           {showMore && (

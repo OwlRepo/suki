@@ -5,6 +5,7 @@ import { getDb } from "@tyvera/database";
 import { customers, businesses, importBatches } from "@tyvera/database";
 import { eq, and, desc } from "drizzle-orm";
 import type { ReconciliationReport } from "./migration-types";
+import { PH_MOBILE_E164_ERROR, normalizePhilippineMobileE164 } from "@tyvera/types";
 
 export interface ParsedRow {
   name: string;
@@ -208,12 +209,20 @@ export class ImportsService {
     const errors: ReconciliationReport["errors"] = [];
     for (const row of toInsert) {
       try {
+        const mobile = row.mobile ? normalizePhilippineMobileE164(row.mobile) : null;
+        if (row.mobile && !mobile) {
+          errors.push({
+            rowIndex: row.rowIndex,
+            message: PH_MOBILE_E164_ERROR,
+          });
+          continue;
+        }
         const [c] = await db
           .insert(customers)
           .values({
             businessId,
             name: row.name.trim(),
-            mobile: row.mobile?.trim() || null,
+            mobile,
             email: row.email?.trim() || null,
             notes: row.notes?.trim() || null,
           })

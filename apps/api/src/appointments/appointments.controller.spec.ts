@@ -5,6 +5,7 @@ import { AppointmentsController } from "./appointments.controller";
 describe("AppointmentsController booking security", () => {
   const appointmentsService = {
     setOtpSkipPin: vi.fn(),
+    createHoldForBooking: vi.fn(),
   };
 
   let controller: AppointmentsController;
@@ -32,5 +33,39 @@ describe("AppointmentsController booking security", () => {
         { organizationId: "org1", userId: "u1", role: "staff" },
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("rejects invalid mobile for booking holds", async () => {
+    await expect(
+      controller.bookingHold(
+        {
+          businessId: "biz1",
+          customerId: "cust1",
+          mobile: "09171234567",
+          scheduledAt: "2026-06-03T10:00:00.000Z",
+        },
+        "org1",
+      ),
+    ).rejects.toThrow();
+    expect(appointmentsService.createHoldForBooking).not.toHaveBeenCalled();
+  });
+
+  it("passes normalized mobile to booking hold service", async () => {
+    appointmentsService.createHoldForBooking.mockResolvedValue({ id: "hold1" });
+
+    await controller.bookingHold(
+      {
+        businessId: "biz1",
+        customerId: "cust1",
+        mobile: " +639171234567 ",
+        scheduledAt: "2026-06-03T10:00:00.000Z",
+      },
+      "org1",
+    );
+
+    expect(appointmentsService.createHoldForBooking).toHaveBeenCalledWith(
+      "org1",
+      expect.objectContaining({ mobile: "+639171234567" }),
+    );
   });
 });

@@ -32,6 +32,11 @@ import { buildAppointmentWizardSteps, type BookingStep } from "./wizard-progress
 import {
   normalizeBookingError,
 } from "./booking-flow";
+import {
+  PH_MOBILE_E164_ERROR,
+  PH_MOBILE_E164_PLACEHOLDER,
+  normalizePhilippineMobileE164,
+} from "@tyvera/types";
 
 interface Customer {
   id: string;
@@ -267,13 +272,19 @@ function AppointmentsPageContent() {
       return formData.customerId || null;
     }
     if (!newCustomer.name.trim()) throw new Error("Customer name is required.");
+    const normalizedMobile = newCustomer.mobile.trim()
+      ? normalizePhilippineMobileE164(newCustomer.mobile)
+      : undefined;
+    if (newCustomer.mobile.trim() && !normalizedMobile) {
+      throw new Error(PH_MOBILE_E164_ERROR);
+    }
     const res = await apiRequest<{ customer: { id: string } }>("/customers", {
       method: "POST",
       token,
       body: JSON.stringify({
         businessId: selectedBiz,
         name: newCustomer.name.trim(),
-        mobile: newCustomer.mobile.trim() || undefined,
+        mobile: normalizedMobile,
         email: newCustomer.email.trim() || undefined,
         notes: newCustomer.notes.trim() || undefined,
       }),
@@ -281,6 +292,19 @@ function AppointmentsPageContent() {
     await loadCustomers();
     setFormData((prev) => ({ ...prev, customerId: res.customer.id }));
     return res.customer.id;
+  };
+
+  const validateCustomerStep = () => {
+    if (entryMode === "existing") return true;
+    if (!newCustomer.name.trim()) {
+      setError("Customer name is required.");
+      return false;
+    }
+    if (newCustomer.mobile.trim() && !normalizePhilippineMobileE164(newCustomer.mobile)) {
+      setError(PH_MOBILE_E164_ERROR);
+      return false;
+    }
+    return true;
   };
 
   const completeWizardBooking = async () => {
@@ -479,7 +503,16 @@ function AppointmentsPageContent() {
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Input placeholder="Customer name" value={newCustomer.name} onChange={(e) => setNewCustomer((v) => ({ ...v, name: e.target.value }))} />
-                      <Input placeholder="Mobile" value={newCustomer.mobile} onChange={(e) => setNewCustomer((v) => ({ ...v, mobile: e.target.value }))} />
+                      <div>
+                        <Input
+                          type="tel"
+                          placeholder={PH_MOBILE_E164_PLACEHOLDER}
+                          value={newCustomer.mobile}
+                          onChange={(e) => setNewCustomer((v) => ({ ...v, mobile: e.target.value }))}
+                          aria-label="Mobile"
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">{PH_MOBILE_E164_ERROR}</p>
+                      </div>
                       <Input placeholder="Email (optional)" value={newCustomer.email} onChange={(e) => setNewCustomer((v) => ({ ...v, email: e.target.value }))} />
                       <Textarea placeholder="Notes (optional)" value={newCustomer.notes} onChange={(e) => setNewCustomer((v) => ({ ...v, notes: e.target.value }))} />
                     </div>
@@ -528,7 +561,10 @@ function AppointmentsPageContent() {
                     onClick={async () => {
                       setError(null);
                       try {
-                        if (step === "customer") setStep("date");
+                        if (step === "customer") {
+                          if (!validateCustomerStep()) return;
+                          setStep("date");
+                        }
                         else if (step === "date") setStep("time");
                         else if (step === "time") setStep("review");
                         else if (step === "review") await completeWizardBooking();

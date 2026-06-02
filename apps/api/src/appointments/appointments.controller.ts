@@ -15,6 +15,10 @@ import { AppointmentsService } from "./appointments.service";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
+import {
+  PH_MOBILE_E164_ERROR,
+  normalizePhilippineMobileE164,
+} from "@tyvera/types";
 
 @Controller("appointments")
 @UseGuards(ClerkAuthGuard, BillingWriteGuard)
@@ -95,7 +99,9 @@ export class AppointmentsController {
     if (!orgId || !body.businessId || !body.customerId || !body.mobile || !body.scheduledAt) {
       throw new BadRequestException("businessId, customerId, mobile, scheduledAt required");
     }
-    const hold = await this.appointmentsService.createHoldForBooking(orgId, body);
+    const mobile = normalizePhilippineMobileE164(body.mobile);
+    if (!mobile) throw new BadRequestException(PH_MOBILE_E164_ERROR);
+    const hold = await this.appointmentsService.createHoldForBooking(orgId, { ...body, mobile });
     return { hold, success: true };
   }
 

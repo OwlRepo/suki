@@ -232,6 +232,30 @@ TWILIO_INBOUND_SMS_WEBHOOK_URL=https://tyvera.app/api/messaging/inbound/sms
 
 Trial Twilio accounts may only send to verified recipients. Confirm this before onboarding real customers.
 
+## Mobile Number Format
+
+Tyvera requires Philippine mobile numbers in strict E.164 format anywhere a mobile value is provided:
+
+```text
++639171234567
+```
+
+Customer mobile is optional, but any nonblank value must use this format. OTP and booking hold flows require a valid mobile number. Local formats like `09171234567`, `9171234567`, numbers with spaces/punctuation, and non-Philippine country codes are rejected.
+
+Before broad OTP rollout, report and manually clean existing invalid records:
+
+```sql
+select id, name, mobile
+from customers
+where mobile is not null
+  and mobile <> ''
+  and mobile !~ '^\+639[0-9]{9}$';
+
+select id, business_id, mobile, expires_at
+from booking_holds
+where mobile !~ '^\+639[0-9]{9}$';
+```
+
 ---
 
 ## Developer Quick Context

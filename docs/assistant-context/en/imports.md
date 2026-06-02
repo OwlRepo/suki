@@ -6,11 +6,11 @@ intents: ["import", "upload customers", "bulk upload", "csv import"]
 relatedRoutes: ["/imports", "/customers"]
 toolBindings: ["route_guidance"]
 priority: medium
-lastUpdated: 2026-05-10
+lastUpdated: 2026-06-02
 quickAnswer: Open Imports to upload customer data in bulk, then validate in Customers.
 ---
 - Open Imports when adding many customer records at once.
-- Prepare clean file headers and consistent phone formats before upload.
+- Prepare clean file headers and Philippine mobile numbers in `+639171234567` format before upload.
 - Use preview/validation steps to catch duplicates and format issues early.
 - Confirm mapping suggestions before final commit.
 - After import, open Customers and verify sample records.

@@ -11,6 +11,11 @@ import { normalizeApiError } from "./error-utils";
 import { buildWizardSteps, type ScheduleSubStep } from "./wizard-progress";
 import { filterDayKeysByMonth } from "./schedule-utils";
 import { buildApiUrl } from "@/lib/api-base";
+import {
+  PH_MOBILE_E164_ERROR,
+  PH_MOBILE_E164_PLACEHOLDER,
+  normalizePhilippineMobileE164,
+} from "@tyvera/types";
 
 const OTP_LENGTH = 6;
 
@@ -249,6 +254,13 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    const normalizedMobile = mobile.trim()
+      ? normalizePhilippineMobileE164(mobile)
+      : null;
+    if (mobile.trim() && !normalizedMobile) {
+      setError(PH_MOBILE_E164_ERROR);
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -263,7 +275,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         body: JSON.stringify({
           businessId,
           name: name.trim(),
-          mobile: mobile.trim() || undefined,
+          mobile: normalizedMobile ?? undefined,
           email: email.trim() || undefined,
           notes,
         }),
@@ -281,7 +293,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         localStorageKey,
         JSON.stringify({
           name: name.trim(),
-          mobile: mobile.trim(),
+          mobile: normalizedMobile ?? "",
           email: email.trim(),
           fieldValues,
           customNotes,
@@ -302,6 +314,11 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       setError("Mobile number is required for OTP verification.");
       return;
     }
+    const normalizedMobile = normalizePhilippineMobileE164(mobile);
+    if (!normalizedMobile) {
+      setError(PH_MOBILE_E164_ERROR);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -312,7 +329,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         body: JSON.stringify({
           businessId,
           customerId,
-          mobile: mobile.trim(),
+          mobile: normalizedMobile,
           scheduledAt: selectedSlot,
         }),
       });
@@ -715,11 +732,17 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
             id="intake-mobile"
             type="tel"
             value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-            placeholder="e.g. 09XX XXX XXXX"
+            onChange={(e) => {
+              setMobile(e.target.value);
+              if (error === PH_MOBILE_E164_ERROR) setError(null);
+            }}
+            placeholder={PH_MOBILE_E164_PLACEHOLDER}
             className="w-full"
             required
           />
+          <p className="mt-1 text-sm text-muted-foreground">
+            {PH_MOBILE_E164_ERROR}
+          </p>
         </div>
         <div>
           <Label htmlFor="intake-email" className="mb-1 block">

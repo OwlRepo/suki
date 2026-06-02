@@ -8,6 +8,10 @@ import type {
   FieldMapping,
 } from "./migration-types";
 import type { MigrationEntity } from "./migration-types";
+import {
+  PH_MOBILE_E164_ERROR,
+  normalizePhilippineMobileE164,
+} from "@tyvera/types";
 
 interface ParsedRowLike {
   name?: string;
@@ -76,11 +80,11 @@ export class MigrationService {
           rowValid = false;
         }
         const mobile = (row.mobile as string) ?? "";
-        if (mobile && !/^[\d\s\-+()]+$/.test(mobile.replace(/\s/g, ""))) {
+        if (mobile && !normalizePhilippineMobileE164(mobile)) {
           errors.push({
             rowIndex: row.rowIndex,
             field: "mobile",
-            message: "Invalid mobile format",
+            message: PH_MOBILE_E164_ERROR,
           });
           rowValid = false;
         }

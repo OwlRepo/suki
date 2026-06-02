@@ -5,6 +5,8 @@ import { CustomersController } from "./customers.controller";
 describe("CustomersController sendFollowUp", () => {
   const customersService = {
     findById: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   };
   const templatesService = {};
   const automationSend = {
@@ -54,5 +56,39 @@ describe("CustomersController sendFollowUp", () => {
       reason: "toggle_off",
     });
     expect(automationSend.sendPostVisitFollowup).toHaveBeenCalledWith("org1", "b1", "c1", "user1");
+  });
+
+  it("rejects invalid nonblank mobile on create", async () => {
+    await expect(
+      controller.create(
+        { businessId: "biz1", name: "Alice", mobile: "09171234567" },
+        "org1",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(customersService.create).not.toHaveBeenCalled();
+  });
+
+  it("normalizes valid mobile on create", async () => {
+    customersService.create.mockResolvedValue({ id: "c1" });
+
+    await expect(
+      controller.create(
+        { businessId: "biz1", name: "Alice", mobile: " +639171234567 " },
+        "org1",
+      ),
+    ).resolves.toEqual({ customer: { id: "c1" } });
+
+    expect(customersService.create).toHaveBeenCalledWith(
+      "biz1",
+      "org1",
+      expect.objectContaining({ mobile: "+639171234567" }),
+    );
+  });
+
+  it("rejects invalid nonblank mobile on update", async () => {
+    await expect(
+      controller.update("c1", { mobile: "+63917 123 4567" }, "org1"),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(customersService.update).not.toHaveBeenCalled();
   });
 });

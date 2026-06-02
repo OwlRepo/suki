@@ -3,6 +3,7 @@ import { getDb } from "@tyvera/database";
 import { customers, businesses, messageEvents, visitAdjustmentHistory } from "@tyvera/database";
 import { eq, and, ilike, like, or, sql, desc, gte, lt, isNull } from "drizzle-orm";
 import { AutomationSendService } from "../automation/automation-send.service";
+import { normalizePhilippineMobileE164 } from "@tyvera/types";
 
 const DEFAULT_LOYALTY_THRESHOLD = 5;
 
@@ -51,7 +52,7 @@ export class CustomersService {
       .values({
         businessId,
         name: data.name.trim(),
-        mobile: data.mobile?.trim() || null,
+        mobile: data.mobile ? normalizePhilippineMobileE164(data.mobile) : null,
         email: data.email?.trim() || null,
         notes: data.notes?.trim() || null,
         preferences: data.preferences?.trim() || null,
@@ -165,7 +166,9 @@ export class CustomersService {
       .update(customers)
       .set({
         ...(data.name !== undefined && { name: data.name.trim() }),
-        ...(data.mobile !== undefined && { mobile: data.mobile?.trim() || null }),
+        ...(data.mobile !== undefined && {
+          mobile: data.mobile ? normalizePhilippineMobileE164(data.mobile) : null,
+        }),
         ...(data.email !== undefined && { email: data.email?.trim() || null }),
         ...(data.notes !== undefined && { notes: data.notes?.trim() || null }),
         ...(data.preferences !== undefined && {

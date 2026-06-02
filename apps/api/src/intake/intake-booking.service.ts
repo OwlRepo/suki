@@ -8,6 +8,10 @@ import {
 import { getDb } from "@tyvera/database";
 import { appointments, bookingHolds, businesses } from "@tyvera/database";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import {
+  PH_MOBILE_E164_ERROR,
+  normalizePhilippineMobileE164,
+} from "@tyvera/types";
 
 const HOLD_MINUTES = 5;
 const OTP_MAX_ATTEMPTS = 5;
@@ -152,6 +156,8 @@ export class IntakeBookingService {
     if (!input.mobile?.trim()) {
       throw new BadRequestException("mobile required");
     }
+    const mobile = normalizePhilippineMobileE164(input.mobile);
+    if (!mobile) throw new BadRequestException(PH_MOBILE_E164_ERROR);
 
     const db = getDb();
     const now = new Date();
@@ -201,7 +207,7 @@ export class IntakeBookingService {
         .values({
           businessId: input.businessId,
           customerId: input.customerId,
-          mobile: input.mobile.trim(),
+          mobile,
           scheduledAt,
           status: "held",
           expiresAt,

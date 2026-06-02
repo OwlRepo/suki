@@ -6,11 +6,11 @@ intents: ["import", "upload customers", "bulk upload", "csv import"]
 relatedRoutes: ["/imports", "/customers"]
 toolBindings: ["route_guidance"]
 priority: medium
-lastUpdated: 2026-05-10
+lastUpdated: 2026-06-02
 quickAnswer: Buksan ang Imports para sa bulk upload ng customer data, tapos i-check sa Customers.
 ---
 - Buksan ang Imports kapag marami kang customer records na ia-add.
-- Ayusin muna ang file headers at phone format bago mag-upload.
+- Ayusin muna ang file headers at Philippine mobile numbers sa `+639171234567` format bago mag-upload.
 - Gamitin ang preview/validation para mahanap agad ang duplicates at errors.
 - I-confirm ang mapping suggestions bago final commit.
 - Pagkatapos ng import, buksan ang Customers at i-verify ang sample records.

@@ -14,3 +14,4 @@
 | `apps/api/src/messaging/*` | Messaging provider, webhook, dispatch, and metering logic | Uses Twilio/Resend providers, metering tables, and automation policy | Secure Twilio webhook validation, TwiML inbound responses, segment-aware SMS credits, safe retry behavior, and provider delivery status updates |
 | `apps/web/src/components/tyvera-assistant.tsx` | Global floating assistant panel entrypoint for dashboard surfaces | Integrated by adaptive app shell and powered by help-content + AI usage APIs | Guided chat + usage transparency UX for non-technical users |
 | `packages/database/src/index.ts` | DB package public exports | Re-exports schema/db helpers | Imported by API services |
+| `packages/types/src/index.ts` | Shared type and runtime contract exports | Imported by API/web/database packages | Includes Philippine mobile E.164 constants and helpers for strict `+639...` validation across customer, intake, appointment, and import flows |

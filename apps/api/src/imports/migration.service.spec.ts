@@ -52,7 +52,7 @@ describe("MigrationService", () => {
   describe("validateBatch", () => {
     it("validates rows with required name", async () => {
       const rows = [
-        { name: "Alice", mobile: "555-1234", rowIndex: 1 },
+        { name: "Alice", mobile: "+639171234567", rowIndex: 1 },
         { name: "Bob", mobile: undefined, rowIndex: 2 },
       ];
       const report = await service.validateBatch(rows);
@@ -63,8 +63,8 @@ describe("MigrationService", () => {
 
     it("rejects rows with missing name", async () => {
       const rows = [
-        { name: "Alice", mobile: "555-1234", rowIndex: 1 },
-        { name: "", mobile: "555-5678", rowIndex: 2 },
+        { name: "Alice", mobile: "+639171234567", rowIndex: 1 },
+        { name: "", mobile: "+639171234568", rowIndex: 2 },
       ];
       const report = await service.validateBatch(rows);
       expect(report.validRows).toBe(1);
@@ -78,7 +78,23 @@ describe("MigrationService", () => {
       const report = await service.validateBatch(rows);
       expect(report.validRows).toBe(0);
       expect(report.errors).toContainEqual(
-        expect.objectContaining({ field: "mobile", message: "Invalid mobile format" }),
+        expect.objectContaining({
+          field: "mobile",
+          message: "Use +63 format, for example +639171234567.",
+        }),
+      );
+    });
+
+    it("rejects local Philippine mobile formats", async () => {
+      const rows = [{ name: "Alice", mobile: "09171234567", rowIndex: 1 }];
+      const report = await service.validateBatch(rows);
+
+      expect(report.validRows).toBe(0);
+      expect(report.errors).toContainEqual(
+        expect.objectContaining({
+          field: "mobile",
+          message: "Use +63 format, for example +639171234567.",
+        }),
       );
     });
   });

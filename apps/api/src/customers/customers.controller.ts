@@ -17,6 +17,10 @@ import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
 import { AutomationSendService } from "../automation/automation-send.service";
+import {
+  PH_MOBILE_E164_ERROR,
+  normalizePhilippineMobileE164,
+} from "@tyvera/types";
 
 @Controller("customers")
 @UseGuards(ClerkAuthGuard, BillingWriteGuard)
@@ -183,12 +187,13 @@ export class CustomersController {
     if (!body.businessId || !body.name?.trim() || !orgId) {
       throw new BadRequestException("businessId and name required");
     }
+    const mobile = this.normalizeOptionalMobile(body.mobile);
     const customer = await this.customersService.create(
       body.businessId,
       orgId,
       {
         name: body.name,
-        mobile: body.mobile,
+        mobile,
         email: body.email,
         notes: body.notes,
         preferences: body.preferences,
@@ -226,7 +231,12 @@ export class CustomersController {
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
-    const customer = await this.customersService.update(id, orgId, body);
+    const customer = await this.customersService.update(id, orgId, {
+      ...body,
+      ...(body.mobile !== undefined && {
+        mobile: this.normalizeOptionalMobile(body.mobile),
+      }),
+    });
     return { customer };
   }
 
@@ -302,5 +312,13 @@ export class CustomersController {
       limit,
     );
     return { history };
+  }
+
+  private normalizeOptionalMobile(value: string | undefined): string | undefined {
+    if (value === undefined) return undefined;
+    if (!value.trim()) return undefined;
+    const normalized = normalizePhilippineMobileE164(value);
+    if (!normalized) throw new BadRequestException(PH_MOBILE_E164_ERROR);
+    return normalized;
   }
 }

@@ -12,6 +12,10 @@ import { customers, businesses } from "@tyvera/database";
 import { eq } from "drizzle-orm";
 import { CustomerTemplatesService } from "../customers/customer-templates.service";
 import { IntakeBookingService } from "./intake-booking.service";
+import {
+  PH_MOBILE_E164_ERROR,
+  normalizePhilippineMobileE164,
+} from "@tyvera/types";
 
 @Controller("intake")
 export class IntakeController {
@@ -61,13 +65,14 @@ export class IntakeController {
     const source = body.source?.trim();
     const sourceLine = source ? `Lead source: ${source}` : "";
     const mergedNotes = [sourceLine, body.notes?.trim() ?? ""].filter(Boolean).join("\n\n") || null;
+    const mobile = this.normalizeOptionalMobile(body.mobile);
 
     const [c] = await db
       .insert(customers)
       .values({
         businessId: body.businessId,
         name: body.name.trim(),
-        mobile: body.mobile?.trim() || null,
+        mobile: mobile ?? null,
         email: body.email?.trim() || null,
         notes: mergedNotes,
       })
@@ -102,7 +107,9 @@ export class IntakeController {
     if (!body.businessId || !body.customerId || !body.mobile || !body.scheduledAt) {
       throw new BadRequestException("businessId, customerId, mobile, scheduledAt required");
     }
-    const hold = await this.bookingService.createHold(body);
+    const mobile = normalizePhilippineMobileE164(body.mobile);
+    if (!mobile) throw new BadRequestException(PH_MOBILE_E164_ERROR);
+    const hold = await this.bookingService.createHold({ ...body, mobile });
     return { hold, success: true };
   }
 
@@ -120,5 +127,13 @@ export class IntakeController {
       throw new BadRequestException("holdId and code required");
     }
     return this.bookingService.verifyAndConfirm(body.holdId, body.code);
+  }
+
+  private normalizeOptionalMobile(value: string | undefined): string | undefined {
+    if (value === undefined) return undefined;
+    if (!value.trim()) return undefined;
+    const normalized = normalizePhilippineMobileE164(value);
+    if (!normalized) throw new BadRequestException(PH_MOBILE_E164_ERROR);
+    return normalized;
   }
 }
