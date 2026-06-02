@@ -5,25 +5,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { startSignUp, verifySignUp } from "@/lib/auth-client";
 import { invalidateSessionCache } from "@/hooks/use-session";
+import { TyveraMark } from "../sign-in/page";
 
 type IconProps = {
   className?: string;
 };
-
-function TyveraMark({ className = "h-10 w-10" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="5" y="6" width="38" height="10" rx="5" fill="currentColor" />
-      <rect x="19" y="14" width="10" height="28" rx="5" fill="currentColor" opacity="0.75" />
-    </svg>
-  );
-}
 
 function MailIcon({ className = "h-5 w-5" }: IconProps) {
   return (
@@ -198,17 +184,20 @@ function ShieldIcon({ className = "h-4 w-4" }: IconProps) {
 const featureItems = [
   {
     title: "Appointment reminders",
-    description: "Reduce no-shows with automated SMS reminders before each visit.",
+    description:
+      "Reduce no-shows with automated SMS reminders before each visit.",
     icon: MessageCircleIcon,
   },
   {
     title: "Automated follow-ups",
-    description: "Engage customers after visits, missed bookings, and periods of inactivity.",
+    description:
+      "Engage customers after visits, missed bookings, and periods of inactivity.",
     icon: SendIcon,
   },
   {
     title: "Everything in one place",
-    description: "Track customers, visits, and booking requests in a single workspace.",
+    description:
+      "Track customers, visits, and booking requests in a single workspace.",
     icon: ChartIcon,
   },
 ];
@@ -307,8 +296,13 @@ export default function SignUpPage() {
           </div>
 
           <div className="relative flex items-center gap-3 text-blue-600">
-            <TyveraMark className="h-10 w-10" />
-            <span className="text-3xl font-bold tracking-tight text-slate-950">Tyvera</span>
+            <Link
+              href="/"
+              className="flex items-center gap-3 text-2xl font-bold tracking-tight text-slate-950"
+            >
+              <TyveraMark />
+              Tyvera
+            </Link>
           </div>
 
           <div className="relative my-auto max-w-xl">
@@ -320,7 +314,8 @@ export default function SignUpPage() {
             </p>
 
             <p className="mt-6 max-w-md text-base leading-7 text-slate-600 xl:text-lg">
-              Get started in a few steps and begin automating the customer follow-ups that keep your business growing.
+              Get started in a few steps and begin automating the customer
+              follow-ups that keep your business growing.
             </p>
 
             <div className="mt-10 space-y-6">
@@ -330,8 +325,12 @@ export default function SignUpPage() {
                     <Icon />
                   </div>
                   <div>
-                    <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-                    <p className="mt-1 max-w-sm text-sm leading-6 text-slate-600">{description}</p>
+                    <h2 className="text-base font-semibold text-slate-900">
+                      {title}
+                    </h2>
+                    <p className="mt-1 max-w-sm text-sm leading-6 text-slate-600">
+                      {description}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -340,21 +339,28 @@ export default function SignUpPage() {
 
           <div className="relative flex items-center gap-2 text-sm text-slate-500">
             <ShieldIcon />
-            <span>© {new Date().getFullYear()} Tyvera. All rights reserved.</span>
+            <span>
+              © {new Date().getFullYear()} Tyvera. All rights reserved.
+            </span>
           </div>
         </section>
 
         <section className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-white via-blue-50/50 to-white px-4 py-8 sm:px-6 lg:px-10">
           <div className="absolute right-8 top-8 hidden grid-cols-5 gap-4 opacity-60 xl:grid">
             {Array.from({ length: 20 }).map((_, index) => (
-              <span key={index} className="h-1.5 w-1.5 rounded-full bg-blue-200" />
+              <span
+                key={index}
+                className="h-1.5 w-1.5 rounded-full bg-blue-200"
+              />
             ))}
           </div>
 
           <div className="w-full max-w-xl">
             <div className="mb-8 flex items-center justify-center gap-3 text-blue-600 lg:hidden">
               <TyveraMark className="h-9 w-9" />
-              <span className="text-3xl font-bold tracking-tight text-slate-950">Tyvera</span>
+              <span className="text-3xl font-bold tracking-tight text-slate-950">
+                Tyvera
+              </span>
             </div>
 
             <div
@@ -381,7 +387,10 @@ export default function SignUpPage() {
                 {!codeSent ? (
                   <>
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-900" htmlFor="email">
+                      <label
+                        className="mb-2 block text-sm font-semibold text-slate-900"
+                        htmlFor="email"
+                      >
                         Email
                       </label>
 
@@ -400,7 +409,10 @@ export default function SignUpPage() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-900" htmlFor="password">
+                      <label
+                        className="mb-2 block text-sm font-semibold text-slate-900"
+                        htmlFor="password"
+                      >
                         Password
                       </label>
 
@@ -417,7 +429,9 @@ export default function SignUpPage() {
                         />
 
                         <button
-                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-blue-600"
                           onClick={() => setShowPassword((current) => !current)}
                           type="button"
@@ -442,16 +456,24 @@ export default function SignUpPage() {
                           autoComplete="new-password"
                           aria-invalid={passwordMismatch}
                           className="min-h-14 w-full rounded-xl border border-slate-300 bg-white py-3 pl-14 pr-14 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:focus:ring-rose-100"
-                          onChange={(event) => setConfirmPassword(event.target.value)}
+                          onChange={(event) =>
+                            setConfirmPassword(event.target.value)
+                          }
                           placeholder="Repeat your password"
                           type={showConfirmPassword ? "text" : "password"}
                           value={confirmPassword}
                         />
 
                         <button
-                          aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
+                          aria-label={
+                            showConfirmPassword
+                              ? "Hide confirmed password"
+                              : "Show confirmed password"
+                          }
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-blue-600"
-                          onClick={() => setShowConfirmPassword((current) => !current)}
+                          onClick={() =>
+                            setShowConfirmPassword((current) => !current)
+                          }
                           type="button"
                         >
                           {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -459,7 +481,9 @@ export default function SignUpPage() {
                       </div>
 
                       {passwordMismatch ? (
-                        <p className="mt-2 text-sm text-rose-600">Your passwords do not match.</p>
+                        <p className="mt-2 text-sm text-rose-600">
+                          Your passwords do not match.
+                        </p>
                       ) : null}
                     </div>
 
@@ -479,11 +503,15 @@ export default function SignUpPage() {
                 ) : (
                   <>
                     <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
-                      Enter the code sent to <span className="font-semibold">{normalizedEmail}</span>.
+                      Enter the code sent to{" "}
+                      <span className="font-semibold">{normalizedEmail}</span>.
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-900" htmlFor="code">
+                      <label
+                        className="mb-2 block text-sm font-semibold text-slate-900"
+                        htmlFor="code"
+                      >
                         Verification code
                       </label>
 
@@ -504,7 +532,9 @@ export default function SignUpPage() {
                       onClick={onCreateAccount}
                       type="button"
                     >
-                      {isCreatingAccount ? "Creating account..." : "Create account"}
+                      {isCreatingAccount
+                        ? "Creating account..."
+                        : "Create account"}
                     </button>
 
                     <button
@@ -534,7 +564,10 @@ export default function SignUpPage() {
 
             <p className="mt-8 text-center text-sm text-slate-600">
               Already have an account?{" "}
-              <Link className="font-semibold text-blue-600 transition hover:text-blue-700" href="/sign-in">
+              <Link
+                className="font-semibold text-blue-600 transition hover:text-blue-700"
+                href="/sign-in"
+              >
                 Sign in
               </Link>
             </p>
