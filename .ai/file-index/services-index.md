@@ -2,7 +2,7 @@
 
 | File Path | Purpose | Relationships | Usage Patterns |
 |---|---|---|---|
-| `apps/api/src/auth/auth.service.ts` | First-party auth service (public sign-up OTP + password login + sessions) | Used by `auth.controller` and `ClerkAuthGuard` compatibility guard | Issues/verifies sign-up OTP challenges, stores signup password hashes, validates password credentials, creates sessions, resolves signed-in user context, and computes post-login onboarding/dashboard redirect metadata |
+| `apps/api/src/auth/auth.service.ts` | First-party auth service (public sign-up OTP + password login/reset + sessions) | Used by `auth.controller` and `ClerkAuthGuard` compatibility guard | Issues/verifies sign-up and password-reset OTP challenges, stores/replaces password hashes, validates password credentials, revokes old sessions after reset, creates sessions, resolves signed-in user context, and computes post-login onboarding/dashboard redirect metadata |
 | `apps/api/src/auth/auth.bootstrap.service.ts` | Startup default-account bootstrap service | Invoked from API startup path | Ensures env-configured test owner account exists without overwriting existing identity |
 | `apps/api/src/customers/customers.service.ts` | Customer domain logic | Called by customers controller | Customer CRUD and visit logic |
 | `apps/api/src/billing/billing.service.ts` | Billing application logic | Calls PayMongo + plan capacity services | Plan transitions and status |

@@ -6,6 +6,7 @@ describe("protected route map", () => {
     expect(isPublicPath("/")).toBe(true);
     expect(isPublicPath("/sign-in")).toBe(true);
     expect(isPublicPath("/sign-up")).toBe(true);
+    expect(isPublicPath("/forgot-password")).toBe(true);
     expect(isPublicPath("/intake/abc")).toBe(true);
   });
 

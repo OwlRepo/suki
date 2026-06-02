@@ -14,6 +14,7 @@ import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from
 import { FeatureFlagsService } from "../common/feature-flags.service";
 
 const OTP_PURPOSE_SIGN_UP = "sign_up";
+const OTP_PURPOSE_PASSWORD_RESET = "password_reset";
 const OTP_TTL_MINUTES = Number(process.env.AUTH_OTP_TTL_MINUTES || 10);
 const SESSION_TTL_DAYS = Number(process.env.AUTH_SESSION_TTL_DAYS || 30);
 const ONBOARDING_COMPLETE_STEP = 7;
@@ -43,10 +44,19 @@ function verifyPassword(password: string, stored: string): boolean {
 export class AuthService {
   constructor(_featureFlags: FeatureFlagsService) {}
 
-  private async sendOtpEmail(email: string, code: string): Promise<void> {
+  private async sendOtpEmail(email: string, code: string, purpose: "sign_up" | "password_reset" = "sign_up"): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY?.trim();
     const from = process.env.RESEND_FROM_EMAIL?.trim();
     if (!apiKey || !from) return;
+
+    const subject =
+      purpose === "password_reset"
+        ? "Reset your Tyvera password"
+        : "Your Tyvera verification code";
+    const intro =
+      purpose === "password_reset"
+        ? "Use this code to reset your Tyvera password"
+        : "Your verification code is";
 
     await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -57,8 +67,8 @@ export class AuthService {
       body: JSON.stringify({
         from,
         to: email,
-        subject: "Your Tyvera verification code",
-        html: `<p>Your verification code is <strong>${code}</strong>.</p><p>This expires in ${OTP_TTL_MINUTES} minutes.</p>`,
+        subject,
+        html: `<p>${intro} <strong>${code}</strong>.</p><p>This expires in ${OTP_TTL_MINUTES} minutes.</p>`,
       }),
     }).catch(() => undefined);
   }
@@ -123,7 +133,7 @@ export class AuthService {
       : "/onboarding";
   }
 
-  async startOtp(email: string, purpose: "sign_up") {
+  async startOtp(email: string, purpose: "sign_up" | "password_reset") {
     const db = getDb();
     const normalized = normalizeEmail(email);
     const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -139,8 +149,14 @@ export class AuthService {
       expiresAt,
     });
 
-    await this.sendOtpEmail(normalized, code);
+    await this.sendOtpEmail(normalized, code, purpose);
     return { ok: true };
+  }
+
+  async startPasswordReset(email: string) {
+    const existing = await this.findUserByEmail(email);
+    if (!existing) return { ok: true };
+    return this.startOtp(email, OTP_PURPOSE_PASSWORD_RESET);
   }
 
   async verifyOtpAndSignUp(email: string, code: string, password: string) {
@@ -237,6 +253,65 @@ export class AuthService {
     if (!verifyPassword(password, found.identity.passwordHash)) {
       return { ok: false, message: "Invalid credentials" };
     }
+
+    const redirectTo = await this.getPostLoginRedirectTo(found.user);
+    const session = await this.createSession(found.user.id);
+    return { ok: true, session, user: found.user, redirectTo };
+  }
+
+  async verifyPasswordReset(email: string, code: string, password: string) {
+    const db = getDb();
+    const normalized = normalizeEmail(email);
+    const now = new Date();
+
+    if (!password || password.length < 8) {
+      return { ok: false, message: "Password must be at least 8 characters" };
+    }
+
+    const [challenge] = await db
+      .select()
+      .from(authOtpChallenges)
+      .where(
+        and(
+          eq(authOtpChallenges.email, normalized),
+          eq(authOtpChallenges.purpose, OTP_PURPOSE_PASSWORD_RESET),
+          isNull(authOtpChallenges.consumedAt),
+        ),
+      )
+      .orderBy(desc(authOtpChallenges.createdAt))
+      .limit(1);
+
+    if (!challenge || challenge.expiresAt < now || challenge.attempts >= challenge.maxAttempts) {
+      return { ok: false, message: "Code expired" };
+    }
+
+    if (challenge.codeHash !== hashValue(code.trim())) {
+      await db
+        .update(authOtpChallenges)
+        .set({ attempts: challenge.attempts + 1, updatedAt: now })
+        .where(eq(authOtpChallenges.id, challenge.id));
+      return { ok: false, message: "Invalid code" };
+    }
+
+    const found = await this.findUserByEmail(normalized);
+    if (!found) {
+      return { ok: false, message: "Invalid code" };
+    }
+
+    await db
+      .update(authIdentities)
+      .set({ passwordHash: makePasswordHash(password), updatedAt: now })
+      .where(eq(authIdentities.userId, found.user.id));
+
+    await db
+      .update(authOtpChallenges)
+      .set({ consumedAt: now, updatedAt: now })
+      .where(eq(authOtpChallenges.id, challenge.id));
+
+    await db
+      .update(authSessions)
+      .set({ revokedAt: now, updatedAt: now })
+      .where(eq(authSessions.userId, found.user.id));
 
     const redirectTo = await this.getPostLoginRedirectTo(found.user);
     const session = await this.createSession(found.user.id);

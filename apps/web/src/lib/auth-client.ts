@@ -37,6 +37,14 @@ export function signInWithPassword(email: string, password: string) {
   return post("/auth/sign-in/password", { email, password });
 }
 
+export function startPasswordReset(email: string) {
+  return post("/auth/password-reset/start", { email });
+}
+
+export function verifyPasswordReset(email: string, code: string, password: string) {
+  return post("/auth/password-reset/verify", { email, code, password });
+}
+
 export async function signOut() {
   return post("/auth/sign-out", {});
 }

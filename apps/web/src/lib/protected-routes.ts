@@ -1,4 +1,4 @@
-const PUBLIC_PREFIXES = ["/", "/sign-in", "/sign-up", "/intake"] as const;
+const PUBLIC_PREFIXES = ["/", "/sign-in", "/sign-up", "/forgot-password", "/intake"] as const;
 const PROTECTED_PREFIXES = [
   "/dashboard",
   "/customers",

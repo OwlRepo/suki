@@ -4,7 +4,12 @@ import { AuthService } from "./auth.service";
 
 const dbMock = vi.hoisted(() => ({
   tables: {
-    authIdentities: { email: "authIdentities.email", userId: "authIdentities.userId" },
+    authIdentities: {
+      id: "authIdentities.id",
+      email: "authIdentities.email",
+      userId: "authIdentities.userId",
+      passwordHash: "authIdentities.passwordHash",
+    },
     authOtpChallenges: {
       id: "authOtpChallenges.id",
       email: "authOtpChallenges.email",
@@ -130,6 +135,33 @@ describe("AuthService", () => {
     await expect(service.startOtp("user@test.com", "sign_up")).resolves.toEqual({ ok: true });
   });
 
+  it("normalizes email and creates password reset OTP only for existing accounts", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+    selectQueue = [
+      [{ userId: "user-1", email: "user@test.com", passwordHash: "hash" }],
+      [{ id: "user-1", organizationId: "org-1", role: "owner", email: "user@test.com" }],
+    ];
+
+    await expect(service.startPasswordReset("  USER@TEST.COM ")).resolves.toEqual({ ok: true });
+
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "user@test.com",
+        purpose: "password_reset",
+        attempts: 0,
+      }),
+    );
+  });
+
+  it("returns ok for unknown password reset email without creating an OTP", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+    selectQueue = [[]];
+
+    await expect(service.startPasswordReset("missing@test.com")).resolves.toEqual({ ok: true });
+
+    expect(insertValuesMock).not.toHaveBeenCalled();
+  });
+
   it("creates a public account with password hash after valid sign-up OTP", async () => {
     const service = new AuthService({ founderLedModeEnabled: () => true, publicSignupEnabled: () => false } as never);
     selectQueue = [
@@ -208,5 +240,67 @@ describe("AuthService", () => {
       redirectTo: "/dashboard",
       session: expect.objectContaining({ token: expect.any(String), expiresAt: expect.any(Date) }),
     });
+  });
+
+  it("rejects password reset verify when password is too short", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+
+    await expect(service.verifyPasswordReset("user@test.com", "123456", "short")).resolves.toEqual({
+      ok: false,
+      message: "Password must be at least 8 characters",
+    });
+    expect(updateSetMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects expired password reset code", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+    selectQueue = [[{ id: "challenge-1", codeHash: "hash", expiresAt: new Date(Date.now() - 60_000), attempts: 0, maxAttempts: 3 }]];
+
+    await expect(service.verifyPasswordReset("user@test.com", "123456", "secret123")).resolves.toEqual({
+      ok: false,
+      message: "Code expired",
+    });
+  });
+
+  it("rejects invalid password reset code and increments attempts", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+    selectQueue = [[{ id: "challenge-1", codeHash: "not-the-code", expiresAt: new Date(Date.now() + 60_000), attempts: 0, maxAttempts: 3 }]];
+
+    await expect(service.verifyPasswordReset("user@test.com", "000000", "secret123")).resolves.toEqual({
+      ok: false,
+      message: "Invalid code",
+    });
+    expect(updateSetMock).toHaveBeenCalledWith(expect.objectContaining({ attempts: 1, updatedAt: expect.any(Date) }));
+  });
+
+  it("rejects password reset after max attempts", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+    selectQueue = [[{ id: "challenge-1", codeHash: "not-the-code", expiresAt: new Date(Date.now() + 60_000), attempts: 3, maxAttempts: 3 }]];
+
+    await expect(service.verifyPasswordReset("user@test.com", "000000", "secret123")).resolves.toEqual({
+      ok: false,
+      message: "Code expired",
+    });
+  });
+
+  it("updates password, consumes reset OTP, revokes old sessions, and creates a fresh session", async () => {
+    const service = new AuthService({ founderLedModeEnabled: () => false, publicSignupEnabled: () => true } as never);
+    selectQueue = [
+      [{ id: "challenge-1", codeHash: "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92", expiresAt: new Date(Date.now() + 60_000), attempts: 0, maxAttempts: 3 }],
+      [{ userId: "user-1", email: "user@test.com", passwordHash: "old-hash" }],
+      [{ id: "user-1", organizationId: "org-1", role: "owner", email: "user@test.com" }],
+      [{ currentStep: 7 }],
+    ];
+
+    await expect(service.verifyPasswordReset("user@test.com", "123456", "newsecret")).resolves.toMatchObject({
+      ok: true,
+      redirectTo: "/dashboard",
+      session: expect.objectContaining({ token: expect.any(String), expiresAt: expect.any(Date) }),
+    });
+
+    expect(updateSetMock).toHaveBeenCalledWith(expect.objectContaining({ passwordHash: expect.stringMatching(/^[a-f0-9]{32}:[a-f0-9]{128}$/) }));
+    expect(updateSetMock).toHaveBeenCalledWith(expect.objectContaining({ consumedAt: expect.any(Date) }));
+    expect(updateSetMock).toHaveBeenCalledWith(expect.objectContaining({ revokedAt: expect.any(Date) }));
+    expect(insertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-1", tokenHash: expect.any(String) }));
   });
 });

@@ -28,8 +28,9 @@ describe("Custom SignInPage", () => {
   it("renders password-only sign-in fields", () => {
     render(<SignInPage />);
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /forgot password/i })).toHaveAttribute("href", "/forgot-password");
     expect(screen.queryByRole("button", { name: /send code/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/code/i)).not.toBeInTheDocument();
   });
@@ -39,7 +40,7 @@ describe("Custom SignInPage", () => {
     render(<SignInPage />);
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: " a@test.com " } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "secret123" } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "secret123" } });
     fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => expect(signInWithPassword).toHaveBeenCalledWith("a@test.com", "secret123"));
@@ -53,7 +54,7 @@ describe("Custom SignInPage", () => {
     render(<SignInPage />);
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: " a@test.com " } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "secret123" } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "secret123" } });
     fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => expect(signInWithPassword).toHaveBeenCalledWith("a@test.com", "secret123"));
@@ -67,7 +68,7 @@ describe("Custom SignInPage", () => {
     render(<SignInPage />);
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: " a@test.com " } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "secret123" } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "secret123" } });
     fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => expect(signInWithPassword).toHaveBeenCalledWith("a@test.com", "secret123"));
@@ -81,7 +82,7 @@ describe("Custom SignInPage", () => {
     render(<SignInPage />);
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@test.com" } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "wrong" } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "wrong" } });
     fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => expect(screen.getByText("Invalid credentials")).toBeInTheDocument());

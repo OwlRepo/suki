@@ -50,6 +50,19 @@ export class AuthController {
     return { ok: true, redirectTo: result.redirectTo };
   }
 
+  @Post("password-reset/start")
+  async passwordResetStart(@Body() body: { email: string }) {
+    return this.authService.startPasswordReset(body.email);
+  }
+
+  @Post("password-reset/verify")
+  async passwordResetVerify(@Body() body: { email: string; code: string; password: string }, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.verifyPasswordReset(body.email, body.code, body.password);
+    if (!result.ok || !result.session) return result;
+    this.setSessionCookie(res, result.session.token, result.session.expiresAt);
+    return { ok: true, redirectTo: result.redirectTo };
+  }
+
   @Get("me")
   async me(@Req() req: Request) {
     const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;

@@ -221,9 +221,14 @@ export default function SignInPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="mb-2 block text-sm font-semibold text-slate-900">
-                    Password
-                  </label>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <label htmlFor="password" className="block text-sm font-semibold text-slate-900">
+                      Password
+                    </label>
+                    <Link href="/forgot-password" className="text-sm font-medium text-blue-600 transition hover:text-blue-700">
+                      Forgot password?
+                    </Link>
+                  </div>
                   <div className="flex min-h-[56px] items-center gap-3 rounded-xl border border-slate-300 bg-white px-4 transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
                     <LockIcon className="h-5 w-5 shrink-0 text-slate-500" />
                     <input
