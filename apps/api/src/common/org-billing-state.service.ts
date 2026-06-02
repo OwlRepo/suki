@@ -13,6 +13,7 @@ export interface OrgBillingState {
   isTrialExpired: boolean;
   isReadOnly: boolean;
   canSendAutomations: boolean;
+  variableCostActionsBlocked: boolean;
   nextBillingDueAt: Date | null;
   manualBillingNotes: string | null;
 }
@@ -25,6 +26,11 @@ const READ_ONLY_STATUSES: OrgBillingStatus[] = [
 ];
 
 const CAN_SEND_STATUSES: OrgBillingStatus[] = ["trial_active", "active_manual"];
+const VARIABLE_COST_BLOCKED_STATUSES: OrgBillingStatus[] = [
+  "subscription_past_due",
+  "subscription_paused",
+  "suspended",
+];
 
 @Injectable()
 export class OrgBillingStateService {
@@ -47,9 +53,32 @@ export class OrgBillingStateService {
     accessEndsAt: Date | null;
     nextBillingDueAt: Date | null;
     manualBillingNotes: string | null;
+    subscriptionStatus?: string | null;
+    subscriptionEndsAt?: Date | null;
+    subscriptionRenewsAt?: Date | null;
+    subscriptionCancelled?: boolean | null;
   }): OrgBillingState {
     const now = new Date();
-    let effectiveStatus = (org.billingStatus ?? "trial_active") as OrgBillingStatus;
+    let effectiveStatus = (org.billingStatus ?? "free_active") as OrgBillingStatus;
+
+    const plan = (org.currentPlan ?? "free") as PlanType;
+    const subscriptionStatus = org.subscriptionStatus ?? null;
+    const subscriptionEndsAt = org.subscriptionEndsAt ?? null;
+
+    if (subscriptionStatus === "active") {
+      effectiveStatus = "subscription_active";
+    } else if (subscriptionStatus === "past_due" || subscriptionStatus === "unpaid") {
+      effectiveStatus = "subscription_past_due";
+    } else if (subscriptionStatus === "paused") {
+      effectiveStatus = "subscription_paused";
+    } else if (subscriptionStatus === "expired") {
+      effectiveStatus = "subscription_expired";
+    } else if (subscriptionStatus === "cancelled") {
+      effectiveStatus =
+        subscriptionEndsAt && subscriptionEndsAt.getTime() > now.getTime()
+          ? "subscription_cancelled"
+          : "subscription_expired";
+    }
 
     if (
       effectiveStatus === "trial_active" &&
@@ -63,10 +92,16 @@ export class OrgBillingStateService {
       effectiveStatus = "suspended";
     }
 
-    const plan = (org.currentPlan ?? "starter") as PlanType;
     const isReadOnly = READ_ONLY_STATUSES.includes(effectiveStatus);
-    const canSendAutomations = CAN_SEND_STATUSES.includes(effectiveStatus);
+    const canSendAutomations =
+      CAN_SEND_STATUSES.includes(effectiveStatus) ||
+      effectiveStatus === "free_active" ||
+      effectiveStatus === "subscription_active" ||
+      effectiveStatus === "subscription_cancelled";
     const isTrialExpired = effectiveStatus === "trial_expired";
+    const variableCostActionsBlocked = VARIABLE_COST_BLOCKED_STATUSES.includes(
+      effectiveStatus,
+    );
 
     let daysRemaining: number | null = null;
     if (effectiveStatus === "trial_active" && org.trialEndsAt) {
@@ -83,6 +118,7 @@ export class OrgBillingStateService {
       isTrialExpired,
       isReadOnly,
       canSendAutomations,
+      variableCostActionsBlocked,
       nextBillingDueAt: org.nextBillingDueAt ?? null,
       manualBillingNotes: org.manualBillingNotes ?? null,
     };

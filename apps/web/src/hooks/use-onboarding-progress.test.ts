@@ -4,7 +4,7 @@ import { useOnboardingProgress, ONBOARDING_COMPLETE_STEP } from "./use-onboardin
 
 const mockGetToken = vi.fn();
 
-vi.mock("@clerk/nextjs", () => ({
+vi.mock("@/lib/auth", () => ({
   useAuth: () => ({ getToken: mockGetToken }),
 }));
 

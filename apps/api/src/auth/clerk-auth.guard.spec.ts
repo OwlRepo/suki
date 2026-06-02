@@ -30,17 +30,17 @@ describe("ClerkAuthGuard", () => {
     return { guard: new ClerkAuthGuard(authService), validateSession };
   }
 
-  it("accepts legacy suki_session cookies during rebrand transition", async () => {
+  it("accepts canonical tyvera_session cookies", async () => {
     const { guard, validateSession } = makeGuard(
       vi.fn(async () => ({
         user: { id: "u1", organizationId: "o1", role: "owner", email: "u@test.com" },
       })),
     );
-    const { context, request } = makeContext("suki_session=legacy-token");
+    const { context, request } = makeContext("tyvera_session=current-token");
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
 
-    expect(validateSession).toHaveBeenCalledWith("legacy-token");
+    expect(validateSession).toHaveBeenCalledWith("current-token");
     expect(request.tenant).toEqual({
       organizationId: "o1",
       userId: "u1",
@@ -49,13 +49,13 @@ describe("ClerkAuthGuard", () => {
     });
   });
 
-  it("prefers tyvera_session over legacy cookies", async () => {
+  it("prefers tyvera_session over bearer tokens", async () => {
     const { guard, validateSession } = makeGuard(
       vi.fn(async () => ({
         user: { id: "u1", organizationId: "o1", role: "owner", email: "u@test.com" },
       })),
     );
-    const { context } = makeContext("suki_session=legacy-token; tyvera_session=current-token");
+    const { context } = makeContext("tyvera_session=current-token", "Bearer other-token");
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
 

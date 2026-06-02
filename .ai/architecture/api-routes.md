@@ -9,7 +9,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `GET /users/me/workspace`, `PATCH /users/me/workspace`
 - `GET/PATCH /organizations/me`, `GET /organizations/me/recommendations`
 - `GET/POST/PATCH/DELETE /customers*` (customers + templates + visits + message history)
-- `GET/POST/PATCH /billing/*`, `POST /billing/webhook/paymongo`
+- `GET/POST/PATCH /billing/*`, `POST /billing/webhook/lemonsqueezy`
 - `GET/POST /messaging/*`, `GET /messaging/email-usage`, `POST /messaging/inbound/sms`, `POST /messaging/webhooks/*`
 - `GET/PATCH /automation/settings`, `GET /automation/previews`, `PATCH /automation/refine-message`
 - `GET/POST/PATCH /appointments*`
@@ -51,3 +51,10 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `POST /messaging/inbound/sms` is a Twilio-facing form webhook. It validates `X-Twilio-Signature` against `TWILIO_INBOUND_SMS_WEBHOOK_URL`, applies STOP opt-outs, and returns empty TwiML XML.
 - `POST /messaging/webhooks/twilio/status` validates `X-Twilio-Signature` against `TWILIO_STATUS_CALLBACK_URL` before trusted delivery-state updates.
 - Production callback URL env values must include the externally visible `/api` prefix used by the reverse proxy.
+
+## Billing Route Notes
+- `GET /billing/plans` returns the canonical billing catalog used by both API and web pricing surfaces.
+- `GET /billing/status` returns current plan, lifecycle state, and usage-meter scaffolding for the billing settings page.
+- `POST /billing/checkout` and `POST /billing/addons/checkout` only accept plan/interval or SKU identifiers; the server resolves Lemon Squeezy variants from an allowlist.
+- `POST /billing/customer-portal`, `POST /billing/change-plan`, `POST /billing/cancel`, and `POST /billing/resume` are owner-only mutations.
+- `POST /billing/webhook/lemonsqueezy` verifies the raw-body HMAC signature before recording events idempotently.

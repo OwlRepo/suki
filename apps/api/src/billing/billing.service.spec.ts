@@ -1,17 +1,33 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BillingService } from "./billing.service";
 
 describe("BillingService", () => {
-  const service = new BillingService();
+  it("returns the centralized plans response with checkout flag", () => {
+    const service = new BillingService({} as never);
+    const response = service.getPlansResponse({ checkoutEnabled: false });
 
-  it("getPlans returns all plans with prices", () => {
-    const plans = service.getPlans();
-    expect(plans).toHaveLength(3);
-    expect(plans.map((p) => p.planType)).toContain("starter");
-    expect(plans.map((p) => p.planType)).toContain("growth");
-    expect(plans.map((p) => p.planType)).toContain("pro");
-    expect(plans.find((p) => p.planType === "starter")?.pricePhp).toBe(299);
-    expect(plans.find((p) => p.planType === "growth")?.pricePhp).toBe(799);
-    expect(plans.find((p) => p.planType === "pro")?.pricePhp).toBe(1499);
+    expect(response.checkoutEnabled).toBe(false);
+    expect(response.plans.map((plan) => plan.planType)).toEqual([
+      "free",
+      "starter",
+      "growth",
+      "pro",
+    ]);
+    expect(response.plans.find((plan) => plan.planType === "growth")).toMatchObject({
+      mostPopular: true,
+      monthlyPricePhp: 2_499,
+    });
+  });
+
+  it("builds a free fallback billing status when no subscription exists", async () => {
+    const service = new BillingService({} as never);
+    vi.spyOn(service, "getSubscription").mockResolvedValue(null as never);
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      planType: "free",
+      billingStatus: "free_active",
+      billingInterval: null,
+      subscription: null,
+    });
   });
 });

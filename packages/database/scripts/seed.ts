@@ -17,7 +17,7 @@ async function main() {
 
   const [org] = await db
     .insert(organizations)
-    .values({ name: "Sample Organization" })
+    .values({ name: "Sample Organization", currentPlan: "free" })
     .returning();
 
   await db

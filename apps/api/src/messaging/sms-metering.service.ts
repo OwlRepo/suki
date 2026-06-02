@@ -7,6 +7,7 @@ import { PlanCapacityService } from "../common/plan-capacity.service";
 
 /** SMS included per plan per month */
 const SMS_INCLUDED_BY_PLAN: Record<PlanType, number> = {
+  free: 0,
   starter: 300,
   growth: 800,
   pro: 2000,
@@ -38,7 +39,7 @@ export class SmsMeteringService {
   }> {
     const m = month ?? this.currentMonth();
     const plan = await this.planCapacity.getActivePlan(organizationId);
-    const included = SMS_INCLUDED_BY_PLAN[plan];
+    const included = SMS_INCLUDED_BY_PLAN[plan] ?? 0;
 
     const db = getDb();
     const [existing] = await db

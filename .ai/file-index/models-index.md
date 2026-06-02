@@ -10,4 +10,5 @@
 | `packages/database/drizzle/0018_booking_holds.sql` | Booking hold lifecycle migration | Used by intake/appointments modules | Hold and release behavior |
 | `packages/database/drizzle/0021_local_auth.sql` | First-party auth schema migration | Supports API auth service/session guard | Creates auth identities, OTP challenges, and session tables |
 | `packages/database/drizzle/0022_free_caps_templates_email_metering.sql` | Free-mode cap and automation-template migration | Used by messaging/automation settings flows | Adds automation message templates and email usage cap tables |
+| `packages/database/drizzle/0023_lemonsqueezy_freemium_billing.sql` | Lemon Squeezy freemium billing migration | Used by billing, organization, webhook, and credit-ledger flows | Adds provider-neutral subscription fields, verified booking credit tables, and reconciliation/event storage |
 | `packages/database/src/schema/index.ts` (`assistant_thread_memories`) | Assistant thread memory persistence schema | Consumed by `assistant-thread-memory.service` | Stores per-org/user/thread rolling summary and recent turn snapshots |

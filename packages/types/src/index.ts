@@ -1,5 +1,11 @@
-// Plan types (Starter, Growth, AI Pro)
-export type PlanType = "starter" | "growth" | "pro";
+// Billing and plan types
+export type PlanType = "free" | "starter" | "growth" | "pro";
+export type BillingInterval = "monthly" | "annual";
+export type BillingProvider = "lemonsqueezy";
+export type BillingPurchaseKind =
+  | "subscription"
+  | "online_booking_topup"
+  | "sms_segment_topup";
 
 // Message automation types
 export type MessagePurpose = "transactional" | "promotional";
@@ -24,7 +30,13 @@ export type OrgBillingStatus =
   | "active_manual"
   | "past_due_manual"
   | "cancelled_manual"
-  | "suspended";
+  | "suspended"
+  | "free_active"
+  | "subscription_active"
+  | "subscription_past_due"
+  | "subscription_cancelled"
+  | "subscription_expired"
+  | "subscription_paused";
 export type AutomationKey =
   | "appointment_confirmation"
   | "appointment_reminder_24h"
@@ -170,13 +182,40 @@ export interface Subscription {
   id: string;
   organizationId: string;
   planType: PlanType;
-  status: "active" | "cancelled" | "past_due" | "trialing";
-  paymongoSubscriptionId?: string;
-  currentPeriodStart: Date;
-  currentPeriodEnd: Date;
+  status:
+    | "active"
+    | "cancelled"
+    | "past_due"
+    | "trialing"
+    | "paused"
+    | "expired"
+    | "unpaid";
+  provider?: BillingProvider | null;
+  billingInterval?: BillingInterval | null;
+  paymongoSubscriptionId?: string | null;
+  providerSubscriptionId?: string | null;
+  providerCustomerId?: string | null;
+  providerOrderId?: string | null;
+  providerProductId?: string | null;
+  providerVariantId?: string | null;
+  providerSubscriptionItemId?: string | null;
+  cancelled?: boolean;
+  currentPeriodStart: Date | null;
+  currentPeriodEnd: Date | null;
+  renewsAt?: Date | null;
+  endsAt?: Date | null;
+  trialEndsAt?: Date | null;
+  cardBrand?: string | null;
+  cardLastFour?: string | null;
+  updatePaymentMethodUrl?: string | null;
+  customerPortalUrl?: string | null;
+  scheduledPlanType?: PlanType | null;
+  scheduledBillingInterval?: BillingInterval | null;
+  scheduledChangeEffectiveAt?: Date | null;
   billingFailureCount?: number;
-  graceUntil?: Date;
-  lastWebhookEventId?: string;
+  graceUntil?: Date | null;
+  lastWebhookEventId?: string | null;
+  lastProviderEventId?: string | null;
   planPricePhp?: number;
   createdAt: Date;
   updatedAt: Date;

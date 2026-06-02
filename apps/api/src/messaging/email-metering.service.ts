@@ -2,11 +2,13 @@ import { Injectable } from "@nestjs/common";
 import { getDb } from "@tyvera/database";
 import { emailCredits, emailUsageEvents } from "@tyvera/database";
 import { eq, and, sql } from "drizzle-orm";
-
-const EMAIL_INCLUDED_DEFAULT = 300;
+import { PlanCapacityService } from "../common/plan-capacity.service";
+import { getPlanCatalogEntry } from "../billing/plan-catalog";
 
 @Injectable()
 export class EmailMeteringService {
+  constructor(private readonly planCapacity: PlanCapacityService) {}
+
   private currentMonth(): string {
     const now = new Date();
     const y = now.getFullYear();
@@ -26,6 +28,8 @@ export class EmailMeteringService {
     at100Pct: boolean;
   }> {
     const m = month ?? this.currentMonth();
+    const plan = await this.planCapacity.getActivePlan(organizationId);
+    const includedForPlan = getPlanCatalogEntry(plan).limits.emailMessagesPerMonth;
     const db = getDb();
     const [existing] = await db
       .select()
@@ -57,16 +61,16 @@ export class EmailMeteringService {
       .values({
         organizationId,
         month: m,
-        included: EMAIL_INCLUDED_DEFAULT,
+        included: includedForPlan,
         used: 0,
       })
       .returning();
 
     return {
-      included: created?.included ?? EMAIL_INCLUDED_DEFAULT,
+      included: created?.included ?? includedForPlan,
       used: created?.used ?? 0,
-      total: created?.included ?? EMAIL_INCLUDED_DEFAULT,
-      remaining: created?.included ?? EMAIL_INCLUDED_DEFAULT,
+      total: created?.included ?? includedForPlan,
+      remaining: created?.included ?? includedForPlan,
       at80Pct: false,
       at100Pct: false,
     };
@@ -111,4 +115,3 @@ export class EmailMeteringService {
     });
   }
 }
-

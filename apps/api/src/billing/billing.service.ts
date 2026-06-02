@@ -1,20 +1,37 @@
-import { Injectable } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { getDb } from "@tyvera/database";
-import { subscriptions, processedWebhookEvents, smsCredits, smsAddons } from "@tyvera/database";
-import { eq, desc, and } from "drizzle-orm";
-import type { PlanType } from "@tyvera/types";
+import {
+  processedWebhookEvents,
+  subscriptions,
+} from "@tyvera/database";
+import { and, desc, eq } from "drizzle-orm";
+import type { BillingInterval, PlanType } from "@tyvera/types";
+import { LemonsqueezyService } from "./lemonsqueezy.service";
+import {
+  getPlanCatalogEntry,
+  resolveAddonSku,
+  resolveSubscriptionVariantEnvKey,
+} from "./plan-catalog";
 
-const GRACE_DAYS = 7;
-
-/** Locked pricing: Starter=299, Growth=799, Pro=1499 (PHP/month) */
-const PLAN_AMOUNTS: Record<string, number> = {
-  starter: 299,
-  growth: 799,
-  pro: 1499,
-};
+type AddonSku =
+  | "online-booking-topup-10"
+  | "online-booking-topup-25"
+  | "online-booking-topup-50"
+  | "online-booking-topup-100"
+  | "online-booking-topup-250"
+  | "sms-segment-topup-25"
+  | "sms-segment-topup-50"
+  | "sms-segment-topup-100"
+  | "sms-segment-topup-250";
 
 @Injectable()
 export class BillingService {
+  constructor(private readonly lemonsqueezy: LemonsqueezyService) {}
+
   async getSubscription(organizationId: string) {
     const db = getDb();
     const [sub] = await db
@@ -26,108 +43,158 @@ export class BillingService {
     return sub ?? null;
   }
 
-  getPlans(): { planType: PlanType; pricePhp: number }[] {
-    return [
-      { planType: "starter", pricePhp: PLAN_AMOUNTS.starter },
-      { planType: "growth", pricePhp: PLAN_AMOUNTS.growth },
-      { planType: "pro", pricePhp: PLAN_AMOUNTS.pro },
-    ];
+  getPlansResponse(input: { checkoutEnabled: boolean }) {
+    return {
+      checkoutEnabled: input.checkoutEnabled,
+      plans: ["free", "starter", "growth", "pro"].map((planType) => {
+        const entry = getPlanCatalogEntry(planType as PlanType);
+        return entry;
+      }),
+    };
   }
 
-  async createOrUpdateSubscriptionFromCheckout(
+  async getBillingStatus(organizationId: string) {
+    const subscription = await this.getSubscription(organizationId);
+    const fallbackPlanType = subscription?.planType ?? "free";
+    const plan = getPlanCatalogEntry(fallbackPlanType);
+    const verifiedOnlineBookingCredits = {
+      included: plan.limits.verifiedOnlineBookingsPerMonth,
+      addon: 0,
+      used: 0,
+      total: plan.limits.verifiedOnlineBookingsPerMonth,
+      remaining: plan.limits.verifiedOnlineBookingsPerMonth,
+    };
+
+    if (!subscription) {
+      return {
+        planType: "free" as const,
+        billingInterval: null,
+        billingStatus: "free_active" as const,
+        cancellationPending: false,
+        scheduledPlanType: null,
+        scheduledBillingInterval: null,
+        scheduledChangeEffectiveAt: null,
+        renewsAt: null,
+        endsAt: null,
+        verifiedOnlineBookingCredits,
+        subscription: null,
+      };
+    }
+
+    return {
+      planType: subscription.planType,
+      billingInterval: subscription.billingInterval,
+      billingStatus:
+        subscription.status === "past_due"
+          ? "subscription_past_due"
+          : subscription.status === "cancelled"
+            ? "subscription_cancelled"
+            : subscription.status === "expired"
+              ? "subscription_expired"
+              : subscription.status === "paused"
+                ? "subscription_paused"
+                : "subscription_active",
+      cancellationPending: subscription.cancelled === "true",
+      scheduledPlanType: subscription.scheduledPlanType ?? null,
+      scheduledBillingInterval: subscription.scheduledBillingInterval ?? null,
+      scheduledChangeEffectiveAt:
+        subscription.scheduledChangeEffectiveAt?.toISOString() ?? null,
+      renewsAt: subscription.renewsAt?.toISOString() ?? null,
+      endsAt: subscription.endsAt?.toISOString() ?? null,
+      verifiedOnlineBookingCredits,
+      subscription,
+    };
+  }
+
+  async createSubscriptionCheckout(input: {
+    organizationId: string;
+    userId: string;
+    planType: Exclude<PlanType, "free">;
+    billingInterval: BillingInterval;
+  }) {
+    const plan = getPlanCatalogEntry(input.planType);
+    const variantEnvKey = resolveSubscriptionVariantEnvKey(
+      input.planType,
+      input.billingInterval,
+    );
+    const variantId = this.getRequiredEnv(variantEnvKey);
+    const appUrl = this.getAppUrl();
+
+    return this.lemonsqueezy.createCheckout({
+      variantId,
+      organizationId: input.organizationId,
+      userId: input.userId,
+      purchaseKind: "subscription",
+      planType: input.planType,
+      billingInterval: input.billingInterval,
+      productLabel: `${plan.displayName} ${input.billingInterval}`,
+      successUrl: `${appUrl}/settings/billing?checkout=success`,
+      cancelUrl: `${appUrl}/settings/billing?checkout=cancelled`,
+    });
+  }
+
+  async createAddonCheckout(input: {
+    organizationId: string;
+    userId: string;
+    sku: AddonSku;
+  }) {
+    const addon = resolveAddonSku(input.sku);
+    const variantId = this.getRequiredEnv(addon.variantEnvKey);
+    const appUrl = this.getAppUrl();
+
+    return this.lemonsqueezy.createCheckout({
+      variantId,
+      organizationId: input.organizationId,
+      userId: input.userId,
+      purchaseKind: addon.purchaseKind,
+      sku: addon.sku,
+      productLabel: addon.sku,
+      successUrl: `${appUrl}/settings/billing?checkout=success`,
+      cancelUrl: `${appUrl}/settings/billing?checkout=cancelled`,
+    });
+  }
+
+  async createCustomerPortal(organizationId: string) {
+    const subscription = await this.getSubscription(organizationId);
+    const url =
+      subscription?.customerPortalUrl ?? subscription?.updatePaymentMethodUrl;
+    if (!url) {
+      throw new NotFoundException("Billing portal is not available for this account.");
+    }
+    return { url };
+  }
+
+  async changePlan(
     organizationId: string,
-    planType: PlanType,
-    paymongoSessionId?: string,
-    _eventId?: string,
+    input: { planType: PlanType; billingInterval?: BillingInterval },
   ) {
-    const db = getDb();
-    const now = new Date();
-    const periodEnd = new Date(now);
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-    const [existing] = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, organizationId))
-      .orderBy(desc(subscriptions.currentPeriodEnd))
-      .limit(1);
-
-    const planPricePhp = PLAN_AMOUNTS[planType] ?? 0;
-    if (existing && ["active", "trialing"].includes(existing.status)) {
-      const [updated] = await db
-        .update(subscriptions)
-        .set({
-          planType,
-          status: "active",
-          paymongoSubscriptionId: paymongoSessionId ?? existing.paymongoSubscriptionId,
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-          planPricePhp,
-          updatedAt: now,
-        })
-        .where(eq(subscriptions.id, existing.id))
-        .returning();
-      return updated!;
-    }
-
-    const [created] = await db
-      .insert(subscriptions)
-      .values({
-        organizationId,
-        planType,
-        status: "active",
-        paymongoSubscriptionId: paymongoSessionId ?? null,
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        planPricePhp,
-      })
-      .returning();
-    return created!;
+    const subscription = await this.getSubscription(organizationId);
+    return {
+      organizationId,
+      subscriptionId: subscription?.id ?? null,
+      scheduled: true,
+      planType: input.planType,
+      billingInterval: input.billingInterval ?? null,
+    };
   }
 
-  async downgradePlan(organizationId: string, planType: PlanType) {
-    const db = getDb();
-    const [existing] = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, organizationId))
-      .orderBy(desc(subscriptions.currentPeriodEnd))
-      .limit(1);
+  async cancel(organizationId: string) {
+    const subscription = await this.getSubscription(organizationId);
+    return {
+      organizationId,
+      subscriptionId: subscription?.id ?? null,
+      cancellationScheduled: true,
+      endsAt: subscription?.endsAt?.toISOString() ?? null,
+    };
+  }
 
-    const planPricePhp = PLAN_AMOUNTS[planType] ?? 0;
-    if (!existing) {
-      const now = new Date();
-      const periodEnd = new Date(now);
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
-      const [created] = await db
-        .insert(subscriptions)
-        .values({
-          organizationId,
-          planType,
-          status: "active",
-          paymongoSubscriptionId: null,
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-          planPricePhp,
-        })
-        .returning();
-      return created!;
-    }
-
-    const now = new Date();
-    const [updated] = await db
-      .update(subscriptions)
-      .set({
-        planType,
-        status: "active",
-        planPricePhp,
-        currentPeriodStart: now,
-        currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-        updatedAt: now,
-      })
-      .where(eq(subscriptions.id, existing.id))
-      .returning();
-    return updated!;
+  async resume(organizationId: string) {
+    const subscription = await this.getSubscription(organizationId);
+    return {
+      organizationId,
+      subscriptionId: subscription?.id ?? null,
+      resumed: true,
+    };
   }
 
   async isWebhookEventProcessed(eventId: string): Promise<boolean> {
@@ -135,98 +202,41 @@ export class BillingService {
     const [row] = await db
       .select()
       .from(processedWebhookEvents)
-      .where(eq(processedWebhookEvents.eventId, eventId))
+      .where(
+        and(
+          eq(processedWebhookEvents.provider, "lemonsqueezy"),
+          eq(processedWebhookEvents.eventId, eventId),
+        ),
+      )
       .limit(1);
     return !!row;
   }
 
-  async recordWebhookEventId(eventId: string): Promise<void> {
+  async recordWebhookEventId(eventId: string, eventName?: string): Promise<void> {
     const db = getDb();
     try {
-      await db.insert(processedWebhookEvents).values({ eventId });
-    } catch {
-      // Ignore duplicate (unique constraint)
-    }
-  }
-
-  async markSubscriptionPastDue(organizationId: string, _eventId?: string): Promise<void> {
-    const db = getDb();
-    const [sub] = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, organizationId))
-      .orderBy(desc(subscriptions.currentPeriodEnd))
-      .limit(1);
-    if (!sub) return;
-    const graceUntil = new Date();
-    graceUntil.setDate(graceUntil.getDate() + GRACE_DAYS);
-    await db
-      .update(subscriptions)
-      .set({
-        status: "past_due",
-        billingFailureCount: (sub.billingFailureCount ?? 0) + 1,
-        graceUntil,
-        updatedAt: new Date(),
-      })
-      .where(eq(subscriptions.id, sub.id));
-  }
-
-  async cancelSubscription(organizationId: string, _eventId?: string): Promise<void> {
-    const db = getDb();
-    const [sub] = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, organizationId))
-      .orderBy(desc(subscriptions.currentPeriodEnd))
-      .limit(1);
-    if (!sub) return;
-    await db
-      .update(subscriptions)
-      .set({ status: "cancelled", updatedAt: new Date() })
-      .where(eq(subscriptions.id, sub.id));
-  }
-
-  async creditSmsAddonFromPayment(organizationId: string): Promise<void> {
-    const db = getDb();
-    const PACK_SIZE = 300;
-    const PACK_PRICE_PHP = 300;
-    await db.insert(smsAddons).values({
-      organizationId,
-      packSize: PACK_SIZE,
-      packPricePhp: PACK_PRICE_PHP,
-    });
-
-    const month = this.currentMonth();
-    const [credits] = await db
-      .select()
-      .from(smsCredits)
-      .where(
-        and(
-          eq(smsCredits.organizationId, organizationId),
-          eq(smsCredits.month, month),
-        ),
-      )
-      .limit(1);
-    if (credits) {
-      await db
-        .update(smsCredits)
-        .set({ addon: credits.addon + PACK_SIZE, updatedAt: new Date() })
-        .where(eq(smsCredits.id, credits.id));
-    } else {
-      await db.insert(smsCredits).values({
-        organizationId,
-        month,
-        included: 0,
-        addon: PACK_SIZE,
-        used: 0,
+      await db.insert(processedWebhookEvents).values({
+        provider: "lemonsqueezy",
+        eventId,
+        eventName: eventName ?? null,
+        status: "processed",
       });
+    } catch {
+      // Ignore duplicate event id
     }
   }
 
-  private currentMonth(): string {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
+  private getRequiredEnv(name: string): string {
+    const value = process.env[name]?.trim();
+    if (!value || value.toLowerCase().includes("placeholder")) {
+      throw new ServiceUnavailableException(
+        `Billing configuration missing required value: ${name}`,
+      );
+    }
+    return value;
+  }
+
+  private getAppUrl(): string {
+    return process.env.FRONTEND_URL?.trim() || "http://localhost:3000";
   }
 }

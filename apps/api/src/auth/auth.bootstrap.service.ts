@@ -64,7 +64,10 @@ export class AuthBootstrapService {
     const syntheticClerkId = `local_${randomUUID()}`;
 
     await db.transaction(async (tx) => {
-      const [org] = await tx.insert(organizations).values({ name: orgName }).returning();
+      const [org] = await tx
+        .insert(organizations)
+        .values({ name: orgName, currentPlan: "free" })
+        .returning();
       if (!org) throw new Error("Failed to create bootstrap organization");
 
       await tx.insert(subscriptions).values({
@@ -98,4 +101,3 @@ export class AuthBootstrapService {
     this.logger.log(`Default test account bootstrapped for ${email}.`);
   }
 }
-

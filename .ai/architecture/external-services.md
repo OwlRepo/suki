@@ -5,7 +5,7 @@
 - OpenAI: AI generation/policy flows
 - Twilio: SMS outbound/inbound/webhook status and Verify OTP; inbound/status webhooks use signature validation with exact public callback URL env vars
 - Resend: email delivery
-- PayMongo: billing checkout/webhook lifecycle
+- Lemon Squeezy: hosted checkout creation, customer portal redirects, and billing webhook lifecycle
 - CRM sources: CSV, HubSpot, Pipedrive (plus planned adapters)
 
 ## Integration Modules
@@ -23,6 +23,11 @@ All external-provider contract changes are HIGH risk and require contract/regres
 - Inbound STOP and status callbacks require valid Twilio signatures.
 - SMS usage units represent estimated billable message segments, not only API requests.
 - Ambiguous network failures are recorded as unknown outcome and are not automatically retried.
+
+## Lemon Squeezy Notes
+- Subscription and add-on checkout URLs are created server-side from an allowlisted variant catalog.
+- Billing webhook verification uses the raw request body plus `X-Signature` HMAC SHA-256 with timing-safe comparison.
+- Customer portal access is treated as short-lived and fetched server-side rather than trusted from client input.
 
 ## Documentation Drift Guard
 When auth/provider/integration behavior changes:
