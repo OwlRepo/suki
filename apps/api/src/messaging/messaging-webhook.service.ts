@@ -1,5 +1,4 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { createHmac } from "crypto";
 import { Webhook } from "svix";
 import { getDb } from "@tyvera/database";
 import { messageEvents } from "@tyvera/database";
@@ -11,17 +10,7 @@ const TERMINAL_STATUSES = ["delivered", "failed", "bounced", "rejected"] as cons
 export class MessagingWebhookService {
   async handleTwilioStatus(
     payload: Record<string, unknown>,
-    signature: string | undefined,
-    fullUrl: string,
   ): Promise<void> {
-    const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
-    if (!authToken || !signature) {
-      throw new UnauthorizedException("Twilio webhook not configured");
-    }
-    const isValid = this.verifyTwilioSignature(payload, signature, fullUrl, authToken);
-    if (!isValid) {
-      throw new UnauthorizedException("Invalid signature");
-    }
     const messageSid = payload.MessageSid as string | undefined;
     const status = String(payload.MessageStatus ?? "").toLowerCase();
     if (!messageSid) return;
@@ -48,19 +37,6 @@ export class MessagingWebhookService {
     const id = data?.id as string | undefined;
     if (!id) return;
     await this.updateMessageByProviderId(id, "resend", type ?? "", parsed);
-  }
-
-  private verifyTwilioSignature(
-    params: Record<string, unknown>,
-    signature: string,
-    url: string,
-    authToken: string,
-  ): boolean {
-    const keys = Object.keys(params).filter((k) => params[k] !== undefined && params[k] !== null);
-    keys.sort();
-    const data = url + keys.map((k) => k + String(params[k])).join("");
-    const expected = createHmac("sha1", authToken).update(data).digest("base64");
-    return expected === signature;
   }
 
   private async updateMessageByProviderId(
@@ -104,8 +80,8 @@ export class MessagingWebhookService {
   ): "queued" | "sent" | "delivered" | "failed" | "bounced" | "rejected" | null {
     const s = statusOrType.toLowerCase();
     if (provider === "twilio") {
-      if (s === "queued") return "queued";
-      if (s === "sent") return "sent";
+      if (s === "accepted" || s === "scheduled" || s === "queued") return "queued";
+      if (s === "sending" || s === "sent") return "sent";
       if (s === "delivered") return "delivered";
       if (s === "undelivered" || s === "failed") return "failed";
       if (s === "canceled" || s === "cancelled") return "rejected";

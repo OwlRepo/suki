@@ -37,3 +37,8 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 ## Assistant Route Notes
 - `POST /help/assistant/chat/stream` is the primary path and emits SSE event phases (`meta`, `state`, `stage`, `delta`, `actions`, `done`, `error`) while sharing the same orchestration core as `/help/assistant/chat`.
 - Assistant orchestration enforces canonical intent-tool contracts before release of user-visible payloads.
+
+## Messaging Webhook Notes
+- `POST /messaging/inbound/sms` is a Twilio-facing form webhook. It validates `X-Twilio-Signature` against `TWILIO_INBOUND_SMS_WEBHOOK_URL`, applies STOP opt-outs, and returns empty TwiML XML.
+- `POST /messaging/webhooks/twilio/status` validates `X-Twilio-Signature` against `TWILIO_STATUS_CALLBACK_URL` before trusted delivery-state updates.
+- Production callback URL env values must include the externally visible `/api` prefix used by the reverse proxy.

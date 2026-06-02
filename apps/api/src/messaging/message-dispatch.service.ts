@@ -10,6 +10,7 @@ import { EmailMeteringService } from "./email-metering.service";
 import type { ISmsProvider } from "./providers/sms.provider";
 import type { IEmailProvider } from "./providers/email.provider";
 import { SMS_PROVIDER, EMAIL_PROVIDER } from "./providers/provider.tokens";
+import { calculateSmsSegments } from "./sms-segmentation";
 
 const SMS_STOP = " Reply STOP to opt out.";
 const AUTO_FOOTER = " Sent automatically by Tyvera";
@@ -143,14 +144,26 @@ export class MessageDispatchService {
       );
     }
 
+    let body = input.rawMessage.trim();
+    if (input.channel === "sms") {
+      if (!body.endsWith(SMS_STOP)) body += SMS_STOP;
+      if (!body.endsWith(AUTO_FOOTER)) body += AUTO_FOOTER;
+    } else {
+      if (!body.endsWith(AUTO_FOOTER)) body += AUTO_FOOTER;
+    }
+
+    const smsSegmentEstimate =
+      input.channel === "sms" ? calculateSmsSegments(body) : null;
+    const meteringUnits = smsSegmentEstimate?.segments ?? 1;
+
     if (input.channel === "sms") {
       const canConsume = await this.smsMetering.canConsume(
         input.organizationId,
-        1,
+        meteringUnits,
       );
       if (!canConsume.allowed) {
         return this.recordSkipped(
-          input,
+          { ...input, rawMessage: body },
           canConsume.reason ?? "sms_cap_reached",
         );
       }
@@ -158,18 +171,10 @@ export class MessageDispatchService {
       const canConsume = await this.emailMetering.canConsume(input.organizationId, 1);
       if (!canConsume.allowed) {
         return this.recordSkipped(
-          input,
+          { ...input, rawMessage: body },
           canConsume.reason ?? "email_cap_reached",
         );
       }
-    }
-
-    let body = input.rawMessage.trim();
-    if (input.channel === "sms") {
-      if (!body.endsWith(SMS_STOP)) body += SMS_STOP;
-      if (!body.endsWith(AUTO_FOOTER)) body += AUTO_FOOTER;
-    } else {
-      if (!body.endsWith(AUTO_FOOTER)) body += AUTO_FOOTER;
     }
 
     const clientRef = `tyvera-${input.automationKey}-${input.customerId}-${Date.now()}`;
@@ -202,6 +207,10 @@ export class MessageDispatchService {
       });
 
       if (smsResult.ok) {
+        const providerMetadata = this.buildSmsProviderMetadata(
+          smsSegmentEstimate,
+          smsResult.providerMetadata,
+        );
         await db
           .update(messageEvents)
           .set({
@@ -210,22 +219,27 @@ export class MessageDispatchService {
             sentAt: new Date(),
             deliveryStatus: "sent",
             provider: "twilio",
+            providerMetadata,
           })
           .where(eq(messageEvents.id, messageEventId));
         await this.smsMetering.consume(
           input.organizationId,
           input.businessId,
           messageEventId,
-          1,
+          meteringUnits,
         );
         result = {
           status: "sent",
           providerMessageId: smsResult.providerMessageId,
           messageEventId,
         };
-      } else if (smsResult.transient) {
+      } else if (smsResult.transient && smsResult.safeToRetry) {
         const retried = await this.retrySms(to, body, clientRef);
         if (retried.ok) {
+          const providerMetadata = this.buildSmsProviderMetadata(
+            smsSegmentEstimate,
+            retried.providerMetadata,
+          );
           await db
             .update(messageEvents)
             .set({
@@ -235,13 +249,14 @@ export class MessageDispatchService {
               retryCount: 1,
               deliveryStatus: "sent",
               provider: "twilio",
+              providerMetadata,
             })
             .where(eq(messageEvents.id, messageEventId));
           await this.smsMetering.consume(
             input.organizationId,
             input.businessId,
             messageEventId,
-            1,
+            meteringUnits,
           );
           result = {
             status: "sent",
@@ -255,6 +270,10 @@ export class MessageDispatchService {
               status: "failed",
               failureReason: retried.errorCode ?? "provider_error",
               retryCount: 1,
+              providerMetadata: this.buildSmsProviderMetadata(
+                smsSegmentEstimate,
+                retried.providerMetadata,
+              ),
             })
             .where(eq(messageEvents.id, messageEventId));
           result = {
@@ -267,9 +286,13 @@ export class MessageDispatchService {
         await db
           .update(messageEvents)
           .set({
-            status: "failed",
-            failureReason: smsResult.errorCode ?? "provider_error",
-          })
+          status: "failed",
+          failureReason: smsResult.errorCode ?? "provider_error",
+          providerMetadata: this.buildSmsProviderMetadata(
+            smsSegmentEstimate,
+            smsResult.providerMetadata,
+          ),
+        })
           .where(eq(messageEvents.id, messageEventId));
         result = {
           status: "failed",
@@ -344,10 +367,35 @@ export class MessageDispatchService {
     to: string,
     body: string,
     clientRef: string,
-  ): Promise<{ ok: boolean; providerMessageId?: string; errorCode?: string }> {
+  ): Promise<{
+    ok: boolean;
+    providerMessageId?: string;
+    errorCode?: string;
+    providerMetadata?: Record<string, unknown>;
+  }> {
     await new Promise((r) => setTimeout(r, 500));
     const res = await this.smsProvider.send({ to, body, clientRef });
     return res;
+  }
+
+  private buildSmsProviderMetadata(
+    estimate: ReturnType<typeof calculateSmsSegments> | null,
+    providerMetadata: Record<string, unknown> | undefined,
+  ): Record<string, unknown> | null {
+    if (!estimate && !providerMetadata) return null;
+    const metadata: Record<string, unknown> = {
+      ...(providerMetadata ?? {}),
+    };
+    if (estimate) {
+      metadata.estimatedEncoding = estimate.encoding;
+      metadata.estimatedLength = estimate.length;
+      metadata.estimatedSegments = estimate.segments;
+    }
+    const providerNumSegments = Number(providerMetadata?.num_segments);
+    if (Number.isFinite(providerNumSegments)) {
+      metadata.providerNumSegments = providerNumSegments;
+    }
+    return metadata;
   }
 
   private async recordSkipped(

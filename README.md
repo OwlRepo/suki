@@ -209,6 +209,29 @@ Tyvera now uses first-party auth with Resend email OTP and session cookies.
   - `AUTH_BOOTSTRAP_PASSWORD`
   - `AUTH_BOOTSTRAP_ORG_NAME`
 
+## Twilio Setup
+
+For production SMS, configure Twilio with exact public HTTPS URLs, including the `/api` prefix used by the production reverse proxy:
+
+- Outbound sender: `TWILIO_MESSAGING_SERVICE_SID` preferred, or `TWILIO_PHONE_NUMBER`
+- Status callback: `POST https://tyvera.app/api/messaging/webhooks/twilio/status`
+- Incoming message webhook: `POST https://tyvera.app/api/messaging/inbound/sms`
+- Booking OTP: `TWILIO_VERIFY_SERVICE_SID`
+
+Required production env:
+
+```bash
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_MESSAGING_SERVICE_SID=
+TWILIO_PHONE_NUMBER=
+TWILIO_VERIFY_SERVICE_SID=
+TWILIO_STATUS_CALLBACK_URL=https://tyvera.app/api/messaging/webhooks/twilio/status
+TWILIO_INBOUND_SMS_WEBHOOK_URL=https://tyvera.app/api/messaging/inbound/sms
+```
+
+Trial Twilio accounts may only send to verified recipients. Confirm this before onboarding real customers.
+
 ---
 
 ## Developer Quick Context

@@ -12,3 +12,5 @@
 ## Test Expectations
 - Error-handling changes must include error-path tests.
 - Contract-visible error payload changes must include regression coverage.
+- Twilio webhook requests with missing or invalid signatures must fail authorization before mutating consent or delivery state.
+- Ambiguous Twilio outbound network failures are treated as `provider_outcome_unknown` and are not auto-retried to reduce duplicate-SMS risk.

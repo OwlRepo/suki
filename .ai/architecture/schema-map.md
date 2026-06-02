@@ -12,6 +12,7 @@
 ## Storage Schema Sources
 - Drizzle SQL migrations under `packages/database/drizzle`
 - Database package scripts under `packages/database/scripts`
+- Messaging audit data uses existing `message_events.provider_metadata` for SMS segment estimates/provider-reported counts and existing `sms_usage_events.units` for consumed billable segment units; no schema migration is required for current Twilio hardening.
 
 ## High-Risk Contract Areas
 - Billing and webhook payloads

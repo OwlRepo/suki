@@ -66,9 +66,14 @@ export class TwilioSmsProvider implements ISmsProvider {
 
       const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       const messageSid = data.sid as string | undefined;
+      const providerMetadata = this.extractProviderMetadata(data);
 
       if (res.ok && messageSid) {
-        return { ok: true, providerMessageId: messageSid };
+        return {
+          ok: true,
+          providerMessageId: messageSid,
+          providerMetadata,
+        };
       }
 
       const status = res.status;
@@ -76,20 +81,35 @@ export class TwilioSmsProvider implements ISmsProvider {
         return {
           ok: false,
           transient: true,
-          errorCode: "provider_transient",
+          safeToRetry: true,
+          errorCode: "provider_transient_retryable",
+          providerMetadata,
         };
       }
       return {
         ok: false,
         transient: false,
+        safeToRetry: false,
         errorCode: "provider_rejected",
+        providerMetadata,
       };
     } catch {
       return {
         ok: false,
         transient: true,
-        errorCode: "provider_transient",
+        safeToRetry: false,
+        errorCode: "provider_outcome_unknown",
       };
     }
+  }
+
+  private extractProviderMetadata(data: Record<string, unknown>): Record<string, unknown> | undefined {
+    const metadata: Record<string, unknown> = {};
+    for (const key of ["status", "num_segments", "error_code", "error_message"]) {
+      if (data[key] !== undefined && data[key] !== null) {
+        metadata[key] = data[key];
+      }
+    }
+    return Object.keys(metadata).length > 0 ? metadata : undefined;
   }
 }

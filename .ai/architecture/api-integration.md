@@ -9,7 +9,7 @@
 
 ## External Integrations
 - Payments: PayMongo webhook and billing services
-- Messaging: Twilio SMS + Resend email
+- Messaging: Twilio SMS + Resend email; Twilio inbound/status callbacks validate signatures against explicit public callback URL env vars instead of internal request URLs
 - AI: OpenAI via API AI module services
 - CRM import providers: CSV, HubSpot, Pipedrive (+ stubs for others)
 
@@ -27,3 +27,4 @@
 ## Integration Safety
 - Contract changes must be test-backed (request + response).
 - Provider/webhook modules are high-risk and require regression protection.
+- SMS credits are counted as estimated billable SMS segments after the final outbound body is assembled; provider-reported segment counts are stored as metadata for audit/reconciliation.

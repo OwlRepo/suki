@@ -3,6 +3,7 @@ import { MessagingController } from "./messaging.controller";
 import { InboundSmsController } from "./inbound-sms.controller";
 import { MessagingWebhooksController } from "./messaging-webhooks.controller";
 import { MessagingWebhookService } from "./messaging-webhook.service";
+import { TwilioWebhookValidationService } from "./twilio-webhook-validation.service";
 import { MessagingService } from "./messaging.service";
 import { PlanAiMessagingGuard } from "./plan-module.guard";
 import { AuthModule } from "../auth/auth.module";
@@ -48,6 +49,7 @@ function isResendConfigured(): boolean {
     SmsMeteringService,
     EmailMeteringService,
     MessagingWebhookService,
+    TwilioWebhookValidationService,
     NoopSmsProvider,
     NoopEmailProvider,
     TwilioSmsProvider,

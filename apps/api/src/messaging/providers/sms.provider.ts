@@ -4,7 +4,9 @@ export interface SmsSendResult {
   ok: boolean;
   providerMessageId?: string;
   transient?: boolean;
+  safeToRetry?: boolean;
   errorCode?: string;
+  providerMetadata?: Record<string, unknown>;
 }
 
 export interface ISmsProvider {
@@ -29,6 +31,7 @@ export class NoopSmsProvider implements ISmsProvider {
     return {
       ok: false,
       transient: false,
+      safeToRetry: false,
       errorCode: "provider_not_configured",
     };
   }

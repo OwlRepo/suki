@@ -26,8 +26,12 @@ function cookieParser(req: { headers: { cookie?: string }; cookies?: Record<stri
 }
 
 function validateEnv() {
+  const isConfigured = (name: string) => {
+    const value = process.env[name]?.trim();
+    return !!value && !value.toLowerCase().includes("placeholder");
+  };
   const required = ["DATABASE_URL"];
-  const missing = required.filter((k) => !process.env[k]?.trim() || String(process.env[k]).includes("placeholder"));
+  const missing = required.filter((k) => !isConfigured(k));
   if (missing.length) {
     console.warn(`[Tyvera API] Missing or placeholder env: ${missing.join(", ")}. Some features may be unavailable.`);
   }
@@ -37,15 +41,31 @@ function validateEnv() {
   if (process.env.PAYMONGO_SECRET_KEY?.includes("placeholder") || !process.env.PAYMONGO_SECRET_KEY) {
     console.warn("[Tyvera API] PayMongo not configured. Billing checkout will be unavailable.");
   }
-  const twilioOk =
-    process.env.TWILIO_ACCOUNT_SID?.trim() &&
-    process.env.TWILIO_AUTH_TOKEN?.trim() &&
-    (process.env.TWILIO_MESSAGING_SERVICE_SID?.trim() || process.env.TWILIO_PHONE_NUMBER?.trim()) &&
-    !String(process.env.TWILIO_ACCOUNT_SID).toLowerCase().includes("placeholder");
+  const twilioCredentialsOk = isConfigured("TWILIO_ACCOUNT_SID") && isConfigured("TWILIO_AUTH_TOKEN");
+  const twilioSenderOk = isConfigured("TWILIO_MESSAGING_SERVICE_SID") || isConfigured("TWILIO_PHONE_NUMBER");
+  const twilioOk = twilioCredentialsOk && twilioSenderOk;
+  const twilioVerifyOk = twilioCredentialsOk && isConfigured("TWILIO_VERIFY_SERVICE_SID");
+  const twilioInboundValidationOk = twilioCredentialsOk && isConfigured("TWILIO_INBOUND_SMS_WEBHOOK_URL");
   const resendOk =
     process.env.RESEND_API_KEY?.trim() &&
     process.env.RESEND_FROM_EMAIL?.trim() &&
     !String(process.env.RESEND_API_KEY).toLowerCase().includes("placeholder");
+  if (!twilioOk) {
+    console.warn(
+      "[Tyvera API] Twilio outbound SMS is not fully configured. SMS delivery will use noop when selected.",
+    );
+  }
+  if (!twilioVerifyOk) {
+    console.warn("[Tyvera API] Twilio Verify OTP is not fully configured. Public booking OTP SMS will be unavailable.");
+  }
+  if (!twilioInboundValidationOk) {
+    console.warn(
+      "[Tyvera API] Twilio inbound SMS webhook validation is not fully configured. Set TWILIO_AUTH_TOKEN and TWILIO_INBOUND_SMS_WEBHOOK_URL before production STOP handling.",
+    );
+  }
+  if (twilioOk && !isConfigured("TWILIO_STATUS_CALLBACK_URL")) {
+    console.warn("[Tyvera API] TWILIO_STATUS_CALLBACK_URL is not configured. Delivery status callbacks may be disabled.");
+  }
   if (
     (process.env.FF_auto_messaging_enabled === "true" || process.env.FF_auto_followups_scheduler_enabled === "true") &&
     !twilioOk &&

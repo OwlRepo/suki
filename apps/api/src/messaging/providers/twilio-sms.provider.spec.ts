@@ -56,7 +56,7 @@ describe("TwilioSmsProvider", () => {
     expect(String(init?.body)).toContain("From=%2B15551234567");
   });
 
-  it("returns transient for 5xx/429 and rejected for other non-ok responses", async () => {
+  it("returns retry-safe transient results for explicit 5xx/429 responses", async () => {
     process.env.TWILIO_ACCOUNT_SID = "AC123";
     process.env.TWILIO_AUTH_TOKEN = "tok";
     process.env.TWILIO_PHONE_NUMBER = "+15551234567";
@@ -74,21 +74,24 @@ describe("TwilioSmsProvider", () => {
     await expect(provider.send({ to: "a", body: "b", clientRef: "c" })).resolves.toEqual({
       ok: false,
       transient: true,
-      errorCode: "provider_transient",
+      safeToRetry: true,
+      errorCode: "provider_transient_retryable",
     });
     await expect(provider.send({ to: "a", body: "b", clientRef: "c" })).resolves.toEqual({
       ok: false,
       transient: true,
-      errorCode: "provider_transient",
+      safeToRetry: true,
+      errorCode: "provider_transient_retryable",
     });
     await expect(provider.send({ to: "a", body: "b", clientRef: "c" })).resolves.toEqual({
       ok: false,
       transient: false,
+      safeToRetry: false,
       errorCode: "provider_rejected",
     });
   });
 
-  it("returns transient on fetch error", async () => {
+  it("does not mark ambiguous fetch errors as safe to retry", async () => {
     process.env.TWILIO_ACCOUNT_SID = "AC123";
     process.env.TWILIO_AUTH_TOKEN = "tok";
     process.env.TWILIO_PHONE_NUMBER = "+15551234567";
@@ -98,7 +101,29 @@ describe("TwilioSmsProvider", () => {
     await expect(provider.send({ to: "a", body: "b", clientRef: "c" })).resolves.toEqual({
       ok: false,
       transient: true,
-      errorCode: "provider_transient",
+      safeToRetry: false,
+      errorCode: "provider_outcome_unknown",
+    });
+  });
+
+  it("returns provider metadata including Twilio segment count", async () => {
+    process.env.TWILIO_ACCOUNT_SID = "AC123";
+    process.env.TWILIO_AUTH_TOKEN = "tok";
+    process.env.TWILIO_PHONE_NUMBER = "+15551234567";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ sid: "SM123", num_segments: "2", status: "queued" }),
+      }) as unknown as typeof fetch,
+    );
+
+    const provider = new TwilioSmsProvider();
+    await expect(provider.send({ to: "a", body: "b", clientRef: "c" })).resolves.toEqual({
+      ok: true,
+      providerMessageId: "SM123",
+      providerMetadata: { num_segments: "2", status: "queued" },
     });
   });
 });

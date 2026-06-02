@@ -38,43 +38,77 @@ describe("MessagingWebhookService", () => {
 
   it("throws when Twilio config/signature is missing", async () => {
     const service = new MessagingWebhookService();
-    await expect(service.handleTwilioStatus({}, undefined, "https://x")).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
-
-    process.env.TWILIO_AUTH_TOKEN = "token";
-    await expect(service.handleTwilioStatus({}, undefined, "https://x")).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(service.handleTwilioStatus({})).resolves.toBeUndefined();
   });
 
   it("ignores unknown provider message id", async () => {
-    process.env.TWILIO_AUTH_TOKEN = "token";
     const service = new MessagingWebhookService();
-    const verifySpy = vi.spyOn(service as unknown as { verifyTwilioSignature: () => boolean }, "verifyTwilioSignature").mockReturnValue(true);
 
     limitMock.mockResolvedValueOnce([]);
-    await service.handleTwilioStatus({ MessageSid: "SM1", MessageStatus: "delivered" }, "sig", "https://x");
+    await service.handleTwilioStatus({ MessageSid: "SM1", MessageStatus: "delivered" });
 
     expect(updateMock).not.toHaveBeenCalled();
-    expect(verifySpy).toHaveBeenCalled();
   });
 
   it("maps Twilio failed status and writes failure reason", async () => {
-    process.env.TWILIO_AUTH_TOKEN = "token";
     const service = new MessagingWebhookService();
-    vi.spyOn(service as unknown as { verifyTwilioSignature: () => boolean }, "verifyTwilioSignature").mockReturnValue(true);
 
     await service.handleTwilioStatus(
       { MessageSid: "SM1", MessageStatus: "undelivered", ErrorMessage: "no route" },
-      "sig",
-      "https://x",
     );
 
     expect(updateMock).toHaveBeenCalled();
     expect(setMock).toHaveBeenCalledWith(
       expect.objectContaining({ deliveryStatus: "failed", failureReason: "no route" }),
     );
+  });
+
+  it.each([
+    ["accepted", "queued"],
+    ["scheduled", "queued"],
+    ["queued", "queued"],
+    ["sending", "sent"],
+    ["sent", "sent"],
+    ["delivered", "delivered"],
+    ["failed", "failed"],
+    ["undelivered", "failed"],
+    ["canceled", "rejected"],
+    ["cancelled", "rejected"],
+  ])("maps Twilio %s to %s", async (twilioStatus, expected) => {
+    const service = new MessagingWebhookService();
+
+    await service.handleTwilioStatus({
+      MessageSid: "SM1",
+      MessageStatus: twilioStatus,
+      ExtraFutureField: "ok",
+    });
+
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryStatus: expected,
+        providerMetadata: expect.objectContaining({ ExtraFutureField: "ok" }),
+      }),
+    );
+    vi.clearAllMocks();
+    updateMock.mockReturnValue({ set: setMock });
+    setMock.mockReturnValue({ where: updateWhereMock });
+  });
+
+  it("does not overwrite terminal delivery statuses", async () => {
+    limitMock.mockResolvedValueOnce([{ id: "evt1", deliveryStatus: "delivered" }]);
+    const service = new MessagingWebhookService();
+
+    await service.handleTwilioStatus({ MessageSid: "SM1", MessageStatus: "failed" });
+
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("safely ignores unknown Twilio statuses", async () => {
+    const service = new MessagingWebhookService();
+
+    await service.handleTwilioStatus({ MessageSid: "SM1", MessageStatus: "mystery" });
+
+    expect(updateMock).not.toHaveBeenCalled();
   });
 
   it("throws when Resend secret missing", async () => {

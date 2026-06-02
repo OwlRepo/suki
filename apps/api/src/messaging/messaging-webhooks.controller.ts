@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import type { Request } from "express";
 import { MessagingWebhookService } from "./messaging-webhook.service";
+import { TwilioWebhookValidationService } from "./twilio-webhook-validation.service";
 
 interface RawBodyRequest extends Request {
   rawBody?: Buffer;
@@ -15,7 +16,10 @@ interface RawBodyRequest extends Request {
 
 @Controller("messaging/webhooks")
 export class MessagingWebhooksController {
-  constructor(private readonly webhookService: MessagingWebhookService) {}
+  constructor(
+    private readonly webhookService: MessagingWebhookService,
+    private readonly twilioValidation: TwilioWebhookValidationService,
+  ) {}
 
   @Post("twilio/status")
   async handleTwilioStatus(
@@ -27,8 +31,13 @@ export class MessagingWebhooksController {
     if (!body || typeof body !== "object") {
       throw new BadRequestException("Invalid body");
     }
-    const fullUrl = `${req.protocol}://${req.get("host") ?? ""}${req.originalUrl}`;
-    await this.webhookService.handleTwilioStatus(body, signature, fullUrl);
+    this.twilioValidation.validate({
+      params: body,
+      signature,
+      configuredUrlEnv: "TWILIO_STATUS_CALLBACK_URL",
+      request: req,
+    });
+    await this.webhookService.handleTwilioStatus(body);
     return { received: true };
   }
 
