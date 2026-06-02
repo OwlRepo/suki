@@ -68,7 +68,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
 
           {/* Mobile: top bar with menu + auth */}
           <div className="flex flex-1 flex-col lg:min-w-0">
-            <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 lg:px-6">
+            <header className="flex min-h-[56px] shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 lg:px-6">
               <div className="flex min-w-0 shrink-0 items-center gap-3 lg:hidden">
                 <button
                   type="button"
