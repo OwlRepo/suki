@@ -12,12 +12,14 @@ import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 
 const COOKIE_NAME = "tyvera_session";
+const LEGACY_COOKIE_NAME = "suki_session";
 
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   private setSessionCookie(res: Response, token: string, expiresAt: Date) {
+    res.clearCookie(LEGACY_COOKIE_NAME, { path: "/" });
     res.cookie(COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: "lax",
@@ -50,7 +52,8 @@ export class AuthController {
 
   @Get("me")
   async me(@Req() req: Request) {
-    const token = (req as Request & { cookies?: Record<string, string> }).cookies?.[COOKIE_NAME];
+    const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
+    const token = cookies?.[COOKIE_NAME] || cookies?.[LEGACY_COOKIE_NAME];
     if (!token) throw new UnauthorizedException("No active session");
     const session = await this.authService.validateSession(token);
     if (!session) throw new UnauthorizedException("Invalid session");
@@ -64,20 +67,24 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const bearer = authHeader?.replace(/^Bearer\s+/i, "").trim();
+    const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
     const token =
-      bearer || (req as Request & { cookies?: Record<string, string> }).cookies?.[COOKIE_NAME];
+      bearer || cookies?.[COOKIE_NAME] || cookies?.[LEGACY_COOKIE_NAME];
     if (token) {
       await this.authService.signOut(token);
     }
     res.clearCookie(COOKIE_NAME, { path: "/" });
+    res.clearCookie(LEGACY_COOKIE_NAME, { path: "/" });
     return { ok: true };
   }
 
   @Post("sync")
   async sync(@Headers("authorization") authHeader: string | undefined, @Req() req: Request) {
     const tokenFromHeader = authHeader?.replace(/^Bearer\s+/i, "").trim();
+    const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
     const token =
-      (req as Request & { cookies?: Record<string, string> }).cookies?.[COOKIE_NAME] ||
+      cookies?.[COOKIE_NAME] ||
+      cookies?.[LEGACY_COOKIE_NAME] ||
       tokenFromHeader;
     if (!token) {
       throw new UnauthorizedException("Missing Authorization header");

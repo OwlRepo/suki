@@ -2,16 +2,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 const mockPush = vi.fn();
+const mockRefresh = vi.fn();
 const startSignUp = vi.fn();
 const verifySignUp = vi.fn();
+const invalidateSessionCache = vi.fn();
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
   startSignUp: (...args: unknown[]) => startSignUp(...args),
   verifySignUp: (...args: unknown[]) => verifySignUp(...args),
+}));
+
+vi.mock("@/hooks/use-session", () => ({
+  invalidateSessionCache: () => invalidateSessionCache(),
 }));
 
 import SignUpPage from "./page";
@@ -39,7 +45,9 @@ describe("Custom SignUpPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => expect(verifySignUp).toHaveBeenCalledWith("new@test.com", "123456", "secret123"));
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/onboarding"));
+    expect(invalidateSessionCache).toHaveBeenCalledOnce();
+    expect(mockRefresh).toHaveBeenCalledOnce();
   });
 
   it("validates password mismatch before sending OTP", async () => {
@@ -93,6 +101,9 @@ describe("Custom SignUpPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
     await waitFor(() => expect(screen.getByText("Invalid code")).toBeInTheDocument());
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockRefresh).not.toHaveBeenCalled();
+    expect(invalidateSessionCache).not.toHaveBeenCalled();
   });
 
   it("validates code before creating account", async () => {

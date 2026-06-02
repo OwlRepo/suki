@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithPassword } from "@/lib/auth-client";
+import { invalidateSessionCache } from "@/hooks/use-session";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -13,7 +14,9 @@ export default function SignInPage() {
   async function onPasswordSignIn() {
     const res = await signInWithPassword(email.trim(), password);
     if (res.ok) {
+      invalidateSessionCache();
       router.push("/dashboard");
+      router.refresh();
       return;
     }
     setMessage(res.message || "Invalid credentials");

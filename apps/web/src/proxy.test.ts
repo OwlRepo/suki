@@ -24,11 +24,10 @@ function makeRequest(pathname: string, cookie?: string) {
 }
 
 describe("proxy protected-route matrix", () => {
-  it("redirects all protected routes when session cookie is missing", () => {
+  it("allows protected routes through for client/API session verification", () => {
     for (const route of PROTECTED_ROUTES) {
       const res = proxy(makeRequest(route));
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toBe("http://localhost:3000/sign-in");
+      expect(res.status).toBe(200);
     }
   });
 

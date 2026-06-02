@@ -37,6 +37,10 @@ async function loadSessionOnce(): Promise<Omit<SessionState, "loading">> {
 }
 
 export function __resetSessionCacheForTests() {
+  invalidateSessionCache();
+}
+
+export function invalidateSessionCache() {
   cachedResolved = null;
   inFlight = null;
 }

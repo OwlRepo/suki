@@ -9,6 +9,7 @@ import { AuthService } from "./auth.service";
 import type { TenantContext } from "../common/tenant.decorator";
 
 const COOKIE_NAME = "tyvera_session";
+const LEGACY_COOKIE_NAME = "suki_session";
 
 function readCookie(rawCookieHeader?: string): Record<string, string> {
   if (!rawCookieHeader) return {};
@@ -35,7 +36,7 @@ export class ClerkAuthGuard implements CanActivate {
     const authHeader = request.headers.authorization;
     const bearer = authHeader?.replace(/^Bearer\s+/i, "").trim();
     const cookies = readCookie(request.headers.cookie);
-    const token = cookies[COOKIE_NAME] || bearer;
+    const token = cookies[COOKIE_NAME] || cookies[LEGACY_COOKIE_NAME] || bearer;
 
     if (!token) {
       throw new UnauthorizedException("Missing authentication token");
