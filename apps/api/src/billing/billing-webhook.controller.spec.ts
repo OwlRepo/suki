@@ -9,8 +9,7 @@ describe("BillingWebhookController", () => {
         verifyWebhookSignature: vi.fn().mockReturnValue(false),
       } as never,
       {
-        isWebhookEventProcessed: vi.fn(),
-        recordWebhookEventId: vi.fn(),
+        reconcileWebhookEvent: vi.fn(),
       } as never,
     );
 
@@ -26,15 +25,63 @@ describe("BillingWebhookController", () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it("records verified webhook events idempotently", async () => {
-    const reconcileWebhookEvent = vi.fn().mockResolvedValue(undefined);
+  it("processes a verified webhook using a delivery key derived from the raw body", async () => {
+    const reconcileWebhookEvent = vi.fn().mockResolvedValue("processed");
+
     const controller = new BillingWebhookController(
       {
         verifyWebhookSignature: vi.fn().mockReturnValue(true),
+        createWebhookDeliveryKey: vi
+          .fn()
+          .mockReturnValue("lemonsqueezy:payload-hash-1"),
       } as never,
       {
-        isWebhookEventProcessed: vi.fn().mockResolvedValue(false),
         reconcileWebhookEvent,
+      } as never,
+    );
+
+    const payload = {
+      meta: {
+        event_name: "subscription_created",
+        custom_data: {
+          organization_id: "org-1",
+        },
+      },
+      data: {
+        id: "subscription-123",
+      },
+    };
+
+    await expect(
+      controller.handleLemonSqueezyWebhook(
+        {
+          rawBody: Buffer.from(JSON.stringify(payload)),
+          headers: {
+            "x-signature": "good",
+          },
+        } as never,
+      ),
+    ).resolves.toEqual({
+      received: true,
+      duplicate: false,
+    });
+
+    expect(reconcileWebhookEvent).toHaveBeenCalledWith(
+      payload,
+      "lemonsqueezy:payload-hash-1",
+    );
+  });
+
+  it("returns duplicate true when the same signed payload has already been claimed", async () => {
+    const controller = new BillingWebhookController(
+      {
+        verifyWebhookSignature: vi.fn().mockReturnValue(true),
+        createWebhookDeliveryKey: vi
+          .fn()
+          .mockReturnValue("lemonsqueezy:payload-hash-1"),
+      } as never,
+      {
+        reconcileWebhookEvent: vi.fn().mockResolvedValue("duplicate"),
       } as never,
     );
 
@@ -44,13 +91,10 @@ describe("BillingWebhookController", () => {
           rawBody: Buffer.from(
             JSON.stringify({
               meta: {
-                event_name: "subscription_created",
-                custom_data: {
-                  organization_id: "org-1",
-                },
+                event_name: "subscription_updated",
               },
               data: {
-                id: "evt_123",
+                id: "subscription-123",
               },
             }),
           ),
@@ -59,30 +103,22 @@ describe("BillingWebhookController", () => {
           },
         } as never,
       ),
-    ).resolves.toEqual({ received: true, duplicate: false });
-
-    expect(reconcileWebhookEvent).toHaveBeenCalledWith({
-      meta: {
-        event_name: "subscription_created",
-        custom_data: {
-          organization_id: "org-1",
-        },
-      },
-      data: {
-        id: "evt_123",
-      },
+    ).resolves.toEqual({
+      received: true,
+      duplicate: true,
     });
   });
 
-  it("returns 200 for unknown but valid webhook events and lets the service persist them", async () => {
-    const reconcileWebhookEvent = vi.fn().mockResolvedValue(undefined);
+  it("returns 200 for unknown but valid webhook events", async () => {
     const controller = new BillingWebhookController(
       {
         verifyWebhookSignature: vi.fn().mockReturnValue(true),
+        createWebhookDeliveryKey: vi
+          .fn()
+          .mockReturnValue("lemonsqueezy:payload-hash-unknown"),
       } as never,
       {
-        isWebhookEventProcessed: vi.fn().mockResolvedValue(false),
-        reconcileWebhookEvent,
+        reconcileWebhookEvent: vi.fn().mockResolvedValue("ignored"),
       } as never,
     );
 
@@ -91,8 +127,12 @@ describe("BillingWebhookController", () => {
         {
           rawBody: Buffer.from(
             JSON.stringify({
-              meta: { event_name: "license_key_created" },
-              data: { id: "evt_unknown_1" },
+              meta: {
+                event_name: "license_key_created",
+              },
+              data: {
+                id: "license-123",
+              },
             }),
           ),
           headers: {
@@ -100,11 +140,9 @@ describe("BillingWebhookController", () => {
           },
         } as never,
       ),
-    ).resolves.toEqual({ received: true, duplicate: false });
-
-    expect(reconcileWebhookEvent).toHaveBeenCalledWith({
-      meta: { event_name: "license_key_created" },
-      data: { id: "evt_unknown_1" },
+    ).resolves.toEqual({
+      received: true,
+      duplicate: false,
     });
   });
 });

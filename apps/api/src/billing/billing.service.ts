@@ -470,14 +470,48 @@ export class BillingService {
     }
   }
 
-  async reconcileWebhookEvent(payload: LemonWebhookPayload): Promise<void> {
-    const eventId = payload.data?.id;
+  async reconcileWebhookEvent(
+    payload: LemonWebhookPayload,
+    providedDeliveryKey?: string,
+  ): Promise<"processed" | "ignored" | "duplicate"> {
     const eventName = payload.meta?.event_name ?? "unknown";
-    if (!eventId) return;
+    const resourceId = payload.data?.id ?? null;
+
+    const payloadHash = createHash("sha256")
+      .update(JSON.stringify(payload))
+      .digest("hex");
+
+    const deliveryKey =
+      providedDeliveryKey ?? `lemonsqueezy:${payloadHash}`;
 
     const db = getDb();
-    await db.transaction(async (tx) => {
-      let webhookStatus = "processed";
+
+    return db.transaction(async (tx) => {
+      const claimedRows = await tx
+        .insert(processedWebhookEvents)
+        .values({
+          provider: "lemonsqueezy",
+          eventId: deliveryKey,
+          eventName,
+          payloadHash,
+          status: "processing",
+          metadata: {
+            resourceId,
+          },
+        })
+        .onConflictDoNothing({
+          target: processedWebhookEvents.eventId,
+        })
+        .returning({
+          id: processedWebhookEvents.id,
+        });
+
+      if (claimedRows.length === 0) {
+        return "duplicate";
+      }
+
+      let webhookStatus: "processed" | "ignored" = "processed";
+
       if (eventName.startsWith("subscription_")) {
         await this.reconcileSubscriptionEvent(tx, payload);
       } else if (eventName === "order_created") {
@@ -488,15 +522,15 @@ export class BillingService {
         webhookStatus = "ignored";
       }
 
-      await tx.insert(processedWebhookEvents).values({
-        provider: "lemonsqueezy",
-        eventId,
-        eventName,
-        payloadHash: createHash("sha256")
-          .update(JSON.stringify(payload))
-          .digest("hex"),
-        status: webhookStatus,
-      });
+      await tx
+        .update(processedWebhookEvents)
+        .set({
+          status: webhookStatus,
+          processedAt: new Date(),
+        })
+        .where(eq(processedWebhookEvents.eventId, deliveryKey));
+
+      return webhookStatus;
     });
   }
 

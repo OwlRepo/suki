@@ -12,6 +12,17 @@ type RawBodyRequest = Request & {
   rawBody?: Buffer | string;
 };
 
+type LemonWebhookPayload = {
+  meta?: {
+    event_name?: string;
+    custom_data?: Record<string, unknown>;
+  };
+  data?: {
+    id?: string;
+    attributes?: Record<string, unknown>;
+  };
+};
+
 @Controller("billing")
 export class BillingWebhookController {
   constructor(
@@ -31,26 +42,19 @@ export class BillingWebhookController {
 
     const payload = JSON.parse(
       Buffer.isBuffer(rawBody) ? rawBody.toString("utf8") : String(rawBody),
-    ) as {
-      meta?: { event_name?: string };
-      data?: { id?: string };
-    };
+    ) as LemonWebhookPayload;
 
-    const eventId = payload.data?.id;
-    const eventName = payload.meta?.event_name;
+    const deliveryKey =
+      this.lemonsqueezy.createWebhookDeliveryKey(rawBody);
 
-    if (!eventId) {
-      return { received: true, duplicate: false };
-    }
-
-    const duplicate = await this.billingService.isWebhookEventProcessed(eventId);
-    if (!duplicate) {
-      await this.billingService.reconcileWebhookEvent(payload);
-    }
+    const result = await this.billingService.reconcileWebhookEvent(
+      payload,
+      deliveryKey,
+    );
 
     return {
       received: true,
-      duplicate,
+      duplicate: result === "duplicate",
     };
   }
 }

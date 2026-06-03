@@ -142,29 +142,61 @@ function createDbHarness(input?: {
   }));
 
   const insert = vi.fn((table: unknown) => ({
-    values: async (value: Record<string, unknown>) => {
-      if (table === subscriptions) {
-        state.inserted.subscriptions.push(value);
-        state.subscriptions = [value as unknown as SubscriptionRow];
-      } else if (table === verifiedOnlineBookingCredits) {
-        state.inserted.credits.push(value);
-        state.verifiedCredits = [value as unknown as CreditRow];
-      } else if (table === smsCredits) {
-        state.inserted.smsCredits.push(value);
-        state.smsCredits = [value as never];
-      } else if (table === emailCredits) {
-        state.inserted.emailCredits.push(value);
-        state.emailCredits = [value as never];
-      } else if (table === verifiedOnlineBookingAddons) {
-        state.inserted.bookingAddons.push(value);
-      } else if (table === smsAddons) {
-        state.inserted.smsAddons.push(value);
-      } else if (table === creditReconciliationEvents) {
-        state.inserted.reconciliation.push(value);
-      } else if (table === processedWebhookEvents) {
-        state.inserted.processedEvents.push(value);
-        state.processedEvents = [value];
-      }
+    values: (value: Record<string, unknown>) => {
+      const persistValue = () => {
+        if (table === subscriptions) {
+          state.inserted.subscriptions.push(value);
+          state.subscriptions = [value as unknown as SubscriptionRow];
+        } else if (table === verifiedOnlineBookingCredits) {
+          state.inserted.credits.push(value);
+          state.verifiedCredits = [value as unknown as CreditRow];
+        } else if (table === smsCredits) {
+          state.inserted.smsCredits.push(value);
+          state.smsCredits = [value as never];
+        } else if (table === emailCredits) {
+          state.inserted.emailCredits.push(value);
+          state.emailCredits = [value as never];
+        } else if (table === verifiedOnlineBookingAddons) {
+          state.inserted.bookingAddons.push(value);
+        } else if (table === smsAddons) {
+          state.inserted.smsAddons.push(value);
+        } else if (table === creditReconciliationEvents) {
+          state.inserted.reconciliation.push(value);
+        } else if (table === processedWebhookEvents) {
+          state.inserted.processedEvents.push(value);
+          state.processedEvents = [...state.processedEvents, value];
+        }
+      };
+
+      const builder: any = {
+        onConflictDoNothing: () => ({
+          returning: async () => {
+            const isDuplicate =
+              table === processedWebhookEvents &&
+              state.processedEvents.some(
+                (event) => event.eventId === value.eventId,
+              );
+
+            if (isDuplicate) {
+              return [];
+            }
+
+            persistValue();
+
+            return [
+              {
+                id: "processed-webhook-event-id",
+              },
+            ];
+          },
+        }),
+        then: (
+          resolve: (value?: unknown) => unknown,
+          reject: (reason?: unknown) => unknown,
+        ) => Promise.resolve(persistValue()).then(resolve, reject),
+      };
+
+      return builder;
     },
   }));
 
@@ -1016,14 +1048,24 @@ describe("BillingService", () => {
 
     expect(state.inserted.subscriptions).toHaveLength(0);
     expect(state.updated.subscriptions).toHaveLength(0);
+
     expect(state.inserted.processedEvents[0]).toMatchObject({
       provider: "lemonsqueezy",
-      eventId: "noop_123",
       eventName: "license_key_created",
+      status: "processing",
+      metadata: {
+        resourceId: "noop_123",
+      },
+    });
+
+    expect(state.inserted.processedEvents[0]?.eventId).toMatch(
+      /^lemonsqueezy:[a-f0-9]{64}$/,
+    );
+
+    expect(state.updated.processedEvents[0]).toMatchObject({
       status: "ignored",
     });
   });
-
   it("changes to a higher plan immediately through Lemon Squeezy and waits for webhook activation", async () => {
     createDbHarness({
       subscriptions: [

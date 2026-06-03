@@ -1,5 +1,5 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import type {
   BillingInterval,
   BillingPurchaseKind,
@@ -67,23 +67,39 @@ export class LemonsqueezyService {
     this.webhookSecret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET?.trim() || null;
   }
 
-  verifyWebhookSignature(payload: string | Buffer, signature: string | undefined): boolean {
+  createWebhookDeliveryKey(payload: string | Buffer): string {
+    const payloadHash = createHash("sha256")
+      .update(payload)
+      .digest("hex");
+
+    return `lemonsqueezy:${payloadHash}`;
+  }
+
+  verifyWebhookSignature(
+    payload: string | Buffer,
+    signature: string | undefined,
+  ): boolean {
     if (!this.webhookSecret || !signature) {
       return false;
     }
+
     const expected = createHmac("sha256", this.webhookSecret)
       .update(payload)
       .digest("hex");
 
     const expectedBuf = Buffer.from(expected);
     const actualBuf = Buffer.from(signature);
+
     if (expectedBuf.length !== actualBuf.length) {
       return false;
     }
+
     return timingSafeEqual(expectedBuf, actualBuf);
   }
 
-  async createCheckout(input: CreateCheckoutInput): Promise<{ checkoutUrl: string }> {
+  async createCheckout(
+    input: CreateCheckoutInput,
+  ): Promise<{ checkoutUrl: string }> {
     if (!this.apiKey || !this.storeId) {
       throw new ServiceUnavailableException(
         "Lemon Squeezy is not configured. Set LEMONSQUEEZY_API_KEY and LEMONSQUEEZY_STORE_ID.",
@@ -154,7 +170,9 @@ export class LemonsqueezyService {
         };
       };
     };
+
     const checkoutUrl = payload.data?.attributes?.url;
+
     if (!checkoutUrl) {
       throw new ServiceUnavailableException(
         "Lemon Squeezy did not return a checkout URL.",
@@ -164,7 +182,9 @@ export class LemonsqueezyService {
     return { checkoutUrl };
   }
 
-  async getSubscription(subscriptionId: string): Promise<LemonSubscriptionResponse> {
+  async getSubscription(
+    subscriptionId: string,
+  ): Promise<LemonSubscriptionResponse> {
     return this.requestJson<LemonSubscriptionResponse>(
       `${LEMONSQUEEZY_API}/subscriptions/${subscriptionId}`,
       {
@@ -187,10 +207,18 @@ export class LemonsqueezyService {
             type: "subscriptions",
             id: subscriptionId,
             attributes: {
-              ...(input.variantId ? { variant_id: Number(input.variantId) } : {}),
-              ...(input.cancelled !== undefined ? { cancelled: input.cancelled } : {}),
-              ...(input.invoiceImmediately ? { invoice_immediately: true } : {}),
-              ...(input.disableProrations ? { disable_prorations: true } : {}),
+              ...(input.variantId
+                ? { variant_id: Number(input.variantId) }
+                : {}),
+              ...(input.cancelled !== undefined
+                ? { cancelled: input.cancelled }
+                : {}),
+              ...(input.invoiceImmediately
+                ? { invoice_immediately: true }
+                : {}),
+              ...(input.disableProrations
+                ? { disable_prorations: true }
+                : {}),
             },
           },
         }),
@@ -199,7 +227,9 @@ export class LemonsqueezyService {
     );
   }
 
-  async cancelSubscription(subscriptionId: string): Promise<LemonSubscriptionResponse> {
+  async cancelSubscription(
+    subscriptionId: string,
+  ): Promise<LemonSubscriptionResponse> {
     return this.requestJson<LemonSubscriptionResponse>(
       `${LEMONSQUEEZY_API}/subscriptions/${subscriptionId}`,
       {

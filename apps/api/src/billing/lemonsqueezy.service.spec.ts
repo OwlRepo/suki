@@ -20,11 +20,75 @@ describe("LemonsqueezyService", () => {
 
   it("verifies webhook signatures using the raw payload", () => {
     const service = new LemonsqueezyService();
-    const payload = JSON.stringify({ meta: { event_name: "subscription_created" } });
-    const signature = createHmac("sha256", "whsec_123").update(payload).digest("hex");
+    const payload = JSON.stringify({
+      meta: {
+        event_name: "subscription_created",
+      },
+    });
+    const signature = createHmac("sha256", "whsec_123")
+      .update(payload)
+      .digest("hex");
 
     expect(service.verifyWebhookSignature(payload, signature)).toBe(true);
     expect(service.verifyWebhookSignature(payload, "nope")).toBe(false);
+  });
+
+  it("creates the same delivery key for an identical webhook retry", () => {
+    const service = new LemonsqueezyService();
+
+    const payload = Buffer.from(
+      JSON.stringify({
+        meta: {
+          event_name: "subscription_updated",
+        },
+        data: {
+          id: "subscription-123",
+          attributes: {
+            status: "active",
+          },
+        },
+      }),
+    );
+
+    expect(service.createWebhookDeliveryKey(payload)).toBe(
+      service.createWebhookDeliveryKey(payload),
+    );
+  });
+
+  it("creates different delivery keys for different updates to the same subscription", () => {
+    const service = new LemonsqueezyService();
+
+    const activePayload = Buffer.from(
+      JSON.stringify({
+        meta: {
+          event_name: "subscription_updated",
+        },
+        data: {
+          id: "subscription-123",
+          attributes: {
+            status: "active",
+          },
+        },
+      }),
+    );
+
+    const cancelledPayload = Buffer.from(
+      JSON.stringify({
+        meta: {
+          event_name: "subscription_updated",
+        },
+        data: {
+          id: "subscription-123",
+          attributes: {
+            status: "cancelled",
+          },
+        },
+      }),
+    );
+
+    expect(service.createWebhookDeliveryKey(activePayload)).not.toBe(
+      service.createWebhookDeliveryKey(cancelledPayload),
+    );
   });
 
   it("creates hosted checkout URLs with trusted custom data", async () => {
@@ -59,7 +123,9 @@ describe("LemonsqueezyService", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.method).toBe("POST");
+
     const body = JSON.parse(String(init.body));
+
     expect(body.data.attributes.checkout_data.custom).toMatchObject({
       organization_id: "org-1",
       user_id: "user-1",
@@ -95,6 +161,7 @@ describe("LemonsqueezyService", () => {
         id: "sub_1",
       },
     });
+
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.lemonsqueezy.com/v1/subscriptions/sub_1",
       expect.objectContaining({
@@ -118,6 +185,7 @@ describe("LemonsqueezyService", () => {
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
     const service = new LemonsqueezyService();
+
     await service.cancelSubscription("sub_1");
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -153,6 +221,7 @@ describe("LemonsqueezyService", () => {
         id: "sub_1",
       },
     });
+
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.lemonsqueezy.com/v1/subscriptions/sub_1",
       expect.objectContaining({
