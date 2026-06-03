@@ -43,6 +43,7 @@ vi.mock("@tyvera/database", () => ({
   verifiedOnlineBookingCredits: {
     organizationId: "organization_id",
   },
+  publicOtpSendEvents: {},
   verifiedOnlineBookingUsageEvents: {},
 }));
 
@@ -136,6 +137,7 @@ describe("IntakeBookingService OTP", () => {
         status: "held",
         expiresAt: new Date(Date.now() + 60_000),
         mobile: "+639171234567",
+        otpSentCount: 0,
         updatedAt: new Date(Date.now() - 120_000),
       },
     ]);
@@ -173,6 +175,7 @@ describe("IntakeBookingService OTP", () => {
         status: "held",
         expiresAt: new Date(Date.now() + 60_000),
         mobile: "+639171234567",
+        otpSentCount: 0,
         updatedAt: new Date(Date.now() - 120_000),
       },
     ]);
@@ -200,9 +203,15 @@ describe("IntakeBookingService OTP", () => {
 
     await expect(
       service.sendOtp("hold_1"),
-    ).resolves.toEqual({
-      success: true,
-    });
+    ).resolves.toEqual(
+      expect.objectContaining({
+        success: true,
+        reused: false,
+        holdExpiresAt: expect.any(String),
+        resendAvailableAt: expect.any(String),
+        sendsRemaining: expect.any(Number),
+      }),
+    );
 
     expect(updateMock).toHaveBeenCalled();
     expect(insertMock).toHaveBeenCalled();
@@ -225,6 +234,7 @@ describe("IntakeBookingService OTP", () => {
         status: "held",
         expiresAt: new Date(Date.now() + 60_000),
         mobile: "+639171234567",
+        otpSentCount: 0,
         updatedAt: new Date(Date.now() - 120_000),
       },
     ]);
@@ -263,6 +273,7 @@ describe("IntakeBookingService OTP", () => {
         expiresAt: new Date(Date.now() + 60_000),
         mobile: "+639171234567",
         otpSid: "VE123",
+        otpSentCount: 1,
         updatedAt: new Date(),
       },
     ]);
@@ -270,8 +281,215 @@ describe("IntakeBookingService OTP", () => {
     await expect(service.sendOtp("hold_1")).resolves.toEqual({
       success: true,
       reused: true,
+      holdExpiresAt: expect.any(String),
+      resendAvailableAt: expect.any(String),
+      sendsRemaining: expect.any(Number),
     });
 
     expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks resend while hold cooldown is active", async () => {
+    process.env.TWILIO_ACCOUNT_SID = "AC123";
+    process.env.TWILIO_AUTH_TOKEN = "tok";
+    process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
+    process.env.OTP_RESEND_COOLDOWN_SECONDS = "60";
+
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+    );
+
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSid: "VE123",
+        otpSentCount: 1,
+        otpCooldownEndsAt: new Date(Date.now() + 30_000),
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+
+    await expect(service.sendOtp("hold_1")).rejects.toThrow(/temporarily unavailable/i);
+  });
+
+  it("blocks OTP sends when the same mobile exceeds the rolling limit", async () => {
+    process.env.TWILIO_ACCOUNT_SID = "AC123";
+    process.env.TWILIO_AUTH_TOKEN = "tok";
+    process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
+    process.env.OTP_PER_MOBILE_LIMIT = "2";
+    process.env.OTP_PER_MOBILE_WINDOW_MINUTES = "60";
+
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+    );
+
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([
+      {
+        organizationId: "org-1",
+        month: "2026-06",
+        includedGranted: 5,
+        addonGranted: 0,
+        used: 0,
+        sourcePlan: "free",
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "evt-1",
+        mobile: "+639171234567",
+        ipAddress: "127.0.0.1",
+        businessId: "biz-1",
+        outcome: "sent",
+        createdAt: new Date(),
+      },
+      {
+        id: "evt-2",
+        mobile: "+639171234567",
+        ipAddress: "127.0.0.2",
+        businessId: "biz-2",
+        outcome: "sent",
+        createdAt: new Date(),
+      },
+    ]);
+
+    await expect(service.sendOtp("hold_1", "127.0.0.1")).rejects.toThrow(/too many verification attempts/i);
+  });
+
+  it("blocks OTP sends when the same IP exceeds the rolling limit", async () => {
+    process.env.TWILIO_ACCOUNT_SID = "AC123";
+    process.env.TWILIO_AUTH_TOKEN = "tok";
+    process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
+    process.env.OTP_PER_MOBILE_LIMIT = "5";
+    process.env.OTP_PER_MOBILE_WINDOW_MINUTES = "60";
+    process.env.OTP_PER_IP_LIMIT = "2";
+    process.env.OTP_PER_IP_WINDOW_MINUTES = "60";
+
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+    );
+
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([
+      {
+        organizationId: "org-1",
+        month: "2026-06",
+        includedGranted: 5,
+        addonGranted: 0,
+        used: 0,
+        sourcePlan: "free",
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "evt-1",
+        mobile: "+639171234568",
+        ipAddress: "127.0.0.1",
+        businessId: "biz-1",
+        outcome: "sent",
+        createdAt: new Date(),
+      },
+      {
+        id: "evt-2",
+        mobile: "+639171234569",
+        ipAddress: "127.0.0.1",
+        businessId: "biz-2",
+        outcome: "sent",
+        createdAt: new Date(),
+      },
+    ]);
+
+    await expect(service.sendOtp("hold_1", "127.0.0.1")).rejects.toThrow(/too many verification attempts/i);
+  });
+
+  it("blocks OTP sends when the business daily cap is exceeded", async () => {
+    process.env.TWILIO_ACCOUNT_SID = "AC123";
+    process.env.TWILIO_AUTH_TOKEN = "tok";
+    process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
+    process.env.OTP_PER_MOBILE_LIMIT = "5";
+    process.env.OTP_PER_MOBILE_WINDOW_MINUTES = "60";
+    process.env.OTP_PER_IP_LIMIT = "10";
+    process.env.OTP_PER_IP_WINDOW_MINUTES = "60";
+    process.env.OTP_PER_BUSINESS_DAILY_LIMIT = "2";
+
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+    );
+
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([
+      {
+        organizationId: "org-1",
+        month: "2026-06",
+        includedGranted: 5,
+        addonGranted: 0,
+        used: 0,
+        sourcePlan: "free",
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "evt-1",
+        mobile: "+639171234568",
+        ipAddress: "127.0.0.1",
+        businessId: "biz-1",
+        outcome: "sent",
+        createdAt: new Date(),
+      },
+      {
+        id: "evt-2",
+        mobile: "+639171234569",
+        ipAddress: "127.0.0.2",
+        businessId: "biz-1",
+        outcome: "sent",
+        createdAt: new Date(),
+      },
+    ]);
+
+    await expect(service.sendOtp("hold_1", "127.0.0.9")).rejects.toThrow(/too many verification attempts/i);
   });
 });

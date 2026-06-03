@@ -22,15 +22,23 @@ export class BillingController {
 
   @Get("status")
   @UseGuards(ClerkAuthGuard)
-  async getStatus(@Tenant("organizationId") orgId?: string) {
+  async getStatus(
+    @Tenant("organizationId") orgId?: string,
+    @Tenant("role") role?: "owner" | "staff",
+  ) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
-    return this.billingService.getBillingStatus(orgId);
+    const status = await this.billingService.getBillingStatus(orgId);
+    return {
+      ...status,
+      readOnly: role === "staff",
+    };
   }
 
   @Get("plans")
   async getPlans() {
     return this.billingService.getPlansResponse({
       checkoutEnabled: this.featureFlags.selfServeBillingEnabled(),
+      annualCheckoutEnabled: this.featureFlags.annualBillingCheckoutEnabled(),
     });
   }
 

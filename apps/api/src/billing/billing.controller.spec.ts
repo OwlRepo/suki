@@ -6,6 +6,7 @@ describe("BillingController", () => {
   const billingService = {
     getPlansResponse: vi.fn().mockReturnValue({
       checkoutEnabled: false,
+      annualCheckoutEnabled: false,
       plans: [{ planType: "free", monthlyPricePhp: 0 }],
     }),
     getBillingStatus: vi.fn().mockResolvedValue({
@@ -36,6 +37,7 @@ describe("BillingController", () => {
   const featureFlags = {
     founderLedModeEnabled: vi.fn().mockReturnValue(false),
     selfServeBillingEnabled: vi.fn().mockReturnValue(false),
+    annualBillingCheckoutEnabled: vi.fn().mockReturnValue(false),
   };
 
   const controller = new BillingController(
@@ -46,16 +48,25 @@ describe("BillingController", () => {
   it("returns the billing plans response", async () => {
     await expect(controller.getPlans()).resolves.toEqual({
       checkoutEnabled: false,
+      annualCheckoutEnabled: false,
       plans: [{ planType: "free", monthlyPricePhp: 0 }],
     });
   });
 
   it("returns billing status for the current org", async () => {
-    await expect(controller.getStatus("org-1")).resolves.toMatchObject({
+    await expect(controller.getStatus("org-1", "owner")).resolves.toMatchObject({
       planType: "free",
       billingStatus: "free_active",
+      readOnly: false,
     });
     expect(billingService.getBillingStatus).toHaveBeenCalledWith("org-1");
+  });
+
+  it("marks staff billing status responses as read-only", async () => {
+    await expect(controller.getStatus("org-1", "staff")).resolves.toMatchObject({
+      planType: "free",
+      readOnly: true,
+    });
   });
 
   it("creates a subscription checkout session", async () => {
@@ -83,7 +94,7 @@ describe("BillingController", () => {
   });
 
   it("requires an authenticated organization for status and checkout", async () => {
-    await expect(controller.getStatus(undefined)).rejects.toBeInstanceOf(
+    await expect(controller.getStatus(undefined, "owner")).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
     await expect(

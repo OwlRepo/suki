@@ -28,6 +28,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - Intake endpoints are public-facing for external customers; server-side validation and business scoping are required for every request.
 - Public account creation is allowed through `/auth/sign-up/start` + `/auth/sign-up/verify`; verify accepts email, OTP code, and password, then creates the owner account and session.
 - `POST /auth/sign-in/password` sets the session cookie on success and returns `{ ok: true, redirectTo }`, where `redirectTo` is `/onboarding` until user onboarding progress reaches `currentStep >= 7`, otherwise `/dashboard`.
+- `GET /auth/me` returns `{ user }` when signed in, and the user payload now includes `id`, `email`, `role`, and `organizationId` so pricing and billing UI can distinguish owner vs staff behavior without a separate auth provider SDK.
 - Public password reset is allowed through `/auth/password-reset/start` + `/auth/password-reset/verify`; start always returns `{ ok: true }` to avoid account enumeration, and verify accepts email, OTP code, and new password, then replaces the password hash, revokes old sessions, sets the session cookie, and returns `{ ok: true, redirectTo }`.
 
 ## Request/Response Schema Sources
@@ -54,7 +55,16 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 
 ## Billing Route Notes
 - `GET /billing/plans` returns the canonical billing catalog used by both API and web pricing surfaces.
-- `GET /billing/status` returns current plan, lifecycle state, and usage-meter scaffolding for the billing settings page.
+- `GET /billing/plans` also returns `annualCheckoutEnabled` so annual pricing can stay visible while self-serve annual checkout remains disabled.
+- `GET /billing/status` returns current plan, lifecycle state, `cancellationPending`, scheduled downgrade fields, meter totals for verified-booking, SMS, email, and AI requests, plus explicit `ownerWarnings` and a `readOnly` flag for staff viewers.
 - `POST /billing/checkout` and `POST /billing/addons/checkout` only accept plan/interval or SKU identifiers; the server resolves Lemon Squeezy variants from an allowlist.
 - `POST /billing/customer-portal`, `POST /billing/change-plan`, `POST /billing/cancel`, and `POST /billing/resume` are owner-only mutations.
-- `POST /billing/webhook/lemonsqueezy` verifies the raw-body HMAC signature before recording events idempotently.
+- `GET /billing/status` is shared by owner and staff billing settings views; staff can read status but all billing mutations remain owner-only.
+- `POST /billing/webhook/lemonsqueezy` verifies the raw-body HMAC signature before recording events idempotently, applying subscription/order reconciliation, and marking unknown Lemon events as ignored no-ops instead of failing the delivery.
+- `GET /billing/status` owner warnings are explicit API data, not inferred client-side: unresolved `refund_review` rows surface a persistent warning and delayed webhook reconciliation surfaces `delayed_webhook_sync`.
+
+## Public Intake OTP Notes
+- `POST /intake/otp/send` returns `success`, `reused`, `holdExpiresAt`, `resendAvailableAt`, and `sendsRemaining` so the public booking UI can render resend cooldowns and hold-expiry countdowns without guessing from client state.
+- `POST /intake/otp/send` now enforces resend cooldown per hold, max sends per hold, rolling per-mobile limits, rolling per-IP limits, and a per-business daily cap using env-driven thresholds plus durable `public_otp_send_events` audit rows.
+- `POST /intake/otp/verify` keeps the endpoint public, but the UI should treat returned OTP error codes as customer-safe states (`OTP_SLOT_CONFLICT`, `OTP_HOLD_EXPIRED`, `OTP_MAX_ATTEMPTS`, etc.) rather than surfacing raw provider or billing internals.
+- Operator note: unresolved refund-review warnings require manual follow-up, duplicate Lemon webhook replay is safe, and self-serve annual checkout remains visible-but-disabled until `FF_annual_billing_checkout_enabled=true`.

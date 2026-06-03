@@ -73,4 +73,38 @@ describe("BillingWebhookController", () => {
       },
     });
   });
+
+  it("returns 200 for unknown but valid webhook events and lets the service persist them", async () => {
+    const reconcileWebhookEvent = vi.fn().mockResolvedValue(undefined);
+    const controller = new BillingWebhookController(
+      {
+        verifyWebhookSignature: vi.fn().mockReturnValue(true),
+      } as never,
+      {
+        isWebhookEventProcessed: vi.fn().mockResolvedValue(false),
+        reconcileWebhookEvent,
+      } as never,
+    );
+
+    await expect(
+      controller.handleLemonSqueezyWebhook(
+        {
+          rawBody: Buffer.from(
+            JSON.stringify({
+              meta: { event_name: "license_key_created" },
+              data: { id: "evt_unknown_1" },
+            }),
+          ),
+          headers: {
+            "x-signature": "good",
+          },
+        } as never,
+      ),
+    ).resolves.toEqual({ received: true, duplicate: false });
+
+    expect(reconcileWebhookEvent).toHaveBeenCalledWith({
+      meta: { event_name: "license_key_created" },
+      data: { id: "evt_unknown_1" },
+    });
+  });
 });

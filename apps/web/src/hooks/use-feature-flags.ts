@@ -9,6 +9,7 @@ export interface FeatureFlags {
   founder_led_mode_enabled: boolean;
   public_signup_enabled: boolean;
   self_serve_billing_enabled: boolean;
+  annual_billing_checkout_enabled: boolean;
   manual_billing_controls_enabled: boolean;
 }
 
@@ -20,6 +21,7 @@ const defaults: FeatureFlags = {
   founder_led_mode_enabled: true,
   public_signup_enabled: false,
   self_serve_billing_enabled: false,
+  annual_billing_checkout_enabled: false,
   manual_billing_controls_enabled: true,
 };
 

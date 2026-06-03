@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
+import { useSession } from "@/hooks/use-session";
 import { Card } from "@/components/ui/card";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { SettingsSectionSkeleton } from "@/components/ui/skeleton";
@@ -10,18 +11,24 @@ import { PlanComparisonGrid } from "@/components/billing/plan-comparison-grid";
 import type { BillingInterval, BillingPlan } from "@/components/billing/types";
 
 export default function PricingPage() {
+  const { isSignedIn } = useSession();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [annualCheckoutEnabled, setAnnualCheckoutEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const result = await apiRequest<{ plans: BillingPlan[] }>("/billing/plans");
+        const result = await apiRequest<{
+          plans: BillingPlan[];
+          annualCheckoutEnabled?: boolean;
+        }>("/billing/plans");
         if (!cancelled) {
           setPlans(result.plans);
+          setAnnualCheckoutEnabled(result.annualCheckoutEnabled ?? false);
         }
       } catch (err) {
         if (!cancelled) {
@@ -58,7 +65,12 @@ export default function PricingPage() {
           ))}
         </div>
       ) : (
-        <PlanComparisonGrid plans={plans} interval={interval} ctaHref="/sign-up" />
+        <PlanComparisonGrid
+          plans={plans}
+          interval={interval}
+          ctaHref={isSignedIn ? "/settings/billing" : "/sign-up"}
+          annualCheckoutEnabled={annualCheckoutEnabled}
+        />
       )}
 
       <Card className="border border-border p-5 text-sm text-muted-foreground">

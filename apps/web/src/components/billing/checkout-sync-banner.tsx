@@ -5,10 +5,16 @@ import { StatusBanner } from "@/components/ui/status-banner";
 export function CheckoutSyncBanner({
   syncing,
   timedOut,
+  delayedSyncWarning,
 }: {
   syncing: boolean;
   timedOut: boolean;
+  delayedSyncWarning?: string | null;
 }) {
+  if (delayedSyncWarning) {
+    return <StatusBanner variant="warning" message={delayedSyncWarning} />;
+  }
+
   if (timedOut) {
     return (
       <StatusBanner

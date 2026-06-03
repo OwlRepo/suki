@@ -74,7 +74,14 @@ const plans: BillingPlan[] = [
 
 describe("billing plan components", () => {
   it("renders all required plans and highlights growth as most popular", () => {
-    render(<PlanComparisonGrid plans={plans} interval="monthly" ctaHref="/sign-up" />);
+    render(
+      <PlanComparisonGrid
+        plans={plans}
+        interval="monthly"
+        ctaHref="/sign-up"
+        annualCheckoutEnabled={false}
+      />,
+    );
 
     expect(screen.getByText("Free")).toBeInTheDocument();
     expect(screen.getByText("Starter")).toBeInTheDocument();
@@ -89,5 +96,19 @@ describe("billing plan components", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Annual" }));
     expect(onChange).toHaveBeenCalledWith("annual");
+  });
+
+  it("disables annual paid CTAs when annual checkout is not self-serve yet", () => {
+    render(
+      <PlanComparisonGrid
+        plans={plans}
+        interval="annual"
+        ctaHref="/settings/billing"
+        annualCheckoutEnabled={false}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/settings/billing");
+    expect(screen.getAllByText(/Annual billing is visible now but not yet self-serve/i).length).toBeGreaterThan(0);
   });
 });

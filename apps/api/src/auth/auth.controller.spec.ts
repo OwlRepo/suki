@@ -14,7 +14,14 @@ describe("AuthController", () => {
       signInWithPassword: vi.fn(async () => ({ ok: true, session: { token: "tok", expiresAt: now }, redirectTo: "/onboarding" })),
       startPasswordReset: vi.fn(async () => ({ ok: true })),
       verifyPasswordReset: vi.fn(async () => ({ ok: true, session: { token: "reset-tok", expiresAt: now }, redirectTo: "/dashboard" })),
-      validateSession: vi.fn(async () => ({ user: { id: "u1", email: "a@test.com" } })),
+      validateSession: vi.fn(async () => ({
+        user: {
+          id: "u1",
+          email: "a@test.com",
+          role: "owner",
+          organizationId: "o1",
+        },
+      })),
       signOut: vi.fn(async () => undefined),
       syncFromSession: vi.fn(async () => ({ user: { id: "u1", organizationId: "o1" }, organization: { id: "o1", name: "Org" }, isNew: false })),
       ...overrides,
@@ -83,7 +90,7 @@ describe("AuthController", () => {
     const { controller, service } = makeController();
 
     await expect(controller.me({ cookies: { tyvera_session: "tok" } } as unknown as Request)).resolves.toEqual({
-      user: { id: "u1", email: "a@test.com" },
+      user: { id: "u1", email: "a@test.com", role: "owner", organizationId: "o1" },
     });
 
     await expect(controller.me({ cookies: {} } as unknown as Request)).rejects.toBeInstanceOf(UnauthorizedException);

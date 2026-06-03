@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  aiUsageEvents,
+  emailCredits,
   creditReconciliationEvents,
   getDb,
   organizations,
   processedWebhookEvents,
   smsAddons,
+  smsCredits,
   subscriptions,
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
@@ -46,6 +49,10 @@ type SubscriptionRow = {
   scheduledPlanType?: "free" | "starter" | "growth" | "pro" | null;
   scheduledBillingInterval?: "monthly" | "annual" | null;
   scheduledChangeEffectiveAt?: Date | null;
+  pendingSyncAction?: string | null;
+  pendingSyncStartedAt?: Date | null;
+  pendingSyncTargetPlanType?: "free" | "starter" | "growth" | "pro" | null;
+  pendingSyncTargetBillingInterval?: "monthly" | "annual" | null;
 };
 
 type CreditRow = {
@@ -62,17 +69,41 @@ const getDbMock = vi.mocked(getDb);
 function createDbHarness(input?: {
   subscriptions?: SubscriptionRow[];
   verifiedCredits?: CreditRow[];
+  smsCredits?: Array<{
+    organizationId: string;
+    month: string;
+    included: number;
+    addon: number;
+    used: number;
+    pausedReason?: string;
+  }>;
+  emailCredits?: Array<{
+    organizationId: string;
+    month: string;
+    included: number;
+    used: number;
+  }>;
+  aiUsageSummary?: Array<{
+    totalRequests: number;
+  }>;
   organizations?: Array<Record<string, unknown>>;
   processedEvents?: Array<Record<string, unknown>>;
+  reconciliation?: Array<Record<string, unknown>>;
 }) {
   const state = {
     subscriptions: [...(input?.subscriptions ?? [])],
     verifiedCredits: [...(input?.verifiedCredits ?? [])],
+    smsCredits: [...(input?.smsCredits ?? [])],
+    emailCredits: [...(input?.emailCredits ?? [])],
+    aiUsageSummary: [...(input?.aiUsageSummary ?? [])],
     organizations: [...(input?.organizations ?? [])],
     processedEvents: [...(input?.processedEvents ?? [])],
+    reconciliation: [...(input?.reconciliation ?? [])],
     inserted: {
       subscriptions: [] as Array<Record<string, unknown>>,
       credits: [] as Array<Record<string, unknown>>,
+      smsCredits: [] as Array<Record<string, unknown>>,
+      emailCredits: [] as Array<Record<string, unknown>>,
       bookingAddons: [] as Array<Record<string, unknown>>,
       smsAddons: [] as Array<Record<string, unknown>>,
       reconciliation: [] as Array<Record<string, unknown>>,
@@ -98,8 +129,12 @@ function createDbHarness(input?: {
         limit: async () => {
           if (table === subscriptions) return state.subscriptions.slice(0, 1);
           if (table === verifiedOnlineBookingCredits) return state.verifiedCredits.slice(0, 1);
+          if (table === smsCredits) return state.smsCredits.slice(0, 1);
+          if (table === emailCredits) return state.emailCredits.slice(0, 1);
+          if (table === aiUsageEvents) return state.aiUsageSummary.slice(0, 1);
           if (table === organizations) return state.organizations.slice(0, 1);
           if (table === processedWebhookEvents) return state.processedEvents.slice(0, 1);
+          if (table === creditReconciliationEvents) return state.reconciliation.slice(0, 1);
           return [];
         },
       }),
@@ -114,6 +149,12 @@ function createDbHarness(input?: {
       } else if (table === verifiedOnlineBookingCredits) {
         state.inserted.credits.push(value);
         state.verifiedCredits = [value as unknown as CreditRow];
+      } else if (table === smsCredits) {
+        state.inserted.smsCredits.push(value);
+        state.smsCredits = [value as never];
+      } else if (table === emailCredits) {
+        state.inserted.emailCredits.push(value);
+        state.emailCredits = [value as never];
       } else if (table === verifiedOnlineBookingAddons) {
         state.inserted.bookingAddons.push(value);
       } else if (table === smsAddons) {
@@ -139,6 +180,14 @@ function createDbHarness(input?: {
           state.updated.credits.push(value);
           if (state.verifiedCredits[0]) {
             state.verifiedCredits[0] = { ...state.verifiedCredits[0], ...value } as CreditRow;
+          }
+        } else if (table === smsCredits) {
+          if (state.smsCredits[0]) {
+            state.smsCredits[0] = { ...state.smsCredits[0], ...value } as never;
+          }
+        } else if (table === emailCredits) {
+          if (state.emailCredits[0]) {
+            state.emailCredits[0] = { ...state.emailCredits[0], ...value } as never;
           }
         } else if (table === organizations) {
           state.updated.organizations.push(value);
@@ -235,6 +284,101 @@ describe("BillingService", () => {
         total: 55,
         remaining: 51,
       },
+    });
+  });
+
+  it("returns email, ai, and owner warning status fields from current ledgers", async () => {
+    createDbHarness({
+      subscriptions: [
+        {
+          id: "sub-local",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+        },
+      ],
+      emailCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          included: 5000,
+          used: 1200,
+        },
+      ],
+      aiUsageSummary: [
+        {
+          totalRequests: 18,
+        },
+      ],
+      reconciliation: [
+        {
+          organizationId: "org-1",
+          creditType: "sms_segment",
+          month: "2026-06",
+          eventType: "refund_review",
+          metadata: {
+            sku: "sms-segment-topup-50",
+            refundedUnits: 50,
+          },
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      emailCredits: {
+        included: 5000,
+        used: 1200,
+        total: 5000,
+        remaining: 3800,
+      },
+      aiRequests: {
+        included: 100,
+        used: 18,
+        total: 100,
+        remaining: 82,
+      },
+      ownerWarnings: [
+        expect.objectContaining({
+          code: "refund_review",
+          severity: "warning",
+        }),
+      ],
+    });
+  });
+
+  it("surfaces delayed webhook sync warnings from subscription pending sync metadata", async () => {
+    createDbHarness({
+      subscriptions: [
+        {
+          id: "sub-local",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+          pendingSyncAction: "change_plan",
+          pendingSyncStartedAt: new Date(Date.now() - 180_000),
+          pendingSyncTargetPlanType: "pro",
+          pendingSyncTargetBillingInterval: "monthly",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      ownerWarnings: [
+        expect.objectContaining({
+          code: "delayed_webhook_sync",
+          severity: "warning",
+        }),
+      ],
     });
   });
 
@@ -486,6 +630,397 @@ describe("BillingService", () => {
       sku: "online-booking-topup-25",
       providerOrderId: "order_123",
       purchasedByUserId: "user-1",
+    });
+  });
+
+  it("marks payment failures as past due without downgrading the plan", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "subscription_payment_failed",
+        custom_data: {
+          organization_id: "org-1",
+          plan_type: "growth",
+          billing_interval: "monthly",
+        },
+      },
+      data: {
+        id: "sub_123",
+        attributes: {
+          status: "past_due",
+          current_period_start: "2026-06-01T00:00:00.000Z",
+          current_period_end: "2026-06-30T23:59:59.000Z",
+          renews_at: "2026-07-01T00:00:00.000Z",
+          urls: {},
+        },
+      },
+    });
+
+    expect(state.updated.subscriptions[0]).toMatchObject({
+      planType: "growth",
+      status: "past_due",
+      cancelled: "false",
+    });
+    expect(state.updated.organizations[0]).toMatchObject({
+      currentPlan: "growth",
+      billingStatus: "subscription_past_due",
+    });
+  });
+
+  it("marks subscriptions as paused without downgrading balances", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "subscription_paused",
+        custom_data: {
+          organization_id: "org-1",
+          plan_type: "growth",
+          billing_interval: "monthly",
+        },
+      },
+      data: {
+        id: "sub_123",
+        attributes: {
+          status: "paused",
+          current_period_start: "2026-06-01T00:00:00.000Z",
+          current_period_end: "2026-06-30T23:59:59.000Z",
+          urls: {},
+        },
+      },
+    });
+
+    expect(state.updated.subscriptions[0]).toMatchObject({
+      status: "paused",
+      planType: "growth",
+    });
+    expect(state.updated.organizations[0]).toMatchObject({
+      currentPlan: "growth",
+      billingStatus: "subscription_paused",
+    });
+  });
+
+  it("does not re-grant included credits on subscription_payment_success", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+      verifiedCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          includedGranted: 80,
+          addonGranted: 25,
+          used: 12,
+          sourcePlan: "growth",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "subscription_payment_success",
+        custom_data: {
+          organization_id: "org-1",
+          plan_type: "growth",
+          billing_interval: "monthly",
+        },
+      },
+      data: {
+        id: "sub_123",
+        attributes: {
+          status: "active",
+          current_period_start: "2026-06-01T00:00:00.000Z",
+          current_period_end: "2026-06-30T23:59:59.000Z",
+          renews_at: "2026-07-01T00:00:00.000Z",
+          urls: {},
+        },
+      },
+    });
+
+    expect(state.inserted.reconciliation).toHaveLength(0);
+    expect(state.updated.credits).toHaveLength(0);
+    expect(state.updated.organizations[0]).toMatchObject({
+      currentPlan: "growth",
+      billingStatus: "subscription_active",
+    });
+  });
+
+  it("restores active status on payment recovery without double-granting included credits", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_past_due" }],
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "past_due",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+      verifiedCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          includedGranted: 80,
+          addonGranted: 25,
+          used: 12,
+          sourcePlan: "growth",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "subscription_payment_recovered",
+        custom_data: {
+          organization_id: "org-1",
+          plan_type: "growth",
+          billing_interval: "monthly",
+        },
+      },
+      data: {
+        id: "sub_123",
+        attributes: {
+          status: "active",
+          current_period_start: "2026-06-01T00:00:00.000Z",
+          current_period_end: "2026-06-30T23:59:59.000Z",
+          renews_at: "2026-07-01T00:00:00.000Z",
+          urls: {},
+        },
+      },
+    });
+
+    expect(state.updated.subscriptions[0]).toMatchObject({
+      status: "active",
+      planType: "growth",
+    });
+    expect(state.updated.organizations[0]).toMatchObject({
+      currentPlan: "growth",
+      billingStatus: "subscription_active",
+    });
+    expect(state.inserted.reconciliation).toHaveLength(0);
+  });
+
+  it("grants sms top-up credits from order_created events and exposes them in billing status", async () => {
+    const { state } = createDbHarness({
+      subscriptions: [
+        {
+          id: "sub-local",
+          organizationId: "org-1",
+          planType: "starter",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+        },
+      ],
+      smsCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          included: 300,
+          addon: 0,
+          used: 25,
+          pausedReason: "none",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_created",
+        custom_data: {
+          organization_id: "org-1",
+          purchase_kind: "sms_segment_topup",
+          sku: "sms-segment-topup-50",
+          user_id: "user-1",
+        },
+      },
+      data: {
+        id: "order_sms_123",
+        attributes: {},
+      },
+    });
+
+    expect(state.inserted.smsAddons[0]).toMatchObject({
+      organizationId: "org-1",
+      packSize: 50,
+      packPricePhp: 1099,
+      purchasedByUserId: "user-1",
+    });
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      smsSegmentCredits: {
+        included: 300,
+        addon: 50,
+        used: 25,
+        total: 350,
+        remaining: 325,
+      },
+    });
+  });
+
+  it("refunds unused verified booking top-up credits deterministically", async () => {
+    const { state } = createDbHarness({
+      verifiedCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          includedGranted: 30,
+          addonGranted: 25,
+          used: 10,
+          sourcePlan: "starter",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: {
+          organization_id: "org-1",
+          purchase_kind: "online_booking_topup",
+          sku: "online-booking-topup-25",
+        },
+      },
+      data: {
+        id: "refund_booking_123",
+        attributes: {},
+      },
+    });
+
+    expect(state.updated.credits[0]).toMatchObject({
+      addonGranted: 0,
+      used: 10,
+    });
+    expect(state.inserted.reconciliation[0]).toMatchObject({
+      organizationId: "org-1",
+      creditType: "verified_online_booking",
+      eventType: "refund_applied",
+      addonBefore: 25,
+      addonAfter: 0,
+      providerEventId: "refund_booking_123",
+    });
+  });
+
+  it("records a refund review instead of creating negative balances when refunded booking credits were already consumed", async () => {
+    const { state } = createDbHarness({
+      verifiedCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          includedGranted: 30,
+          addonGranted: 25,
+          used: 55,
+          sourcePlan: "starter",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: {
+          organization_id: "org-1",
+          purchase_kind: "online_booking_topup",
+          sku: "online-booking-topup-25",
+        },
+      },
+      data: {
+        id: "refund_booking_456",
+        attributes: {},
+      },
+    });
+
+    expect(state.updated.credits).toHaveLength(0);
+    expect(state.inserted.reconciliation[0]).toMatchObject({
+      organizationId: "org-1",
+      creditType: "verified_online_booking",
+      eventType: "refund_review",
+      addonBefore: 25,
+      addonAfter: 25,
+      usedBefore: 55,
+      usedAfter: 55,
+      providerEventId: "refund_booking_456",
+    });
+  });
+
+  it("stores unknown webhook events as ignored no-ops instead of failing", async () => {
+    const { state } = createDbHarness();
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "license_key_created",
+      },
+      data: {
+        id: "noop_123",
+        attributes: {},
+      },
+    });
+
+    expect(state.inserted.subscriptions).toHaveLength(0);
+    expect(state.updated.subscriptions).toHaveLength(0);
+    expect(state.inserted.processedEvents[0]).toMatchObject({
+      provider: "lemonsqueezy",
+      eventId: "noop_123",
+      eventName: "license_key_created",
+      status: "ignored",
     });
   });
 

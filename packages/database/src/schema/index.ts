@@ -458,6 +458,10 @@ export const bookingHolds = pgTable(
     status: text("status").notNull().default("held"), // held | confirmed | expired | released
     otpSid: text("otp_sid"),
     otpAttempts: integer("otp_attempts").notNull().default(0),
+    otpSentCount: integer("otp_sent_count").notNull().default(0),
+    otpLastSentAt: timestamp("otp_last_sent_at"),
+    otpCooldownEndsAt: timestamp("otp_cooldown_ends_at"),
+    otpSendWindowKey: text("otp_send_window_key"),
     expiresAt: timestamp("expires_at").notNull(),
     confirmedAt: timestamp("confirmed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -500,6 +504,10 @@ export const subscriptions = pgTable("subscriptions", {
   scheduledPlanType: planTypeEnum("scheduled_plan_type"),
   scheduledBillingInterval: text("scheduled_billing_interval"),
   scheduledChangeEffectiveAt: timestamp("scheduled_change_effective_at"),
+  pendingSyncAction: text("pending_sync_action"),
+  pendingSyncStartedAt: timestamp("pending_sync_started_at"),
+  pendingSyncTargetPlanType: planTypeEnum("pending_sync_target_plan_type"),
+  pendingSyncTargetBillingInterval: text("pending_sync_target_billing_interval"),
   billingFailureCount: integer("billing_failure_count").notNull().default(0),
   graceUntil: timestamp("grace_until"),
   lastWebhookEventId: text("last_webhook_event_id"),
@@ -871,6 +879,36 @@ export const verifiedOnlineBookingUsageEvents = pgTable(
   ],
 );
 
+export const publicOtpSendEvents = pgTable(
+  "public_otp_send_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    bookingHoldId: uuid("booking_hold_id")
+      .notNull()
+      .references(() => bookingHolds.id, { onDelete: "cascade" }),
+    mobile: text("mobile").notNull(),
+    ipAddress: text("ip_address"),
+    outcome: text("outcome").notNull(),
+    provider: text("provider").notNull().default("twilio_verify"),
+    providerVerificationSid: text("provider_verification_sid"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("public_otp_send_events_org_idx").on(t.organizationId),
+    index("public_otp_send_events_business_idx").on(t.businessId),
+    index("public_otp_send_events_hold_idx").on(t.bookingHoldId),
+    index("public_otp_send_events_mobile_idx").on(t.mobile),
+    index("public_otp_send_events_created_at_idx").on(t.createdAt),
+  ],
+);
+
 export const verifiedOnlineBookingAddons = pgTable("verified_online_booking_addons", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
@@ -958,6 +996,11 @@ export const creditReconciliationEvents = pgTable("credit_reconciliation_events"
   usedAfter: integer("used_after").notNull().default(0),
   providerEventId: text("provider_event_id"),
   metadata: jsonb("metadata"),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedByUserId: uuid("resolved_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  resolutionNote: text("resolution_note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

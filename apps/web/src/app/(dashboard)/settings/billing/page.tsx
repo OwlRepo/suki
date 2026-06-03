@@ -19,13 +19,45 @@ import type { BillingInterval, BillingPlan } from "@/components/billing/types";
 type BillingStatusResponse = {
   planType: string;
   billingStatus: string;
+  readOnly?: boolean;
   billingInterval: BillingInterval | null;
   renewsAt: string | null;
   endsAt: string | null;
+  cancellationPending?: boolean;
+  scheduledPlanType?: string | null;
+  scheduledBillingInterval?: BillingInterval | null;
+  scheduledChangeEffectiveAt?: string | null;
+  ownerWarnings?: Array<{
+    code: string;
+    severity: "info" | "warning" | "error";
+    message: string;
+  }>;
   verifiedOnlineBookingCredits?: {
     included: number;
     addon: number;
     used: number;
+    total: number;
+    remaining: number;
+    pausedReason?: string | null;
+  };
+  smsSegmentCredits?: {
+    included: number;
+    addon: number;
+    used: number;
+    total: number;
+    remaining: number;
+    pausedReason?: string | null;
+  };
+  emailCredits?: {
+    included: number;
+    used: number;
+    total: number;
+    remaining: number;
+  };
+  aiRequests?: {
+    included: number;
+    used: number;
+    total: number;
     remaining: number;
   };
   subscription: null | Record<string, unknown>;
@@ -42,6 +74,7 @@ export default function BillingSettingsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncTimedOut, setSyncTimedOut] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const addonGroups = useMemo(
     () => ({
@@ -129,9 +162,24 @@ export default function BillingSettingsPage() {
   async function startPlanCheckout(planType: "starter" | "growth" | "pro") {
     setActionLoading(planType);
     setError(null);
+    setSuccessMessage(null);
     try {
       const token = await getToken();
       if (!token) return;
+      const isPaid = !!billing?.subscription && billing.planType !== "free";
+
+      if (isPaid) {
+        await apiRequest("/billing/change-plan", {
+          method: "POST",
+          token,
+          body: JSON.stringify({ planType, billingInterval: interval }),
+        });
+        setSuccessMessage("Plan change submitted. We’ll update your account after webhook sync completes.");
+        const next = await apiRequest<BillingStatusResponse>("/billing/status", { token });
+        setBilling(next);
+        return;
+      }
+
       const result = await apiRequest<{ checkoutUrl: string }>("/billing/checkout", {
         method: "POST",
         token,
@@ -148,6 +196,7 @@ export default function BillingSettingsPage() {
   async function startAddonCheckout(sku: string) {
     setActionLoading(sku);
     setError(null);
+    setSuccessMessage(null);
     try {
       const token = await getToken();
       if (!token) return;
@@ -159,6 +208,69 @@ export default function BillingSettingsPage() {
       window.location.href = result.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout is temporarily unavailable. Please try again.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function openCustomerPortal() {
+    setActionLoading("customer-portal");
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const result = await apiRequest<{ url: string }>("/billing/customer-portal", {
+        method: "POST",
+        token,
+      });
+      if (typeof window !== "undefined") {
+        window.location.href = result.url;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Billing portal is temporarily unavailable. Please try again.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function cancelSubscription() {
+    setActionLoading("cancel");
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await apiRequest("/billing/cancel", {
+        method: "POST",
+        token,
+      });
+      const next = await apiRequest<BillingStatusResponse>("/billing/status", { token });
+      setBilling(next);
+      setSuccessMessage("Cancellation scheduled. Your current access remains active until the billing boundary.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to cancel subscription right now.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function resumeSubscription() {
+    setActionLoading("resume");
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await apiRequest("/billing/resume", {
+        method: "POST",
+        token,
+      });
+      const next = await apiRequest<BillingStatusResponse>("/billing/status", { token });
+      setBilling(next);
+      setSuccessMessage("Subscription resume requested. We’ll reflect the final state after webhook reconciliation.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to resume subscription right now.");
     } finally {
       setActionLoading(null);
     }
@@ -179,8 +291,45 @@ export default function BillingSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <CheckoutSyncBanner syncing={syncing} timedOut={syncTimedOut} />
-      {billing ? <BillingStatusBanner billingStatus={billing.billingStatus} /> : null}
+      <CheckoutSyncBanner
+        syncing={syncing}
+        timedOut={syncTimedOut}
+        delayedSyncWarning={
+          billing?.ownerWarnings?.find((warning) => warning.code === "delayed_webhook_sync")?.message ?? null
+        }
+      />
+      {billing ? (
+        <BillingStatusBanner
+          billingStatus={billing.billingStatus}
+          cancellationPending={billing.cancellationPending}
+          scheduledPlanType={billing.scheduledPlanType}
+          scheduledChangeEffectiveAt={billing.scheduledChangeEffectiveAt}
+        />
+      ) : null}
+      {billing?.scheduledPlanType ? (
+        <StatusBanner
+          variant="info"
+          message={`Your plan is scheduled to move to ${billing.scheduledPlanType} on ${new Date(
+            billing.scheduledChangeEffectiveAt ?? billing.renewsAt ?? Date.now(),
+          ).toLocaleDateString("en-PH")}.`}
+        />
+      ) : null}
+      {billing?.readOnly ? (
+        <StatusBanner
+          variant="info"
+          message="Read-only access. Only workspace owners can change plans, open checkout, or manage billing."
+        />
+      ) : null}
+      {billing?.ownerWarnings?.map((warning) => (
+        warning.code === "delayed_webhook_sync" ? null : (
+          <StatusBanner
+            key={`${warning.code}-${warning.message}`}
+            variant={warning.severity === "error" ? "error" : warning.severity}
+            message={warning.message}
+          />
+        )
+      ))}
+      {successMessage ? <StatusBanner variant="success" message={successMessage} /> : null}
       {error ? <StatusBanner variant="error" message={error} /> : null}
 
       <CurrentPlanCard
@@ -194,6 +343,44 @@ export default function BillingSettingsPage() {
               : "No active paid subscription yet."
         }
       />
+      {billing && !billing.readOnly ? (
+        <div className="flex flex-wrap gap-3">
+          {billing.subscription ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={actionLoading === "customer-portal"}
+                aria-label="Manage billing"
+                onClick={openCustomerPortal}
+              >
+                {actionLoading === "customer-portal" ? "Opening portal..." : "Manage billing"}
+              </Button>
+              {billing.cancellationPending || billing.billingStatus === "subscription_cancelled" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={actionLoading === "resume"}
+                  aria-label="Resume subscription"
+                  onClick={resumeSubscription}
+                >
+                  {actionLoading === "resume" ? "Resuming..." : "Resume subscription"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={actionLoading === "cancel"}
+                  aria-label="Cancel subscription"
+                  onClick={cancelSubscription}
+                >
+                  {actionLoading === "cancel" ? "Cancelling..." : "Cancel subscription"}
+                </Button>
+              )}
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-4">
         <UsageMeterCard
@@ -202,27 +389,30 @@ export default function BillingSettingsPage() {
           addon={billing?.verifiedOnlineBookingCredits?.addon ?? 0}
           used={billing?.verifiedOnlineBookingCredits?.used ?? 0}
           remaining={billing?.verifiedOnlineBookingCredits?.remaining ?? 0}
+          pausedReason={billing?.verifiedOnlineBookingCredits?.pausedReason ?? null}
           helper="Staff-created appointments do not consume these credits."
         />
         <UsageMeterCard
           label="SMS segments"
-          included={0}
-          used={0}
-          remaining={0}
+          included={billing?.smsSegmentCredits?.included ?? 0}
+          addon={billing?.smsSegmentCredits?.addon ?? 0}
+          used={billing?.smsSegmentCredits?.used ?? 0}
+          remaining={billing?.smsSegmentCredits?.remaining ?? 0}
+          pausedReason={billing?.smsSegmentCredits?.pausedReason ?? null}
           helper="SMS reminders and follow-ups use separate prepaid segment credits."
         />
         <UsageMeterCard
           label="Email messages"
-          included={0}
-          used={0}
-          remaining={0}
+          included={billing?.emailCredits?.included ?? 0}
+          used={billing?.emailCredits?.used ?? 0}
+          remaining={billing?.emailCredits?.remaining ?? 0}
           helper="Included monthly email allowance follows your current plan."
         />
         <UsageMeterCard
           label="AI requests"
-          included={0}
-          used={0}
-          remaining={0}
+          included={billing?.aiRequests?.included ?? 0}
+          used={billing?.aiRequests?.used ?? 0}
+          remaining={billing?.aiRequests?.remaining ?? 0}
           helper="AI-assisted writing is only included on Growth and Pro."
         />
       </div>
@@ -242,34 +432,54 @@ export default function BillingSettingsPage() {
           interval={interval}
           ctaHref="/settings/billing"
         />
-        <div className="flex flex-wrap gap-3">
-          {(["starter", "growth", "pro"] as const).map((planType) => (
-            <Button
-              key={planType}
-              type="button"
-              disabled={actionLoading === planType}
-              aria-label={`Upgrade to ${planType}`}
-              onClick={() => startPlanCheckout(planType)}
-            >
-              {actionLoading === planType ? "Preparing checkout..." : `Upgrade to ${planType}`}
-            </Button>
-          ))}
-        </div>
+        {billing?.readOnly ? null : (
+          <div className="flex flex-wrap gap-3">
+            {(["starter", "growth", "pro"] as const).map((planType) => (
+              <Button
+                key={planType}
+                type="button"
+                disabled={actionLoading === planType || billing?.planType === planType}
+                aria-label={
+                  billing?.subscription
+                    ? billing?.planType === planType
+                      ? `${planType} current plan`
+                      : `Switch to ${planType}`
+                    : `Upgrade to ${planType}`
+                }
+                onClick={() => startPlanCheckout(planType)}
+              >
+                {actionLoading === planType
+                  ? billing?.subscription
+                    ? "Submitting..."
+                    : "Preparing checkout..."
+                  : billing?.planType === planType
+                    ? `${planType} current`
+                    : billing?.subscription
+                      ? `Switch to ${planType}`
+                      : `Upgrade to ${planType}`}
+              </Button>
+            ))}
+          </div>
+        )}
       </section>
 
-      <AddonPackGrid
-        title="Verified booking top-ups"
-        items={addonGroups.otp}
-        loadingKey={actionLoading}
-        onCheckout={startAddonCheckout}
-      />
+      {billing?.readOnly ? null : (
+        <AddonPackGrid
+          title="Verified booking top-ups"
+          items={addonGroups.otp}
+          loadingKey={actionLoading}
+          onCheckout={startAddonCheckout}
+        />
+      )}
 
-      <AddonPackGrid
-        title="SMS segment top-ups"
-        items={addonGroups.sms}
-        loadingKey={actionLoading}
-        onCheckout={startAddonCheckout}
-      />
+      {billing?.readOnly ? null : (
+        <AddonPackGrid
+          title="SMS segment top-ups"
+          items={addonGroups.sms}
+          loadingKey={actionLoading}
+          onCheckout={startAddonCheckout}
+        />
+      )}
     </div>
   );
 }

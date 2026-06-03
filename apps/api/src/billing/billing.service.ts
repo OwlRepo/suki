@@ -6,15 +6,18 @@ import {
 } from "@nestjs/common";
 import { getDb } from "@tyvera/database";
 import {
+  aiUsageEvents,
   creditReconciliationEvents,
+  emailCredits,
   organizations,
   processedWebhookEvents,
   smsAddons,
+  smsCredits,
   subscriptions,
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
 } from "@tyvera/database";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { createHash } from "crypto";
 import type { BillingInterval, PlanType } from "@tyvera/types";
 import {
@@ -77,9 +80,13 @@ export class BillingService {
     return sub ?? null;
   }
 
-  getPlansResponse(input: { checkoutEnabled: boolean }) {
+  getPlansResponse(input: {
+    checkoutEnabled: boolean;
+    annualCheckoutEnabled?: boolean;
+  }) {
     return {
       checkoutEnabled: input.checkoutEnabled,
+      annualCheckoutEnabled: input.annualCheckoutEnabled ?? false,
       plans: ["free", "starter", "growth", "pro"].map((planType) => {
         const entry = getPlanCatalogEntry(planType as PlanType);
         return entry;
@@ -92,6 +99,10 @@ export class BillingService {
     const fallbackPlanType = subscription?.planType ?? "free";
     const plan = getPlanCatalogEntry(fallbackPlanType);
     const ledger = await this.getVerifiedBookingLedger(organizationId);
+    const smsLedger = await this.getSmsLedger(organizationId);
+    const emailLedger = await this.getEmailLedger(organizationId);
+    const aiRequestsUsed = await this.getAiRequestsUsed(organizationId);
+    const ownerWarnings = await this.buildOwnerWarnings(organizationId, subscription);
     const verifiedOnlineBookingCredits = ledger
       ? {
           included: ledger.includedGranted,
@@ -107,6 +118,41 @@ export class BillingService {
           total: plan.limits.verifiedOnlineBookingsPerMonth,
           remaining: plan.limits.verifiedOnlineBookingsPerMonth,
         };
+    const smsSegmentCredits = smsLedger
+      ? {
+          included: smsLedger.included,
+          addon: smsLedger.addon,
+          used: smsLedger.used,
+          total: smsLedger.included + smsLedger.addon,
+          remaining: Math.max(0, smsLedger.included + smsLedger.addon - smsLedger.used),
+        }
+      : {
+          included: 0,
+          addon: 0,
+          used: 0,
+          total: 0,
+          remaining: 0,
+        };
+    const emailCreditsStatus = emailLedger
+      ? {
+          included: emailLedger.included,
+          used: emailLedger.used,
+          total: emailLedger.included,
+          remaining: Math.max(0, emailLedger.included - emailLedger.used),
+        }
+      : {
+          included: plan.limits.emailMessagesPerMonth,
+          used: 0,
+          total: plan.limits.emailMessagesPerMonth,
+          remaining: plan.limits.emailMessagesPerMonth,
+        };
+    const aiIncluded = plan.limits.aiRequestsPerMonth;
+    const aiRequests = {
+      included: aiIncluded,
+      used: aiRequestsUsed,
+      total: aiIncluded,
+      remaining: Math.max(0, aiIncluded - aiRequestsUsed),
+    };
 
     if (!subscription) {
       return {
@@ -120,6 +166,10 @@ export class BillingService {
         renewsAt: null,
         endsAt: null,
         verifiedOnlineBookingCredits,
+        smsSegmentCredits,
+        emailCredits: emailCreditsStatus,
+        aiRequests,
+        ownerWarnings,
         subscription: null,
       };
     }
@@ -145,6 +195,10 @@ export class BillingService {
       renewsAt: subscription.renewsAt?.toISOString() ?? null,
       endsAt: subscription.endsAt?.toISOString() ?? null,
       verifiedOnlineBookingCredits,
+      smsSegmentCredits,
+      emailCredits: emailCreditsStatus,
+      aiRequests,
+      ownerWarnings,
       subscription,
     };
   }
@@ -291,6 +345,12 @@ export class BillingService {
         .where(eq(subscriptions.id, subscription.id));
     }
 
+    await this.markPendingSync(subscription.id, {
+      action: scheduled ? "schedule_downgrade" : "change_plan",
+      targetPlanType: input.planType,
+      targetBillingInterval: targetInterval,
+    });
+
     return {
       organizationId,
       subscriptionId: subscription.id ?? null,
@@ -323,6 +383,12 @@ export class BillingService {
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.id, subscription.id));
+
+    await this.markPendingSync(subscription.id, {
+      action: "cancel",
+      targetPlanType: "free",
+      targetBillingInterval: this.resolveSubscriptionInterval(subscription),
+    });
 
     return {
       organizationId,
@@ -360,6 +426,12 @@ export class BillingService {
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.id, subscription.id));
+
+    await this.markPendingSync(subscription.id, {
+      action: "resume",
+      targetPlanType: subscription.planType,
+      targetBillingInterval: this.resolveSubscriptionInterval(subscription),
+    });
 
     return {
       organizationId,
@@ -405,10 +477,15 @@ export class BillingService {
 
     const db = getDb();
     await db.transaction(async (tx) => {
+      let webhookStatus = "processed";
       if (eventName.startsWith("subscription_")) {
         await this.reconcileSubscriptionEvent(tx, payload);
       } else if (eventName === "order_created") {
         await this.reconcileOrderCreatedEvent(tx, payload);
+      } else if (eventName === "order_refunded") {
+        await this.reconcileOrderRefundedEvent(tx, payload);
+      } else {
+        webhookStatus = "ignored";
       }
 
       await tx.insert(processedWebhookEvents).values({
@@ -418,7 +495,7 @@ export class BillingService {
         payloadHash: createHash("sha256")
           .update(JSON.stringify(payload))
           .digest("hex"),
-        status: "processed",
+        status: webhookStatus,
       });
     });
   }
@@ -545,6 +622,10 @@ export class BillingService {
       scheduledChangeEffectiveAt: scheduledDowngrade
         ? renewsAt ?? currentPeriodEnd
         : null,
+      pendingSyncAction: null,
+      pendingSyncStartedAt: null,
+      pendingSyncTargetPlanType: null,
+      pendingSyncTargetBillingInterval: null,
     };
 
     if (existingSubscription?.id) {
@@ -620,11 +701,134 @@ export class BillingService {
     }
 
     if (purchaseKind === "sms_segment_topup") {
+      const ledger = await this.getOrCreateSmsLedger(tx, organizationId);
+      await tx
+        .update(smsCredits)
+        .set({
+          addon: ledger.addon + addon.units,
+          used: ledger.used,
+          updatedAt: new Date(),
+        })
+        .where(eq(smsCredits.organizationId, organizationId));
       await tx.insert(smsAddons).values({
         organizationId,
         packSize: addon.units,
         packPricePhp: addon.pricePhp,
         purchasedByUserId: userId,
+      });
+    }
+  }
+
+  private async reconcileOrderRefundedEvent(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      insert: ReturnType<typeof getDb>["insert"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    payload: LemonWebhookPayload,
+  ): Promise<void> {
+    const eventId = payload.data?.id ?? null;
+    const customData = payload.meta?.custom_data ?? {};
+    const organizationId = this.readString(customData.organization_id);
+    const purchaseKind = this.readString(customData.purchase_kind);
+    const sku = this.readString(customData.sku);
+    if (!organizationId || !purchaseKind || !sku) {
+      return;
+    }
+
+    const addon = resolveAddonSku(sku as AddonSku);
+    if (purchaseKind === "online_booking_topup") {
+      const ledger = await this.getOrCreateVerifiedBookingLedger(tx, organizationId);
+      const addonUsed = Math.max(0, ledger.used - ledger.includedGranted);
+      const unusedAddonUnits = Math.max(0, ledger.addonGranted - addonUsed);
+      if (unusedAddonUnits < addon.units) {
+        await tx.insert(creditReconciliationEvents).values({
+          organizationId,
+          creditType: "verified_online_booking",
+          month: ledger.month,
+          eventType: "refund_review",
+          includedBefore: ledger.includedGranted,
+          includedAfter: ledger.includedGranted,
+          addonBefore: ledger.addonGranted,
+          addonAfter: ledger.addonGranted,
+          usedBefore: ledger.used,
+          usedAfter: ledger.used,
+          providerEventId: eventId,
+          metadata: { sku: addon.sku, refundedUnits: addon.units },
+        });
+        return;
+      }
+
+      await tx
+        .update(verifiedOnlineBookingCredits)
+        .set({
+          addonGranted: Math.max(0, ledger.addonGranted - addon.units),
+          used: ledger.used,
+          updatedAt: new Date(),
+        })
+        .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId));
+
+      await tx.insert(creditReconciliationEvents).values({
+        organizationId,
+        creditType: "verified_online_booking",
+        month: ledger.month,
+        eventType: "refund_applied",
+        includedBefore: ledger.includedGranted,
+        includedAfter: ledger.includedGranted,
+        addonBefore: ledger.addonGranted,
+        addonAfter: Math.max(0, ledger.addonGranted - addon.units),
+        usedBefore: ledger.used,
+        usedAfter: ledger.used,
+        providerEventId: eventId,
+        metadata: { sku: addon.sku, refundedUnits: addon.units },
+      });
+      return;
+    }
+
+    if (purchaseKind === "sms_segment_topup") {
+      const ledger = await this.getOrCreateSmsLedger(tx, organizationId);
+      const addonUsed = Math.max(0, ledger.used - ledger.included);
+      const unusedAddonUnits = Math.max(0, ledger.addon - addonUsed);
+      if (unusedAddonUnits < addon.units) {
+        await tx.insert(creditReconciliationEvents).values({
+          organizationId,
+          creditType: "sms_segment",
+          month: ledger.month,
+          eventType: "refund_review",
+          includedBefore: ledger.included,
+          includedAfter: ledger.included,
+          addonBefore: ledger.addon,
+          addonAfter: ledger.addon,
+          usedBefore: ledger.used,
+          usedAfter: ledger.used,
+          providerEventId: eventId,
+          metadata: { sku: addon.sku, refundedUnits: addon.units },
+        });
+        return;
+      }
+
+      await tx
+        .update(smsCredits)
+        .set({
+          addon: Math.max(0, ledger.addon - addon.units),
+          used: ledger.used,
+          updatedAt: new Date(),
+        })
+        .where(eq(smsCredits.organizationId, organizationId));
+
+      await tx.insert(creditReconciliationEvents).values({
+        organizationId,
+        creditType: "sms_segment",
+        month: ledger.month,
+        eventType: "refund_applied",
+        includedBefore: ledger.included,
+        includedAfter: ledger.included,
+        addonBefore: ledger.addon,
+        addonAfter: Math.max(0, ledger.addon - addon.units),
+        usedBefore: ledger.used,
+        usedAfter: ledger.used,
+        providerEventId: eventId,
+        metadata: { sku: addon.sku, refundedUnits: addon.units },
       });
     }
   }
@@ -715,12 +919,105 @@ export class BillingService {
 
   private async getVerifiedBookingLedger(organizationId: string) {
     const db = getDb();
+    const month = this.getCurrentMonthUtcKey();
     const [ledger] = await db
       .select()
       .from(verifiedOnlineBookingCredits)
       .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId))
       .limit(1);
-    return ledger ?? null;
+    return ledger?.month === month ? ledger : null;
+  }
+
+  private async getSmsLedger(organizationId: string) {
+    const db = getDb();
+    const month = this.getCurrentMonthUtcKey();
+    const [ledger] = await db
+      .select()
+      .from(smsCredits)
+      .where(eq(smsCredits.organizationId, organizationId))
+      .limit(1);
+    return ledger?.month === month ? ledger : null;
+  }
+
+  private async getEmailLedger(organizationId: string) {
+    const db = getDb();
+    const month = this.getCurrentMonthUtcKey();
+    const [ledger] = await db
+      .select()
+      .from(emailCredits)
+      .where(eq(emailCredits.organizationId, organizationId))
+      .limit(1);
+    return ledger?.month === month ? ledger : null;
+  }
+
+  private async getAiRequestsUsed(organizationId: string) {
+    const db = getDb();
+    const [summary] = await db
+      .select({
+        totalRequests: sql<number>`count(*)::int`,
+      })
+      .from(aiUsageEvents)
+      .where(eq(aiUsageEvents.organizationId, organizationId))
+      .limit(1);
+    return Number(summary?.totalRequests ?? 0);
+  }
+
+  private async buildOwnerWarnings(
+    organizationId: string,
+    subscription: Awaited<ReturnType<BillingService["getSubscription"]>>,
+  ) {
+    const db = getDb();
+    const [refundReview] = await db
+      .select()
+      .from(creditReconciliationEvents)
+      .where(eq(creditReconciliationEvents.organizationId, organizationId))
+      .limit(1);
+
+    const warnings: Array<{
+      code: string;
+      severity: "warning";
+      message: string;
+      createdAt?: string;
+      metadata?: Record<string, unknown> | null;
+    }> = [];
+
+    if (refundReview?.eventType === "refund_review") {
+      warnings.push({
+        code: "refund_review",
+        severity: "warning" as const,
+        message:
+          "A refunded add-on needs manual review before balances can be finalized.",
+        createdAt:
+          refundReview.createdAt instanceof Date
+            ? refundReview.createdAt.toISOString()
+            : undefined,
+        metadata:
+          refundReview.metadata && typeof refundReview.metadata === "object"
+            ? (refundReview.metadata as Record<string, unknown>)
+            : null,
+      });
+    }
+
+    if (
+      subscription?.pendingSyncStartedAt instanceof Date &&
+      Date.now() - subscription.pendingSyncStartedAt.getTime() >= 120_000
+    ) {
+      warnings.push({
+        code: "delayed_webhook_sync",
+        severity: "warning" as const,
+        message:
+          "Billing changes are still waiting for webhook reconciliation. Refresh shortly if this warning persists.",
+        createdAt: subscription.pendingSyncStartedAt.toISOString(),
+        metadata: {
+          pendingSyncAction: subscription.pendingSyncAction ?? null,
+          pendingSyncTargetPlanType: subscription.pendingSyncTargetPlanType ?? null,
+          pendingSyncTargetBillingInterval:
+            subscription.pendingSyncTargetBillingInterval ?? null,
+        },
+      });
+    }
+
+    return warnings;
   }
 
   private async getOrCreateVerifiedBookingLedger(
@@ -739,7 +1036,7 @@ export class BillingService {
 
     const nextLedger = {
       organizationId,
-      month: this.toMonthKey(new Date()),
+      month: this.getCurrentMonthUtcKey(),
       includedGranted: 0,
       addonGranted: 0,
       used: 0,
@@ -747,6 +1044,32 @@ export class BillingService {
       lastReconciledAt: new Date(),
     };
     await tx.insert(verifiedOnlineBookingCredits).values(nextLedger);
+    return nextLedger;
+  }
+
+  private async getOrCreateSmsLedger(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      insert: ReturnType<typeof getDb>["insert"];
+    },
+    organizationId: string,
+  ) {
+    const [ledger] = await tx
+      .select()
+      .from(smsCredits)
+      .where(eq(smsCredits.organizationId, organizationId))
+      .limit(1);
+    if (ledger) return ledger;
+
+    const nextLedger = {
+      organizationId,
+      month: this.getCurrentMonthUtcKey(),
+      included: 0,
+      addon: 0,
+      used: 0,
+      pausedReason: "none" as const,
+    };
+    await tx.insert(smsCredits).values(nextLedger);
     return nextLedger;
   }
 
@@ -839,8 +1162,33 @@ export class BillingService {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
+  private getCurrentMonthUtcKey(): string {
+    return this.toMonthKey(new Date());
+  }
+
   private toMonthKey(date: Date): string {
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+
+  private async markPendingSync(
+    subscriptionId: string,
+    input: {
+      action: string;
+      targetPlanType: PlanType | null;
+      targetBillingInterval: BillingInterval | null;
+    },
+  ) {
+    const db = getDb();
+    await db
+      .update(subscriptions)
+      .set({
+        pendingSyncAction: input.action,
+        pendingSyncStartedAt: new Date(),
+        pendingSyncTargetPlanType: input.targetPlanType,
+        pendingSyncTargetBillingInterval: input.targetBillingInterval,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, subscriptionId));
   }
 
   private resolveSubscriptionInterval(

@@ -39,6 +39,20 @@ interface Availability {
 
 type Step = "form" | "schedule" | "review" | "otp" | "done";
 
+type OtpSendResponse = {
+  success: boolean;
+  reused: boolean;
+  holdExpiresAt?: string;
+  resendAvailableAt?: string;
+  sendsRemaining?: number;
+};
+
+type ApiErrorBody = {
+  code?: string;
+  message?: string | string[];
+  error?: string | string[];
+};
+
 function composeDescription(fields: TemplateField[], values: Record<string, string>): string {
   const lines = fields
     .map((f) => {
@@ -60,6 +74,52 @@ function formatSlotLabel(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function getCountdownLabel(targetIso: string | null, fallback: string): string {
+  if (!targetIso) return fallback;
+  const diffMs = new Date(targetIso).getTime() - Date.now();
+  if (diffMs <= 0) return "0s";
+  const totalSeconds = Math.ceil(diffMs / 1000);
+  if (totalSeconds >= 60) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+  }
+  return `${totalSeconds}s`;
+}
+
+function extractApiCode(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const maybeCode = (data as ApiErrorBody).code;
+  return typeof maybeCode === "string" && maybeCode.trim().length > 0 ? maybeCode : null;
+}
+
+function mapPublicOtpError(code: string | null, fallback: string): string {
+  switch (code) {
+    case "OTP_BILLING_BLOCKED":
+      return "Bookings are temporarily unavailable right now. Please try again shortly or contact the business directly.";
+    case "OTP_RESEND_COOLDOWN":
+      return "Please wait a moment before requesting another code.";
+    case "OTP_HOLD_SEND_LIMIT":
+      return "We’ve already sent the maximum number of codes for this booking attempt. Please restart your booking.";
+    case "OTP_MOBILE_RATE_LIMIT":
+    case "OTP_IP_RATE_LIMIT":
+    case "OTP_BUSINESS_DAILY_LIMIT":
+      return "Too many verification attempts were requested. Please try again later.";
+    case "OTP_PROVIDER_UNAVAILABLE":
+      return "We couldn’t send a verification code right now. Please try again shortly.";
+    case "OTP_SLOT_CONFLICT":
+      return "That time slot was just taken. Please choose another available time.";
+    case "OTP_INVALID_CODE":
+      return "That code doesn’t look right. Please try again.";
+    case "OTP_MAX_ATTEMPTS":
+      return "Too many incorrect code attempts. Please request a new code.";
+    case "OTP_HOLD_EXPIRED":
+      return "Your hold expired. Please choose a time again.";
+    default:
+      return fallback;
+  }
 }
 
 export default function IntakePage({ params }: { params: Promise<{ businessId: string }> }) {
@@ -90,6 +150,10 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   const [holdId, setHoldId] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState("");
   const [otpSubmitting, setOtpSubmitting] = useState(false);
+  const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
+  const [resendAvailableAt, setResendAvailableAt] = useState<string | null>(null);
+  const [sendsRemaining, setSendsRemaining] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState<number>(Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -196,6 +260,18 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     ? new Date(selectedDay).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })
     : "None selected";
   const selectedTimeLabel = selectedSlot ? formatSlotLabel(selectedSlot) : "None selected";
+  const resendCooldownActive = !!resendAvailableAt && new Date(resendAvailableAt).getTime() > nowTick;
+  const holdExpired = !!holdExpiresAt && new Date(holdExpiresAt).getTime() <= nowTick;
+
+  useEffect(() => {
+    if (step !== "otp") return;
+    const timer = window.setInterval(() => {
+      setNowTick(Date.now());
+    }, 1000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [step]);
 
   const jumpToWizardStep = (stepId: "details" | "date" | "time" | "review" | "verify") => {
     if (stepId === "details") setStep("form");
@@ -348,11 +424,23 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       });
       const otpData = await otpRes.json().catch(() => ({}));
       if (!otpRes.ok) {
-        throw new Error(normalizeApiError(otpData, "Failed to send OTP"));
+        throw new Error(
+          mapPublicOtpError(
+            extractApiCode(otpData),
+            normalizeApiError(otpData, "Failed to send OTP"),
+          ),
+        );
       }
 
+      const otpResponse = otpData as OtpSendResponse;
       setHoldId(createdHoldId);
       setOtpCode("");
+      setHoldExpiresAt(otpResponse.holdExpiresAt ?? null);
+      setResendAvailableAt(otpResponse.resendAvailableAt ?? null);
+      setSendsRemaining(
+        typeof otpResponse.sendsRemaining === "number" ? otpResponse.sendsRemaining : null,
+      );
+      setNowTick(Date.now());
       setStep("otp");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to continue");
@@ -373,7 +461,18 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(normalizeApiError(data, "Invalid OTP"));
+        const code = extractApiCode(data);
+        if (code === "OTP_SLOT_CONFLICT") {
+          setAvailabilityReloadNonce((prev) => prev + 1);
+          setScheduleSubStep("date");
+          setStep("schedule");
+          throw new Error(mapPublicOtpError(code, "Invalid OTP"));
+        }
+        if (code === "OTP_HOLD_EXPIRED") {
+          setScheduleSubStep("date");
+          setStep("schedule");
+        }
+        throw new Error(mapPublicOtpError(code, normalizeApiError(data, "Invalid OTP")));
       }
       setStep("done");
     } catch (e) {
@@ -432,6 +531,11 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
             Selected slot: {new Date(selectedSlot).toLocaleString()}
           </p>
         )}
+        <div className="mt-3 space-y-1 text-center text-sm text-muted-foreground">
+          <p>Hold expires in {getCountdownLabel(holdExpiresAt, "0s")}</p>
+          <p>Resend available in {getCountdownLabel(resendAvailableAt, "0s")}</p>
+          {typeof sendsRemaining === "number" ? <p>{sendsRemaining} sends remaining</p> : null}
+        </div>
         <div className="mt-8 space-y-4">
           <div>
             <Label htmlFor="otp-code" className="mb-1 block">
@@ -458,7 +562,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
             type="button"
             variant="outline"
             className="min-h-[44px] w-full"
-            disabled={!holdId || submitting}
+            disabled={!holdId || submitting || resendCooldownActive || holdExpired}
             onClick={async () => {
               if (!holdId) return;
               setSubmitting(true);
@@ -471,8 +575,22 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                  throw new Error(normalizeApiError(data, "Failed to resend OTP"));
+                  throw new Error(
+                    mapPublicOtpError(
+                      extractApiCode(data),
+                      normalizeApiError(data, "Failed to resend OTP"),
+                    ),
+                  );
                 }
+                const otpResponse = data as OtpSendResponse;
+                setHoldExpiresAt(otpResponse.holdExpiresAt ?? holdExpiresAt);
+                setResendAvailableAt(otpResponse.resendAvailableAt ?? resendAvailableAt);
+                setSendsRemaining(
+                  typeof otpResponse.sendsRemaining === "number"
+                    ? otpResponse.sendsRemaining
+                    : sendsRemaining,
+                );
+                setNowTick(Date.now());
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Failed to resend OTP");
               } finally {
@@ -480,7 +598,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
               }
             }}
           >
-            Resend OTP
+            {resendCooldownActive ? "Resend OTP (cooldown active)" : "Resend OTP"}
           </Button>
         </div>
       </div>

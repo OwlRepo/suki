@@ -10,6 +10,7 @@ export function UsageMeterCard({
   used,
   remaining,
   helper,
+  pausedReason,
 }: {
   label: string;
   included: number;
@@ -17,6 +18,7 @@ export function UsageMeterCard({
   used: number;
   remaining: number;
   helper: string;
+  pausedReason?: string | null;
 }) {
   const total = included + addon;
   const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
@@ -47,6 +49,9 @@ export function UsageMeterCard({
         {used.toLocaleString("en-PH")} used · {included.toLocaleString("en-PH")} included
         {addon > 0 ? ` · ${addon.toLocaleString("en-PH")} purchased` : ""}
       </p>
+      {pausedReason ? (
+        <p className="mt-1 text-xs text-amber-700">Usage is currently paused because billing is not active.</p>
+      ) : null}
       <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
     </Card>
   );

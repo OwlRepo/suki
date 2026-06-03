@@ -68,7 +68,14 @@ export class AuthController {
     if (!token) throw new UnauthorizedException("No active session");
     const session = await this.authService.validateSession(token);
     if (!session) throw new UnauthorizedException("Invalid session");
-    return { user: { id: session.user.id, email: session.user.email } };
+    return {
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        role: session.user.role,
+        organizationId: session.user.organizationId,
+      },
+    };
   }
 
   @Post("sign-out")

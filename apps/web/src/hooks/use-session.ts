@@ -6,7 +6,12 @@ import { getSession } from "@/lib/auth-client";
 type SessionState = {
   loading: boolean;
   isSignedIn: boolean;
-  user: { id: string; email?: string } | null;
+  user: {
+    id: string;
+    email?: string;
+    role?: "owner" | "staff";
+    organizationId?: string;
+  } | null;
 };
 
 let cachedResolved: Omit<SessionState, "loading"> | null = null;
@@ -20,7 +25,15 @@ async function loadSessionOnce(): Promise<Omit<SessionState, "loading">> {
     try {
       const data = await getSession();
       const resolved = data?.user
-        ? { isSignedIn: true, user: data.user as { id: string; email?: string } }
+        ? {
+            isSignedIn: true,
+            user: data.user as {
+              id: string;
+              email?: string;
+              role?: "owner" | "staff";
+              organizationId?: string;
+            },
+          }
         : { isSignedIn: false, user: null };
       cachedResolved = resolved;
       return resolved;
