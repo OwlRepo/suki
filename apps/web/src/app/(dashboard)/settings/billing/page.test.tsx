@@ -78,6 +78,8 @@ describe("BillingSettingsPage", () => {
 
       if (path === "/billing/plans") {
         return {
+          checkoutEnabled: true,
+          annualCheckoutEnabled: false,
           plans: [
             {
               planType: "free",
@@ -271,7 +273,7 @@ describe("BillingSettingsPage", () => {
       }
 
       if (path === "/billing/plans") {
-        return { plans: [] };
+        return { checkoutEnabled: true, annualCheckoutEnabled: false, plans: [] };
       }
 
       throw new Error(`Unexpected path: ${path}`);
@@ -345,7 +347,7 @@ describe("BillingSettingsPage", () => {
       }
 
       if (path === "/billing/plans") {
-        return { plans: [] };
+        return { checkoutEnabled: true, annualCheckoutEnabled: false, plans: [] };
       }
 
       throw new Error(`Unexpected path: ${path}`);
@@ -356,5 +358,77 @@ describe("BillingSettingsPage", () => {
     expect(await screen.findByText(/temporarily paused/i)).toBeInTheDocument();
     expect(screen.getByText(/scheduled to move to starter/i)).toBeInTheDocument();
     expect(screen.getByText(/waiting for webhook reconciliation/i)).toBeInTheDocument();
+  });
+
+  it("hides Lemon-backed billing actions when self-serve billing is off", async () => {
+    apiRequestMock.mockImplementation(async (path: string) => {
+      if (path === "/billing/status") {
+        return {
+          planType: "free",
+          billingStatus: "free_active",
+          billingInterval: null,
+          readOnly: false,
+          renewsAt: null,
+          endsAt: null,
+          cancellationPending: false,
+          scheduledPlanType: null,
+          scheduledBillingInterval: null,
+          scheduledChangeEffectiveAt: null,
+          ownerWarnings: [],
+          verifiedOnlineBookingCredits: {
+            included: 5,
+            addon: 0,
+            used: 1,
+            remaining: 4,
+            total: 5,
+          },
+          smsSegmentCredits: {
+            included: 0,
+            addon: 0,
+            used: 0,
+            remaining: 0,
+            total: 0,
+          },
+          emailCredits: {
+            included: 100,
+            used: 20,
+            remaining: 80,
+            total: 100,
+          },
+          aiRequests: {
+            included: 0,
+            used: 0,
+            remaining: 0,
+            total: 0,
+          },
+          subscription: null,
+        };
+      }
+
+      if (path === "/billing/plans") {
+        return { checkoutEnabled: false, annualCheckoutEnabled: false, plans: [] };
+      }
+
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<BillingSettingsPage />);
+
+    expect(await screen.findByText("FREE")).toBeInTheDocument();
+    expect(
+      screen.getByText(/self-serve billing is disabled in this environment/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /manage billing/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /cancel subscription/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /resume subscription/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/upgrade or change plan/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/verified online bookings/i)).toBeInTheDocument();
+    expect(screen.getByText(/email messages/i)).toBeInTheDocument();
   });
 });

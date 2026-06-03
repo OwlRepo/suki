@@ -95,4 +95,62 @@ describe("PricingPage", () => {
       "/settings/billing",
     );
   });
+
+  it("disables paid checkout CTAs when self-serve billing is off", async () => {
+    useSessionMock.mockReturnValue({
+      loading: false,
+      isSignedIn: false,
+      user: null,
+    });
+    apiRequestMock.mockResolvedValue({
+      checkoutEnabled: false,
+      annualCheckoutEnabled: false,
+      plans: [
+        {
+          planType: "free",
+          displayName: "Free",
+          monthlyPricePhp: 0,
+          annualPricePhp: null,
+          limits: {
+            branches: 1,
+            staffAccounts: 1,
+            customerRecords: 100,
+            staffCreatedAppointmentsPerMonth: 50,
+            verifiedOnlineBookingsPerMonth: 5,
+            emailMessagesPerMonth: 100,
+            aiRequestsPerMonth: 0,
+          },
+          modules: [],
+        },
+        {
+          planType: "growth",
+          displayName: "Growth",
+          monthlyPricePhp: 2499,
+          annualPricePhp: 24990,
+          mostPopular: true,
+          limits: {
+            branches: 3,
+            staffAccounts: 10,
+            customerRecords: 5000,
+            staffCreatedAppointmentsPerMonth: null,
+            verifiedOnlineBookingsPerMonth: 80,
+            emailMessagesPerMonth: 5000,
+            aiRequestsPerMonth: 100,
+          },
+          modules: [],
+        },
+      ],
+    });
+
+    render(<PricingPage />);
+
+    expect(await screen.findByRole("link", { name: /get started/i })).toHaveAttribute(
+      "href",
+      "/sign-up",
+    );
+    expect(
+      screen.getByRole("button", { name: /self-serve billing disabled/i }),
+    ).toBeDisabled();
+    expect(screen.getByText(/Paid billing is not yet self-serve/i)).toBeInTheDocument();
+  });
 });

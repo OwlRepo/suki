@@ -16,6 +16,7 @@ export default function PricingPage() {
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutEnabled, setCheckoutEnabled] = useState(false);
   const [annualCheckoutEnabled, setAnnualCheckoutEnabled] = useState(false);
 
   useEffect(() => {
@@ -23,11 +24,13 @@ export default function PricingPage() {
     (async () => {
       try {
         const result = await apiRequest<{
+          checkoutEnabled: boolean;
           plans: BillingPlan[];
           annualCheckoutEnabled?: boolean;
         }>("/billing/plans");
         if (!cancelled) {
           setPlans(result.plans);
+          setCheckoutEnabled(result.checkoutEnabled);
           setAnnualCheckoutEnabled(result.annualCheckoutEnabled ?? false);
         }
       } catch (err) {
@@ -68,8 +71,31 @@ export default function PricingPage() {
         <PlanComparisonGrid
           plans={plans}
           interval={interval}
-          ctaHref={isSignedIn ? "/settings/billing" : "/sign-up"}
           annualCheckoutEnabled={annualCheckoutEnabled}
+          ctaForPlan={(plan) => {
+            if (plan.planType === "free") {
+              return {
+                label: "Get started",
+                href: isSignedIn ? "/settings/billing" : "/sign-up",
+              };
+            }
+
+            if (!checkoutEnabled) {
+              return {
+                label: "Self-serve billing disabled",
+                disabled: true,
+                disabledHelper:
+                  interval === "annual"
+                    ? "Annual billing is visible now but not yet self-serve."
+                    : "Paid billing is not yet self-serve.",
+              };
+            }
+
+            return {
+              label: isSignedIn ? "Manage billing" : "Choose plan",
+              href: isSignedIn ? "/settings/billing" : "/sign-up",
+            };
+          }}
         />
       )}
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TyveraAssistant } from "./tyvera-assistant";
 
-const { apiRequestMock } = vi.hoisted(() => ({
+const { apiRequestMock, usePlanCapabilitiesMock } = vi.hoisted(() => ({
   apiRequestMock: vi.fn(async (path: string) => {
     if (path.startsWith("/ai/usage/summary")) {
       return {
@@ -32,6 +32,19 @@ const { apiRequestMock } = vi.hoisted(() => ({
     }
     return {};
   }),
+  usePlanCapabilitiesMock: vi.fn(() => ({
+    planType: "growth",
+    canUseAi: true,
+    canSeeAssistant: true,
+    canSeeAiUsage: true,
+    canSeeAiAnalytics: true,
+    canSeeRefineWithAi: true,
+    loading: false,
+    billing: null,
+    error: null,
+    readOnly: false,
+    daysRemaining: null,
+  })),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -46,12 +59,17 @@ vi.mock("@/lib/api", () => ({
   apiRequest: apiRequestMock,
 }));
 
+vi.mock("@/hooks/use-plan-capabilities", () => ({
+  usePlanCapabilities: usePlanCapabilitiesMock,
+}));
+
 describe("TyveraAssistant orchestration UI", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
   beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED", "true");
     apiRequestMock.mockReset();
     apiRequestMock.mockImplementation(async (path: string) => {
       if (path.startsWith("/ai/usage/summary")) {

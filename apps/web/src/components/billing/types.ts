@@ -19,3 +19,10 @@ export interface BillingPlan {
   };
   modules: string[];
 }
+
+export interface BillingPlanCta {
+  label: string;
+  href?: string;
+  disabled?: boolean;
+  disabledHelper?: string;
+}

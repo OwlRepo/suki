@@ -40,10 +40,12 @@ function validateEnv() {
   if (process.env.OPENAI_API_KEY?.includes("placeholder")) {
     console.warn("[Tyvera API] OPENAI_API_KEY is placeholder. AI messaging will be disabled.");
   }
+  const selfServeBillingEnabled = process.env.FF_self_serve_billing_enabled === "true";
   if (
-    process.env.LEMONSQUEEZY_API_KEY?.includes("placeholder") ||
-    !process.env.LEMONSQUEEZY_API_KEY ||
-    !process.env.LEMONSQUEEZY_STORE_ID
+    selfServeBillingEnabled &&
+    (process.env.LEMONSQUEEZY_API_KEY?.includes("placeholder") ||
+      !process.env.LEMONSQUEEZY_API_KEY ||
+      !process.env.LEMONSQUEEZY_STORE_ID)
   ) {
     console.warn(
       "[Tyvera API] Lemon Squeezy not fully configured. Self-serve billing checkout will be unavailable.",

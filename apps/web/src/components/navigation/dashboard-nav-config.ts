@@ -10,6 +10,7 @@ import {
   Share2,
   Users,
 } from "lucide-react";
+import type { PlanCapabilities } from "@/lib/plan-capabilities";
 
 export interface NavItem {
   href: string;
@@ -26,7 +27,12 @@ export interface NavGroup {
 /**
  * Returns dashboard nav groups for the freemium MVP scope.
  */
-export function getDashboardNavGroups(_showPipeline: boolean): NavGroup[] {
+export function getDashboardNavGroups(
+  _showPipeline: boolean,
+  capabilities: Pick<PlanCapabilities, "canSeeAiAnalytics"> = {
+    canSeeAiAnalytics: true,
+  },
+): NavGroup[] {
   const dailyItems: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/customers", label: "Customers", icon: Users },
@@ -41,7 +47,9 @@ export function getDashboardNavGroups(_showPipeline: boolean): NavGroup[] {
       label: "Business growth",
       items: [
         { href: "/insights", label: "Business summary", icon: BarChart3 },
-        { href: "/analytics", label: "Usage analytics", icon: BarChart3 },
+        ...(capabilities.canSeeAiAnalytics
+          ? [{ href: "/analytics", label: "Usage analytics", icon: BarChart3 }]
+          : []),
       ],
     },
     {

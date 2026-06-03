@@ -1,9 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TyveraAssistant } from "./tyvera-assistant";
 
+const { usePlanCapabilitiesMock } = vi.hoisted(() => ({
+  usePlanCapabilitiesMock: vi.fn(),
+}));
+
 vi.mock("@/lib/auth", () => ({
   useAuth: () => ({ getToken: vi.fn().mockResolvedValue("token") }),
+}));
+
+vi.mock("@/hooks/use-plan-capabilities", () => ({
+  usePlanCapabilities: usePlanCapabilitiesMock,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -32,6 +40,43 @@ vi.mock("@/contexts/workspace-context", () => ({
 }));
 
 describe("TyveraAssistant", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED", "true");
+    usePlanCapabilitiesMock.mockReturnValue({
+      planType: "growth",
+      canUseAi: true,
+      canSeeAssistant: true,
+      canSeeAiUsage: true,
+      canSeeAiAnalytics: true,
+      canSeeRefineWithAi: true,
+      loading: false,
+      billing: null,
+      error: null,
+      readOnly: false,
+      daysRemaining: null,
+    });
+  });
+
+  it("hides the assistant launcher on plans without AI access", () => {
+    usePlanCapabilitiesMock.mockReturnValue({
+      planType: "free",
+      canUseAi: false,
+      canSeeAssistant: false,
+      canSeeAiUsage: false,
+      canSeeAiAnalytics: false,
+      canSeeRefineWithAi: false,
+      loading: false,
+      billing: null,
+      error: null,
+      readOnly: false,
+      daysRemaining: null,
+    });
+
+    render(<TyveraAssistant />);
+
+    expect(screen.queryByRole("button", { name: /open tyvera assistant/i })).not.toBeInTheDocument();
+  });
+
   it("opens panel, shows usage strip, and suggested prompts", async () => {
     render(<TyveraAssistant />);
     fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));

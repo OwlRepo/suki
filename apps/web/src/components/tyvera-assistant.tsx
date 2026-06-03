@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { buildApiUrl } from "@/lib/api-base";
 import { useWorkspace } from "@/contexts/workspace-context";
+import { usePlanCapabilities } from "@/hooks/use-plan-capabilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,6 +70,7 @@ function isUsableBearerToken(token: string | null | undefined): token is string 
 export function TyveraAssistant() {
   const { getToken } = useAuth();
   const workspace = useWorkspace();
+  const planCapabilities = usePlanCapabilities();
   const [open, setOpen] = useState(false);
   const [showCoachmark, setShowCoachmark] = useState(false);
   const [coachmarkStep, setCoachmarkStep] = useState(0);
@@ -88,6 +90,10 @@ export function TyveraAssistant() {
   const [threadId, setThreadId] = useState<string>("");
   const [assistantState, setAssistantState] = useState<AssistantMessage["state"]>("read");
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const assistantLauncherEnabled =
+    process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED === "true";
+  const canRenderAssistant =
+    assistantLauncherEnabled && planCapabilities.canSeeAssistant;
 
   const refreshUsageSummary = async () => {
     const token = await getToken();
@@ -412,6 +418,10 @@ export function TyveraAssistant() {
     ]);
     setAssistantState("read");
   };
+
+  if (!canRenderAssistant) {
+    return null;
+  }
 
   return (
     <>

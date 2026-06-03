@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
+import { usePlanCapabilities } from "@/hooks/use-plan-capabilities";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
@@ -20,9 +21,11 @@ interface AiSummary {
 export function AiQuotaBanner() {
   const { getToken } = useAuth();
   const flags = useFeatureFlags();
+  const planCapabilities = usePlanCapabilities();
   const [summary, setSummary] = useState<AiSummary | null>(null);
 
   useEffect(() => {
+    if (!planCapabilities.canSeeAiUsage || !flags.ai_usage_transparency_enabled) return;
     (async () => {
       try {
         const token = await getToken();
@@ -33,9 +36,9 @@ export function AiQuotaBanner() {
         setSummary(null);
       }
     })();
-  }, [getToken]);
+  }, [flags.ai_usage_transparency_enabled, getToken, planCapabilities.canSeeAiUsage]);
 
-  if (!flags.ai_usage_transparency_enabled) return null;
+  if (!flags.ai_usage_transparency_enabled || !planCapabilities.canSeeAiUsage) return null;
   if (!summary || summary.tokensLimit === 0) return null;
   if (!summary.aiEnabled) return null;
 

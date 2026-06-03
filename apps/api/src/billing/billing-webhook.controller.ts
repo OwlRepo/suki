@@ -7,6 +7,7 @@ import {
 import type { Request } from "express";
 import { BillingService } from "./billing.service";
 import { LemonsqueezyService } from "./lemonsqueezy.service";
+import { FeatureFlagsService } from "../common/feature-flags.service";
 
 type RawBodyRequest = Request & {
   rawBody?: Buffer | string;
@@ -28,10 +29,18 @@ export class BillingWebhookController {
   constructor(
     private readonly lemonsqueezy: LemonsqueezyService,
     private readonly billingService: BillingService,
+    private readonly featureFlags: FeatureFlagsService,
   ) {}
 
   @Post("webhook/lemonsqueezy")
   async handleLemonSqueezyWebhook(@Req() req: RawBodyRequest) {
+    if (!this.featureFlags.selfServeBillingEnabled()) {
+      return {
+        received: true,
+        duplicate: false,
+      };
+    }
+
     const signature = req.headers["x-signature"];
     const signatureValue = Array.isArray(signature) ? signature[0] : signature;
     const rawBody = req.rawBody ?? "";

@@ -8,6 +8,7 @@ import { WorkspaceDropdown } from "@/components/workspace-dropdown";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { DashboardOnboardingWrapper } from "@/components/onboarding";
 import { TrialBanner } from "@/components/trial-banner";
+import { usePlanCapabilities } from "@/hooks/use-plan-capabilities";
 import {
   getDashboardNavGroups,
   getMobileBottomNavItems,
@@ -22,14 +23,18 @@ const SIDEBAR_WIDTH = 240;
 
 export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
   const workspace = useWorkspace();
+  const planCapabilities = usePlanCapabilities();
   const activeBiz = workspace?.businesses.find(
     (b) => b.id === workspace?.activeBusinessId
   );
   const showPipeline = activeBiz?.crmMode === "full";
 
   const navGroups = useMemo(
-    () => getDashboardNavGroups(showPipeline),
-    [showPipeline]
+    () =>
+      getDashboardNavGroups(showPipeline, {
+        canSeeAiAnalytics: planCapabilities.canSeeAiAnalytics,
+      }),
+    [planCapabilities.canSeeAiAnalytics, showPipeline]
   );
   const mobileBottomItems = useMemo(
     () => getMobileBottomNavItems(showPipeline),
@@ -120,7 +125,10 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
         />
-       { process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED === "true" && <TyveraAssistant /> }
+        {process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED === "true" &&
+        planCapabilities.canSeeAssistant ? (
+          <TyveraAssistant />
+        ) : null}
       </div>
     </DashboardOnboardingWrapper>
   );

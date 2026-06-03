@@ -4,6 +4,7 @@
 |---|---|---|---|
 | `apps/web/src/lib/api-base.ts` | Browser API base URL helper | Used by web API/auth/intake/assistant clients | Resolves explicit `NEXT_PUBLIC_API_URL`, development localhost default, and production same-origin `/api` proxy default |
 | `apps/web/src/lib/api.ts` | Web API client helpers | Called by hooks/components and uses `api-base` | Typed HTTP calls to API with production same-origin `/api` routing |
+| `apps/web/src/lib/plan-capabilities.ts` | Plan-to-web-visibility helper | Used by dashboard shells, analytics, AI banners, and settings routes | Maps current billing plan to AI visibility booleans such as assistant, AI usage, analytics, and refine actions |
 | `apps/web/src/lib/utils.ts` | Shared client utility functions | Used across UI and feature files | Formatting and helper logic |
 | `apps/web/src/lib/protected-routes.ts` | Public/protected pathname policy helpers | Used by route-policy tests and route classification helpers | Centralized public/protected path classification including auth recovery routes |
 | `apps/web/src/app/intake/[businessId]/schedule-utils.ts` | Intake schedule normalization helpers | Used by intake page date/time selection UI | Filters availability days by selected month and formats day labels without timezone drift |

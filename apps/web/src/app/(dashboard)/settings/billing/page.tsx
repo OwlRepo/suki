@@ -68,6 +68,7 @@ export default function BillingSettingsPage() {
   const searchParams = useSearchParams();
   const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
+  const [checkoutEnabled, setCheckoutEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [interval, setBillingInterval] = useState<BillingInterval>("monthly");
@@ -99,11 +100,12 @@ export default function BillingSettingsPage() {
         if (!token) return;
         const [billingData, plansData] = await Promise.all([
           apiRequest<BillingStatusResponse>("/billing/status", { token }),
-          apiRequest<{ plans: BillingPlan[] }>("/billing/plans"),
+          apiRequest<{ checkoutEnabled: boolean; plans: BillingPlan[] }>("/billing/plans"),
         ]);
         if (cancelled) return;
         setBilling(billingData);
         setPlans(plansData.plans);
+        setCheckoutEnabled(plansData.checkoutEnabled ?? false);
         setBillingInterval(billingData.billingInterval ?? "monthly");
       } catch (err) {
         if (!cancelled) {
@@ -291,13 +293,20 @@ export default function BillingSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <CheckoutSyncBanner
-        syncing={syncing}
-        timedOut={syncTimedOut}
-        delayedSyncWarning={
-          billing?.ownerWarnings?.find((warning) => warning.code === "delayed_webhook_sync")?.message ?? null
-        }
-      />
+      {checkoutEnabled ? (
+        <CheckoutSyncBanner
+          syncing={syncing}
+          timedOut={syncTimedOut}
+          delayedSyncWarning={
+            billing?.ownerWarnings?.find((warning) => warning.code === "delayed_webhook_sync")?.message ?? null
+          }
+        />
+      ) : (
+        <StatusBanner
+          variant="info"
+          message="Self-serve billing is disabled in this environment. You can keep using the free plan with caps and usage meters."
+        />
+      )}
       {billing ? (
         <BillingStatusBanner
           billingStatus={billing.billingStatus}
@@ -343,7 +352,7 @@ export default function BillingSettingsPage() {
               : "No active paid subscription yet."
         }
       />
-      {billing && !billing.readOnly ? (
+      {billing && !billing.readOnly && checkoutEnabled ? (
         <div className="flex flex-wrap gap-3">
           {billing.subscription ? (
             <>
@@ -417,7 +426,8 @@ export default function BillingSettingsPage() {
         />
       </div>
 
-      <section className="flex flex-col gap-4">
+      {checkoutEnabled ? (
+        <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">Upgrade or change plan</h2>
@@ -461,25 +471,26 @@ export default function BillingSettingsPage() {
             ))}
           </div>
         )}
-      </section>
+        </section>
+      ) : null}
 
-      {billing?.readOnly ? null : (
+      {checkoutEnabled && !billing?.readOnly ? (
         <AddonPackGrid
           title="Verified booking top-ups"
           items={addonGroups.otp}
           loadingKey={actionLoading}
           onCheckout={startAddonCheckout}
         />
-      )}
+      ) : null}
 
-      {billing?.readOnly ? null : (
+      {checkoutEnabled && !billing?.readOnly ? (
         <AddonPackGrid
           title="SMS segment top-ups"
           items={addonGroups.sms}
           loadingKey={actionLoading}
           onCheckout={startAddonCheckout}
         />
-      )}
+      ) : null}
     </div>
   );
 }

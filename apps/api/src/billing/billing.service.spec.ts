@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { ServiceUnavailableException } from "@nestjs/common";
 import {
   aiUsageEvents,
   emailCredits,
@@ -290,9 +291,31 @@ function createDbHarness(input?: {
 }
 
 describe("BillingService", () => {
+  const envBackup = { ...process.env };
+
   beforeEach(() => {
+    process.env = {
+      ...envBackup,
+      FF_self_serve_billing_enabled: "true",
+    };
     vi.clearAllMocks();
   });
+
+  afterEach(() => {
+    process.env = { ...envBackup };
+  });
+
+  async function expectBillingDisabled(action: () => Promise<unknown>) {
+    try {
+      await action();
+      throw new Error("Expected billing action to be disabled");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect((error as ServiceUnavailableException).getResponse()).toMatchObject({
+        code: "BILLING_DISABLED",
+      });
+    }
+  }
 
   it("returns the centralized plans response with checkout flag", () => {
     const service = new BillingService({} as never);
@@ -309,6 +332,49 @@ describe("BillingService", () => {
       mostPopular: true,
       monthlyPricePhp: 2_499,
     });
+  });
+
+  it("rejects Lemon-backed billing mutations when self-serve billing is disabled", async () => {
+    process.env.FF_self_serve_billing_enabled = "false";
+    const provider = {
+      createCheckout: vi.fn(),
+      getSubscription: vi.fn(),
+      updateSubscription: vi.fn(),
+      cancelSubscription: vi.fn(),
+    };
+    const service = new BillingService(provider as never);
+
+    await expectBillingDisabled(() =>
+      service.createSubscriptionCheckout({
+        organizationId: "org-1",
+        userId: "user-1",
+        planType: "growth",
+        billingInterval: "monthly",
+      }),
+    );
+    await expectBillingDisabled(() =>
+      service.createAddonCheckout({
+        organizationId: "org-1",
+        userId: "user-1",
+        sku: "sms-segment-topup-25",
+      }),
+    );
+    await expectBillingDisabled(() =>
+      service.createCustomerPortal("org-1"),
+    );
+    await expectBillingDisabled(() =>
+      service.changePlan("org-1", {
+        planType: "growth",
+        billingInterval: "monthly",
+      }),
+    );
+    await expectBillingDisabled(() => service.cancel("org-1"));
+    await expectBillingDisabled(() => service.resume("org-1"));
+
+    expect(provider.createCheckout).not.toHaveBeenCalled();
+    expect(provider.getSubscription).not.toHaveBeenCalled();
+    expect(provider.updateSubscription).not.toHaveBeenCalled();
+    expect(provider.cancelSubscription).not.toHaveBeenCalled();
   });
 
   it("builds a free fallback billing status when no subscription exists", async () => {
@@ -1367,6 +1433,30 @@ describe("BillingService", () => {
       status: "failed",
       failureReason: expect.any(String),
     });
+  });
+
+  it("ignores webhook reconciliation entirely when self-serve billing is disabled", async () => {
+    process.env.FF_self_serve_billing_enabled = "false";
+    const { state } = createDbHarness();
+    const service = new BillingService({} as never);
+
+    await expect(
+      service.reconcileWebhookEvent({
+        meta: {
+          event_name: "subscription_created",
+          custom_data: {
+            organization_id: "org-1",
+          },
+        },
+        data: {
+          id: "sub_123",
+          attributes: {},
+        },
+      }),
+    ).resolves.toBe("ignored");
+
+    expect(state.inserted.processedEvents).toHaveLength(0);
+    expect(state.updated.processedEvents).toHaveLength(0);
   });
   it("changes to a higher plan immediately through Lemon Squeezy and waits for webhook activation", async () => {
     createDbHarness({

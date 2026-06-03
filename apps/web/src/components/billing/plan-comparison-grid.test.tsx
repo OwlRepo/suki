@@ -78,8 +78,16 @@ describe("billing plan components", () => {
       <PlanComparisonGrid
         plans={plans}
         interval="monthly"
-        ctaHref="/sign-up"
         annualCheckoutEnabled={false}
+        ctaForPlan={(plan) =>
+          plan.planType === "free"
+            ? { label: "Get started", href: "/sign-up" }
+            : {
+                label: "Self-serve billing disabled",
+                disabled: true,
+                disabledHelper: "Paid billing is not yet self-serve.",
+              }
+        }
       />,
     );
 
@@ -103,12 +111,54 @@ describe("billing plan components", () => {
       <PlanComparisonGrid
         plans={plans}
         interval="annual"
-        ctaHref="/settings/billing"
         annualCheckoutEnabled={false}
+        ctaForPlan={(plan) =>
+          plan.planType === "free"
+            ? { label: "Get started", href: "/sign-up" }
+            : {
+                label: "Choose plan",
+                disabled: true,
+                disabledHelper: "Annual billing is visible now but not yet self-serve.",
+              }
+        }
       />,
     );
 
-    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/settings/billing");
+    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/sign-up");
     expect(screen.getAllByText(/Annual billing is visible now but not yet self-serve/i).length).toBeGreaterThan(0);
+  });
+
+  it("renders disabled paid plan CTAs when checkout is off", () => {
+    render(
+      <PlanComparisonGrid
+        plans={plans}
+        interval="monthly"
+        annualCheckoutEnabled={false}
+        ctaForPlan={(plan) =>
+          plan.planType === "free"
+            ? { label: "Get started", href: "/sign-up" }
+            : {
+                label: "Self-serve billing disabled",
+                disabled: true,
+                disabledHelper: "Paid billing is not yet self-serve.",
+              }
+        }
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute(
+      "href",
+      "/sign-up",
+    );
+    const disabledCtas = screen.getAllByRole("button", {
+      name: /self-serve billing disabled/i,
+    });
+    expect(disabledCtas).toHaveLength(3);
+    disabledCtas.forEach((button) => {
+      expect(button).toBeDisabled();
+    });
+    expect(
+      screen.getAllByText(/Paid billing is not yet self-serve/i),
+    ).toHaveLength(3);
   });
 });

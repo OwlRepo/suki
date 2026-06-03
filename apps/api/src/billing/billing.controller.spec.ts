@@ -53,6 +53,16 @@ describe("BillingController", () => {
     });
   });
 
+  it("keeps annual checkout disabled when self-serve billing is off", async () => {
+    featureFlags.selfServeBillingEnabled.mockReturnValue(false);
+    featureFlags.annualBillingCheckoutEnabled.mockReturnValue(true);
+
+    await expect(controller.getPlans()).resolves.toMatchObject({
+      checkoutEnabled: false,
+      annualCheckoutEnabled: false,
+    });
+  });
+
   it("returns billing status for the current org", async () => {
     await expect(controller.getStatus("org-1", "owner")).resolves.toMatchObject({
       planType: "free",

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { BillingInterval, BillingPlan } from "./types";
+import type { BillingInterval, BillingPlan, BillingPlanCta } from "./types";
 
 function formatPhp(amount: number | null) {
   if (amount === null) return "Custom";
@@ -14,13 +14,21 @@ function formatPhp(amount: number | null) {
 export function PlanComparisonGrid({
   plans,
   interval,
-  ctaHref,
   annualCheckoutEnabled = true,
+  ctaHref,
+  ctaLabel,
+  ctaDisabled,
+  ctaDisabledHelper,
+  ctaForPlan,
 }: {
   plans: BillingPlan[];
   interval: BillingInterval;
-  ctaHref: string;
   annualCheckoutEnabled?: boolean;
+  ctaHref?: string;
+  ctaLabel?: string;
+  ctaDisabled?: boolean;
+  ctaDisabledHelper?: string;
+  ctaForPlan?: (plan: BillingPlan) => BillingPlanCta;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-4">
@@ -33,6 +41,17 @@ export function PlanComparisonGrid({
           interval === "annual" &&
           plan.planType !== "free" &&
           !annualCheckoutEnabled;
+        const cta = ctaForPlan
+          ? ctaForPlan(plan)
+          : {
+              label: ctaLabel ?? (plan.planType === "free" ? "Get started" : "Choose plan"),
+              href: ctaHref,
+              disabled: ctaDisabled ?? annualDisabled,
+              disabledHelper:
+                ctaDisabledHelper ??
+                (annualDisabled ? "Annual billing is visible now but not yet self-serve." : undefined),
+            };
+        const helper = cta.disabledHelper;
 
         return (
           <Card key={plan.planType} className="flex h-full flex-col border border-border p-5">
@@ -68,20 +87,22 @@ export function PlanComparisonGrid({
               <li>{plan.limits.branches} branch{plan.limits.branches === 1 ? "" : "es"}</li>
               <li>{plan.limits.staffAccounts} staff account{plan.limits.staffAccounts === 1 ? "" : "s"}</li>
             </ul>
-            {annualDisabled ? (
+            {cta.disabled ? (
               <div className="mt-5 space-y-2">
                 <Button type="button" className="w-full" disabled>
-                  Choose plan
+                  {cta.label}
                 </Button>
-                <p className="text-xs text-muted-foreground">
-                  Annual billing is visible now but not yet self-serve.
-                </p>
+                {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
               </div>
-            ) : (
+            ) : cta.href ? (
               <Button asChild className="mt-5 w-full">
-                <Link href={ctaHref}>
-                  {plan.planType === "free" ? "Get started" : "Choose plan"}
+                <Link href={cta.href}>
+                  {cta.label}
                 </Link>
+              </Button>
+            ) : (
+              <Button type="button" className="mt-5 w-full" disabled>
+                {cta.label}
               </Button>
             )}
           </Card>

@@ -36,9 +36,11 @@ export class BillingController {
 
   @Get("plans")
   async getPlans() {
+    const checkoutEnabled = this.featureFlags.selfServeBillingEnabled();
     return this.billingService.getPlansResponse({
-      checkoutEnabled: this.featureFlags.selfServeBillingEnabled(),
-      annualCheckoutEnabled: this.featureFlags.annualBillingCheckoutEnabled(),
+      checkoutEnabled,
+      annualCheckoutEnabled:
+        checkoutEnabled && this.featureFlags.annualBillingCheckoutEnabled(),
     });
   }
 

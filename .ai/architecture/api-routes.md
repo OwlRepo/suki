@@ -55,10 +55,13 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 
 ## Billing Route Notes
 - `GET /billing/plans` returns the canonical billing catalog used by both API and web pricing surfaces.
+- `GET /billing/plans` also returns `checkoutEnabled` so Lemon-backed checkout can be disabled while the free-cap path stays live.
 - `GET /billing/plans` also returns `annualCheckoutEnabled` so annual pricing can stay visible while self-serve annual checkout remains disabled.
 - `GET /billing/status` returns current plan, lifecycle state, `cancellationPending`, scheduled downgrade fields, meter totals for verified-booking, SMS, email, and AI requests, plus explicit `ownerWarnings` and a `readOnly` flag for staff viewers.
+- Web plan-capability helpers derive AI visibility from `GET /billing/status.planType`, so free/starter plans hide assistant, AI usage, analytics, and refine actions while growth/pro keep the current AI surfaces.
 - `POST /billing/checkout` and `POST /billing/addons/checkout` only accept plan/interval or SKU identifiers; the server resolves Lemon Squeezy variants from an allowlist.
 - `POST /billing/customer-portal`, `POST /billing/change-plan`, `POST /billing/cancel`, and `POST /billing/resume` are owner-only mutations.
+- When `FF_self_serve_billing_enabled=false`, Lemon-backed billing mutations short-circuit with a stable disabled response and webhook delivery becomes a harmless no-op; the free-cap usage and billing-status surfaces still work.
 - Billing lifecycle mutations are webhook-authority-only: `change-plan`, `cancel`, and `resume` persist pending-sync UX metadata and return `pendingWebhookSync: true`, while final subscription status, cancellation flags, renewal/end dates, org plan, and entitlements are updated only by verified Lemon webhook reconciliation.
 - `GET /billing/status` is shared by owner and staff billing settings views; staff can read status but all billing mutations remain owner-only.
 - `POST /billing/webhook/lemonsqueezy` verifies the raw-body HMAC signature before recording events idempotently, applying subscription/order reconciliation, marking unknown Lemon events as ignored no-ops, and persisting failed reconciliation rows with `failureReason` for audit/replay.

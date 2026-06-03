@@ -43,6 +43,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     // Pass through duplicate warning fields for conflict dialogs (e.g. customer create)
     if (resp.duplicateWarning !== undefined) errorResponse.duplicateWarning = resp.duplicateWarning;
     if (resp.matches !== undefined) errorResponse.matches = resp.matches;
+    if (resp.code !== undefined) errorResponse.code = resp.code;
 
     if (status >= 500) {
       this.logger.error(

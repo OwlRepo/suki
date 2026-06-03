@@ -69,6 +69,17 @@ type LemonWebhookPayload = {
 export class BillingService {
   constructor(private readonly lemonsqueezy: LemonsqueezyService) {}
 
+  private isSelfServeBillingEnabled(): boolean {
+    return process.env.FF_self_serve_billing_enabled === "true";
+  }
+
+  private throwBillingDisabled(): never {
+    throw new ServiceUnavailableException({
+      code: "BILLING_DISABLED",
+      message: "Self-serve billing is disabled.",
+    });
+  }
+
   async getSubscription(organizationId: string) {
     const db = getDb();
     const [sub] = await db
@@ -209,6 +220,10 @@ export class BillingService {
     planType: Exclude<PlanType, "free">;
     billingInterval: BillingInterval;
   }) {
+    if (!this.isSelfServeBillingEnabled()) {
+      this.throwBillingDisabled();
+    }
+
     const plan = getPlanCatalogEntry(input.planType);
     const variantEnvKey = resolveSubscriptionVariantEnvKey(
       input.planType,
@@ -235,6 +250,10 @@ export class BillingService {
     userId: string;
     sku: AddonSku;
   }) {
+    if (!this.isSelfServeBillingEnabled()) {
+      this.throwBillingDisabled();
+    }
+
     const addon = resolveAddonSku(input.sku);
     const variantId = this.getRequiredEnv(addon.variantEnvKey);
     const appUrl = this.getAppUrl();
@@ -252,6 +271,10 @@ export class BillingService {
   }
 
   async createCustomerPortal(organizationId: string) {
+    if (!this.isSelfServeBillingEnabled()) {
+      this.throwBillingDisabled();
+    }
+
     const subscription = await this.getSubscription(organizationId);
     if (!subscription?.providerSubscriptionId) {
       throw new NotFoundException("Billing portal is not available for this account.");
@@ -291,6 +314,10 @@ export class BillingService {
     organizationId: string,
     input: { planType: PlanType; billingInterval?: BillingInterval },
   ) {
+    if (!this.isSelfServeBillingEnabled()) {
+      this.throwBillingDisabled();
+    }
+
     const subscription = await this.getSubscription(organizationId);
     if (!subscription?.providerSubscriptionId) {
       throw new NotFoundException("Subscription not found.");
@@ -362,6 +389,10 @@ export class BillingService {
   }
 
   async cancel(organizationId: string) {
+    if (!this.isSelfServeBillingEnabled()) {
+      this.throwBillingDisabled();
+    }
+
     const subscription = await this.getSubscription(organizationId);
     if (!subscription?.providerSubscriptionId) {
       throw new NotFoundException("Subscription not found.");
@@ -388,6 +419,10 @@ export class BillingService {
   }
 
   async resume(organizationId: string) {
+    if (!this.isSelfServeBillingEnabled()) {
+      this.throwBillingDisabled();
+    }
+
     const subscription = await this.getSubscription(organizationId);
     if (!subscription?.providerSubscriptionId) {
       throw new NotFoundException("Subscription not found.");
@@ -447,6 +482,10 @@ export class BillingService {
     payload: LemonWebhookPayload,
     providedDeliveryKey?: string,
   ): Promise<"processed" | "ignored" | "duplicate"> {
+    if (!this.isSelfServeBillingEnabled()) {
+      return "ignored";
+    }
+
     const eventName = payload.meta?.event_name ?? "unknown";
     const resourceId = payload.data?.id ?? null;
 

@@ -32,6 +32,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SettingsSectionSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { fromError } from "@/lib/ui-feedback";
+import { getPlanCapabilities } from "@/lib/plan-capabilities";
 import { isDevMode } from "@/lib/dev-mode";
 import {
   getDevApiUrl,
@@ -252,6 +253,10 @@ function SettingsPageContent() {
     Array<{ label: string; placeholder: string }>
   >([{ label: "", placeholder: "" }]);
   const [createTemplateSaving, setCreateTemplateSaving] = useState(false);
+  const planCapabilities = useMemo(
+    () => getPlanCapabilities(billing?.planType ?? null),
+    [billing?.planType],
+  );
 
   const visibleSections = useMemo(() => {
     const q = settingsSearch.trim().toLowerCase();
@@ -1027,48 +1032,50 @@ function SettingsPageContent() {
                                     }}
                                     placeholder={`Template for ${key.replaceAll("_", " ")}`}
                                   />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={saving || !current.trim()}
-                                    onClick={async () => {
-                                      try {
-                                        const token = await getToken();
-                                        if (!token) return;
-                                        const refined = await apiRequest<{ refinedMessage: string }>(
-                                          "/automation/refine-message",
-                                          {
-                                            method: "PATCH",
-                                            token,
-                                            body: JSON.stringify({
-                                              businessId: b.id,
-                                              automationKey: key,
-                                              channel,
-                                              draft: current,
-                                            }),
-                                          },
-                                        );
-                                        const next = {
-                                          ...(s.messageTemplates ?? {}),
-                                          [key]: {
-                                            ...(s.messageTemplates?.[key] ?? {}),
-                                            [channel]: refined.refinedMessage,
-                                          },
-                                        };
-                                        await updateAutomationSettings(b.id, {
-                                          messageTemplates: next,
-                                        });
-                                      } catch (err) {
-                                        setFeedback({
-                                          type: "error",
-                                          message: fromError(err, "Failed to refine template."),
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    Refine with AI
-                                  </Button>
+                                  {planCapabilities.canSeeRefineWithAi ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={saving || !current.trim()}
+                                      onClick={async () => {
+                                        try {
+                                          const token = await getToken();
+                                          if (!token) return;
+                                          const refined = await apiRequest<{ refinedMessage: string }>(
+                                            "/automation/refine-message",
+                                            {
+                                              method: "PATCH",
+                                              token,
+                                              body: JSON.stringify({
+                                                businessId: b.id,
+                                                automationKey: key,
+                                                channel,
+                                                draft: current,
+                                              }),
+                                            },
+                                          );
+                                          const next = {
+                                            ...(s.messageTemplates ?? {}),
+                                            [key]: {
+                                              ...(s.messageTemplates?.[key] ?? {}),
+                                              [channel]: refined.refinedMessage,
+                                            },
+                                          };
+                                          await updateAutomationSettings(b.id, {
+                                            messageTemplates: next,
+                                          });
+                                        } catch (err) {
+                                          setFeedback({
+                                            type: "error",
+                                            message: fromError(err, "Failed to refine template."),
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      Refine with AI
+                                    </Button>
+                                  ) : null}
                                 </div>
                               );
                             })}
@@ -1493,7 +1500,7 @@ function SettingsPageContent() {
             </SettingsSectionCard>
           )}
 
-          {aiUsage && (
+          {aiUsage && planCapabilities.canSeeAiUsage && (
             <SettingsSectionCard
               id="ai-usage"
               title="AI Usage & Quotas"

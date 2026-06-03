@@ -11,6 +11,9 @@ describe("BillingWebhookController", () => {
       {
         reconcileWebhookEvent: vi.fn(),
       } as never,
+      {
+        selfServeBillingEnabled: vi.fn().mockReturnValue(true),
+      } as never,
     );
 
     await expect(
@@ -37,6 +40,9 @@ describe("BillingWebhookController", () => {
       } as never,
       {
         reconcileWebhookEvent,
+      } as never,
+      {
+        selfServeBillingEnabled: vi.fn().mockReturnValue(true),
       } as never,
     );
 
@@ -83,6 +89,9 @@ describe("BillingWebhookController", () => {
       {
         reconcileWebhookEvent: vi.fn().mockResolvedValue("duplicate"),
       } as never,
+      {
+        selfServeBillingEnabled: vi.fn().mockReturnValue(true),
+      } as never,
     );
 
     await expect(
@@ -120,6 +129,9 @@ describe("BillingWebhookController", () => {
       {
         reconcileWebhookEvent: vi.fn().mockResolvedValue("ignored"),
       } as never,
+      {
+        selfServeBillingEnabled: vi.fn().mockReturnValue(true),
+      } as never,
     );
 
     await expect(
@@ -145,4 +157,35 @@ describe("BillingWebhookController", () => {
       duplicate: false,
     });
   });
-});
+
+  it("returns 200 and skips Lemon validation when self-serve billing is disabled", async () => {
+    const verifyWebhookSignature = vi.fn();
+    const reconcileWebhookEvent = vi.fn();
+
+    const controller = new BillingWebhookController(
+      {
+        verifyWebhookSignature,
+        createWebhookDeliveryKey: vi.fn(),
+      } as never,
+      {
+        reconcileWebhookEvent,
+      } as never,
+      {
+        selfServeBillingEnabled: vi.fn().mockReturnValue(false),
+      } as never,
+    );
+
+    await expect(
+      controller.handleLemonSqueezyWebhook({
+        rawBody: Buffer.from("{}"),
+        headers: {},
+      } as never),
+    ).resolves.toEqual({
+      received: true,
+      duplicate: false,
+    });
+
+    expect(verifyWebhookSignature).not.toHaveBeenCalled();
+    expect(reconcileWebhookEvent).not.toHaveBeenCalled();
+  });
+}); 

@@ -7,6 +7,7 @@ import { apiRequest } from "@/lib/api";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ListSkeleton } from "@/components/ui/skeleton";
+import { usePlanCapabilities } from "@/hooks/use-plan-capabilities";
 import {
   Bar,
   BarChart,
@@ -45,11 +46,18 @@ const PIE_COLORS = ["#0ea5e9", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#14b
 export default function AnalyticsPage() {
   const { getToken } = useAuth();
   const workspace = useWorkspace();
+  const planCapabilities = usePlanCapabilities();
   const [data, setData] = useState<MonitoringResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!planCapabilities.canSeeAiAnalytics) {
+      setLoading(false);
+      setData(null);
+      setError(null);
+      return;
+    }
     (async () => {
       try {
         setLoading(true);
@@ -69,7 +77,7 @@ export default function AnalyticsPage() {
         setLoading(false);
       }
     })();
-  }, [getToken, workspace?.activeBusinessId]);
+  }, [getToken, planCapabilities.canSeeAiAnalytics, workspace?.activeBusinessId]);
 
   const automationStatusData = useMemo(
     () =>
@@ -88,6 +96,22 @@ export default function AnalyticsPage() {
       })),
     [data],
   );
+
+  if (!planCapabilities.canSeeAiAnalytics) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Usage Analytics"
+          plainLanguageDescription="Track AI and automated follow-up usage in one place."
+          whatThisPageIsFor="Monitor activity trends, feature usage, and delivery outcomes."
+        />
+        <StatusBanner
+          variant="info"
+          message="AI analytics are available on Growth and Pro."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

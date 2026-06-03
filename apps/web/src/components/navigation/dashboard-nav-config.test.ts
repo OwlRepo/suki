@@ -25,4 +25,13 @@ describe("dashboard navigation UX", () => {
       expect.arrayContaining([expect.objectContaining({ href: "/help", label: "Help Center" })]),
     );
   });
+
+  it("hides AI analytics navigation for plans without AI access", () => {
+    const growthGroups = getDashboardNavGroups(false, { canSeeAiAnalytics: false });
+    const growthItems = growthGroups.find((g) => g.key === "growth")?.items ?? [];
+
+    expect(growthItems).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ href: "/analytics", label: "Usage analytics" })]),
+    );
+  });
 });

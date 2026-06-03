@@ -5,7 +5,7 @@
 - OpenAI: AI generation/policy flows
 - Twilio: SMS outbound/inbound/webhook status and Verify OTP; inbound/status webhooks use signature validation with exact public callback URL env vars
 - Resend: email delivery
-- Lemon Squeezy: hosted checkout creation, customer portal redirects, and billing webhook lifecycle
+- Lemon Squeezy: hosted checkout creation, customer portal redirects, and billing webhook lifecycle when self-serve billing is enabled
 - CRM sources: CSV, HubSpot, Pipedrive (plus planned adapters)
 
 ## Integration Modules
@@ -26,6 +26,7 @@ All external-provider contract changes are HIGH risk and require contract/regres
 - Public booking OTP sends now check org billing state plus verified online-booking credits before sending, consume a credit only after Twilio Verify accepts the send, and return a safe generic message when billing blocks the action.
 
 ## Lemon Squeezy Notes
+- All Lemon-backed billing actions are gated by `FF_self_serve_billing_enabled`; when it is off, checkout/portal/mutation/webhook paths are intentionally inert and the freemium cap path remains authoritative.
 - Subscription and add-on checkout URLs are created server-side from an allowlisted variant catalog.
 - Billing webhook verification uses the raw request body plus `X-Signature` HMAC SHA-256 with timing-safe comparison.
 - Customer portal access is treated as short-lived and fetched server-side rather than trusted from client input.
