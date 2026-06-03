@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest, isApiConflictWithDuplicate } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
-import { hasClerk } from "@/lib/clerk";
 import { CustomerFormModal } from "@/components/customers/customer-form-modal";
 import { CustomerItemActions } from "@/components/customers/customer-item-actions";
 import { CustomerMessageHistoryModal } from "@/components/customers/customer-message-history-modal";
@@ -551,16 +550,5 @@ function CustomersPageContent() {
 }
 
 export default function CustomersPage() {
-  if (!hasClerk) {
-    return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Customers</h1>
-        <p className="mt-2 text-muted-foreground">
-          Clerk authentication is not configured. Set
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to manage customers.
-        </p>
-      </div>
-    );
-  }
   return <CustomersPageContent />;
 }

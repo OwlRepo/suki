@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
-import { hasClerk } from "@/lib/clerk";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -711,15 +710,5 @@ function AppointmentsPageContent() {
 }
 
 export default function AppointmentsPage() {
-  if (!hasClerk) {
-    return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Appointments</h1>
-        <p className="mt-2 text-muted-foreground">
-          Clerk authentication is not configured. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to manage appointments.
-        </p>
-      </div>
-    );
-  }
   return <AppointmentsPageContent />;
 }

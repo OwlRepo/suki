@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
-import { hasClerk } from "@/lib/clerk";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 
@@ -306,15 +305,5 @@ function SetupPageContent() {
 }
 
 export default function SetupPage() {
-  if (!hasClerk) {
-    return (
-      <div className="flex min-h-[200px] items-center justify-center">
-        <p className="text-muted-foreground">
-          Clerk authentication is not configured. Set
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to set up your business.
-        </p>
-      </div>
-    );
-  }
   return <SetupPageContent />;
 }

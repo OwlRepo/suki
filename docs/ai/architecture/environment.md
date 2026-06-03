@@ -20,7 +20,6 @@ Never print real secret values. Names only.
 | `RESEND_FROM_EMAIL` | email sender | Feature-required | `apps/api/src/messaging` |
 | `RESEND_WEBHOOK_SECRET` | email webhook validation | Optional | `apps/api/src/messaging` |
 | `CLERK_SECRET_KEY` | backend Clerk auth | Auth-required | `apps/api/src/auth` |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | frontend Clerk auth | Auth-required | `apps/web/src/app`, `apps/web/src/lib`, `apps/web/src/middleware.ts` |
 | `NEXT_PUBLIC_API_URL` | frontend API base URL | Optional | `apps/web/src/lib/api.ts`, intake/settings pages |
 | `NEXT_PUBLIC_REQUEST_ACCESS_URL` | marketing/request-access link | Optional | web CTA components |
 | `FRONTEND_URL` | API CORS + billing links | Optional | `apps/api/src/main.ts`, billing |

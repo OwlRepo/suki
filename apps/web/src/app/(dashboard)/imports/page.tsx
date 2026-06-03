@@ -19,7 +19,6 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
-import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -882,15 +881,5 @@ function ImportsPageContent() {
 }
 
 export default function ImportsPage() {
-  if (!hasClerk) {
-    return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Import customers</h1>
-        <p className="mt-2 text-muted-foreground">
-          Clerk authentication is not configured. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to import customers.
-        </p>
-      </div>
-    );
-  }
   return <ImportsPageContent />;
 }
