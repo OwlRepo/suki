@@ -2,8 +2,17 @@ import { Injectable } from "@nestjs/common";
 import type { PlanType } from "@tyvera/types";
 import { FeatureFlagsService } from "./feature-flags.service";
 import { OrgBillingStateService } from "./org-billing-state.service";
+import { getPlanCatalogEntry } from "../billing/plan-catalog";
 
 export const MODULES_BY_PLAN: Record<PlanType, string[]> = {
+  free: [
+    "customers",
+    "appointments",
+    "booking_page",
+    "intake_qr",
+    "booking_slot_holds",
+    "basic_insights",
+  ],
   starter: [
     "customers",
     "appointments",
@@ -41,9 +50,10 @@ export const MODULES_BY_PLAN: Record<PlanType, string[]> = {
 };
 
 export const BUSINESS_LIMITS_BY_PLAN: Record<PlanType, number> = {
+  free: 1,
   starter: 1,
-  growth: 5,
-  pro: Number.POSITIVE_INFINITY,
+  growth: 3,
+  pro: 10,
 };
 
 @Injectable()
@@ -54,17 +64,18 @@ export class PlanCapacityService {
   ) {}
 
   async getActivePlan(organizationId: string): Promise<PlanType> {
-    if (this.featureFlags.founderLedModeEnabled()) {
-      const state = await this.orgBillingState.getOrgBillingState(organizationId);
-      return state?.currentPlan ?? "pro";
+    const state = await this.orgBillingState.getOrgBillingState(organizationId);
+    if (state?.currentPlan) {
+      return state.currentPlan;
     }
-    return "pro";
+    if (this.featureFlags.founderLedModeEnabled()) {
+      return "free";
+    }
+    return "free";
   }
 
   hasModuleAccess(plan: PlanType, module: string): boolean {
-    void plan;
-    void module;
-    return true;
+    return MODULES_BY_PLAN[plan]?.includes(module) ?? false;
   }
 
   async checkModuleAccess(organizationId: string, module: string): Promise<boolean> {
@@ -73,13 +84,13 @@ export class PlanCapacityService {
   }
 
   async getBusinessLimitByOrg(organizationId: string): Promise<number> {
-    void organizationId;
-    return Number.POSITIVE_INFINITY;
+    const plan = await this.getActivePlan(organizationId);
+    return BUSINESS_LIMITS_BY_PLAN[plan] ?? getPlanCatalogEntry(plan).limits.branches;
   }
 
   /** True when subscription is past_due or cancelled (grace / read-only mode). */
   async isReadOnly(organizationId: string): Promise<boolean> {
-    void organizationId;
-    return false;
+    const state = await this.orgBillingState.getOrgBillingState(organizationId);
+    return state?.isReadOnly ?? false;
   }
 }

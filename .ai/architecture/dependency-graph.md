@@ -9,4 +9,4 @@ Route/Page -> Feature Component -> Hook/Lib -> API client -> Backend controller/
 ## Representative Paths
 - `customers page` -> `customer components` -> `web lib api` -> `customers.controller` -> `customers.service` -> db
 - `messaging generate endpoint` -> `messaging.service` -> `ai-execution.service` -> external AI provider
-- `billing checkout endpoint` -> `billing.service` -> PayMongo service/webhook lifecycle
+- `billing checkout endpoint` -> `billing.service` -> Lemon Squeezy service/webhook lifecycle

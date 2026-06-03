@@ -6,7 +6,9 @@ import {
   Query,
   BadRequestException,
   NotFoundException,
+  Req,
 } from "@nestjs/common";
+import type { Request } from "express";
 import { getDb } from "@tyvera/database";
 import { customers, businesses } from "@tyvera/database";
 import { eq } from "drizzle-orm";
@@ -114,11 +116,17 @@ export class IntakeController {
   }
 
   @Post("otp/send")
-  async sendOtp(@Body() body: { holdId: string }) {
+  async sendOtp(@Body() body: { holdId: string }, @Req() req: Request) {
     if (!body.holdId?.trim()) {
       throw new BadRequestException("holdId required");
     }
-    return this.bookingService.sendOtp(body.holdId);
+    const forwardedFor = req.headers["x-forwarded-for"];
+    const clientIp = Array.isArray(forwardedFor)
+      ? forwardedFor[0]
+      : typeof forwardedFor === "string"
+        ? forwardedFor.split(",")[0]?.trim()
+        : req.ip;
+    return this.bookingService.sendOtp(body.holdId, clientIp);
   }
 
   @Post("otp/verify")

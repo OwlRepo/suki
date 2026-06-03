@@ -8,7 +8,7 @@
 - Tyvera Assistant UI updates usage bars immediately from stream `usage` events and still refetches `/ai/usage/summary` after successful streamed/non-streamed replies for reconciliation.
 
 ## External Integrations
-- Payments: PayMongo webhook and billing services
+- Payments: Lemon Squeezy checkout, portal, and webhook billing services
 - Messaging: Twilio SMS + Resend email; Twilio inbound/status callbacks validate signatures against explicit public callback URL env vars instead of internal request URLs
 - AI: OpenAI via API AI module services
 - CRM import providers: CSV, HubSpot, Pipedrive (+ stubs for others)

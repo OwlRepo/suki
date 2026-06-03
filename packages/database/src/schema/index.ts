@@ -11,13 +11,16 @@ import {
 } from "drizzle-orm/pg-core";
 
 // Enums
-export const planTypeEnum = pgEnum("plan_type", ["starter", "growth", "pro"]);
+export const planTypeEnum = pgEnum("plan_type", ["free", "starter", "growth", "pro"]);
 export const userRoleEnum = pgEnum("user_role", ["owner", "staff"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "active",
   "cancelled",
   "past_due",
   "trialing",
+  "paused",
+  "expired",
+  "unpaid",
 ]);
 export const promoTypeEnum = pgEnum("promo_type", [
   "discount",
@@ -70,6 +73,12 @@ export const orgBillingStatusEnum = pgEnum("org_billing_status", [
   "past_due_manual",
   "cancelled_manual",
   "suspended",
+  "free_active",
+  "subscription_active",
+  "subscription_past_due",
+  "subscription_cancelled",
+  "subscription_expired",
+  "subscription_paused",
 ]);
 
 // Organizations — tenant for multi-business (future)
@@ -79,7 +88,7 @@ export const organizations = pgTable("organizations", {
   trialStartsAt: timestamp("trial_starts_at"),
   trialEndsAt: timestamp("trial_ends_at"),
   billingStatus: orgBillingStatusEnum("billing_status").default("trial_active"),
-  currentPlan: planTypeEnum("current_plan").default("starter"),
+  currentPlan: planTypeEnum("current_plan").default("free"),
   manualBillingNotes: text("manual_billing_notes"),
   lastBillingAt: timestamp("last_billing_at"),
   nextBillingDueAt: timestamp("next_billing_due_at"),
@@ -89,7 +98,7 @@ export const organizations = pgTable("organizations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Businesses — business profile, type, PayMongo customer id (defined before customerDescriptionTemplates to avoid circular ref)
+// Businesses — business profile and CRM/payment linkage fields (defined before customerDescriptionTemplates to avoid circular ref)
 export const businesses = pgTable("businesses", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
@@ -449,6 +458,10 @@ export const bookingHolds = pgTable(
     status: text("status").notNull().default("held"), // held | confirmed | expired | released
     otpSid: text("otp_sid"),
     otpAttempts: integer("otp_attempts").notNull().default(0),
+    otpSentCount: integer("otp_sent_count").notNull().default(0),
+    otpLastSentAt: timestamp("otp_last_sent_at"),
+    otpCooldownEndsAt: timestamp("otp_cooldown_ends_at"),
+    otpSendWindowKey: text("otp_send_window_key"),
     expiresAt: timestamp("expires_at").notNull(),
     confirmedAt: timestamp("confirmed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -461,7 +474,7 @@ export const bookingHolds = pgTable(
   ],
 );
 
-// Subscriptions — plan, status, PayMongo subscription id
+// Subscriptions — plan, status, and provider-neutral subscription identifiers
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
@@ -470,11 +483,35 @@ export const subscriptions = pgTable("subscriptions", {
   planType: planTypeEnum("plan_type").notNull(),
   status: subscriptionStatusEnum("status").notNull(),
   paymongoSubscriptionId: text("paymongo_subscription_id"),
+  provider: text("provider"),
+  providerSubscriptionId: text("provider_subscription_id"),
+  providerCustomerId: text("provider_customer_id"),
+  providerOrderId: text("provider_order_id"),
+  providerProductId: text("provider_product_id"),
+  providerVariantId: text("provider_variant_id"),
+  providerSubscriptionItemId: text("provider_subscription_item_id"),
+  billingInterval: text("billing_interval"),
+  cancelled: text("cancelled").notNull().default("false"),
   currentPeriodStart: timestamp("current_period_start").notNull(),
   currentPeriodEnd: timestamp("current_period_end").notNull(),
+  renewsAt: timestamp("renews_at"),
+  endsAt: timestamp("ends_at"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  cardBrand: text("card_brand"),
+  cardLastFour: text("card_last_four"),
+  updatePaymentMethodUrl: text("update_payment_method_url"),
+  customerPortalUrl: text("customer_portal_url"),
+  scheduledPlanType: planTypeEnum("scheduled_plan_type"),
+  scheduledBillingInterval: text("scheduled_billing_interval"),
+  scheduledChangeEffectiveAt: timestamp("scheduled_change_effective_at"),
+  pendingSyncAction: text("pending_sync_action"),
+  pendingSyncStartedAt: timestamp("pending_sync_started_at"),
+  pendingSyncTargetPlanType: planTypeEnum("pending_sync_target_plan_type"),
+  pendingSyncTargetBillingInterval: text("pending_sync_target_billing_interval"),
   billingFailureCount: integer("billing_failure_count").notNull().default(0),
   graceUntil: timestamp("grace_until"),
   lastWebhookEventId: text("last_webhook_event_id"),
+  lastProviderEventId: text("last_provider_event_id"),
   planPricePhp: integer("plan_price_php").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -784,6 +821,112 @@ export const smsAddons = pgTable("sms_addons", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Verified online-booking OTP credits — monthly included + purchased add-ons
+export const verifiedOnlineBookingCredits = pgTable(
+  "verified_online_booking_credits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    month: text("month").notNull(),
+    includedGranted: integer("included_granted").notNull().default(0),
+    addonGranted: integer("addon_granted").notNull().default(0),
+    used: integer("used").notNull().default(0),
+    sourcePlan: planTypeEnum("source_plan").notNull().default("free"),
+    pausedReason: smsPausedReasonEnum("paused_reason")
+      .notNull()
+      .default("none"),
+    lastReconciledAt: timestamp("last_reconciled_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("verified_online_booking_credits_org_month_unique").on(
+      t.organizationId,
+      t.month,
+    ),
+  ],
+);
+
+export const verifiedOnlineBookingUsageEvents = pgTable(
+  "verified_online_booking_usage_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    bookingHoldId: uuid("booking_hold_id")
+      .notNull()
+      .references(() => bookingHolds.id, { onDelete: "cascade" }),
+    units: integer("units").notNull().default(1),
+    status: text("status").notNull().default("consumed"),
+    provider: text("provider").notNull().default("twilio_verify"),
+    providerVerificationSid: text("provider_verification_sid"),
+    estimatedCostMicros: integer("estimated_cost_micros"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("verified_online_booking_usage_events_org_idx").on(t.organizationId),
+    index("verified_online_booking_usage_events_business_idx").on(t.businessId),
+    index("verified_online_booking_usage_events_hold_idx").on(t.bookingHoldId),
+    index("verified_online_booking_usage_events_provider_sid_idx").on(
+      t.providerVerificationSid,
+    ),
+  ],
+);
+
+export const publicOtpSendEvents = pgTable(
+  "public_otp_send_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    bookingHoldId: uuid("booking_hold_id")
+      .notNull()
+      .references(() => bookingHolds.id, { onDelete: "cascade" }),
+    mobile: text("mobile").notNull(),
+    ipAddress: text("ip_address"),
+    outcome: text("outcome").notNull(),
+    provider: text("provider").notNull().default("twilio_verify"),
+    providerVerificationSid: text("provider_verification_sid"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("public_otp_send_events_org_idx").on(t.organizationId),
+    index("public_otp_send_events_business_idx").on(t.businessId),
+    index("public_otp_send_events_hold_idx").on(t.bookingHoldId),
+    index("public_otp_send_events_mobile_idx").on(t.mobile),
+    index("public_otp_send_events_created_at_idx").on(t.createdAt),
+  ],
+);
+
+export const verifiedOnlineBookingAddons = pgTable("verified_online_booking_addons", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  units: integer("units").notNull(),
+  pricePhp: integer("price_php").notNull(),
+  sku: text("sku").notNull(),
+  providerOrderId: text("provider_order_id"),
+  purchasedByUserId: uuid("purchased_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  purchasedAt: timestamp("purchased_at").defaultNow().notNull(),
+  consumedUnits: integer("consumed_units").notNull().default(0),
+  refundedUnits: integer("refunded_units").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Consent audit logs — when/why consent changed
 export const consentAuditLogs = pgTable("consent_audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -817,15 +960,49 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Processed webhook events — idempotency for PayMongo webhooks
+// Processed webhook events — provider-aware idempotency + audit envelope
 export const processedWebhookEvents = pgTable(
   "processed_webhook_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     eventId: text("event_id").notNull().unique(),
+    provider: text("provider").notNull().default("lemonsqueezy"),
+    eventName: text("event_name"),
+    payloadHash: text("payload_hash"),
+    status: text("status").notNull().default("processed"),
+    failureReason: text("failure_reason"),
+    retryCount: integer("retry_count").notNull().default(0),
+    metadata: jsonb("metadata"),
+    receivedAt: timestamp("received_at").defaultNow().notNull(),
     processedAt: timestamp("processed_at").defaultNow().notNull(),
   },
 );
+
+export const creditReconciliationEvents = pgTable("credit_reconciliation_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  creditType: text("credit_type").notNull(),
+  month: text("month").notNull(),
+  eventType: text("event_type").notNull(),
+  previousPlan: planTypeEnum("previous_plan"),
+  nextPlan: planTypeEnum("next_plan"),
+  includedBefore: integer("included_before").notNull().default(0),
+  includedAfter: integer("included_after").notNull().default(0),
+  addonBefore: integer("addon_before").notNull().default(0),
+  addonAfter: integer("addon_after").notNull().default(0),
+  usedBefore: integer("used_before").notNull().default(0),
+  usedAfter: integer("used_after").notNull().default(0),
+  providerEventId: text("provider_event_id"),
+  metadata: jsonb("metadata"),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedByUserId: uuid("resolved_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  resolutionNote: text("resolution_note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 // Privacy requests — DPA data subject requests
 export const privacyRequests = pgTable("privacy_requests", {

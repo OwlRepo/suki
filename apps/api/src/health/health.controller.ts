@@ -27,6 +27,7 @@ export class HealthController {
       founder_led_mode_enabled: this.featureFlagsService.founderLedModeEnabled(),
       public_signup_enabled: this.featureFlagsService.publicSignupEnabled(),
       self_serve_billing_enabled: this.featureFlagsService.selfServeBillingEnabled(),
+      annual_billing_checkout_enabled: this.featureFlagsService.annualBillingCheckoutEnabled(),
       manual_billing_controls_enabled: this.featureFlagsService.manualBillingControlsEnabled(),
     };
   }

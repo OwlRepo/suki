@@ -7,6 +7,7 @@ import { PlanCapacityService } from "../common/plan-capacity.service";
 
 /** SMS included per plan per month */
 const SMS_INCLUDED_BY_PLAN: Record<PlanType, number> = {
+  free: 0,
   starter: 300,
   growth: 800,
   pro: 2000,
@@ -18,8 +19,8 @@ export class SmsMeteringService {
 
   private currentMonth(): string {
     const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, "0");
     return `${y}-${m}`;
   }
 
@@ -38,7 +39,7 @@ export class SmsMeteringService {
   }> {
     const m = month ?? this.currentMonth();
     const plan = await this.planCapacity.getActivePlan(organizationId);
-    const included = SMS_INCLUDED_BY_PLAN[plan];
+    const included = SMS_INCLUDED_BY_PLAN[plan] ?? 0;
 
     const db = getDb();
     const [existing] = await db

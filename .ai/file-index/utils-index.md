@@ -18,8 +18,8 @@
 | `apps/api/src/help/assistant-context-loader.ts` | Markdown ingestion and normalization for assistant context | Used by `assistant-context.ts` and governance tests | Parses frontmatter + steps from `docs/assistant-context/**/*.md`, validates schema, and caches loaded entries |
 | `apps/api/src/help/assistant-context-governance.ts` | Assistant context governance rule evaluator | Used by governance tests and root script check | Enforces hard-block doc/index/architecture co-update requirements for behavior-impacting FE/BE assistant changes while ignoring non-behavioral files |
 | `apps/api/src/common/feature-flags.service.ts` | Feature flag evaluation | Used by health and domain modules | Server-side capability gating |
-| `apps/api/src/common/plan-capacity.service.ts` | Plan-based limits and checks | Used by billing/messaging/ai modules | Capacity gating and policy checks |
+| `apps/api/src/common/plan-capacity.service.ts` | Plan-based limits and checks | Used by billing, messaging, AI, and write guards | Capacity gating, module access, business limits, and read-only policy checks by freemium plan |
 | `apps/api/src/common/http-exception.filter.ts` | Standard API error response mapping | Registered in `main.ts` | Global error normalization |
 | `apps/api/src/messaging/smoke/provider-smoke.preflight.ts` | Real-provider smoke preflight validator for messaging tests | Used by provider smoke specs | Gated Twilio/Resend env readiness checks with deterministic skip diagnostics |
 | `apps/api/src/messaging/sms-segmentation.ts` | Deterministic SMS segment estimator | Used by `MessageDispatchService` | Calculates GSM-7/UCS-2 encoding, septet/code-unit length, and billable segment count before quota enforcement |
-| `packages/types/src/index.ts` | Shared runtime/type exports | Imported by API and web packages | Exposes Philippine mobile E.164 placeholder, error copy, validation, and normalization helpers for strict `+639...` enforcement |
+| `packages/types/src/index.ts` | Shared runtime/type exports | Imported by API and web packages | Exposes Philippine mobile helpers plus shared plan, subscription, billing interval, and org billing status contracts |

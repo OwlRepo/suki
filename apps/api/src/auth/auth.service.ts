@@ -200,7 +200,10 @@ export class AuthService {
 
     const passwordHash = makePasswordHash(password);
     const org = await db.transaction(async (tx) => {
-      const [newOrg] = await tx.insert(organizations).values({ name: "My Organization" }).returning();
+      const [newOrg] = await tx
+        .insert(organizations)
+        .values({ name: "My Organization", currentPlan: "free" })
+        .returning();
       if (!newOrg) throw new Error("Failed to create organization");
 
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);

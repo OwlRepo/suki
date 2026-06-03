@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 describe("Settings page free-default copy", () => {
   const file = readFileSync(
-    join(process.cwd(), "apps/web/src/app/(dashboard)/settings/page.tsx"),
+    join(process.cwd(), "src/app/(dashboard)/settings/page.tsx"),
     "utf8",
   );
 

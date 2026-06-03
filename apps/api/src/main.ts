@@ -4,6 +4,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
 import { AuthBootstrapService } from "./auth/auth.bootstrap.service";
+import { validateRuntimeConfiguration } from "./billing/billing-env";
 
 function cookieParser(req: { headers: { cookie?: string }; cookies?: Record<string, string> }, _: unknown, next: () => void) {
   const raw = req.headers.cookie;
@@ -26,6 +27,7 @@ function cookieParser(req: { headers: { cookie?: string }; cookies?: Record<stri
 }
 
 function validateEnv() {
+  validateRuntimeConfiguration();
   const isConfigured = (name: string) => {
     const value = process.env[name]?.trim();
     return !!value && !value.toLowerCase().includes("placeholder");
@@ -38,8 +40,14 @@ function validateEnv() {
   if (process.env.OPENAI_API_KEY?.includes("placeholder")) {
     console.warn("[Tyvera API] OPENAI_API_KEY is placeholder. AI messaging will be disabled.");
   }
-  if (process.env.PAYMONGO_SECRET_KEY?.includes("placeholder") || !process.env.PAYMONGO_SECRET_KEY) {
-    console.warn("[Tyvera API] PayMongo not configured. Billing checkout will be unavailable.");
+  if (
+    process.env.LEMONSQUEEZY_API_KEY?.includes("placeholder") ||
+    !process.env.LEMONSQUEEZY_API_KEY ||
+    !process.env.LEMONSQUEEZY_STORE_ID
+  ) {
+    console.warn(
+      "[Tyvera API] Lemon Squeezy not fully configured. Self-serve billing checkout will be unavailable.",
+    );
   }
   const twilioCredentialsOk = isConfigured("TWILIO_ACCOUNT_SID") && isConfigured("TWILIO_AUTH_TOKEN");
   const twilioSenderOk = isConfigured("TWILIO_MESSAGING_SERVICE_SID") || isConfigured("TWILIO_PHONE_NUMBER");

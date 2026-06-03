@@ -15,7 +15,9 @@ describe("useSession", () => {
   });
 
   it("dedupes /auth/me across multiple consumers", async () => {
-    getSessionMock.mockResolvedValue({ user: { id: "u1", email: "u@test.com" } });
+    getSessionMock.mockResolvedValue({
+      user: { id: "u1", email: "u@test.com", role: "owner", organizationId: "org-1" },
+    });
 
     const h1 = renderHook(() => useSession());
     const h2 = renderHook(() => useSession());
@@ -27,7 +29,9 @@ describe("useSession", () => {
   });
 
   it("caches a signed-in session until invalidated", async () => {
-    getSessionMock.mockResolvedValueOnce({ user: { id: "u1", email: "u@test.com" } });
+    getSessionMock.mockResolvedValueOnce({
+      user: { id: "u1", email: "u@test.com", role: "owner", organizationId: "org-1" },
+    });
 
     const first = renderHook(() => useSession());
     await waitFor(() => expect(first.result.current.loading).toBe(false));
@@ -63,13 +67,19 @@ describe("useSession", () => {
     expect(getSessionMock).toHaveBeenCalledTimes(1);
     cached.unmount();
 
-    getSessionMock.mockResolvedValueOnce({ user: { id: "u2", email: "u2@test.com" } });
+    getSessionMock.mockResolvedValueOnce({
+      user: { id: "u2", email: "u2@test.com", role: "staff", organizationId: "org-2" },
+    });
     invalidateSessionCache();
 
     const afterInvalidation = renderHook(() => useSession());
     await waitFor(() => expect(afterInvalidation.result.current.loading).toBe(false));
     expect(afterInvalidation.result.current.isSignedIn).toBe(true);
     expect(afterInvalidation.result.current.user?.id).toBe("u2");
+    expect(afterInvalidation.result.current.user).toMatchObject({
+      role: "staff",
+      organizationId: "org-2",
+    });
     expect(getSessionMock).toHaveBeenCalledTimes(2);
   });
 
@@ -80,7 +90,9 @@ describe("useSession", () => {
     await waitFor(() => expect(first.result.current.loading).toBe(false));
     first.unmount();
 
-    getSessionMock.mockResolvedValueOnce({ user: { id: "u3" } });
+    getSessionMock.mockResolvedValueOnce({
+      user: { id: "u3", role: "owner", organizationId: "org-3" },
+    });
     __resetSessionCacheForTests();
 
     const second = renderHook(() => useSession());

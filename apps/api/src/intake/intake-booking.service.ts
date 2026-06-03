@@ -6,16 +6,38 @@ import {
   Logger,
 } from "@nestjs/common";
 import { getDb } from "@tyvera/database";
-import { appointments, bookingHolds, businesses } from "@tyvera/database";
+import {
+  appointments,
+  bookingHolds,
+  businesses,
+  publicOtpSendEvents,
+  verifiedOnlineBookingCredits,
+  verifiedOnlineBookingUsageEvents,
+} from "@tyvera/database";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import {
   PH_MOBILE_E164_ERROR,
   normalizePhilippineMobileE164,
 } from "@tyvera/types";
 import { AutomationSendService } from "../automation/automation-send.service";
+import { OrgBillingStateService } from "../common/org-billing-state.service";
+import { getPlanCatalogEntry } from "../billing/plan-catalog";
 
 const HOLD_MINUTES = 5;
 const OTP_MAX_ATTEMPTS = 5;
+const OTP_RESEND_WINDOW_MS = 60_000;
+const SAFE_BOOKING_UNAVAILABLE_MESSAGE =
+  "Online booking verification is temporarily unavailable. Please contact the business directly.";
+
+type OtpConfig = {
+  resendCooldownSeconds: number;
+  maxSendsPerHold: number;
+  perMobileLimit: number;
+  perMobileWindowMinutes: number;
+  perIpLimit: number;
+  perIpWindowMinutes: number;
+  perBusinessDailyLimit: number;
+};
 
 type VerifyResult = {
   sid?: string;
@@ -49,6 +71,7 @@ export class IntakeBookingService {
 
   constructor(
     private readonly automationSend: AutomationSendService,
+    private readonly orgBillingState: OrgBillingStateService,
   ) {}
 
   async getAvailability(businessId: string, month: string) {
@@ -254,8 +277,9 @@ export class IntakeBookingService {
     return hold;
   }
 
-  async sendOtp(holdId: string) {
+  async sendOtp(holdId: string, clientIp?: string) {
     const db = getDb();
+    const otpConfig = this.getOtpConfigFromEnv();
 
     const [hold] = await db
       .select()
@@ -274,6 +298,79 @@ export class IntakeBookingService {
     if (hold.expiresAt < new Date()) {
       throw new BadRequestException("Hold expired");
     }
+
+    if (
+      hold.otpCooldownEndsAt &&
+      hold.otpCooldownEndsAt instanceof Date &&
+      hold.otpCooldownEndsAt.getTime() > Date.now()
+    ) {
+      throw this.buildPublicOtpError(
+        "OTP_RESEND_COOLDOWN",
+        SAFE_BOOKING_UNAVAILABLE_MESSAGE,
+      );
+    }
+
+    if ((hold.otpSentCount ?? 0) >= otpConfig.maxSendsPerHold) {
+      throw this.buildPublicOtpError(
+        "OTP_HOLD_SEND_LIMIT",
+        SAFE_BOOKING_UNAVAILABLE_MESSAGE,
+      );
+    }
+
+    if (
+      hold.otpSid &&
+      hold.updatedAt &&
+      Date.now() - hold.updatedAt.getTime() < OTP_RESEND_WINDOW_MS
+    ) {
+      return {
+        success: true,
+        reused: true,
+        holdExpiresAt: hold.expiresAt.toISOString(),
+        resendAvailableAt: hold.updatedAt
+          ? new Date(hold.updatedAt.getTime() + OTP_RESEND_WINDOW_MS).toISOString()
+          : new Date(Date.now() + OTP_RESEND_WINDOW_MS).toISOString(),
+        sendsRemaining: Math.max(0, otpConfig.maxSendsPerHold - (hold.otpSentCount ?? 1)),
+      };
+    }
+
+    const [business] = await db
+      .select({
+        organizationId: businesses.organizationId,
+      })
+      .from(businesses)
+      .where(eq(businesses.id, hold.businessId))
+      .limit(1);
+
+    if (!business?.organizationId) {
+      throw new BadRequestException("Business not found");
+    }
+
+    const state = await this.orgBillingState.getOrgBillingState(
+      business.organizationId,
+    );
+    if (state?.variableCostActionsBlocked) {
+      throw this.buildPublicOtpError(
+        "OTP_BILLING_BLOCKED",
+        SAFE_BOOKING_UNAVAILABLE_MESSAGE,
+      );
+    }
+
+    const creditLedger = await this.ensureVerifiedBookingCredits(
+      business.organizationId,
+      state?.currentPlan ?? "free",
+    );
+    if (creditLedger.used >= creditLedger.includedGranted + creditLedger.addonGranted) {
+      throw this.buildPublicOtpError(
+        "OTP_BILLING_BLOCKED",
+        SAFE_BOOKING_UNAVAILABLE_MESSAGE,
+      );
+    }
+
+    await this.assertOtpSendAllowed({
+      hold,
+      clientIp,
+      otpConfig,
+    });
 
     const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
     const token = process.env.TWILIO_AUTH_TOKEN?.trim();
@@ -302,21 +399,64 @@ export class IntakeBookingService {
     );
 
     if (!res.ok) {
-      throw new BadRequestException("Failed to send OTP");
+      throw this.buildPublicOtpError(
+        "OTP_PROVIDER_UNAVAILABLE",
+        SAFE_BOOKING_UNAVAILABLE_MESSAGE,
+      );
     }
 
     const data = (await res.json()) as VerifyResult;
+    const now = new Date();
+    const resendAvailableAt = new Date(now.getTime() + otpConfig.resendCooldownSeconds * 1000);
 
     await db
       .update(bookingHolds)
       .set({
         otpSid: data.sid ?? null,
-        updatedAt: new Date(),
+        otpSentCount: (hold.otpSentCount ?? 0) + 1,
+        otpLastSentAt: now,
+        otpCooldownEndsAt: resendAvailableAt,
+        otpSendWindowKey:
+          hold.otpSendWindowKey ??
+          `${hold.id}:${Math.floor(now.getTime() / OTP_RESEND_WINDOW_MS)}`,
+        updatedAt: now,
       })
       .where(eq(bookingHolds.id, hold.id));
 
+    await db
+      .update(verifiedOnlineBookingCredits)
+      .set({
+        used: creditLedger.used + 1,
+        updatedAt: new Date(),
+      })
+      .where(eq(verifiedOnlineBookingCredits.organizationId, business.organizationId));
+
+    await db.insert(verifiedOnlineBookingUsageEvents).values({
+      organizationId: business.organizationId,
+      businessId: hold.businessId,
+      bookingHoldId: hold.id,
+      units: 1,
+      status: "consumed",
+      provider: "twilio_verify",
+      providerVerificationSid: data.sid ?? null,
+    });
+
+    await this.recordOtpSendEvent({
+      organizationId: business.organizationId,
+      businessId: hold.businessId,
+      bookingHoldId: hold.id,
+      mobile: hold.mobile,
+      ipAddress: this.resolveClientIp(clientIp),
+      outcome: "sent",
+      providerVerificationSid: data.sid ?? null,
+    });
+
     return {
       success: true,
+      reused: false,
+      holdExpiresAt: hold.expiresAt.toISOString(),
+      resendAvailableAt: resendAvailableAt.toISOString(),
+      sendsRemaining: Math.max(0, otpConfig.maxSendsPerHold - ((hold.otpSentCount ?? 0) + 1)),
     };
   }
 
@@ -467,5 +607,198 @@ export class IntakeBookingService {
       appointment,
       success: true,
     };
+  }
+
+  private async ensureVerifiedBookingCredits(
+    organizationId: string,
+    planType: "free" | "starter" | "growth" | "pro",
+  ) {
+    const db = getDb();
+    const month = this.getCurrentMonthUtcKey();
+    const [ledger] = await db
+      .select()
+      .from(verifiedOnlineBookingCredits)
+      .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId))
+      .limit(1);
+
+    if (ledger?.month === month) {
+      return ledger;
+    }
+
+    const includedGranted =
+      getPlanCatalogEntry(planType).limits.verifiedOnlineBookingsPerMonth;
+    const nextLedger = {
+      organizationId,
+      month,
+      includedGranted,
+      addonGranted: 0,
+      used: 0,
+      sourcePlan: planType,
+      lastReconciledAt: new Date(),
+    };
+
+    await db.insert(verifiedOnlineBookingCredits).values(nextLedger);
+    return nextLedger;
+  }
+
+  private getCurrentMonthUtcKey(): string {
+    return this.toMonthKey(new Date());
+  }
+
+  private async assertOtpSendAllowed(input: {
+    hold: {
+      businessId: string;
+      mobile: string;
+    };
+    clientIp?: string;
+    otpConfig: OtpConfig;
+  }) {
+    const db = getDb();
+    const now = Date.now();
+    const ipAddress = this.resolveClientIp(input.clientIp);
+
+    const mobileEvents =
+      ((await db
+        .select()
+        .from(publicOtpSendEvents)
+        .where(eq(publicOtpSendEvents.mobile, input.hold.mobile))
+        .limit(input.otpConfig.perMobileLimit + 20)) as Array<{
+        createdAt?: Date | null;
+        outcome?: string | null;
+      }> | undefined) ?? [];
+    const mobileWindowStart = now - input.otpConfig.perMobileWindowMinutes * 60_000;
+    const mobileCount = mobileEvents.filter(
+      (event) =>
+        event.outcome === "sent" &&
+        event.createdAt instanceof Date &&
+        event.createdAt.getTime() >= mobileWindowStart,
+    ).length;
+    if (mobileCount >= input.otpConfig.perMobileLimit) {
+      throw this.buildPublicOtpError(
+        "OTP_MOBILE_RATE_LIMIT",
+        "Too many verification attempts were requested. Please try again later.",
+      );
+    }
+
+    if (ipAddress) {
+      const ipEvents =
+        ((await db
+          .select()
+          .from(publicOtpSendEvents)
+          .where(eq(publicOtpSendEvents.ipAddress, ipAddress))
+          .limit(input.otpConfig.perIpLimit + 20)) as Array<{
+          createdAt?: Date | null;
+          outcome?: string | null;
+        }> | undefined) ?? [];
+      const ipWindowStart = now - input.otpConfig.perIpWindowMinutes * 60_000;
+      const ipCount = ipEvents.filter(
+        (event) =>
+          event.outcome === "sent" &&
+          event.createdAt instanceof Date &&
+          event.createdAt.getTime() >= ipWindowStart,
+      ).length;
+      if (ipCount >= input.otpConfig.perIpLimit) {
+        throw this.buildPublicOtpError(
+          "OTP_IP_RATE_LIMIT",
+          "Too many verification attempts were requested. Please try again later.",
+        );
+      }
+    }
+
+    const businessEvents =
+      ((await db
+        .select()
+        .from(publicOtpSendEvents)
+        .where(eq(publicOtpSendEvents.businessId, input.hold.businessId))
+        .limit(input.otpConfig.perBusinessDailyLimit + 50)) as Array<{
+        createdAt?: Date | null;
+        outcome?: string | null;
+      }> | undefined) ?? [];
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const businessCount = businessEvents.filter(
+      (event) =>
+        event.outcome === "sent" &&
+        event.createdAt instanceof Date &&
+        event.createdAt.getTime() >= dayStart.getTime(),
+    ).length;
+    if (businessCount >= input.otpConfig.perBusinessDailyLimit) {
+      throw this.buildPublicOtpError(
+        "OTP_BUSINESS_DAILY_LIMIT",
+        "Too many verification attempts were requested. Please try again later.",
+      );
+    }
+  }
+
+  private resolveClientIp(clientIp?: string): string | null {
+    const normalized = clientIp?.trim();
+    return normalized ? normalized.slice(0, 128) : null;
+  }
+
+  private async recordOtpSendEvent(input: {
+    organizationId: string;
+    businessId: string;
+    bookingHoldId: string;
+    mobile: string;
+    ipAddress: string | null;
+    outcome: string;
+    providerVerificationSid: string | null;
+  }) {
+    const db = getDb();
+    await db.insert(publicOtpSendEvents).values({
+      organizationId: input.organizationId,
+      businessId: input.businessId,
+      bookingHoldId: input.bookingHoldId,
+      mobile: input.mobile,
+      ipAddress: input.ipAddress,
+      outcome: input.outcome,
+      provider: "twilio_verify",
+      providerVerificationSid: input.providerVerificationSid,
+      metadata: null,
+    });
+  }
+
+  private buildPublicOtpError(code: string, message: string) {
+    return new BadRequestException({
+      code,
+      message,
+    });
+  }
+
+  private getOtpConfigFromEnv(): OtpConfig {
+    return {
+      resendCooldownSeconds: Math.max(
+        0,
+        Number(process.env.OTP_RESEND_COOLDOWN_SECONDS ?? 60) || 60,
+      ),
+      maxSendsPerHold: Math.max(
+        1,
+        Number(process.env.OTP_MAX_SENDS_PER_HOLD ?? 3) || 3,
+      ),
+      perMobileLimit: Math.max(
+        1,
+        Number(process.env.OTP_PER_MOBILE_LIMIT ?? 5) || 5,
+      ),
+      perMobileWindowMinutes: Math.max(
+        1,
+        Number(process.env.OTP_PER_MOBILE_WINDOW_MINUTES ?? 60) || 60,
+      ),
+      perIpLimit: Math.max(
+        1,
+        Number(process.env.OTP_PER_IP_LIMIT ?? 10) || 10,
+      ),
+      perIpWindowMinutes: Math.max(
+        1,
+        Number(process.env.OTP_PER_IP_WINDOW_MINUTES ?? 60) || 60,
+      ),
+      perBusinessDailyLimit: Math.max(
+        1,
+        Number(process.env.OTP_PER_BUSINESS_DAILY_LIMIT ?? 100) || 100,
+      ),
+    };
+  }
+
+  private toMonthKey(date: Date): string {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   }
 }

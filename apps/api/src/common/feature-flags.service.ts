@@ -66,6 +66,10 @@ export class FeatureFlagsService {
     return this.isEnabled("self_serve_billing_enabled");
   }
 
+  annualBillingCheckoutEnabled(): boolean {
+    return this.isEnabled("annual_billing_checkout_enabled");
+  }
+
   manualBillingControlsEnabled(): boolean {
     return this.isEnabled("manual_billing_controls_enabled");
   }
@@ -75,6 +79,7 @@ const FLAG_DEFAULTS: Partial<Record<FeatureFlag, boolean>> = {
   founder_led_mode_enabled: true,
   public_signup_enabled: false,
   self_serve_billing_enabled: false,
+  annual_billing_checkout_enabled: false,
   manual_billing_controls_enabled: true,
 };
 
@@ -91,4 +96,5 @@ export type FeatureFlag =
   | "founder_led_mode_enabled"
   | "public_signup_enabled"
   | "self_serve_billing_enabled"
+  | "annual_billing_checkout_enabled"
   | "manual_billing_controls_enabled";

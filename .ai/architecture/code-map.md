@@ -16,7 +16,7 @@
 - Imports: `apps/web/src/app/(dashboard)/imports/page.tsx` + `apps/api/src/imports/*`
 
 ## External Integrations
-- First-party auth + Resend email delivery, PayMongo billing, Twilio, OpenAI, CRM provider APIs
+- First-party auth + Resend email delivery, Lemon Squeezy billing, Twilio, OpenAI, CRM provider APIs
 
 ## Semantic Search Order
 1. `.ai/file-index/*`
