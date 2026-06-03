@@ -818,6 +818,7 @@ export const smsAddons = pgTable("sms_addons", {
   }),
   purchasedAt: timestamp("purchased_at").defaultNow().notNull(),
   consumedUnits: integer("consumed_units").notNull().default(0),
+  refundedUnits: integer("refunded_units").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

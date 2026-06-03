@@ -299,11 +299,29 @@ export class IntakeBookingService {
       throw new BadRequestException("Hold expired");
     }
 
+    const [business] = await db
+      .select({
+        organizationId: businesses.organizationId,
+      })
+      .from(businesses)
+      .where(eq(businesses.id, hold.businessId))
+      .limit(1);
+
+    if (!business?.organizationId) {
+      throw new BadRequestException("Business not found");
+    }
+
     if (
       hold.otpCooldownEndsAt &&
       hold.otpCooldownEndsAt instanceof Date &&
       hold.otpCooldownEndsAt.getTime() > Date.now()
     ) {
+      await this.recordBlockedOtpSendEvent({
+        organizationId: business.organizationId,
+        hold,
+        clientIp,
+        outcome: "OTP_RESEND_COOLDOWN",
+      });
       throw this.buildPublicOtpError(
         "OTP_RESEND_COOLDOWN",
         SAFE_BOOKING_UNAVAILABLE_MESSAGE,
@@ -311,6 +329,12 @@ export class IntakeBookingService {
     }
 
     if ((hold.otpSentCount ?? 0) >= otpConfig.maxSendsPerHold) {
+      await this.recordBlockedOtpSendEvent({
+        organizationId: business.organizationId,
+        hold,
+        clientIp,
+        outcome: "OTP_HOLD_SEND_LIMIT",
+      });
       throw this.buildPublicOtpError(
         "OTP_HOLD_SEND_LIMIT",
         SAFE_BOOKING_UNAVAILABLE_MESSAGE,
@@ -333,22 +357,16 @@ export class IntakeBookingService {
       };
     }
 
-    const [business] = await db
-      .select({
-        organizationId: businesses.organizationId,
-      })
-      .from(businesses)
-      .where(eq(businesses.id, hold.businessId))
-      .limit(1);
-
-    if (!business?.organizationId) {
-      throw new BadRequestException("Business not found");
-    }
-
     const state = await this.orgBillingState.getOrgBillingState(
       business.organizationId,
     );
     if (state?.variableCostActionsBlocked) {
+      await this.recordBlockedOtpSendEvent({
+        organizationId: business.organizationId,
+        hold,
+        clientIp,
+        outcome: "OTP_BILLING_BLOCKED",
+      });
       throw this.buildPublicOtpError(
         "OTP_BILLING_BLOCKED",
         SAFE_BOOKING_UNAVAILABLE_MESSAGE,
@@ -360,6 +378,12 @@ export class IntakeBookingService {
       state?.currentPlan ?? "free",
     );
     if (creditLedger.used >= creditLedger.includedGranted + creditLedger.addonGranted) {
+      await this.recordBlockedOtpSendEvent({
+        organizationId: business.organizationId,
+        hold,
+        clientIp,
+        outcome: "OTP_BILLING_BLOCKED",
+      });
       throw this.buildPublicOtpError(
         "OTP_BILLING_BLOCKED",
         SAFE_BOOKING_UNAVAILABLE_MESSAGE,
@@ -369,6 +393,7 @@ export class IntakeBookingService {
     await this.assertOtpSendAllowed({
       hold,
       clientIp,
+      organizationId: business.organizationId,
       otpConfig,
     });
 
@@ -377,7 +402,16 @@ export class IntakeBookingService {
     const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
 
     if (!sid || !token || !verifyServiceSid) {
-      throw new BadRequestException("OTP provider not configured");
+      await this.recordBlockedOtpSendEvent({
+        organizationId: business.organizationId,
+        hold,
+        clientIp,
+        outcome: "OTP_PROVIDER_UNAVAILABLE",
+      });
+      throw this.buildPublicOtpError(
+        "OTP_PROVIDER_UNAVAILABLE",
+        SAFE_BOOKING_UNAVAILABLE_MESSAGE,
+      );
     }
 
     const basicAuth = Buffer.from(`${sid}:${token}`).toString("base64");
@@ -399,6 +433,12 @@ export class IntakeBookingService {
     );
 
     if (!res.ok) {
+      await this.recordBlockedOtpSendEvent({
+        organizationId: business.organizationId,
+        hold,
+        clientIp,
+        outcome: "OTP_PROVIDER_UNAVAILABLE",
+      });
       throw this.buildPublicOtpError(
         "OTP_PROVIDER_UNAVAILABLE",
         SAFE_BOOKING_UNAVAILABLE_MESSAGE,
@@ -429,7 +469,12 @@ export class IntakeBookingService {
         used: creditLedger.used + 1,
         updatedAt: new Date(),
       })
-      .where(eq(verifiedOnlineBookingCredits.organizationId, business.organizationId));
+      .where(
+        and(
+          eq(verifiedOnlineBookingCredits.organizationId, business.organizationId),
+          eq(verifiedOnlineBookingCredits.month, creditLedger.month),
+        ),
+      );
 
     await db.insert(verifiedOnlineBookingUsageEvents).values({
       organizationId: business.organizationId,
@@ -462,7 +507,7 @@ export class IntakeBookingService {
 
   async verifyAndConfirm(holdId: string, code: string) {
     if (!code?.trim()) {
-      throw new BadRequestException("OTP code required");
+      throw this.buildPublicOtpError("OTP_INVALID_CODE", "OTP code required");
     }
 
     const db = getDb();
@@ -490,11 +535,14 @@ export class IntakeBookingService {
         })
         .where(eq(bookingHolds.id, hold.id));
 
-      throw new BadRequestException("Hold expired");
+      throw this.buildPublicOtpError("OTP_HOLD_EXPIRED", "Hold expired");
     }
 
     if (hold.otpAttempts >= OTP_MAX_ATTEMPTS) {
-      throw new BadRequestException("Too many OTP attempts");
+      throw this.buildPublicOtpError(
+        "OTP_MAX_ATTEMPTS",
+        "Too many OTP attempts",
+      );
     }
 
     const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
@@ -502,7 +550,10 @@ export class IntakeBookingService {
     const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
 
     if (!sid || !token || !verifyServiceSid) {
-      throw new BadRequestException("OTP provider not configured");
+      throw this.buildPublicOtpError(
+        "OTP_PROVIDER_UNAVAILABLE",
+        "OTP provider temporarily unavailable",
+      );
     }
 
     const basicAuth = Buffer.from(`${sid}:${token}`).toString("base64");
@@ -527,7 +578,14 @@ export class IntakeBookingService {
       .json()
       .catch(() => ({}))) as VerifyResult;
 
-    if (!verifyRes.ok || !verifyData.valid) {
+    if (!verifyRes.ok) {
+      throw this.buildPublicOtpError(
+        "OTP_PROVIDER_UNAVAILABLE",
+        "OTP provider temporarily unavailable",
+      );
+    }
+
+    if (!verifyData.valid) {
       await db
         .update(bookingHolds)
         .set({
@@ -536,54 +594,74 @@ export class IntakeBookingService {
         })
         .where(eq(bookingHolds.id, hold.id));
 
-      throw new BadRequestException("Invalid OTP");
+      throw this.buildPublicOtpError("OTP_INVALID_CODE", "Invalid OTP");
     }
 
-    const appointment = await db.transaction(async (tx) => {
-      const lockKey = `${hold.businessId}:${hold.scheduledAt.toISOString()}`;
+    let appointment: {
+      id: string;
+      businessId: string;
+    };
+    try {
+      appointment = await db.transaction(async (tx) => {
+        const lockKey = `${hold.businessId}:${hold.scheduledAt.toISOString()}`;
 
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`,
-      );
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`,
+        );
 
-      const conflictingAppointment = await tx
-        .select({ id: appointments.id })
-        .from(appointments)
-        .where(
-          and(
-            eq(appointments.businessId, hold.businessId),
-            eq(appointments.scheduledAt, hold.scheduledAt),
-            eq(appointments.status, "scheduled"),
-          ),
-        )
-        .limit(1);
+        const conflictingAppointment = await tx
+          .select({ id: appointments.id })
+          .from(appointments)
+          .where(
+            and(
+              eq(appointments.businessId, hold.businessId),
+              eq(appointments.scheduledAt, hold.scheduledAt),
+              eq(appointments.status, "scheduled"),
+            ),
+          )
+          .limit(1);
 
-      if (conflictingAppointment.length > 0) {
-        throw new ConflictException("Selected slot is no longer available");
+        if (conflictingAppointment.length > 0) {
+          throw new ConflictException("Selected slot is no longer available");
+        }
+
+        const [createdAppointment] = await tx
+          .insert(appointments)
+          .values({
+            businessId: hold.businessId,
+            customerId: hold.customerId,
+            scheduledAt: hold.scheduledAt,
+            notes: "Booked via customer self-serve flow",
+            status: "scheduled",
+          })
+          .returning();
+
+        await tx
+          .update(bookingHolds)
+          .set({
+            status: "confirmed",
+            confirmedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(bookingHolds.id, hold.id));
+
+        return createdAppointment!;
+      }) as {
+        id: string;
+        businessId: string;
+      };
+    } catch (err) {
+      if (
+        err instanceof ConflictException ||
+        (err instanceof Error && /slot is no longer available/i.test(err.message))
+      ) {
+        throw this.buildPublicOtpError(
+          "OTP_SLOT_CONFLICT",
+          "Selected slot is no longer available",
+        );
       }
-
-      const [createdAppointment] = await tx
-        .insert(appointments)
-        .values({
-          businessId: hold.businessId,
-          customerId: hold.customerId,
-          scheduledAt: hold.scheduledAt,
-          notes: "Booked via customer self-serve flow",
-          status: "scheduled",
-        })
-        .returning();
-
-      await tx
-        .update(bookingHolds)
-        .set({
-          status: "confirmed",
-          confirmedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(bookingHolds.id, hold.id));
-
-      return createdAppointment!;
-    });
+      throw err;
+    }
 
     const [business] = await db
       .select({
@@ -618,10 +696,15 @@ export class IntakeBookingService {
     const [ledger] = await db
       .select()
       .from(verifiedOnlineBookingCredits)
-      .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId))
+      .where(
+        and(
+          eq(verifiedOnlineBookingCredits.organizationId, organizationId),
+          eq(verifiedOnlineBookingCredits.month, month),
+        ),
+      )
       .limit(1);
 
-    if (ledger?.month === month) {
+    if (ledger) {
       return ledger;
     }
 
@@ -647,10 +730,12 @@ export class IntakeBookingService {
 
   private async assertOtpSendAllowed(input: {
     hold: {
+      id: string;
       businessId: string;
       mobile: string;
     };
     clientIp?: string;
+    organizationId: string;
     otpConfig: OtpConfig;
   }) {
     const db = getDb();
@@ -674,6 +759,12 @@ export class IntakeBookingService {
         event.createdAt.getTime() >= mobileWindowStart,
     ).length;
     if (mobileCount >= input.otpConfig.perMobileLimit) {
+      await this.recordBlockedOtpSendEvent({
+        organizationId: input.organizationId,
+        hold: input.hold,
+        clientIp: input.clientIp,
+        outcome: "OTP_MOBILE_RATE_LIMIT",
+      });
       throw this.buildPublicOtpError(
         "OTP_MOBILE_RATE_LIMIT",
         "Too many verification attempts were requested. Please try again later.",
@@ -698,6 +789,12 @@ export class IntakeBookingService {
           event.createdAt.getTime() >= ipWindowStart,
       ).length;
       if (ipCount >= input.otpConfig.perIpLimit) {
+        await this.recordBlockedOtpSendEvent({
+          organizationId: input.organizationId,
+          hold: input.hold,
+          clientIp: input.clientIp,
+          outcome: "OTP_IP_RATE_LIMIT",
+        });
         throw this.buildPublicOtpError(
           "OTP_IP_RATE_LIMIT",
           "Too many verification attempts were requested. Please try again later.",
@@ -723,6 +820,12 @@ export class IntakeBookingService {
         event.createdAt.getTime() >= dayStart.getTime(),
     ).length;
     if (businessCount >= input.otpConfig.perBusinessDailyLimit) {
+      await this.recordBlockedOtpSendEvent({
+        organizationId: input.organizationId,
+        hold: input.hold,
+        clientIp: input.clientIp,
+        outcome: "OTP_BUSINESS_DAILY_LIMIT",
+      });
       throw this.buildPublicOtpError(
         "OTP_BUSINESS_DAILY_LIMIT",
         "Too many verification attempts were requested. Please try again later.",
@@ -755,6 +858,27 @@ export class IntakeBookingService {
       provider: "twilio_verify",
       providerVerificationSid: input.providerVerificationSid,
       metadata: null,
+    });
+  }
+
+  private async recordBlockedOtpSendEvent(input: {
+    organizationId: string;
+    hold: {
+      id: string;
+      businessId: string;
+      mobile: string;
+    };
+    clientIp?: string;
+    outcome: string;
+  }) {
+    await this.recordOtpSendEvent({
+      organizationId: input.organizationId,
+      businessId: input.hold.businessId,
+      bookingHoldId: input.hold.id,
+      mobile: input.hold.mobile,
+      ipAddress: this.resolveClientIp(input.clientIp),
+      outcome: input.outcome,
+      providerVerificationSid: null,
     });
   }
 

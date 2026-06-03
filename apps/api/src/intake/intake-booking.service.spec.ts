@@ -16,6 +16,7 @@ const setMock = vi.fn();
 const updateMock = vi.fn();
 const insertValuesMock = vi.fn();
 const insertMock = vi.fn();
+const transactionMock = vi.fn();
 
 const automationSendMock = {
   sendAppointmentConfirmation: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock("@tyvera/database", () => ({
     where: whereMock,
     update: updateMock,
     insert: insertMock,
+    transaction: transactionMock,
   }),
   bookingHolds: {
     id: "id",
@@ -75,6 +77,7 @@ describe("IntakeBookingService OTP", () => {
     updateMock.mockReset();
     insertValuesMock.mockReset();
     insertMock.mockReset();
+    transactionMock.mockReset();
 
     selectMock.mockReturnValue({
       from: fromMock,
@@ -102,6 +105,14 @@ describe("IntakeBookingService OTP", () => {
 
     updateWhereMock.mockResolvedValue(undefined);
     insertValuesMock.mockResolvedValue(undefined);
+    transactionMock.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        execute: vi.fn(),
+        select: selectMock,
+        insert: insertMock,
+        update: updateMock,
+      }),
+    );
     vi.mocked(orgBillingStateMock.getOrgBillingState).mockResolvedValue({
       variableCostActionsBlocked: false,
     } as never);
@@ -277,6 +288,7 @@ describe("IntakeBookingService OTP", () => {
         updatedAt: new Date(),
       },
     ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
 
     await expect(service.sendOtp("hold_1")).resolves.toEqual({
       success: true,
@@ -313,8 +325,15 @@ describe("IntakeBookingService OTP", () => {
         updatedAt: new Date(Date.now() - 120_000),
       },
     ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
 
     await expect(service.sendOtp("hold_1")).rejects.toThrow(/temporarily unavailable/i);
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingHoldId: "h1",
+        outcome: "OTP_RESEND_COOLDOWN",
+      }),
+    );
   });
 
   it("blocks OTP sends when the same mobile exceeds the rolling limit", async () => {
@@ -371,6 +390,12 @@ describe("IntakeBookingService OTP", () => {
     ]);
 
     await expect(service.sendOtp("hold_1", "127.0.0.1")).rejects.toThrow(/too many verification attempts/i);
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingHoldId: "h1",
+        outcome: "OTP_MOBILE_RATE_LIMIT",
+      }),
+    );
   });
 
   it("blocks OTP sends when the same IP exceeds the rolling limit", async () => {
@@ -430,6 +455,12 @@ describe("IntakeBookingService OTP", () => {
     ]);
 
     await expect(service.sendOtp("hold_1", "127.0.0.1")).rejects.toThrow(/too many verification attempts/i);
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingHoldId: "h1",
+        outcome: "OTP_IP_RATE_LIMIT",
+      }),
+    );
   });
 
   it("blocks OTP sends when the business daily cap is exceeded", async () => {
@@ -491,5 +522,121 @@ describe("IntakeBookingService OTP", () => {
     ]);
 
     await expect(service.sendOtp("hold_1", "127.0.0.9")).rejects.toThrow(/too many verification attempts/i);
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingHoldId: "h1",
+        outcome: "OTP_BUSINESS_DAILY_LIMIT",
+      }),
+    );
+  });
+
+  it("returns a stable code for invalid OTP verification attempts", async () => {
+    process.env.TWILIO_ACCOUNT_SID = "AC123";
+    process.env.TWILIO_AUTH_TOKEN = "tok";
+    process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpAttempts: 0,
+        scheduledAt: new Date(Date.now() + 120_000),
+      },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: false }),
+      }) as unknown as typeof fetch,
+    );
+
+    await expect(service.verifyAndConfirm("hold_1", "123456")).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "OTP_INVALID_CODE" }),
+    });
+  });
+
+  it("returns a stable code when max OTP attempts are reached", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpAttempts: 5,
+        scheduledAt: new Date(Date.now() + 120_000),
+      },
+    ]);
+
+    await expect(service.verifyAndConfirm("hold_1", "123456")).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "OTP_MAX_ATTEMPTS" }),
+    });
+  });
+
+  it("returns a stable code when the OTP hold is expired", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() - 60_000),
+        mobile: "+639171234567",
+        otpAttempts: 0,
+        scheduledAt: new Date(Date.now() + 120_000),
+      },
+    ]);
+
+    await expect(service.verifyAndConfirm("hold_1", "123456")).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "OTP_HOLD_EXPIRED" }),
+    });
+  });
+
+  it("returns a stable code when a slot conflict happens after OTP verification", async () => {
+    process.env.TWILIO_ACCOUNT_SID = "AC123";
+    process.env.TWILIO_AUTH_TOKEN = "tok";
+    process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        customerId: "cust-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpAttempts: 0,
+        scheduledAt: new Date(Date.now() + 120_000),
+      },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: true }),
+      }) as unknown as typeof fetch,
+    );
+    transactionMock.mockRejectedValueOnce(new Error("Selected slot is no longer available"));
+
+    await expect(service.verifyAndConfirm("hold_1", "123456")).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "OTP_SLOT_CONFLICT" }),
+    });
   });
 });

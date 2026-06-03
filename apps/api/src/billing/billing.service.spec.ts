@@ -69,6 +69,8 @@ const getDbMock = vi.mocked(getDb);
 function createDbHarness(input?: {
   subscriptions?: SubscriptionRow[];
   verifiedCredits?: CreditRow[];
+  bookingAddons?: Array<Record<string, unknown>>;
+  smsAddons?: Array<Record<string, unknown>>;
   smsCredits?: Array<{
     organizationId: string;
     month: string;
@@ -93,6 +95,8 @@ function createDbHarness(input?: {
   const state = {
     subscriptions: [...(input?.subscriptions ?? [])],
     verifiedCredits: [...(input?.verifiedCredits ?? [])],
+    bookingAddons: [...(input?.bookingAddons ?? [])],
+    smsAddons: [...(input?.smsAddons ?? [])],
     smsCredits: [...(input?.smsCredits ?? [])],
     emailCredits: [...(input?.emailCredits ?? [])],
     aiUsageSummary: [...(input?.aiUsageSummary ?? [])],
@@ -114,12 +118,36 @@ function createDbHarness(input?: {
       credits: [] as Array<Record<string, unknown>>,
       organizations: [] as Array<Record<string, unknown>>,
       processedEvents: [] as Array<Record<string, unknown>>,
+      bookingAddons: [] as Array<Record<string, unknown>>,
+      smsAddons: [] as Array<Record<string, unknown>>,
     },
+    whereConditions: [] as Array<{ table: unknown; condition: unknown }>,
+  };
+
+  const sqlValueCount = (condition: unknown): number => {
+    const seen = new Set<unknown>();
+    const visit = (value: unknown): number => {
+      if (!value || typeof value !== "object" || seen.has(value)) return 0;
+      seen.add(value);
+      let count = 0;
+      if ("value" in value && !("name" in value)) count += 1;
+      for (const nested of Object.values(value as Record<string, unknown>)) {
+        if (Array.isArray(nested)) {
+          count += nested.reduce((sum, item) => sum + visit(item), 0);
+        } else {
+          count += visit(nested);
+        }
+      }
+      return count;
+    };
+    return visit(condition);
   };
 
   const select = vi.fn(() => ({
     from: (table: unknown) => ({
-      where: () => ({
+      where: (condition: unknown) => {
+        state.whereConditions.push({ table, condition });
+        return {
         orderBy: () => ({
           limit: async () => {
             if (table === subscriptions) return state.subscriptions.slice(0, 1);
@@ -135,9 +163,12 @@ function createDbHarness(input?: {
           if (table === organizations) return state.organizations.slice(0, 1);
           if (table === processedWebhookEvents) return state.processedEvents.slice(0, 1);
           if (table === creditReconciliationEvents) return state.reconciliation.slice(0, 1);
+          if (table === verifiedOnlineBookingAddons) return state.bookingAddons.slice(0, 1);
+          if (table === smsAddons) return state.smsAddons.slice(0, 1);
           return [];
         },
-      }),
+      };
+      },
     }),
   }));
 
@@ -158,8 +189,10 @@ function createDbHarness(input?: {
           state.emailCredits = [value as never];
         } else if (table === verifiedOnlineBookingAddons) {
           state.inserted.bookingAddons.push(value);
+          state.bookingAddons = [...state.bookingAddons, value];
         } else if (table === smsAddons) {
           state.inserted.smsAddons.push(value);
+          state.smsAddons = [...state.smsAddons, value];
         } else if (table === creditReconciliationEvents) {
           state.inserted.reconciliation.push(value);
         } else if (table === processedWebhookEvents) {
@@ -228,6 +261,16 @@ function createDbHarness(input?: {
           }
         } else if (table === processedWebhookEvents) {
           state.updated.processedEvents.push(value);
+        } else if (table === verifiedOnlineBookingAddons) {
+          state.updated.bookingAddons.push(value);
+          if (state.bookingAddons[0]) {
+            state.bookingAddons[0] = { ...state.bookingAddons[0], ...value };
+          }
+        } else if (table === smsAddons) {
+          state.updated.smsAddons.push(value);
+          if (state.smsAddons[0]) {
+            state.smsAddons[0] = { ...state.smsAddons[0], ...value };
+          }
         }
       },
     }),
@@ -243,7 +286,7 @@ function createDbHarness(input?: {
 
   getDbMock.mockReturnValue(db as never);
 
-  return { state };
+  return { state, sqlValueCount };
 }
 
 describe("BillingService", () => {
@@ -412,6 +455,178 @@ describe("BillingService", () => {
         }),
       ],
     });
+  });
+
+  it("does not surface resolved refund-review warnings", async () => {
+    createDbHarness({
+      subscriptions: [
+        {
+          id: "sub-local",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+        },
+      ],
+      reconciliation: [
+        {
+          organizationId: "org-1",
+          creditType: "sms_segment",
+          month: "2026-06",
+          eventType: "refund_review",
+          resolvedAt: new Date("2026-06-05T00:00:00.000Z"),
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      ownerWarnings: [],
+    });
+  });
+
+  it("queries current-month ledgers with organization and month predicates", async () => {
+    const { state, sqlValueCount } = createDbHarness({
+      subscriptions: [
+        {
+          id: "sub-local",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+        },
+      ],
+      verifiedCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          includedGranted: 80,
+          addonGranted: 0,
+          used: 4,
+          sourcePlan: "growth",
+        },
+      ],
+      smsCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          included: 300,
+          addon: 0,
+          used: 5,
+        },
+      ],
+      emailCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          included: 5000,
+          used: 10,
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.getBillingStatus("org-1");
+
+    for (const table of [
+      verifiedOnlineBookingCredits,
+      smsCredits,
+      emailCredits,
+    ]) {
+      const condition = state.whereConditions.find((item) => item.table === table)?.condition;
+      expect(sqlValueCount(condition)).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("marks cancel as pending webhook sync without finalizing local lifecycle", async () => {
+    const { state } = createDbHarness({
+      subscriptions: [
+        {
+          id: "sub-local",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          renewsAt: new Date("2026-07-01T00:00:00.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    const service = new BillingService({
+      cancelSubscription: vi.fn().mockResolvedValue({
+        data: {
+          attributes: {
+            ends_at: "2026-07-01T00:00:00.000Z",
+            renews_at: null,
+          },
+        },
+      }),
+    } as never);
+
+    await expect(service.cancel("org-1")).resolves.toMatchObject({
+      cancellationScheduled: true,
+      pendingWebhookSync: true,
+    });
+
+    expect(state.updated.subscriptions).toEqual([
+      expect.objectContaining({
+        pendingSyncAction: "cancel",
+        pendingSyncTargetPlanType: "free",
+      }),
+    ]);
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("status");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("cancelled");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("endsAt");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("renewsAt");
+  });
+
+  it("marks resume as pending webhook sync without finalizing local lifecycle", async () => {
+    const { state } = createDbHarness({
+      subscriptions: [
+        {
+          id: "sub-local",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "cancelled",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          endsAt: new Date("2026-07-01T00:00:00.000Z"),
+          cancelled: "true",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    const service = new BillingService({
+      updateSubscription: vi.fn().mockResolvedValue({
+        data: { attributes: { status: "active" } },
+      }),
+    } as never);
+
+    await expect(service.resume("org-1")).resolves.toMatchObject({
+      resumed: true,
+      pendingWebhookSync: true,
+    });
+
+    expect(state.updated.subscriptions).toEqual([
+      expect.objectContaining({
+        pendingSyncAction: "resume",
+        pendingSyncTargetPlanType: "growth",
+      }),
+    ]);
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("status");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("cancelled");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("endsAt");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("renewsAt");
   });
 
   it("reconciles subscription_created into subscription, org state, and included booking credits", async () => {
@@ -957,6 +1172,15 @@ describe("BillingService", () => {
           sourcePlan: "starter",
         },
       ],
+      bookingAddons: [
+        {
+          id: "addon-1",
+          organizationId: "org-1",
+          sku: "online-booking-topup-25",
+          units: 25,
+          refundedUnits: 0,
+        },
+      ],
     });
     const service = new BillingService({} as never);
 
@@ -986,6 +1210,57 @@ describe("BillingService", () => {
       addonBefore: 25,
       addonAfter: 0,
       providerEventId: "refund_booking_123",
+    });
+    expect(state.updated.bookingAddons[0]).toMatchObject({
+      refundedUnits: 25,
+    });
+  });
+
+  it("refunds unused sms top-up credits and records refunded add-on units", async () => {
+    const { state } = createDbHarness({
+      smsCredits: [
+        {
+          organizationId: "org-1",
+          month: "2026-06",
+          included: 300,
+          addon: 50,
+          used: 25,
+        },
+      ],
+      smsAddons: [
+        {
+          id: "sms-addon-1",
+          organizationId: "org-1",
+          packSize: 50,
+          refundedUnits: 0,
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: {
+          organization_id: "org-1",
+          purchase_kind: "sms_segment_topup",
+          sku: "sms-segment-topup-50",
+        },
+      },
+      data: {
+        id: "refund_sms_123",
+        attributes: {},
+      },
+    });
+
+    expect(state.updated.smsAddons[0]).toMatchObject({
+      refundedUnits: 50,
+    });
+    expect(state.inserted.reconciliation[0]).toMatchObject({
+      creditType: "sms_segment",
+      eventType: "refund_applied",
+      addonBefore: 50,
+      addonAfter: 0,
     });
   });
 
@@ -1064,6 +1339,33 @@ describe("BillingService", () => {
 
     expect(state.updated.processedEvents[0]).toMatchObject({
       status: "ignored",
+    });
+  });
+
+  it("marks webhook events as failed when reconciliation throws", async () => {
+    const { state } = createDbHarness();
+    const service = new BillingService({} as never);
+
+    await expect(
+      service.reconcileWebhookEvent({
+        meta: {
+          event_name: "order_created",
+          custom_data: {
+            organization_id: "org-1",
+            purchase_kind: "online_booking_topup",
+            sku: "not-a-real-sku",
+          },
+        },
+        data: {
+          id: "order_bad_123",
+          attributes: {},
+        },
+      }),
+    ).rejects.toThrow();
+
+    expect(state.updated.processedEvents[0]).toMatchObject({
+      status: "failed",
+      failureReason: expect.any(String),
     });
   });
   it("changes to a higher plan immediately through Lemon Squeezy and waits for webhook activation", async () => {
@@ -1200,9 +1502,12 @@ describe("BillingService", () => {
 
     expect(provider.cancelSubscription).toHaveBeenCalledWith("sub_123");
     expect(state.updated.subscriptions[0]).toMatchObject({
-      cancelled: "true",
-      status: "cancelled",
+      pendingSyncAction: "cancel",
+      pendingSyncTargetPlanType: "free",
+      pendingSyncTargetBillingInterval: "monthly",
     });
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("cancelled");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("status");
   });
 
   it("resumes a cancelled subscription through Lemon Squeezy before the period ends", async () => {
@@ -1248,9 +1553,12 @@ describe("BillingService", () => {
       cancelled: false,
     });
     expect(state.updated.subscriptions[0]).toMatchObject({
-      cancelled: "false",
-      status: "active",
-      endsAt: null,
+      pendingSyncAction: "resume",
+      pendingSyncTargetPlanType: "growth",
+      pendingSyncTargetBillingInterval: "monthly",
     });
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("cancelled");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("status");
+    expect(state.updated.subscriptions[0]).not.toHaveProperty("endsAt");
   });
 });

@@ -372,18 +372,6 @@ export class BillingService {
     );
     const endsAt = this.parseDate(providerResponse.data?.attributes?.ends_at);
 
-    const db = getDb();
-    await db
-      .update(subscriptions)
-      .set({
-        cancelled: "true",
-        status: "cancelled",
-        endsAt,
-        renewsAt: this.parseDate(providerResponse.data?.attributes?.renews_at),
-        updatedAt: new Date(),
-      })
-      .where(eq(subscriptions.id, subscription.id));
-
     await this.markPendingSync(subscription.id, {
       action: "cancel",
       targetPlanType: "free",
@@ -405,27 +393,12 @@ export class BillingService {
       throw new NotFoundException("Subscription not found.");
     }
 
-    const providerResponse = await this.lemonsqueezy.updateSubscription(
+    await this.lemonsqueezy.updateSubscription(
       subscription.providerSubscriptionId,
       {
         cancelled: false,
       },
     );
-
-    const db = getDb();
-    await db
-      .update(subscriptions)
-      .set({
-        cancelled: "false",
-        status: this.resolveSubscriptionStatus(
-          "subscription_resumed",
-          this.readString(providerResponse.data?.attributes?.status),
-        ),
-        endsAt: this.parseDate(providerResponse.data?.attributes?.ends_at),
-        renewsAt: this.parseDate(providerResponse.data?.attributes?.renews_at),
-        updatedAt: new Date(),
-      })
-      .where(eq(subscriptions.id, subscription.id));
 
     await this.markPendingSync(subscription.id, {
       action: "resume",
@@ -486,43 +459,45 @@ export class BillingService {
 
     const db = getDb();
 
-    return db.transaction(async (tx) => {
-      const claimedRows = await tx
-        .insert(processedWebhookEvents)
-        .values({
-          provider: "lemonsqueezy",
-          eventId: deliveryKey,
-          eventName,
-          payloadHash,
-          status: "processing",
-          metadata: {
-            resourceId,
-          },
-        })
-        .onConflictDoNothing({
-          target: processedWebhookEvents.eventId,
-        })
-        .returning({
-          id: processedWebhookEvents.id,
-        });
+    const claimedRows = await db
+      .insert(processedWebhookEvents)
+      .values({
+        provider: "lemonsqueezy",
+        eventId: deliveryKey,
+        eventName,
+        payloadHash,
+        status: "processing",
+        metadata: {
+          resourceId,
+        },
+      })
+      .onConflictDoNothing({
+        target: processedWebhookEvents.eventId,
+      })
+      .returning({
+        id: processedWebhookEvents.id,
+      });
 
-      if (claimedRows.length === 0) {
-        return "duplicate";
-      }
+    if (claimedRows.length === 0) {
+      return "duplicate";
+    }
 
-      let webhookStatus: "processed" | "ignored" = "processed";
+    let webhookStatus: "processed" | "ignored" = "processed";
 
-      if (eventName.startsWith("subscription_")) {
-        await this.reconcileSubscriptionEvent(tx, payload);
-      } else if (eventName === "order_created") {
-        await this.reconcileOrderCreatedEvent(tx, payload);
-      } else if (eventName === "order_refunded") {
-        await this.reconcileOrderRefundedEvent(tx, payload);
-      } else {
-        webhookStatus = "ignored";
-      }
+    try {
+      await db.transaction(async (tx) => {
+        if (eventName.startsWith("subscription_")) {
+          await this.reconcileSubscriptionEvent(tx, payload);
+        } else if (eventName === "order_created") {
+          await this.reconcileOrderCreatedEvent(tx, payload);
+        } else if (eventName === "order_refunded") {
+          await this.reconcileOrderRefundedEvent(tx, payload);
+        } else {
+          webhookStatus = "ignored";
+        }
+      });
 
-      await tx
+      await db
         .update(processedWebhookEvents)
         .set({
           status: webhookStatus,
@@ -531,7 +506,22 @@ export class BillingService {
         .where(eq(processedWebhookEvents.eventId, deliveryKey));
 
       return webhookStatus;
-    });
+    } catch (err) {
+      await db
+        .update(processedWebhookEvents)
+        .set({
+          status: "failed",
+          failureReason:
+            err instanceof Error ? err.message : "Webhook reconciliation failed",
+          metadata: {
+            resourceId,
+            eventName,
+          },
+          processedAt: new Date(),
+        })
+        .where(eq(processedWebhookEvents.eventId, deliveryKey));
+      throw err;
+    }
   }
 
   private getRequiredEnv(name: string): string {
@@ -656,10 +646,7 @@ export class BillingService {
       scheduledChangeEffectiveAt: scheduledDowngrade
         ? renewsAt ?? currentPeriodEnd
         : null,
-      pendingSyncAction: null,
-      pendingSyncStartedAt: null,
-      pendingSyncTargetPlanType: null,
-      pendingSyncTargetBillingInterval: null,
+      ...this.clearPendingSync(),
     };
 
     if (existingSubscription?.id) {
@@ -722,7 +709,12 @@ export class BillingService {
           used: ledger.used,
           updatedAt: new Date(),
         })
-        .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId));
+        .where(
+          and(
+            eq(verifiedOnlineBookingCredits.organizationId, organizationId),
+            eq(verifiedOnlineBookingCredits.month, ledger.month),
+          ),
+        );
       await tx.insert(verifiedOnlineBookingAddons).values({
         organizationId,
         units: addon.units,
@@ -743,7 +735,12 @@ export class BillingService {
           used: ledger.used,
           updatedAt: new Date(),
         })
-        .where(eq(smsCredits.organizationId, organizationId));
+        .where(
+          and(
+            eq(smsCredits.organizationId, organizationId),
+            eq(smsCredits.month, ledger.month),
+          ),
+        );
       await tx.insert(smsAddons).values({
         organizationId,
         packSize: addon.units,
@@ -800,7 +797,13 @@ export class BillingService {
           used: ledger.used,
           updatedAt: new Date(),
         })
-        .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId));
+        .where(
+          and(
+            eq(verifiedOnlineBookingCredits.organizationId, organizationId),
+            eq(verifiedOnlineBookingCredits.month, ledger.month),
+          ),
+        );
+      await this.markVerifiedBookingAddonRefunded(tx, organizationId, addon.sku, addon.units);
 
       await tx.insert(creditReconciliationEvents).values({
         organizationId,
@@ -848,7 +851,13 @@ export class BillingService {
           used: ledger.used,
           updatedAt: new Date(),
         })
-        .where(eq(smsCredits.organizationId, organizationId));
+        .where(
+          and(
+            eq(smsCredits.organizationId, organizationId),
+            eq(smsCredits.month, ledger.month),
+          ),
+        );
+      await this.markSmsAddonRefunded(tx, organizationId, addon.units);
 
       await tx.insert(creditReconciliationEvents).values({
         organizationId,
@@ -885,7 +894,12 @@ export class BillingService {
     const [existingCredits] = await tx
       .select()
       .from(verifiedOnlineBookingCredits)
-      .where(eq(verifiedOnlineBookingCredits.organizationId, input.organizationId))
+      .where(
+        and(
+          eq(verifiedOnlineBookingCredits.organizationId, input.organizationId),
+          eq(verifiedOnlineBookingCredits.month, month),
+        ),
+      )
       .limit(1);
 
     if (!existingCredits) {
@@ -932,7 +946,12 @@ export class BillingService {
         lastReconciledAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(verifiedOnlineBookingCredits.organizationId, input.organizationId));
+      .where(
+        and(
+          eq(verifiedOnlineBookingCredits.organizationId, input.organizationId),
+          eq(verifiedOnlineBookingCredits.month, month),
+        ),
+      );
 
     await tx.insert(creditReconciliationEvents).values({
       organizationId: input.organizationId,
@@ -957,9 +976,14 @@ export class BillingService {
     const [ledger] = await db
       .select()
       .from(verifiedOnlineBookingCredits)
-      .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId))
+      .where(
+        and(
+          eq(verifiedOnlineBookingCredits.organizationId, organizationId),
+          eq(verifiedOnlineBookingCredits.month, month),
+        ),
+      )
       .limit(1);
-    return ledger?.month === month ? ledger : null;
+    return ledger ?? null;
   }
 
   private async getSmsLedger(organizationId: string) {
@@ -968,9 +992,14 @@ export class BillingService {
     const [ledger] = await db
       .select()
       .from(smsCredits)
-      .where(eq(smsCredits.organizationId, organizationId))
+      .where(
+        and(
+          eq(smsCredits.organizationId, organizationId),
+          eq(smsCredits.month, month),
+        ),
+      )
       .limit(1);
-    return ledger?.month === month ? ledger : null;
+    return ledger ?? null;
   }
 
   private async getEmailLedger(organizationId: string) {
@@ -979,9 +1008,14 @@ export class BillingService {
     const [ledger] = await db
       .select()
       .from(emailCredits)
-      .where(eq(emailCredits.organizationId, organizationId))
+      .where(
+        and(
+          eq(emailCredits.organizationId, organizationId),
+          eq(emailCredits.month, month),
+        ),
+      )
       .limit(1);
-    return ledger?.month === month ? ledger : null;
+    return ledger ?? null;
   }
 
   private async getAiRequestsUsed(organizationId: string) {
@@ -1015,7 +1049,7 @@ export class BillingService {
       metadata?: Record<string, unknown> | null;
     }> = [];
 
-    if (refundReview?.eventType === "refund_review") {
+    if (refundReview?.eventType === "refund_review" && !refundReview.resolvedAt) {
       warnings.push({
         code: "refund_review",
         severity: "warning" as const,
@@ -1064,7 +1098,12 @@ export class BillingService {
     const [ledger] = await tx
       .select()
       .from(verifiedOnlineBookingCredits)
-      .where(eq(verifiedOnlineBookingCredits.organizationId, organizationId))
+      .where(
+        and(
+          eq(verifiedOnlineBookingCredits.organizationId, organizationId),
+          eq(verifiedOnlineBookingCredits.month, this.getCurrentMonthUtcKey()),
+        ),
+      )
       .limit(1);
     if (ledger) return ledger;
 
@@ -1091,7 +1130,12 @@ export class BillingService {
     const [ledger] = await tx
       .select()
       .from(smsCredits)
-      .where(eq(smsCredits.organizationId, organizationId))
+      .where(
+        and(
+          eq(smsCredits.organizationId, organizationId),
+          eq(smsCredits.month, this.getCurrentMonthUtcKey()),
+        ),
+      )
       .limit(1);
     if (ledger) return ledger;
 
@@ -1202,6 +1246,72 @@ export class BillingService {
 
   private toMonthKey(date: Date): string {
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+
+  private clearPendingSync() {
+    return {
+      pendingSyncAction: null,
+      pendingSyncStartedAt: null,
+      pendingSyncTargetPlanType: null,
+      pendingSyncTargetBillingInterval: null,
+    };
+  }
+
+  private async markVerifiedBookingAddonRefunded(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    organizationId: string,
+    sku: string,
+    units: number,
+  ) {
+    const [addon] = await tx
+      .select()
+      .from(verifiedOnlineBookingAddons)
+      .where(
+        and(
+          eq(verifiedOnlineBookingAddons.organizationId, organizationId),
+          eq(verifiedOnlineBookingAddons.sku, sku),
+        ),
+      )
+      .limit(1);
+    if (!addon?.id) return;
+
+    await tx
+      .update(verifiedOnlineBookingAddons)
+      .set({
+        refundedUnits: Number(addon.refundedUnits ?? 0) + units,
+      })
+      .where(eq(verifiedOnlineBookingAddons.id, addon.id));
+  }
+
+  private async markSmsAddonRefunded(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    organizationId: string,
+    units: number,
+  ) {
+    const [addon] = await tx
+      .select()
+      .from(smsAddons)
+      .where(
+        and(
+          eq(smsAddons.organizationId, organizationId),
+          eq(smsAddons.packSize, units),
+        ),
+      )
+      .limit(1);
+    if (!addon?.id) return;
+
+    await tx
+      .update(smsAddons)
+      .set({
+        refundedUnits: Number(addon.refundedUnits ?? 0) + units,
+      })
+      .where(eq(smsAddons.id, addon.id));
   }
 
   private async markPendingSync(
