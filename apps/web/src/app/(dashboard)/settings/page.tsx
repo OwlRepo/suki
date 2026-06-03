@@ -23,13 +23,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SettingsSectionCard } from "@/components/ui/settings-section-card";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { hasClerk } from "@/lib/clerk";
 import { PageHeader } from "@/components/ui/page-header";
 import { SettingsSectionSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -1779,17 +1777,6 @@ function SettingsPageContent() {
 }
 
 export default function SettingsPage() {
-  if (!hasClerk) {
-    return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="mt-2 text-muted-foreground">
-          Clerk authentication is not configured. Set
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to manage settings.
-        </p>
-      </div>
-    );
-  }
   return (
     <Suspense fallback={<p className="text-muted-foreground">Loading...</p>}>
       <SettingsPageContent />

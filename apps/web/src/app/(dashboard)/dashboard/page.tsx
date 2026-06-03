@@ -7,7 +7,6 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
-import { hasClerk } from "@/lib/clerk";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ListSkeleton, MetricGridSkeleton } from "@/components/ui/skeleton";
@@ -312,17 +311,6 @@ function DashboardPageContent() {
 }
 
 export default function DashboardPage() {
-  if (!hasClerk) {
-    return (
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-        <p className="mt-2 text-muted-foreground">
-          Clerk authentication is not configured. Set
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to view your dashboard.
-        </p>
-      </div>
-    );
-  }
   return (
     <Suspense fallback={<p className="text-muted-foreground">Loading...</p>}>
       <DashboardPageContent />

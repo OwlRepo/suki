@@ -5,7 +5,6 @@ import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { hasClerk } from "@/lib/clerk";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -201,15 +200,5 @@ function InsightsPageContent() {
 }
 
 export default function InsightsPage() {
-  if (!hasClerk) {
-  return (
-    <div>
-      <h1 className="text-2xl font-semibold text-foreground">Business Summary</h1>
-      <p className="mt-2 text-helper">
-        Clerk authentication is not configured. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to view insights.
-      </p>
-    </div>
-  );
-  }
   return <InsightsPageContent />;
 }
