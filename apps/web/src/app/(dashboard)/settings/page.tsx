@@ -1,9 +1,19 @@
 "use client";
 
-import { Suspense, useState, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  Bot,
+  BriefcaseBusiness,
+  Building2,
+  FileText,
+  Mail,
+  PlusCircle,
+  Search,
+  Settings2,
+  Wrench,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,9 +29,9 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { SettingsSectionCard } from "@/components/ui/settings-section-card";
 import { apiRequest } from "@/lib/api";
@@ -35,16 +45,15 @@ import { fromError } from "@/lib/ui-feedback";
 import { getPlanCapabilities } from "@/lib/plan-capabilities";
 import { isDevMode } from "@/lib/dev-mode";
 import {
-  getDevApiUrl,
-  setDevApiUrl,
-  getDevMockLatencyMs,
-  setDevMockLatencyMs,
-  getDevMockFailure,
-  setDevMockFailure,
   clearDevOverrides,
+  getDevApiUrl,
+  getDevMockFailure,
+  getDevMockLatencyMs,
+  setDevApiUrl,
+  setDevMockFailure,
+  setDevMockLatencyMs,
 } from "@/lib/dev-store";
 
-/** Searchable section IDs for settings. Used for quick-jump and filtering. */
 const SETTINGS_SECTION_IDS = [
   "organization",
   "businesses",
@@ -55,7 +64,6 @@ const SETTINGS_SECTION_IDS = [
   "dev-tools",
 ] as const;
 
-/** Index of searchable terms per section. Lowercase for matching. */
 const SETTINGS_SEARCH_INDEX: Record<
   (typeof SETTINGS_SECTION_IDS)[number],
   string[]
@@ -129,6 +137,21 @@ interface SmsUsage {
   at100Pct: boolean;
 }
 
+interface AutomationSettingsApi {
+  appointmentRemindersEnabled: boolean;
+  appointmentReminder72hEnabled: boolean;
+  inactivityWinbackEnabled: boolean;
+  inactivityDays: number;
+  autoSendChannel: "sms" | "email";
+  messageTemplates?: MessageTemplateMap;
+}
+
+interface CustomerTemplate {
+  id: string;
+  name: string;
+  fieldsConfig: Array<{ key: string; label: string; placeholder?: string }>;
+}
+
 const PAUSED_REASON_MESSAGES: Record<string, string> = {
   none: "",
   cap_reached: "SMS cap reached for this period.",
@@ -148,6 +171,7 @@ const AUTOMATION_TEMPLATE_KEYS = [
 ] as const;
 
 type AutomationTemplateKey = (typeof AUTOMATION_TEMPLATE_KEYS)[number];
+
 type MessageTemplateMap = Partial<
   Record<AutomationTemplateKey, { sms?: string; email?: string }>
 >;
@@ -196,6 +220,7 @@ function mergeMessageTemplateDefaults(
   templates?: MessageTemplateMap,
 ): MessageTemplateMap {
   const incoming = templates ?? {};
+
   return Object.fromEntries(
     AUTOMATION_TEMPLATE_KEYS.map((key) => [
       key,
@@ -207,12 +232,40 @@ function mergeMessageTemplateDefaults(
   ) as MessageTemplateMap;
 }
 
+function SettingGroupHeader({
+  icon: Icon,
+  title,
+  description,
+  iconClassName = "bg-blue-50 text-blue-600",
+}: {
+  icon: typeof Building2;
+  title: string;
+  description: string;
+  iconClassName?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        className={`flex size-10 shrink-0 items-center justify-center rounded-2xl ${iconClassName}`}
+      >
+        <Icon className="size-5" />
+      </span>
+
+      <div>
+        <p className="font-bold text-slate-950">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+      </div>
+    </div>
+  );
+}
+
 function SettingsPageContent() {
   const { getToken } = useAuth();
   const searchParams = useSearchParams();
   const { data: syncData } = useAuthSync();
   const workspace = useWorkspace();
   const flags = useFeatureFlags();
+
   const [, setOrg] = useState<Organization | null>(null);
   const [orgName, setOrgName] = useState("");
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -224,6 +277,30 @@ function SettingsPageContent() {
   const [devApiUrl, setDevApiUrlState] = useState("");
   const [devMockLatencyMs, setDevMockLatencyMsState] = useState(0);
   const [devMockFailure, setDevMockFailureState] = useState(false);
+  const [settingsSearch, setSettingsSearch] = useState("");
+  const [aiPoliciesLoading, setAiPoliciesLoading] = useState(false);
+
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const [templateSaveFeedback, setTemplateSaveFeedback] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
+
+  const [smsUsage, setSmsUsage] = useState<SmsUsage | null>(null);
+
+  const [emailUsage, setEmailUsage] = useState<{
+    included: number;
+    used: number;
+    total: number;
+    remaining: number;
+    at80Pct: boolean;
+    at100Pct: boolean;
+  } | null>(null);
+
   const [aiUsage, setAiUsage] = useState<{
     plan: string;
     month: string;
@@ -244,35 +321,11 @@ function SettingsPageContent() {
     dailyResetDateTime?: string;
     projectedDaysToLimit: number | null;
   } | null>(null);
+
   const [aiBreakdown, setAiBreakdown] = useState<{
     items: Array<{ key: string; tokens: number; requests: number }>;
   } | null>(null);
-  const [aiPoliciesLoading, setAiPoliciesLoading] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-  const [templateSaveFeedback, setTemplateSaveFeedback] = useState<{
-    type: "success" | "error" | "info";
-    message: string;
-  } | null>(null);
-  const [smsUsage, setSmsUsage] = useState<SmsUsage | null>(null);
-  const [emailUsage, setEmailUsage] = useState<{
-    included: number;
-    used: number;
-    total: number;
-    remaining: number;
-    at80Pct: boolean;
-    at100Pct: boolean;
-  } | null>(null);
-  interface AutomationSettingsApi {
-    appointmentRemindersEnabled: boolean;
-    appointmentReminder72hEnabled: boolean;
-    inactivityWinbackEnabled: boolean;
-    inactivityDays: number;
-    autoSendChannel: "sms" | "email";
-    messageTemplates?: MessageTemplateMap;
-  }
+
   const automationDefaults: AutomationSettingsApi = {
     appointmentRemindersEnabled: true,
     appointmentReminder72hEnabled: false,
@@ -281,21 +334,19 @@ function SettingsPageContent() {
     autoSendChannel: "sms",
     messageTemplates: mergeMessageTemplateDefaults(),
   };
+
   const [automationSettingsByBiz, setAutomationSettingsByBiz] = useState<
     Record<string, AutomationSettingsApi>
   >({});
+
   const [automationSavingByBiz, setAutomationSavingByBiz] = useState<
     Record<string, boolean>
   >({});
+
   const [inactivityDraftByBiz, setInactivityDraftByBiz] = useState<
     Record<string, string>
   >({});
-  const [settingsSearch, setSettingsSearch] = useState("");
-  interface CustomerTemplate {
-    id: string;
-    name: string;
-    fieldsConfig: Array<{ key: string; label: string; placeholder?: string }>;
-  }
+
   const [templatesByBiz, setTemplatesByBiz] = useState<
     Record<
       string,
@@ -305,73 +356,76 @@ function SettingsPageContent() {
       }
     >
   >({});
+
   const [templateDefaultSavingByBiz, setTemplateDefaultSavingByBiz] = useState<
     Record<string, boolean>
   >({});
+
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
   const [createTemplateName, setCreateTemplateName] = useState("");
   const [createTemplateBusinessId, setCreateTemplateBusinessId] =
     useState("__any__");
+
   const [createTemplateFields, setCreateTemplateFields] = useState<
     Array<{ label: string; placeholder: string }>
   >([{ label: "", placeholder: "" }]);
+
   const [createTemplateSaving, setCreateTemplateSaving] = useState(false);
+
   const planCapabilities = useMemo(
     () => getPlanCapabilities(billing?.planType ?? null),
     [billing?.planType],
   );
 
   const visibleSections = useMemo(() => {
-    const q = settingsSearch.trim().toLowerCase();
-    if (!q) return new Set(SETTINGS_SECTION_IDS);
+    const query = settingsSearch.trim().toLowerCase();
+    if (!query) return new Set(SETTINGS_SECTION_IDS);
+
     const matched = new Set<(typeof SETTINGS_SECTION_IDS)[number]>();
+
     for (const id of SETTINGS_SECTION_IDS) {
       const terms = SETTINGS_SEARCH_INDEX[id] ?? [];
-      if (terms.some((t) => t.includes(q) || q.includes(t))) {
+
+      if (terms.some((term) => term.includes(query) || query.includes(term))) {
         matched.add(id);
       }
     }
+
     return matched;
   }, [settingsSearch]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     setDevApiUrlState(getDevApiUrl() ?? "");
     setDevMockLatencyMsState(getDevMockLatencyMs());
     setDevMockFailureState(getDevMockFailure());
   }, []);
 
-  const refetchBilling = async () => {
-    try {
-      const token = await getToken();
-      if (!token) return;
-      const billRes = await apiRequest<BillingStatus>("/billing/status", {
-        token,
-      });
-      setBilling(billRes);
-    } catch {
-      // ignore
-    }
-  };
-
   const refetchSmsUsage = async () => {
     try {
       const token = await getToken();
       if (!token) return;
-      const u = await apiRequest<SmsUsage>("/messaging/sms-usage", { token });
-      setSmsUsage(u);
+
+      const usage = await apiRequest<SmsUsage>("/messaging/sms-usage", {
+        token,
+      });
+
+      setSmsUsage(usage);
     } catch {
-      // ignore
+      // Ignore optional usage refresh errors.
     }
   };
 
   useEffect(() => {
     if (!syncData) return;
+
     (async () => {
       try {
         const token = await getToken();
         if (!token) return;
-      const [orgRes, bizRes, billRes, aiRes, breakdownRes, smsRes, emailRes] =
+
+        const [orgRes, bizRes, billRes, aiRes, breakdownRes, smsRes, emailRes] =
           await Promise.all([
             apiRequest<{ organization: Organization }>("/organizations/me", {
               token,
@@ -415,12 +469,13 @@ function SettingsPageContent() {
               at100Pct: boolean;
             }>("/messaging/email-usage", { token }).catch(() => null),
           ]);
+
         setOrg(orgRes.organization ?? null);
-        setAiUsage(aiRes);
-        setAiBreakdown(breakdownRes ?? null);
         setOrgName(orgRes.organization?.name ?? "");
         setBusinesses(bizRes.businesses);
         setBilling(billRes);
+        setAiUsage(aiRes);
+        setAiBreakdown(breakdownRes ?? null);
         setSmsUsage(smsRes ?? null);
         setEmailUsage(emailRes ?? null);
       } finally {
@@ -431,11 +486,13 @@ function SettingsPageContent() {
 
   useEffect(() => {
     const addon = searchParams?.get("addon");
+
     if (addon === "success") {
       setFeedback({
         type: "success",
         message: "Credits updated successfully.",
       });
+
       setTimeout(() => setFeedback(null), 5000);
       refetchSmsUsage();
       window.history.replaceState({}, "", "/settings");
@@ -444,76 +501,96 @@ function SettingsPageContent() {
 
   useEffect(() => {
     if (!businesses.length) return;
+
     (async () => {
       try {
         const token = await getToken();
         if (!token) return;
+
         const results = await Promise.all(
-          businesses.map(async (b) => {
-            const s = await apiRequest<AutomationSettingsApi>(
-              `/automation/settings?businessId=${encodeURIComponent(b.id)}`,
+          businesses.map(async (business) => {
+            const settings = await apiRequest<AutomationSettingsApi>(
+              `/automation/settings?businessId=${encodeURIComponent(
+                business.id,
+              )}`,
               { token },
             ).catch(() => automationDefaults);
+
             return {
-              id: b.id,
+              id: business.id,
               ...automationDefaults,
-              ...s,
+              ...settings,
               appointmentRemindersEnabled:
-                s?.appointmentRemindersEnabled ??
+                settings?.appointmentRemindersEnabled ??
                 automationDefaults.appointmentRemindersEnabled,
               appointmentReminder72hEnabled:
-                s?.appointmentReminder72hEnabled ??
+                settings?.appointmentReminder72hEnabled ??
                 automationDefaults.appointmentReminder72hEnabled,
               inactivityWinbackEnabled:
-                s?.inactivityWinbackEnabled ??
+                settings?.inactivityWinbackEnabled ??
                 automationDefaults.inactivityWinbackEnabled,
               inactivityDays:
-                typeof s?.inactivityDays === "number"
-                  ? s.inactivityDays
+                typeof settings?.inactivityDays === "number"
+                  ? settings.inactivityDays
                   : automationDefaults.inactivityDays,
               autoSendChannel:
-                (s?.autoSendChannel as "sms" | "email") ??
+                (settings?.autoSendChannel as "sms" | "email") ??
                 automationDefaults.autoSendChannel,
               messageTemplates: mergeMessageTemplateDefaults(
-                s?.messageTemplates,
+                settings?.messageTemplates,
               ),
             };
           }),
         );
+
         const map: Record<string, AutomationSettingsApi> = {};
-        for (const r of results) map[r.id] = r as AutomationSettingsApi;
+
+        for (const result of results) {
+          map[result.id] = result as AutomationSettingsApi;
+        }
+
         setAutomationSettingsByBiz(map);
       } catch {
-        // ignore
+        // Ignore optional automation settings errors.
       }
     })();
   }, [businesses, getToken]);
 
   useEffect(() => {
     if (!businesses.length) return;
+
     (async () => {
       try {
         const token = await getToken();
         if (!token) return;
+
         const results = await Promise.all(
-          businesses.map(async (b) => {
+          businesses.map(async (business) => {
             const [templatesRes, defaultRes] = await Promise.all([
               apiRequest<{ templates: CustomerTemplate[] }>(
-                `/customers/templates?businessId=${encodeURIComponent(b.id)}&businessType=${encodeURIComponent(b.businessType ?? "")}`,
+                `/customers/templates?businessId=${encodeURIComponent(
+                  business.id,
+                )}&businessType=${encodeURIComponent(
+                  business.businessType ?? "",
+                )}`,
                 { token },
               ).catch(() => ({ templates: [] })),
               apiRequest<{ template: CustomerTemplate | null }>(
-                `/customers/default-template?businessId=${encodeURIComponent(b.id)}`,
+                `/customers/default-template?businessId=${encodeURIComponent(
+                  business.id,
+                )}`,
                 { token },
               ).catch(() => ({ template: null })),
             ]);
+
             return {
-              id: b.id,
+              id: business.id,
               templates: templatesRes.templates ?? [],
               defaultTemplate: defaultRes.template ?? null,
             };
           }),
         );
+
         const map: Record<
           string,
           {
@@ -521,14 +598,17 @@ function SettingsPageContent() {
             defaultTemplate: CustomerTemplate | null;
           }
         > = {};
-        for (const r of results)
-          map[r.id] = {
-            templates: r.templates,
-            defaultTemplate: r.defaultTemplate,
+
+        for (const result of results) {
+          map[result.id] = {
+            templates: result.templates,
+            defaultTemplate: result.defaultTemplate,
           };
+        }
+
         setTemplatesByBiz(map);
       } catch {
-        // ignore
+        // Ignore optional customer template errors.
       }
     })();
   }, [businesses, getToken]);
@@ -539,51 +619,72 @@ function SettingsPageContent() {
   ) => {
     const apiTemplateId =
       templateIdOrDefault === "default" ? null : templateIdOrDefault;
-    setTemplateDefaultSavingByBiz((p) => ({ ...p, [businessId]: true }));
+
+    setTemplateDefaultSavingByBiz((previous) => ({
+      ...previous,
+      [businessId]: true,
+    }));
+
     try {
       const token = await getToken();
       if (!token) return;
+
       await apiRequest("/customers/default-template", {
         method: "PATCH",
         token,
         body: JSON.stringify({ businessId, templateId: apiTemplateId }),
       });
+
       const data = templatesByBiz[businessId];
       const templates = data?.templates ?? [];
+
       const defaultTemplate =
         templateIdOrDefault === "default"
-          ? (templates.find((t) => t.id === "default") ?? null)
-          : (templates.find((t) => t.id === templateIdOrDefault) ?? null);
-      setTemplatesByBiz((p) => ({
-        ...p,
+          ? templates.find((template) => template.id === "default") ?? null
+          : templates.find((template) => template.id === templateIdOrDefault) ??
+            null;
+
+      setTemplatesByBiz((previous) => ({
+        ...previous,
         [businessId]: { templates, defaultTemplate },
       }));
-      setFeedback({ type: "success", message: "Default template updated." });
+
+      setFeedback({
+        type: "success",
+        message: "Default template updated.",
+      });
+
       setTimeout(() => setFeedback(null), 3000);
-    } catch (err) {
+    } catch (error) {
       setFeedback({
         type: "error",
-        message: fromError(err, "Failed to update default template."),
+        message: fromError(error, "Failed to update default template."),
       });
     } finally {
-      setTemplateDefaultSavingByBiz((p) => ({ ...p, [businessId]: false }));
+      setTemplateDefaultSavingByBiz((previous) => ({
+        ...previous,
+        [businessId]: false,
+      }));
     }
   };
 
-  const handleCreateTemplate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateTemplate = async (event: React.FormEvent) => {
+    event.preventDefault();
+
     if (!createTemplateName.trim()) return;
+
     const fieldsConfig = createTemplateFields
-      .filter((f) => f.label.trim())
-      .map((f) => ({
-        key: f.label
+      .filter((field) => field.label.trim())
+      .map((field) => ({
+        key: field.label
           .trim()
           .toLowerCase()
           .replace(/\s+/g, "_")
           .replace(/[^a-z0-9_]/g, ""),
-        label: f.label.trim(),
-        placeholder: f.placeholder.trim() || undefined,
+        label: field.label.trim(),
+        placeholder: field.placeholder.trim() || undefined,
       }));
+
     if (fieldsConfig.length === 0) {
       setFeedback({
         type: "error",
@@ -591,10 +692,13 @@ function SettingsPageContent() {
       });
       return;
     }
+
     setCreateTemplateSaving(true);
+
     try {
       const token = await getToken();
       if (!token) return;
+
       await apiRequest("/customers/templates", {
         method: "POST",
         token,
@@ -607,34 +711,46 @@ function SettingsPageContent() {
           fieldsConfig,
         }),
       });
+
       setCreateTemplateOpen(false);
       setCreateTemplateName("");
       setCreateTemplateBusinessId("__any__");
       setCreateTemplateFields([{ label: "", placeholder: "" }]);
+
       setFeedback({
         type: "success",
         message: "Template created. It will appear in the list above.",
       });
+
       setTimeout(() => setFeedback(null), 3000);
+
       const results = await Promise.all(
-        businesses.map(async (b) => {
+        businesses.map(async (business) => {
           const [templatesRes, defaultRes] = await Promise.all([
             apiRequest<{ templates: CustomerTemplate[] }>(
-              `/customers/templates?businessId=${encodeURIComponent(b.id)}&businessType=${encodeURIComponent(b.businessType ?? "")}`,
+              `/customers/templates?businessId=${encodeURIComponent(
+                business.id,
+              )}&businessType=${encodeURIComponent(
+                business.businessType ?? "",
+              )}`,
               { token },
             ).catch(() => ({ templates: [] })),
             apiRequest<{ template: CustomerTemplate | null }>(
-              `/customers/default-template?businessId=${encodeURIComponent(b.id)}`,
+              `/customers/default-template?businessId=${encodeURIComponent(
+                business.id,
+              )}`,
               { token },
             ).catch(() => ({ template: null })),
           ]);
+
           return {
-            id: b.id,
+            id: business.id,
             templates: templatesRes.templates ?? [],
             defaultTemplate: defaultRes.template ?? null,
           };
         }),
       );
+
       const map: Record<
         string,
         {
@@ -642,30 +758,36 @@ function SettingsPageContent() {
           defaultTemplate: CustomerTemplate | null;
         }
       > = {};
-      for (const r of results)
-        map[r.id] = {
-          templates: r.templates,
-          defaultTemplate: r.defaultTemplate,
+
+      for (const result of results) {
+        map[result.id] = {
+          templates: result.templates,
+          defaultTemplate: result.defaultTemplate,
         };
+      }
+
       setTemplatesByBiz(map);
-    } catch (err) {
+    } catch (error) {
       setFeedback({
         type: "error",
-        message: fromError(err, "Failed to create template."),
+        message: fromError(error, "Failed to create template."),
       });
     } finally {
       setCreateTemplateSaving(false);
     }
   };
 
-  const handleSaveOrg = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveOrg = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!orgName.trim()) return;
+
     setSavingOrg(true);
+
     try {
       const token = await getToken();
       if (!token) return;
-      const res = await apiRequest<{ organization: Organization }>(
+
+      const response = await apiRequest<{ organization: Organization }>(
         "/organizations/me",
         {
           method: "PATCH",
@@ -673,13 +795,18 @@ function SettingsPageContent() {
           body: JSON.stringify({ name: orgName.trim() }),
         },
       );
-      setOrg(res.organization);
-      setFeedback({ type: "success", message: "Organization name saved." });
+
+      setOrg(response.organization);
+      setFeedback({
+        type: "success",
+        message: "Organization name saved.",
+      });
+
       setTimeout(() => setFeedback(null), 4000);
-    } catch (err) {
+    } catch (error) {
       setFeedback({
         type: "error",
-        message: fromError(err, "Failed to save. Please try again."),
+        message: fromError(error, "Failed to save. Please try again."),
       });
     } finally {
       setSavingOrg(false);
@@ -688,24 +815,40 @@ function SettingsPageContent() {
 
   const handleSaveBiz = async (id: string) => {
     if (!editBizName.trim()) return;
+
     try {
       const token = await getToken();
       if (!token) return;
+
       await apiRequest(`/businesses/${id}`, {
         method: "PATCH",
         token,
         body: JSON.stringify({ name: editBizName.trim() }),
       });
-      setBusinesses((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, name: editBizName.trim() } : b)),
+
+      setBusinesses((previous) =>
+        previous.map((business) =>
+          business.id === id
+            ? { ...business, name: editBizName.trim() }
+            : business,
+        ),
       );
+
       setEditingBiz(null);
-      setFeedback({ type: "success", message: "Business name saved." });
+
+      setFeedback({
+        type: "success",
+        message: "Business name saved.",
+      });
+
       setTimeout(() => setFeedback(null), 4000);
-    } catch (err) {
+    } catch (error) {
       setFeedback({
         type: "error",
-        message: fromError(err, "Failed to save business. Please try again."),
+        message: fromError(
+          error,
+          "Failed to save business. Please try again.",
+        ),
       });
     }
   };
@@ -714,7 +857,8 @@ function SettingsPageContent() {
     try {
       const token = await getToken();
       if (!token) return;
-      const res = await apiRequest<{ business: Business }>(
+
+      const response = await apiRequest<{ business: Business }>(
         `/businesses/${id}/crm-mode`,
         {
           method: "PATCH",
@@ -722,19 +866,25 @@ function SettingsPageContent() {
           body: JSON.stringify({ crmMode }),
         },
       );
-      setBusinesses((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? { ...b, crmMode: res.business.crmMode ?? b.crmMode }
-            : b,
+
+      setBusinesses((previous) =>
+        previous.map((business) =>
+          business.id === id
+            ? {
+                ...business,
+                crmMode: response.business.crmMode ?? business.crmMode,
+              }
+            : business,
         ),
       );
+
       workspace?.refetch();
-    } catch (err) {
+    } catch (error) {
       setFeedback({
         type: "error",
-        message: fromError(err, "Failed to update mode. Please try again."),
+        message: fromError(error, "Failed to update mode. Please try again."),
       });
+
       setTimeout(() => setFeedback(null), 6000);
     }
   };
@@ -745,11 +895,16 @@ function SettingsPageContent() {
     successMessage = "Automation settings updated.",
     options: { suppressFeedback?: boolean; throwOnError?: boolean } = {},
   ) => {
-    setAutomationSavingByBiz((p) => ({ ...p, [businessId]: true }));
+    setAutomationSavingByBiz((previous) => ({
+      ...previous,
+      [businessId]: true,
+    }));
+
     try {
       const token = await getToken();
       if (!token) return;
-      const res = await apiRequest<AutomationSettingsApi>(
+
+      const response = await apiRequest<AutomationSettingsApi>(
         "/automation/settings",
         {
           method: "PATCH",
@@ -757,35 +912,41 @@ function SettingsPageContent() {
           body: JSON.stringify({ businessId, ...patch }),
         },
       );
-      setAutomationSettingsByBiz((prev) => ({
-        ...prev,
+
+      setAutomationSettingsByBiz((previous) => ({
+        ...previous,
         [businessId]: {
           ...automationDefaults,
-          ...prev[businessId],
-          ...res,
+          ...previous[businessId],
+          ...response,
           messageTemplates: mergeMessageTemplateDefaults(
-            res.messageTemplates ??
+            response.messageTemplates ??
               patch.messageTemplates ??
-              prev[businessId]?.messageTemplates,
+              previous[businessId]?.messageTemplates,
           ),
         } as AutomationSettingsApi,
       }));
+
       if (!options.suppressFeedback) {
         setFeedback({ type: "success", message: successMessage });
         setTimeout(() => setFeedback(null), 4000);
       }
-    } catch (err) {
+    } catch (error) {
       if (!options.suppressFeedback) {
         setFeedback({
           type: "error",
-          message: fromError(err, "Failed to update. Please try again."),
+          message: fromError(error, "Failed to update. Please try again."),
         });
       }
+
       if (options.throwOnError) {
-        throw err;
+        throw error;
       }
     } finally {
-      setAutomationSavingByBiz((p) => ({ ...p, [businessId]: false }));
+      setAutomationSavingByBiz((previous) => ({
+        ...previous,
+        [businessId]: false,
+      }));
     }
   };
 
@@ -800,7 +961,7 @@ function SettingsPageContent() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Settings"
         plainLanguageDescription="Manage your organization, businesses, automations, messaging, and AI limits."
@@ -810,54 +971,56 @@ function SettingsPageContent() {
 
       <div className="relative">
         <Search
-          className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400"
           aria-hidden
         />
+
         <Input
           type="search"
           value={settingsSearch}
-          onChange={(e) => setSettingsSearch(e.target.value)}
+          onChange={(event) => setSettingsSearch(event.target.value)}
           placeholder="Search settings (e.g. reminders, SMS, AI)"
           aria-label="Search settings"
-          className="w-full max-w-md min-h-[48px] pl-10 pr-4 text-base"
+          className="min-h-12 w-full rounded-xl border-slate-200 bg-white pl-10 pr-4 text-base shadow-sm"
         />
       </div>
 
-      {settingsSearch.trim() && (
-        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-          <p className="text-sm font-medium text-foreground mb-2">Jump to</p>
-          <div className="flex flex-wrap gap-2">
+      {settingsSearch.trim() ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-950">Jump to</p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
             {SETTINGS_SECTION_IDS.filter((id) => visibleSections.has(id)).map(
               (id) => (
                 <a
                   key={id}
                   href={`#${id}`}
-                  className="min-h-[44px] inline-flex items-center px-4 rounded-md border border-border bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
                   {sectionLabels[id]}
                 </a>
               ),
             )}
           </div>
-          {visibleSections.size === 0 && (
-            <p className="text-sm text-muted-foreground">
+
+          {visibleSections.size === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">
               No settings match &quot;{settingsSearch}&quot;. Try a different
               search.
             </p>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
-      {feedback && (
+      {feedback ? (
         <StatusBanner
           variant={feedback.type}
           message={feedback.message}
           onDismiss={() => setFeedback(null)}
-          className="mt-4"
         />
-      )}
+      ) : null}
 
-      {templateSaveFeedback && (
+      {templateSaveFeedback ? (
         <div className="fixed bottom-4 right-4 z-50 w-[min(360px,calc(100vw-2rem))]">
           <StatusBanner
             variant={templateSaveFeedback.type}
@@ -866,562 +1029,650 @@ function SettingsPageContent() {
             onDismiss={() => setTemplateSaveFeedback(null)}
           />
         </div>
-      )}
+      ) : null}
 
-      {!loading &&
-        smsUsage?.pausedReason &&
-        smsUsage.pausedReason !== "none" && (
-          <StatusBanner
-            variant="warning"
-            message={
-              PAUSED_REASON_MESSAGES[smsUsage!.pausedReason] ??
-              `Messaging paused: ${smsUsage!.pausedReason}`
-            }
-            className="mt-4"
-          />
-        )}
+      {!loading && smsUsage?.pausedReason && smsUsage.pausedReason !== "none" ? (
+        <StatusBanner
+          variant="warning"
+          message={
+            PAUSED_REASON_MESSAGES[smsUsage.pausedReason] ??
+            `Messaging paused: ${smsUsage.pausedReason}`
+          }
+        />
+      ) : null}
 
       {loading ? (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <SettingsSectionSkeleton />
           <SettingsSectionSkeleton />
           <SettingsSectionSkeleton />
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <SettingsSectionCard
             id="organization"
             title="Organization"
             description="Your workspace name. Appears in emails and receipts. You can change it anytime."
+            collapsedByDefault
             visible={visibleSections.has("organization")}
           >
-            <form
-              onSubmit={handleSaveOrg}
-              className="flex flex-wrap items-center gap-3"
-            >
-              <Input
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                placeholder="Organization name"
-                className="max-w-md min-h-[48px] text-base"
+            <div className="space-y-4">
+              <SettingGroupHeader
+                icon={Building2}
+                title="Workspace details"
+                description="Update the name customers see in emails and receipts."
               />
-              <Button
-                type="submit"
-                disabled={savingOrg}
-                size="lg"
-                className="min-h-[48px] px-6"
+
+              <form
+                onSubmit={handleSaveOrg}
+                className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
               >
-                {savingOrg ? "Saving…" : "Save"}
-              </Button>
-            </form>
+                <Input
+                  value={orgName}
+                  onChange={(event) => setOrgName(event.target.value)}
+                  placeholder="Organization name"
+                  className="min-h-12"
+                />
+
+                <Button
+                  type="submit"
+                  disabled={savingOrg}
+                  size="lg"
+                  className="w-full sm:w-auto"
+                >
+                  {savingOrg ? "Saving…" : "Save"}
+                </Button>
+              </form>
+            </div>
           </SettingsSectionCard>
 
           <SettingsSectionCard
             id="businesses"
             title="Businesses"
             description="Each business has its own customers and appointments. Edit names or switch CRM mode here."
+            collapsedByDefault
             visible={visibleSections.has("businesses")}
           >
-            <ul className="space-y-4 divide-y divide-border">
-              {businesses.map((b) => (
-                <li
-                  key={b.id}
-                  className="flex flex-wrap items-center justify-between gap-4 py-4 first:pt-0"
-                >
-                  {editingBiz === b.id ? (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Input
-                        value={editBizName}
-                        onChange={(e) => setEditBizName(e.target.value)}
-                        placeholder="Business name"
-                        className="min-w-[200px] min-h-[48px] text-base"
-                      />
-                      <Button
-                        size="lg"
-                        onClick={() => handleSaveBiz(b.id)}
-                        className="min-h-[48px]"
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={() => setEditingBiz(null)}
-                        className="min-h-[48px]"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex flex-wrap items-center gap-4">
-                        <div>
-                          <span className="font-medium text-base">
-                            {b.name}
-                          </span>
-                          <span className="ml-2 text-sm text-muted-foreground capitalize">
-                            {b.businessType}
-                          </span>
-                        </div>
-                        {flags.crm_mode_toggle_enabled && (
+            <div className="space-y-4">
+              <SettingGroupHeader
+                icon={BriefcaseBusiness}
+                title="Business workspaces"
+                description="Manage the businesses connected to this organization."
+                iconClassName="bg-emerald-50 text-emerald-600"
+              />
+
+              <ul className="space-y-3">
+                {businesses.map((business) => (
+                  <li
+                    key={business.id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
+                  >
+                    {editingBiz === business.id ? (
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+                        <Input
+                          value={editBizName}
+                          onChange={(event) =>
+                            setEditBizName(event.target.value)
+                          }
+                          placeholder="Business name"
+                          className="min-h-12"
+                        />
+
+                        <Button
+                          size="lg"
+                          onClick={() => handleSaveBiz(business.id)}
+                        >
+                          Save
+                        </Button>
+
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          onClick={() => setEditingBiz(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 flex-wrap items-center gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-950">
+                              {business.name}
+                            </p>
+                            <p className="mt-1 text-sm capitalize text-slate-500">
+                              {business.businessType}
+                            </p>
+                          </div>
+
+                          {flags.crm_mode_toggle_enabled ? (
                             <Select
-                              value={b.crmMode ?? "lite"}
-                              onValueChange={(v) =>
-                                handleCrmModeChange(b.id, v as "lite" | "full")
+                              value={business.crmMode ?? "lite"}
+                              onValueChange={(value) =>
+                                handleCrmModeChange(
+                                  business.id,
+                                  value as "lite" | "full",
+                                )
                               }
                             >
-                              <SelectTrigger
-                                size="lg"
-                                className="min-w-[140px]"
-                              >
+                              <SelectTrigger className="min-h-11 w-36">
                                 <SelectValue />
                               </SelectTrigger>
+
                               <SelectContent>
-                                <SelectItem value="lite" size="lg">
-                                  CRM Lite
-                                </SelectItem>
-                                <SelectItem value="full" size="lg">
-                                  CRM Full
-                                </SelectItem>
+                                <SelectItem value="lite">CRM Lite</SelectItem>
+                                <SelectItem value="full">CRM Full</SelectItem>
                               </SelectContent>
                             </Select>
-                          )}
+                          ) : null}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setEditingBiz(business.id);
+                            setEditBizName(business.name);
+                          }}
+                          className="w-full sm:w-auto"
+                        >
+                          Edit
+                        </Button>
                       </div>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingBiz(b.id);
-                          setEditBizName(b.name);
-                        }}
-                        className="min-h-[48px]"
-                      >
-                        Edit
-                      </Button>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {businesses.length === 0 && (
-              <p className="text-base text-muted-foreground">
-                No businesses yet. Create one in Setup.
-              </p>
-            )}
+                    )}
+                  </li>
+                ))}
+              </ul>
+
+              {businesses.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  No businesses yet. Create one in Setup.
+                </p>
+              ) : null}
+            </div>
           </SettingsSectionCard>
 
-          {businesses.length > 0 && (
-              <SettingsSectionCard
-                id="automation"
-                title="Automation Controls"
-                description="All automations are free by default. Configure channels, caps-aware messaging, and templates per business."
-                visible={visibleSections.has("automation")}
-              >
-                <ul className="space-y-6">
-                  {businesses.map((b) => {
-                    const s =
-                      automationSettingsByBiz[b.id] ?? automationDefaults;
-                    const saving = automationSavingByBiz[b.id];
-                    const draft = inactivityDraftByBiz[b.id];
-                    const inactivityVal =
-                      draft !== undefined ? draft : String(s.inactivityDays);
-                    return (
-                      <li
-                        key={b.id}
-                        className="rounded-lg border border-border bg-muted/30 p-5 space-y-6"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-base">
-                            {b.name}
-                          </span>
-                          {saving && (
-                            <span className="text-sm text-muted-foreground">
-                              Saving…
-                            </span>
-                          )}
+          {businesses.length > 0 ? (
+            <SettingsSectionCard
+              id="automation"
+              title="Automation Controls"
+              description="All automations are free by default. Configure channels, caps-aware messaging, and templates per business."
+              collapsedByDefault
+              visible={visibleSections.has("automation")}
+            >
+              <ul className="space-y-5">
+                {businesses.map((business) => {
+                  const settings =
+                    automationSettingsByBiz[business.id] ?? automationDefaults;
+                  const saving = automationSavingByBiz[business.id];
+                  const draft = inactivityDraftByBiz[business.id];
+                  const inactivityValue =
+                    draft !== undefined
+                      ? draft
+                      : String(settings.inactivityDays);
+
+                  return (
+                    <li
+                      key={business.id}
+                      className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5"
+                    >
+                      <SettingGroupHeader
+                        icon={Settings2}
+                        title={business.name}
+                        description="Configure reminders, channels, and customer follow-up templates."
+                        iconClassName="bg-violet-50 text-violet-600"
+                      />
+
+                      {saving ? (
+                        <p className="text-sm text-slate-500">Saving…</p>
+                      ) : null}
+
+                      <div className="space-y-2">
+                        <Label className="text-base">
+                          Send reminders by SMS or email
+                        </Label>
+
+                        <p className="text-sm leading-6 text-slate-600">
+                          Choose how customers receive appointment reminders.
+                        </p>
+
+                        <Select
+                          value={settings.autoSendChannel}
+                          disabled={saving}
+                          onValueChange={(value) =>
+                            updateAutomationSettings(business.id, {
+                              autoSendChannel: value as "sms" | "email",
+                            })
+                          }
+                        >
+                          <SelectTrigger className="min-h-11 w-full sm:w-44">
+                            <SelectValue />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="sms">SMS</SelectItem>
+                            <SelectItem value="email">Email</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-base">
+                            Message templates (
+                            {settings.autoSendChannel.toUpperCase()})
+                          </Label>
+
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            Edit what gets sent per automation. Keep placeholders
+                            like {"{customerName}"}, {"{dateTime}"},{" "}
+                            {"{staffName}"}, and {"{link}"}.
+                          </p>
                         </div>
-                        <div className="space-y-6">
-                          <div className="space-y-2">
-                            <Label className="text-base">
-                              Send reminders by SMS or email
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                              Choose how customers receive appointment
-                              reminders.
-                            </p>
-                            <Select
-                              value={s.autoSendChannel}
-                              disabled={saving}
-                              onValueChange={(value) =>
-                                updateAutomationSettings(b.id, {
-                                  autoSendChannel: value as "sms" | "email",
-                                })
-                              }
-                            >
-                              <SelectTrigger
-                                size="lg"
-                                className="min-w-[160px]"
+
+                        <div className="space-y-3">
+                          {AUTOMATION_TEMPLATE_KEYS.map((key) => {
+                            const channel = settings.autoSendChannel;
+                            const current =
+                              settings.messageTemplates?.[key]?.[channel] ?? "";
+
+                            return (
+                              <div
+                                key={key}
+                                className="rounded-2xl border border-slate-200 bg-white p-3"
                               >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="sms" size="lg">
-                                  SMS
-                                </SelectItem>
-                                <SelectItem value="email" size="lg">
-                                  Email
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-3">
-                            <Label className="text-base">
-                              Message templates ({s.autoSendChannel.toUpperCase()})
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                              Edit what gets sent per automation. Keep placeholders like {"{customerName}"}, {"{dateTime}"}, {"{staffName}"}, and {"{link}"}.
-                            </p>
-                            {AUTOMATION_TEMPLATE_KEYS.map((key) => {
-                              const channel = s.autoSendChannel;
-                              const current =
-                                s.messageTemplates?.[key]?.[channel] ?? "";
-                              return (
-                                <div key={key} className="space-y-2 rounded border border-border p-3">
-                                  <p className="text-sm font-medium">{key.replaceAll("_", " ")}</p>
-                                  <Input
-                                    value={current}
-                                    onChange={(e) => {
-                                      const next = {
-                                        ...(s.messageTemplates ?? {}),
-                                        [key]: {
-                                          ...(s.messageTemplates?.[key] ?? {}),
-                                          [channel]: e.target.value,
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                                  {key.replaceAll("_", " ")}
+                                </p>
+
+                                <Input
+                                  value={current}
+                                  onChange={(event) => {
+                                    const next = {
+                                      ...(settings.messageTemplates ?? {}),
+                                      [key]: {
+                                        ...(settings.messageTemplates?.[key] ??
+                                          {}),
+                                        [channel]: event.target.value,
+                                      },
+                                    };
+
+                                    setAutomationSettingsByBiz((previous) => ({
+                                      ...previous,
+                                      [business.id]: {
+                                        ...settings,
+                                        messageTemplates: next,
+                                      },
+                                    }));
+                                  }}
+                                  onBlur={async (event) => {
+                                    const next = mergeMessageTemplateDefaults({
+                                      ...(settings.messageTemplates ?? {}),
+                                      [key]: {
+                                        ...(settings.messageTemplates?.[key] ??
+                                          {}),
+                                        [channel]: event.currentTarget.value,
+                                      },
+                                    });
+
+                                    setAutomationSettingsByBiz((previous) => ({
+                                      ...previous,
+                                      [business.id]: {
+                                        ...settings,
+                                        messageTemplates: next,
+                                      },
+                                    }));
+
+                                    setTemplateSaveFeedback({
+                                      type: "info",
+                                      message: "Saving message template...",
+                                    });
+
+                                    try {
+                                      await updateAutomationSettings(
+                                        business.id,
+                                        { messageTemplates: next },
+                                        "Message template saved.",
+                                        {
+                                          suppressFeedback: true,
+                                          throwOnError: true,
                                         },
-                                      };
-                                      setAutomationSettingsByBiz((prev) => ({
-                                        ...prev,
-                                        [b.id]: {
-                                          ...s,
-                                          messageTemplates: next,
-                                        },
-                                      }));
-                                    }}
-                                    onBlur={async (e) => {
-                                      const next = mergeMessageTemplateDefaults({
-                                        ...(s.messageTemplates ?? {}),
-                                        [key]: {
-                                          ...(s.messageTemplates?.[key] ?? {}),
-                                          [channel]: e.currentTarget.value,
-                                        },
-                                      });
-                                      setAutomationSettingsByBiz((prev) => ({
-                                        ...prev,
-                                        [b.id]: {
-                                          ...s,
-                                          messageTemplates: next,
-                                        },
-                                      }));
+                                      );
+
                                       setTemplateSaveFeedback({
-                                        type: "info",
-                                        message: "Saving message template...",
+                                        type: "success",
+                                        message: "Message template saved.",
                                       });
+
+                                      setTimeout(
+                                        () => setTemplateSaveFeedback(null),
+                                        4000,
+                                      );
+                                    } catch (error) {
+                                      setTemplateSaveFeedback({
+                                        type: "error",
+                                        message: fromError(
+                                          error,
+                                          "Failed to save message template.",
+                                        ),
+                                      });
+                                    }
+                                  }}
+                                  placeholder={`Template for ${key.replaceAll(
+                                    "_",
+                                    " ",
+                                  )}`}
+                                  className="mt-2"
+                                />
+
+                                {planCapabilities.canSeeRefineWithAi ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={saving || !current.trim()}
+                                    className="mt-2"
+                                    onClick={async () => {
                                       try {
+                                        const token = await getToken();
+                                        if (!token) return;
+
+                                        const refined = await apiRequest<{
+                                          refinedMessage: string;
+                                        }>("/automation/refine-message", {
+                                          method: "PATCH",
+                                          token,
+                                          body: JSON.stringify({
+                                            businessId: business.id,
+                                            automationKey: key,
+                                            channel,
+                                            draft: current,
+                                          }),
+                                        });
+
+                                        const next = {
+                                          ...(settings.messageTemplates ?? {}),
+                                          [key]: {
+                                            ...(settings.messageTemplates?.[
+                                              key
+                                            ] ?? {}),
+                                            [channel]: refined.refinedMessage,
+                                          },
+                                        };
+
                                         await updateAutomationSettings(
-                                          b.id,
+                                          business.id,
                                           {
                                             messageTemplates: next,
                                           },
-                                          "Message template saved.",
-                                          {
-                                            suppressFeedback: true,
-                                            throwOnError: true,
-                                          },
                                         );
-                                        setTemplateSaveFeedback({
-                                          type: "success",
-                                          message: "Message template saved.",
-                                        });
-                                        setTimeout(
-                                          () => setTemplateSaveFeedback(null),
-                                          4000,
-                                        );
-                                      } catch (err) {
-                                        setTemplateSaveFeedback({
+                                      } catch (error) {
+                                        setFeedback({
                                           type: "error",
                                           message: fromError(
-                                            err,
-                                            "Failed to save message template.",
+                                            error,
+                                            "Failed to refine template.",
                                           ),
                                         });
                                       }
                                     }}
-                                    placeholder={`Template for ${key.replaceAll("_", " ")}`}
-                                  />
-                                  {planCapabilities.canSeeRefineWithAi ? (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      disabled={saving || !current.trim()}
-                                      onClick={async () => {
-                                        try {
-                                          const token = await getToken();
-                                          if (!token) return;
-                                          const refined = await apiRequest<{ refinedMessage: string }>(
-                                            "/automation/refine-message",
-                                            {
-                                              method: "PATCH",
-                                              token,
-                                              body: JSON.stringify({
-                                                businessId: b.id,
-                                                automationKey: key,
-                                                channel,
-                                                draft: current,
-                                              }),
-                                            },
-                                          );
-                                          const next = {
-                                            ...(s.messageTemplates ?? {}),
-                                            [key]: {
-                                              ...(s.messageTemplates?.[key] ?? {}),
-                                              [channel]: refined.refinedMessage,
-                                            },
-                                          };
-                                          await updateAutomationSettings(b.id, {
-                                            messageTemplates: next,
-                                          });
-                                        } catch (err) {
-                                          setFeedback({
-                                            type: "error",
-                                            message: fromError(err, "Failed to refine template."),
-                                          });
-                                        }
-                                      }}
-                                    >
-                                      Refine with AI
-                                    </Button>
-                                  ) : null}
-                                </div>
-                              );
-                            })}
-                          </div>
+                                  >
+                                    Refine with AI
+                                  </Button>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
 
-                          <div className="flex items-start justify-between gap-6">
-                            <div className="space-y-1 min-w-0">
-                              <Label
-                                htmlFor={`${b.id}-appt-reminders`}
-                                className="text-base"
-                              >
-                                Send appointment reminders
-                              </Label>
-                              <p className="text-sm text-muted-foreground">
-                                Automatically remind customers 24 hours before
-                                their appointment.
-                              </p>
-                            </div>
-                            <Switch
-                              id={`${b.id}-appt-reminders`}
-                              size="lg"
-                              checked={s.appointmentRemindersEnabled}
-                              disabled={saving}
-                              onCheckedChange={(checked) =>
-                                updateAutomationSettings(b.id, {
-                                  appointmentRemindersEnabled: checked,
-                                })
-                              }
-                            />
-                          </div>
-
-                          <div className="flex items-start justify-between gap-6">
-                            <div className="space-y-1 min-w-0">
-                              <Label
-                                htmlFor={`${b.id}-72h-reminder`}
-                                className="text-base"
-                              >
-                                Also send 3-day reminder
-                              </Label>
-                              <p className="text-sm text-muted-foreground">
-                                {s.appointmentRemindersEnabled
-                                  ? "Sends an extra reminder 3 days before the appointment."
-                                  : "Turn on appointment reminders above to use this."}
-                              </p>
-                            </div>
-                            <Switch
-                              id={`${b.id}-72h-reminder`}
-                              size="lg"
-                              checked={s.appointmentReminder72hEnabled}
-                              disabled={
-                                saving || !s.appointmentRemindersEnabled
-                              }
-                              onCheckedChange={(checked) =>
-                                updateAutomationSettings(b.id, {
-                                  appointmentReminder72hEnabled: checked,
-                                })
-                              }
-                            />
-                          </div>
-
-                          <div className="flex items-start justify-between gap-6">
-                            <div className="space-y-1 min-w-0">
-                              <Label
-                                htmlFor={`${b.id}-inactivity-winback`}
-                                className="text-base"
-                              >
-                                Reach out to inactive customers
-                              </Label>
-                              <p className="text-sm text-muted-foreground">
-                                Automatically send a gentle reminder to
-                                customers who haven&apos;t visited in a while.
-                              </p>
-                            </div>
-                            <Switch
-                              id={`${b.id}-inactivity-winback`}
-                              size="lg"
-                              checked={s.inactivityWinbackEnabled}
-                              disabled={saving}
-                              onCheckedChange={(checked) =>
-                                updateAutomationSettings(b.id, {
-                                  inactivityWinbackEnabled: checked,
-                                })
-                              }
-                            />
-                          </div>
-
-                          <div className="space-y-2">
+                      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
                             <Label
-                              htmlFor={`${b.id}-inactivity-days`}
+                              htmlFor={`${business.id}-appt-reminders`}
                               className="text-base"
                             >
-                              How many days of no visits before outreach?
+                              Send appointment reminders
                             </Label>
-                            <p className="text-sm text-muted-foreground">
-                              Send a gentle reminder after this many days of
-                              inactivity (1–365 days). Enter 60 for about 2
-                              months.
+                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                              Automatically remind customers 24 hours before
+                              their appointment.
                             </p>
-                            <Input
-                              id={`${b.id}-inactivity-days`}
-                              type="number"
-                              min={1}
-                              max={365}
-                              value={inactivityVal}
-                              disabled={saving}
-                              onChange={(e) =>
-                                setInactivityDraftByBiz((p) => ({
-                                  ...p,
-                                  [b.id]: e.target.value,
-                                }))
-                              }
-                              onBlur={(e) => {
-                                const v = parseInt(e.target.value, 10);
-                                if (!Number.isNaN(v) && v >= 1 && v <= 365) {
-                                  updateAutomationSettings(b.id, {
-                                    inactivityDays: v,
-                                  });
-                                  setInactivityDraftByBiz((p) => {
-                                    const next = { ...p };
-                                    delete next[b.id];
-                                    return next;
-                                  });
-                                } else {
-                                  setInactivityDraftByBiz((p) => ({
-                                    ...p,
-                                    [b.id]: String(s.inactivityDays),
-                                  }));
-                                }
-                              }}
-                              className="w-28 min-h-[48px] text-base"
-                            />
-                            {draft !== undefined &&
-                              (Number.isNaN(parseInt(draft, 10)) ||
-                                parseInt(draft, 10) < 1 ||
-                                parseInt(draft, 10) > 365) && (
-                                <p className="text-sm text-amber-600">
-                                  Enter a number between 1 and 365.
-                                </p>
-                              )}
                           </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </SettingsSectionCard>
-            )}
 
-          {businesses.length > 0 && (
-            <SettingsSectionCard
-              id="customer-templates"
-              title="Customer Description Templates"
-              description="Choose a default template for the description field when adding customers. Templates guide users with simple prompts (e.g. Source, Preferences)."
-              visible={visibleSections.has("customer-templates")}
-            >
-              <ul className="space-y-6">
-                {businesses.map((b) => {
-                  const data = templatesByBiz[b.id];
-                  const templates = data?.templates ?? [];
-                  const defaultTemplate = data?.defaultTemplate;
-                  const currentValue = defaultTemplate?.id ?? "default";
-                  const saving = templateDefaultSavingByBiz[b.id];
-                  return (
-                    <li
-                      key={b.id}
-                      className="rounded-lg border border-border bg-muted/30 p-5 space-y-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-base">
-                          {b.name}
-                        </span>
-                        {saving && (
-                          <span className="text-sm text-muted-foreground">
-                            Saving…
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-base">
-                          Default template when adding customers
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          This template will be selected by default in the Add
-                          customer form. You can switch to another template when
-                          needed.
-                        </p>
-                        <Select
-                          value={currentValue}
-                          disabled={saving || templates.length === 0}
-                          onValueChange={(v) => updateDefaultTemplate(b.id, v)}
-                        >
-                          <SelectTrigger size="lg" className="min-w-[200px]">
-                            <SelectValue placeholder="Select template" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {templates.map((t) => (
-                              <SelectItem key={t.id} value={t.id} size="lg">
-                                {t.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <Switch
+                            id={`${business.id}-appt-reminders`}
+                            checked={settings.appointmentRemindersEnabled}
+                            disabled={saving}
+                            onCheckedChange={(checked) =>
+                              updateAutomationSettings(business.id, {
+                                appointmentRemindersEnabled: checked,
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <Label
+                              htmlFor={`${business.id}-72h-reminder`}
+                              className="text-base"
+                            >
+                              Also send 3-day reminder
+                            </Label>
+                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                              {settings.appointmentRemindersEnabled
+                                ? "Sends an extra reminder 3 days before the appointment."
+                                : "Turn on appointment reminders above to use this."}
+                            </p>
+                          </div>
+
+                          <Switch
+                            id={`${business.id}-72h-reminder`}
+                            checked={settings.appointmentReminder72hEnabled}
+                            disabled={
+                              saving || !settings.appointmentRemindersEnabled
+                            }
+                            onCheckedChange={(checked) =>
+                              updateAutomationSettings(business.id, {
+                                appointmentReminder72hEnabled: checked,
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <Label
+                              htmlFor={`${business.id}-inactivity-winback`}
+                              className="text-base"
+                            >
+                              Reach out to inactive customers
+                            </Label>
+                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                              Automatically send a gentle reminder to customers
+                              who haven&apos;t visited in a while.
+                            </p>
+                          </div>
+
+                          <Switch
+                            id={`${business.id}-inactivity-winback`}
+                            checked={settings.inactivityWinbackEnabled}
+                            disabled={saving}
+                            onCheckedChange={(checked) =>
+                              updateAutomationSettings(business.id, {
+                                inactivityWinbackEnabled: checked,
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor={`${business.id}-inactivity-days`}
+                            className="text-base"
+                          >
+                            How many days of no visits before outreach?
+                          </Label>
+
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            Send a gentle reminder after this many days of
+                            inactivity (1–365 days). Enter 60 for about 2
+                            months.
+                          </p>
+
+                          <Input
+                            id={`${business.id}-inactivity-days`}
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={inactivityValue}
+                            disabled={saving}
+                            onChange={(event) =>
+                              setInactivityDraftByBiz((previous) => ({
+                                ...previous,
+                                [business.id]: event.target.value,
+                              }))
+                            }
+                            onBlur={(event) => {
+                              const value = parseInt(event.target.value, 10);
+
+                              if (
+                                !Number.isNaN(value) &&
+                                value >= 1 &&
+                                value <= 365
+                              ) {
+                                updateAutomationSettings(business.id, {
+                                  inactivityDays: value,
+                                });
+
+                                setInactivityDraftByBiz((previous) => {
+                                  const next = { ...previous };
+                                  delete next[business.id];
+                                  return next;
+                                });
+                              } else {
+                                setInactivityDraftByBiz((previous) => ({
+                                  ...previous,
+                                  [business.id]: String(settings.inactivityDays),
+                                }));
+                              }
+                            }}
+                            className="mt-3 w-28"
+                          />
+
+                          {draft !== undefined &&
+                          (Number.isNaN(parseInt(draft, 10)) ||
+                            parseInt(draft, 10) < 1 ||
+                            parseInt(draft, 10) > 365) ? (
+                            <p className="mt-2 text-sm text-amber-600">
+                              Enter a number between 1 and 365.
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
                     </li>
                   );
                 })}
               </ul>
-              <div className="mt-6 pt-4 border-t border-border">
-                <Button
-                  variant="outline"
-                  onClick={() => setCreateTemplateOpen(true)}
-                  size="lg"
-                >
-                  Create custom template
-                </Button>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Create a template with custom prompts (e.g. Source,
-                  Preferences). It will appear in the dropdown above for
-                  businesses of the matching type.
-                </p>
+            </SettingsSectionCard>
+          ) : null}
+
+          {businesses.length > 0 ? (
+            <SettingsSectionCard
+              id="customer-templates"
+              title="Customer Description Templates"
+              description="Choose a default template for the description field when adding customers. Templates guide users with simple prompts."
+              collapsedByDefault
+              visible={visibleSections.has("customer-templates")}
+            >
+              <div className="space-y-5">
+                <SettingGroupHeader
+                  icon={FileText}
+                  title="Customer description templates"
+                  description="Choose the default prompts staff see while adding customers."
+                  iconClassName="bg-fuchsia-50 text-fuchsia-600"
+                />
+
+                <ul className="space-y-4">
+                  {businesses.map((business) => {
+                    const data = templatesByBiz[business.id];
+                    const templates = data?.templates ?? [];
+                    const defaultTemplate = data?.defaultTemplate;
+                    const currentValue = defaultTemplate?.id ?? "default";
+                    const saving = templateDefaultSavingByBiz[business.id];
+
+                    return (
+                      <li
+                        key={business.id}
+                        className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold text-slate-950">
+                            {business.name}
+                          </p>
+
+                          {saving ? (
+                            <span className="text-sm text-slate-500">
+                              Saving…
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <Label className="mt-4 block text-base">
+                          Default template when adding customers
+                        </Label>
+
+                        <p className="mt-1 text-sm leading-6 text-slate-600">
+                          This template will be selected by default in the Add
+                          customer form. You can switch to another template when
+                          needed.
+                        </p>
+
+                        <Select
+                          value={currentValue}
+                          disabled={saving || templates.length === 0}
+                          onValueChange={(value) =>
+                            updateDefaultTemplate(business.id, value)
+                          }
+                        >
+                          <SelectTrigger className="mt-3 min-h-11 w-full sm:w-56">
+                            <SelectValue placeholder="Select template" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {templates.map((template) => (
+                              <SelectItem
+                                key={template.id}
+                                value={template.id}
+                              >
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="border-t border-slate-200 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCreateTemplateOpen(true)}
+                    className="w-full gap-2 sm:w-auto"
+                  >
+                    <PlusCircle className="size-4" />
+                    Create custom template
+                  </Button>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Create a template with custom prompts such as Source or
+                    Preferences. It will appear in the dropdown above.
+                  </p>
+                </div>
               </div>
+
               <Dialog
                 open={createTemplateOpen}
                 onOpenChange={setCreateTemplateOpen}
@@ -1431,86 +1682,99 @@ function SettingsPageContent() {
                     <DialogTitle>Create description template</DialogTitle>
                     <DialogDescription>
                       Add labeled prompts that appear when adding a customer.
-                      Users fill in each field and the text is composed into the
-                      description.
                     </DialogDescription>
                   </DialogHeader>
+
                   <form onSubmit={handleCreateTemplate} className="space-y-4">
                     <div>
                       <Label htmlFor="template-name">Template name</Label>
                       <Input
                         id="template-name"
                         value={createTemplateName}
-                        onChange={(e) => setCreateTemplateName(e.target.value)}
+                        onChange={(event) =>
+                          setCreateTemplateName(event.target.value)
+                        }
                         placeholder="e.g. Salon intake"
-                        className="mt-1"
+                        className="mt-2"
                       />
                     </div>
+
                     <div>
                       <Label htmlFor="template-business">
                         Which business is this for?
                       </Label>
+
                       <Select
                         value={createTemplateBusinessId}
                         onValueChange={setCreateTemplateBusinessId}
                       >
-                        <SelectTrigger id="template-business" className="mt-1">
+                        <SelectTrigger id="template-business" className="mt-2">
                           <SelectValue placeholder="Select business" />
                         </SelectTrigger>
+
                         <SelectContent>
                           <SelectItem value="__any__">Any business</SelectItem>
-                          {businesses.map((b) => (
-                            <SelectItem key={b.id} value={b.id}>
-                              {b.name} ({b.businessType || "other"})
+
+                          {businesses.map((business) => (
+                            <SelectItem key={business.id} value={business.id}>
+                              {business.name} ({business.businessType || "other"})
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Template will appear for the selected business (or all
-                        businesses if “Any business”).
-                      </p>
                     </div>
+
                     <div>
-                      <Label>Fields (prompts to show)</Label>
-                      <p className="text-sm text-muted-foreground mb-2">
+                      <Label>Fields</Label>
+
+                      <p className="mt-1 text-sm text-slate-500">
                         Each field becomes a labeled input. Label is required.
                       </p>
-                      {createTemplateFields.map((f, i) => (
-                        <div key={i} className="flex gap-2 mt-2">
+
+                      {createTemplateFields.map((field, index) => (
+                        <div
+                          key={index}
+                          className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+                        >
                           <Input
-                            placeholder="Label (e.g. How did they find you?)"
-                            value={f.label}
-                            onChange={(e) =>
-                              setCreateTemplateFields((prev) => {
-                                const next = [...prev];
-                                next[i] = { ...next[i], label: e.target.value };
-                                return next;
-                              })
-                            }
-                          />
-                          <Input
-                            placeholder="Placeholder (optional)"
-                            value={f.placeholder}
-                            onChange={(e) =>
-                              setCreateTemplateFields((prev) => {
-                                const next = [...prev];
-                                next[i] = {
-                                  ...next[i],
-                                  placeholder: e.target.value,
+                            placeholder="Label"
+                            value={field.label}
+                            onChange={(event) =>
+                              setCreateTemplateFields((previous) => {
+                                const next = [...previous];
+                                next[index] = {
+                                  ...next[index],
+                                  label: event.target.value,
                                 };
                                 return next;
                               })
                             }
-                            className="flex"
                           />
+
+                          <Input
+                            placeholder="Placeholder (optional)"
+                            value={field.placeholder}
+                            onChange={(event) =>
+                              setCreateTemplateFields((previous) => {
+                                const next = [...previous];
+                                next[index] = {
+                                  ...next[index],
+                                  placeholder: event.target.value,
+                                };
+                                return next;
+                              })
+                            }
+                          />
+
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() =>
-                              setCreateTemplateFields((prev) =>
-                                prev.filter((_, j) => j !== i),
+                              setCreateTemplateFields((previous) =>
+                                previous.filter(
+                                  (_, currentIndex) => currentIndex !== index,
+                                ),
                               )
                             }
                             disabled={createTemplateFields.length <= 1}
@@ -1520,14 +1784,15 @@ function SettingsPageContent() {
                           </Button>
                         </div>
                       ))}
+
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="mt-2"
+                        className="mt-3"
                         onClick={() =>
-                          setCreateTemplateFields((prev) => [
-                            ...prev,
+                          setCreateTemplateFields((previous) => [
+                            ...previous,
                             { label: "", placeholder: "" },
                           ])
                         }
@@ -1535,6 +1800,7 @@ function SettingsPageContent() {
                         Add field
                       </Button>
                     </div>
+
                     <DialogFooter>
                       <Button
                         type="button"
@@ -1543,193 +1809,221 @@ function SettingsPageContent() {
                       >
                         Cancel
                       </Button>
+
                       <Button
                         type="submit"
                         disabled={
                           createTemplateSaving || !createTemplateName.trim()
                         }
                       >
-                        {createTemplateSaving ? "Creating…" : "Create template"}
+                        {createTemplateSaving
+                          ? "Creating…"
+                          : "Create template"}
                       </Button>
                     </DialogFooter>
                   </form>
                 </DialogContent>
               </Dialog>
             </SettingsSectionCard>
-          )}
+          ) : null}
 
-          {(
-            <SettingsSectionCard
-              id="messaging"
-              title="Messaging Usage Caps"
-              description="Free by default with monthly safety caps."
-              visible={visibleSections.has("messaging")}
-            >
-              <div className="space-y-8 max-w-lg">
-                {smsUsage != null && (
-                  <div>
-                    <p className="text-base font-medium text-foreground">
+          <SettingsSectionCard
+            id="messaging"
+            title="Messaging Usage Caps"
+            description="Free by default with monthly safety caps."
+            collapsedByDefault
+            visible={visibleSections.has("messaging")}
+          >
+            <div className="space-y-5">
+              <SettingGroupHeader
+                icon={Mail}
+                title="Messaging usage"
+                description="Track SMS and email usage for the current month."
+              />
+
+              <div className="grid gap-5 md:grid-cols-2">
+                {smsUsage ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                    <p className="font-semibold text-slate-950">
                       SMS usage this month
                     </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
+
+                    <p className="mt-2 text-sm text-slate-600">
                       {smsUsage.used} / {smsUsage.total} used
-                      {smsUsage.total > 0 &&
-                        ` (${smsUsage.included} included${smsUsage.addon > 0 ? ` + ${smsUsage.addon} add-on` : ""})`}
+                      {smsUsage.total > 0
+                        ? ` (${smsUsage.included} included${
+                            smsUsage.addon > 0
+                              ? ` + ${smsUsage.addon} add-on`
+                              : ""
+                          })`
+                        : ""}
                     </p>
-                    <div className="mt-3 h-3 rounded-full bg-muted overflow-hidden">
+
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-blue-50">
                       <div
                         className={`h-full rounded-full transition-all ${
                           smsUsage.at100Pct
-                            ? "bg-destructive"
+                            ? "bg-rose-500"
                             : smsUsage.at80Pct
                               ? "bg-amber-500"
-                              : "bg-primary"
+                              : "bg-blue-600"
                         }`}
                         style={{
-                          width: `${smsUsage.total > 0 ? Math.min(100, (smsUsage.used / smsUsage.total) * 100) : 0}%`,
+                          width: `${
+                            smsUsage.total > 0
+                              ? Math.min(
+                                  100,
+                                  (smsUsage.used / smsUsage.total) * 100,
+                                )
+                              : 0
+                          }%`,
                         }}
                       />
                     </div>
-                    {smsUsage.at80Pct && !smsUsage.at100Pct && (
-                      <p className="mt-2 text-sm text-amber-600">
-                        Approaching SMS limit for this period.
-                      </p>
-                    )}
                   </div>
-                )}
-                {emailUsage != null && (
-                  <div>
-                    <p className="text-base font-medium text-foreground">
+                ) : null}
+
+                {emailUsage ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                    <p className="font-semibold text-slate-950">
                       Email usage this month
                     </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {emailUsage.used} / {emailUsage.total} used ({emailUsage.included} included)
+
+                    <p className="mt-2 text-sm text-slate-600">
+                      {emailUsage.used} / {emailUsage.total} used (
+                      {emailUsage.included} included)
                     </p>
-                    <div className="mt-3 h-3 rounded-full bg-muted overflow-hidden">
+
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-blue-50">
                       <div
                         className={`h-full rounded-full transition-all ${
                           emailUsage.at100Pct
-                            ? "bg-destructive"
+                            ? "bg-rose-500"
                             : emailUsage.at80Pct
                               ? "bg-amber-500"
-                              : "bg-primary"
+                              : "bg-blue-600"
                         }`}
                         style={{
-                          width: `${emailUsage.total > 0 ? Math.min(100, (emailUsage.used / emailUsage.total) * 100) : 0}%`,
+                          width: `${
+                            emailUsage.total > 0
+                              ? Math.min(
+                                  100,
+                                  (emailUsage.used / emailUsage.total) * 100,
+                                )
+                              : 0
+                          }%`,
                         }}
                       />
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
-            </SettingsSectionCard>
-          )}
+            </div>
+          </SettingsSectionCard>
 
-          {aiUsage && planCapabilities.canSeeAiUsage && (
+          {aiUsage && planCapabilities.canSeeAiUsage ? (
             <SettingsSectionCard
               id="ai-usage"
               title="AI Usage & Quotas"
               description="AI helps you write messages and summaries. Turn it on for better promos and faster workflows."
+              collapsedByDefault
               visible={visibleSections.has("ai-usage")}
             >
-              <div className="space-y-4 max-w-lg">
-                <p className="text-sm text-muted-foreground">
-                  AI is free by default with usage caps.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Daily AI credits limit: {(aiUsage.dailyTokensUsed ?? 0).toLocaleString()} /{" "}
-                  {(aiUsage.dailyTokensLimit ?? 0) > 0
-                    ? (aiUsage.dailyTokensLimit ?? 0).toLocaleString()
-                    : "0"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Daily AI message limit: {aiUsage.dailyRequestsUsed ?? 0} / {aiUsage.dailyRequestsLimit ?? 0}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Daily remaining: {(aiUsage.dailyRequestsRemaining ?? 0).toLocaleString()} messages, {(aiUsage.dailyTokensRemaining ?? 0).toLocaleString()} AI credits
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Daily reset: {aiUsage.dailyResetDateTime ?? "Not available"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  This month: {aiUsage.requestsUsed} / {aiUsage.requestsLimit} requests, {aiUsage.tokensUsed.toLocaleString()} /{" "}
-                  {aiUsage.tokensLimit > 0 ? aiUsage.tokensLimit.toLocaleString() : "0"} tokens
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Monthly reset: {aiUsage.resetDate}
-                </p>
-                {aiUsage.projectedDaysToLimit != null &&
-                  aiUsage.projectedDaysToLimit > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Projected days to limit: ~{aiUsage.projectedDaysToLimit}{" "}
-                      (at current pace)
+              <div className="space-y-5">
+                <SettingGroupHeader
+                  icon={Bot}
+                  title="AI usage and policies"
+                  description="Review your current limits and decide how AI should behave."
+                  iconClassName="bg-violet-50 text-violet-600"
+                />
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm leading-6 text-slate-600">
+                    <p>
+                      Daily AI credits:{" "}
+                      {(aiUsage.dailyTokensUsed ?? 0).toLocaleString()} /{" "}
+                      {(aiUsage.dailyTokensLimit ?? 0).toLocaleString()}
                     </p>
-                  )}
-                {aiUsage.allowedFeatures.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    Allowed features: {aiUsage.allowedFeatures.join(", ")}
-                  </p>
-                )}
-                {aiBreakdown?.items && aiBreakdown.items.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p>
+                      Daily AI messages: {aiUsage.dailyRequestsUsed ?? 0} /{" "}
+                      {aiUsage.dailyRequestsLimit ?? 0}
+                    </p>
+                    <p>
+                      Daily reset: {aiUsage.dailyResetDateTime ?? "Not available"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm leading-6 text-slate-600">
+                    <p>
+                      Monthly requests: {aiUsage.requestsUsed} /{" "}
+                      {aiUsage.requestsLimit}
+                    </p>
+                    <p>
+                      Monthly credits: {aiUsage.tokensUsed.toLocaleString()} /{" "}
+                      {aiUsage.tokensLimit.toLocaleString()}
+                    </p>
+                    <p>Monthly reset: {aiUsage.resetDate}</p>
+                  </div>
+                </div>
+
+                {aiBreakdown?.items?.length ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="font-semibold text-slate-950">
                       Top features this month
                     </p>
-                    <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                      {aiBreakdown.items.slice(0, 5).map((i) => (
-                        <li key={i.key}>
-                          {i.key}: {i.tokens.toLocaleString()} tokens,{" "}
-                          {i.requests} requests
+
+                    <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                      {aiBreakdown.items.slice(0, 5).map((item) => (
+                        <li key={item.key}>
+                          {item.key}: {item.tokens.toLocaleString()} tokens,{" "}
+                          {item.requests} requests
                         </li>
                       ))}
                     </ul>
                   </div>
-                )}
-                {aiUsage.tokensLimit === 0 && (
-                  <p className="text-sm text-amber-600">
-                    No token budget is configured for this workspace.
-                  </p>
-                )}
-                {aiUsage.tokensLimit > 0 &&
-                  aiUsage.tokensUsed / aiUsage.tokensLimit >= 0.7 && (
-                    <p className="text-sm text-amber-600">
-                      Approaching limit for this period.
-                    </p>
-                  )}
-                {aiUsage.tokensLimit > 0 && (
-                  <div className="space-y-4 pt-4 border-t border-border">
-                    <div className="flex items-center gap-4">
+                ) : null}
+
+                {aiUsage.tokensLimit > 0 ? (
+                  <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center justify-between gap-4">
                       <Label htmlFor="ai-enabled" className="text-base">
                         AI enabled
                       </Label>
+
                       <Switch
                         id="ai-enabled"
-                        size="lg"
                         checked={aiUsage.aiEnabled}
                         disabled={aiPoliciesLoading}
                         onCheckedChange={async (checked) => {
                           setAiPoliciesLoading(true);
+
                           try {
                             const token = await getToken();
                             if (!token) return;
+
                             await apiRequest("/ai/usage/policies", {
                               method: "PATCH",
                               token,
                               body: JSON.stringify({ aiEnabled: checked }),
                             });
-                            setAiUsage((p) =>
-                              p ? { ...p, aiEnabled: checked } : null,
+
+                            setAiUsage((previous) =>
+                              previous
+                                ? { ...previous, aiEnabled: checked }
+                                : null,
                             );
+
                             setFeedback({
                               type: "success",
                               message: "AI settings updated.",
                             });
+
                             setTimeout(() => setFeedback(null), 4000);
-                          } catch (err) {
+                          } catch (error) {
                             setFeedback({
                               type: "error",
                               message: fromError(
-                                err,
+                                error,
                                 "Failed to update AI settings. Please try again.",
                               ),
                             });
@@ -1739,14 +2033,17 @@ function SettingsPageContent() {
                         }}
                       />
                     </div>
-                    <div className="space-y-2">
+
+                    <div>
                       <Label htmlFor="soft-cap" className="text-base">
                         Soft cap (50–100%)
                       </Label>
-                      <p className="text-sm text-muted-foreground">
-                        Show a warning when usage reaches this percentage of
-                        your limit.
+
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        Show a warning when usage reaches this percentage of your
+                        limit.
                       </p>
+
                       <Input
                         id="soft-cap"
                         type="number"
@@ -1754,27 +2051,35 @@ function SettingsPageContent() {
                         max={100}
                         defaultValue={aiUsage.softCapPct ?? 90}
                         disabled={aiPoliciesLoading}
-                        className="w-24 min-h-[48px] text-base"
-                        onBlur={async (e) => {
-                          const v = parseInt(e.target.value, 10);
-                          if (isNaN(v) || v < 50 || v > 100) return;
+                        className="mt-3 w-24"
+                        onBlur={async (event) => {
+                          const value = parseInt(event.target.value, 10);
+                          if (Number.isNaN(value) || value < 50 || value > 100) {
+                            return;
+                          }
+
                           setAiPoliciesLoading(true);
+
                           try {
                             const token = await getToken();
                             if (!token) return;
+
                             await apiRequest("/ai/usage/policies", {
                               method: "PATCH",
                               token,
-                              body: JSON.stringify({ softCapPct: v }),
+                              body: JSON.stringify({ softCapPct: value }),
                             });
-                            setAiUsage((p) =>
-                              p ? { ...p, softCapPct: v } : null,
+
+                            setAiUsage((previous) =>
+                              previous
+                                ? { ...previous, softCapPct: value }
+                                : null,
                             );
-                          } catch (err) {
+                          } catch (error) {
                             setFeedback({
                               type: "error",
                               message: fromError(
-                                err,
+                                error,
                                 "Failed to update soft cap. Please try again.",
                               ),
                             });
@@ -1785,12 +2090,12 @@ function SettingsPageContent() {
                       />
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             </SettingsSectionCard>
-          )}
+          ) : null}
 
-          {isDevMode && (
+          {isDevMode ? (
             <SettingsSectionCard
               id="dev-tools"
               title="Dev Tools"
@@ -1798,110 +2103,114 @@ function SettingsPageContent() {
               collapsedByDefault
               visible={visibleSections.has("dev-tools")}
             >
-              <div className="space-y-6 max-w-2xl">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    API base URL override
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Override NEXT_PUBLIC_API_URL for this session (saved in
-                    localStorage).
-                  </p>
-                  <div className="flex gap-2">
+              <div className="space-y-5">
+                <SettingGroupHeader
+                  icon={Wrench}
+                  title="Development tools"
+                  description="Use temporary API overrides and local debugging helpers."
+                  iconClassName="bg-slate-100 text-slate-600"
+                />
+
+                <div className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      API base URL override
+                    </p>
+
                     <Input
                       value={devApiUrl}
-                      onChange={(e) => setDevApiUrlState(e.target.value)}
+                      onChange={(event) =>
+                        setDevApiUrlState(event.target.value)
+                      }
                       onBlur={() => setDevApiUrl(devApiUrl)}
                       placeholder={
                         process.env.NEXT_PUBLIC_API_URL ||
                         "http://localhost:3001"
                       }
-                      className="max-w-md font-mono text-sm"
+                      className="mt-2 font-mono text-sm"
                     />
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Mock latency (ms)
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Add artificial delay to all API requests.
-                  </p>
-                  <div className="flex items-center gap-2">
+
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      Mock latency (ms)
+                    </p>
+
                     <Input
                       type="number"
                       min={0}
                       value={devMockLatencyMs}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10) || 0;
-                        setDevMockLatencyMsState(v);
-                        setDevMockLatencyMs(v);
+                      onChange={(event) => {
+                        const value = parseInt(event.target.value, 10) || 0;
+                        setDevMockLatencyMsState(value);
+                        setDevMockLatencyMs(value);
                       }}
-                      className="w-24"
+                      className="mt-2 w-28"
                     />
-                    <span className="text-sm text-muted-foreground">ms</span>
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Mock API failure
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Fail all API requests with a dev error.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant={devMockFailure ? "destructive" : "outline"}
-                    onClick={() => {
-                      setDevMockFailure(!devMockFailure);
-                      setDevMockFailureState(!devMockFailure);
-                    }}
-                  >
-                    {devMockFailure ? "On" : "Off"}
-                  </Button>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Auth / session inspector
-                  </p>
-                  <div className="mt-2 rounded border border-border bg-muted/30 p-3 font-mono text-xs text-muted-foreground space-y-1">
-                    {syncData ? (
-                      <>
-                        <p>
-                          Org: {syncData.organization?.id ?? "-"} (
-                          {syncData.organization?.name ?? "-"})
-                        </p>
-                        <p>User: {syncData.user?.id ?? "-"}</p>
-                      </>
-                    ) : (
-                      <p>Loading sync data...</p>
-                    )}
+
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      Mock API failure
+                    </p>
+
+                    <Button
+                      size="sm"
+                      variant={devMockFailure ? "destructive" : "outline"}
+                      className="mt-2"
+                      onClick={() => {
+                        setDevMockFailure(!devMockFailure);
+                        setDevMockFailureState(!devMockFailure);
+                      }}
+                    >
+                      {devMockFailure ? "On" : "Off"}
+                    </Button>
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Cache reset
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Clear dev overrides and reload.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      clearDevOverrides();
-                      setDevApiUrlState("");
-                      setDevMockLatencyMsState(0);
-                      setDevMockFailureState(false);
-                      window.location.reload();
-                    }}
-                  >
-                    Clear dev overrides and reload
-                  </Button>
+
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      Auth / session inspector
+                    </p>
+
+                    <div className="mt-2 space-y-1 rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-500">
+                      {syncData ? (
+                        <>
+                          <p>
+                            Org: {syncData.organization?.id ?? "-"} (
+                            {syncData.organization?.name ?? "-"})
+                          </p>
+                          <p>User: {syncData.user?.id ?? "-"}</p>
+                        </>
+                      ) : (
+                        <p>Loading sync data...</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      Cache reset
+                    </p>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => {
+                        clearDevOverrides();
+                        setDevApiUrlState("");
+                        setDevMockLatencyMsState(0);
+                        setDevMockFailureState(false);
+                        window.location.reload();
+                      }}
+                    >
+                      Clear dev overrides and reload
+                    </Button>
+                  </div>
                 </div>
               </div>
             </SettingsSectionCard>
-          )}
+          ) : null}
         </div>
       )}
     </div>
@@ -1910,7 +2219,7 @@ function SettingsPageContent() {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<p className="text-muted-foreground">Loading...</p>}>
+    <Suspense fallback={<p className="text-slate-500">Loading...</p>}>
       <SettingsPageContent />
     </Suspense>
   );
