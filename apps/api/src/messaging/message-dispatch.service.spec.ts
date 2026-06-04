@@ -78,6 +78,7 @@ function makeService(smsProviderResult: Record<string, unknown>) {
     consume: vi.fn(async () => undefined),
   };
   const smsProvider = {
+    providerName: smsProviderResult.provider,
     send: vi.fn(async () => smsProviderResult),
   };
   const emailProvider = {
@@ -175,6 +176,7 @@ describe("MessageDispatchService SMS hardening", () => {
     seedDb();
     const { service, smsMetering } = makeService({
       ok: true,
+      provider: "semaphore",
       providerMessageId: "SM1",
       providerMetadata: { num_segments: "3", status: "queued" },
     });
@@ -189,6 +191,7 @@ describe("MessageDispatchService SMS hardening", () => {
     );
     expect(dbState.updates).toContainEqual(
       expect.objectContaining({
+        provider: "semaphore",
         providerMetadata: expect.objectContaining({
           estimatedSegments: 2,
           providerNumSegments: 3,
@@ -237,6 +240,7 @@ describe("MessageDispatchService SMS hardening", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
+        provider: "semaphore",
         providerMessageId: "SM2",
       });
 
@@ -249,6 +253,34 @@ describe("MessageDispatchService SMS hardening", () => {
       "biz-1",
       "evt-1",
       2,
+    );
+    expect(dbState.updates).toContainEqual(
+      expect.objectContaining({
+        provider: "semaphore",
+        retryCount: 1,
+      }),
+    );
+  });
+
+  it("omits STOP footer when the selected SMS provider is Semaphore", async () => {
+    seedDb();
+    const { service, smsProvider } = makeService({
+      ok: true,
+      provider: "semaphore",
+      providerMessageId: "SEM1",
+    });
+
+    await service.dispatch(input);
+
+    expect(smsProvider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.not.stringContaining("Reply STOP to opt out."),
+      }),
+    );
+    expect(smsProvider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("Sent automatically by Tyvera"),
+      }),
     );
   });
 });

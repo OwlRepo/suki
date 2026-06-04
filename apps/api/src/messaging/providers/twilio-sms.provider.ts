@@ -3,6 +3,7 @@ import type { ISmsProvider, SmsSendResult } from "./sms.provider";
 
 @Injectable()
 export class TwilioSmsProvider implements ISmsProvider {
+  readonly providerName = "twilio";
   private readonly accountSid: string | null;
   private readonly authToken: string | null;
   private readonly sender: string | null; // MessagingServiceSid or From (phone number)
@@ -35,6 +36,7 @@ export class TwilioSmsProvider implements ISmsProvider {
     if (!this.accountSid || !this.authToken || !this.sender) {
       return {
         ok: false,
+        provider: "twilio",
         transient: false,
         errorCode: "provider_not_configured",
       };
@@ -71,6 +73,7 @@ export class TwilioSmsProvider implements ISmsProvider {
       if (res.ok && messageSid) {
         return {
           ok: true,
+          provider: "twilio",
           providerMessageId: messageSid,
           providerMetadata,
         };

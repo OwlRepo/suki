@@ -17,6 +17,7 @@ import { EmailMeteringService } from "./email-metering.service";
 import { NoopSmsProvider } from "./providers/sms.provider";
 import { NoopEmailProvider } from "./providers/email.provider";
 import { TwilioSmsProvider } from "./providers/twilio-sms.provider";
+import { SemaphoreSmsProvider } from "./providers/semaphore-sms.provider";
 import { ResendEmailProvider } from "./providers/resend-email.provider";
 import { SMS_PROVIDER, EMAIL_PROVIDER } from "./providers/provider.tokens";
 import type { ISmsProvider } from "./providers/sms.provider";
@@ -53,12 +54,21 @@ function isResendConfigured(): boolean {
     NoopSmsProvider,
     NoopEmailProvider,
     TwilioSmsProvider,
+    SemaphoreSmsProvider,
     ResendEmailProvider,
     {
       provide: SMS_PROVIDER,
-      useFactory: (twilio: TwilioSmsProvider, noop: NoopSmsProvider): ISmsProvider =>
-        isTwilioConfigured() ? twilio : noop,
-      inject: [TwilioSmsProvider, NoopSmsProvider],
+      useFactory: (
+        semaphore: SemaphoreSmsProvider,
+        twilio: TwilioSmsProvider,
+        noop: NoopSmsProvider,
+      ): ISmsProvider => {
+        const provider = process.env.SMS_PROVIDER?.trim().toLowerCase();
+        if (provider === "semaphore") return semaphore;
+        if (provider === "twilio") return isTwilioConfigured() ? twilio : noop;
+        return noop;
+      },
+      inject: [SemaphoreSmsProvider, TwilioSmsProvider, NoopSmsProvider],
     },
     {
       provide: EMAIL_PROVIDER,

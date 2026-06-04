@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import { getDb } from "@tyvera/database";
 import {
@@ -22,6 +24,12 @@ import {
 import { AutomationSendService } from "../automation/automation-send.service";
 import { OrgBillingStateService } from "../common/org-billing-state.service";
 import { getPlanCatalogEntry } from "../billing/plan-catalog";
+import { OtpFailoverService } from "./otp/otp-failover.service";
+import { OtpProviderSettingsService } from "./otp/otp-provider-settings.service";
+import { SemaphoreOtpProvider } from "./otp/semaphore-otp.provider";
+import { TwilioVerifyOtpProvider } from "./otp/twilio-verify-otp.provider";
+import type { IOtpProvider, SendOtpResult } from "./otp/otp-provider";
+import { SEMAPHORE_OTP_PROVIDER, TWILIO_OTP_PROVIDER } from "./otp/otp-provider.tokens";
 
 const HOLD_MINUTES = 5;
 const OTP_MAX_ATTEMPTS = 5;
@@ -37,12 +45,6 @@ type OtpConfig = {
   perIpLimit: number;
   perIpWindowMinutes: number;
   perBusinessDailyLimit: number;
-};
-
-type VerifyResult = {
-  sid?: string;
-  status?: string;
-  valid?: boolean;
 };
 
 type DatabaseLikeError = {
@@ -72,6 +74,17 @@ export class IntakeBookingService {
   constructor(
     private readonly automationSend: AutomationSendService,
     private readonly orgBillingState: OrgBillingStateService,
+    private readonly otpFailover: OtpFailoverService = new OtpFailoverService(
+      new TwilioVerifyOtpProvider(),
+      new SemaphoreOtpProvider(),
+      new OtpProviderSettingsService(),
+    ),
+    @Optional()
+    @Inject(TWILIO_OTP_PROVIDER)
+    private readonly twilioOtpProvider: IOtpProvider = new TwilioVerifyOtpProvider(),
+    @Optional()
+    @Inject(SEMAPHORE_OTP_PROVIDER)
+    private readonly semaphoreOtpProvider: IOtpProvider = new SemaphoreOtpProvider(),
   ) {}
 
   async getAvailability(businessId: string, month: string) {
@@ -342,7 +355,7 @@ export class IntakeBookingService {
     }
 
     if (
-      hold.otpSid &&
+      this.hasReusableOtpChallenge(hold) &&
       hold.updatedAt &&
       Date.now() - hold.updatedAt.getTime() < OTP_RESEND_WINDOW_MS
     ) {
@@ -397,16 +410,20 @@ export class IntakeBookingService {
       otpConfig,
     });
 
-    const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
-    const token = process.env.TWILIO_AUTH_TOKEN?.trim();
-    const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
+    const otpResult = await this.otpFailover.sendOtp({
+      organizationId: business.organizationId,
+      mobile: hold.mobile,
+    });
 
-    if (!sid || !token || !verifyServiceSid) {
+    if (!otpResult.ok) {
       await this.recordBlockedOtpSendEvent({
         organizationId: business.organizationId,
         hold,
         clientIp,
         outcome: "OTP_PROVIDER_UNAVAILABLE",
+        provider: this.toOtpAuditProvider(otpResult.provider),
+        providerVerificationSid: otpResult.providerMessageId ?? null,
+        metadata: otpResult.providerMetadata ?? null,
       });
       throw this.buildPublicOtpError(
         "OTP_PROVIDER_UNAVAILABLE",
@@ -414,53 +431,13 @@ export class IntakeBookingService {
       );
     }
 
-    const basicAuth = Buffer.from(`${sid}:${token}`).toString("base64");
-    const params = new URLSearchParams();
-
-    params.set("To", hold.mobile);
-    params.set("Channel", "sms");
-
-    const res = await fetch(
-      `https://verify.twilio.com/v2/Services/${verifyServiceSid}/Verifications`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${basicAuth}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      },
-    );
-
-    if (!res.ok) {
-      await this.recordBlockedOtpSendEvent({
-        organizationId: business.organizationId,
-        hold,
-        clientIp,
-        outcome: "OTP_PROVIDER_UNAVAILABLE",
-      });
-      throw this.buildPublicOtpError(
-        "OTP_PROVIDER_UNAVAILABLE",
-        SAFE_BOOKING_UNAVAILABLE_MESSAGE,
-      );
-    }
-
-    const data = (await res.json()) as VerifyResult;
     const now = new Date();
     const resendAvailableAt = new Date(now.getTime() + otpConfig.resendCooldownSeconds * 1000);
+    const holdUpdate = this.buildOtpHoldUpdate(otpResult, hold, now, resendAvailableAt);
 
     await db
       .update(bookingHolds)
-      .set({
-        otpSid: data.sid ?? null,
-        otpSentCount: (hold.otpSentCount ?? 0) + 1,
-        otpLastSentAt: now,
-        otpCooldownEndsAt: resendAvailableAt,
-        otpSendWindowKey:
-          hold.otpSendWindowKey ??
-          `${hold.id}:${Math.floor(now.getTime() / OTP_RESEND_WINDOW_MS)}`,
-        updatedAt: now,
-      })
+      .set(holdUpdate)
       .where(eq(bookingHolds.id, hold.id));
 
     await db
@@ -482,8 +459,8 @@ export class IntakeBookingService {
       bookingHoldId: hold.id,
       units: 1,
       status: "consumed",
-      provider: "twilio_verify",
-      providerVerificationSid: data.sid ?? null,
+      provider: this.toOtpAuditProvider(otpResult.provider),
+      providerVerificationSid: otpResult.providerMessageId ?? null,
     });
 
     await this.recordOtpSendEvent({
@@ -493,7 +470,9 @@ export class IntakeBookingService {
       mobile: hold.mobile,
       ipAddress: this.resolveClientIp(clientIp),
       outcome: "sent",
-      providerVerificationSid: data.sid ?? null,
+      provider: this.toOtpAuditProvider(otpResult.provider),
+      providerVerificationSid: otpResult.providerMessageId ?? null,
+      metadata: otpResult.providerMetadata ?? null,
     });
 
     return {
@@ -545,44 +524,28 @@ export class IntakeBookingService {
       );
     }
 
-    const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
-    const token = process.env.TWILIO_AUTH_TOKEN?.trim();
-    const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
+    const otpProvider = hold.otpProvider === "semaphore" ? "semaphore" : "twilio";
+    const verifyData =
+      otpProvider === "semaphore"
+        ? await this.semaphoreOtpProvider.verify({
+            mobile: hold.mobile,
+            code: code.trim(),
+            storedCodeHash: hold.otpCodeHash,
+            codeExpiresAt: hold.otpCodeExpiresAt,
+          })
+        : await this.twilioOtpProvider.verify({
+            mobile: hold.mobile,
+            code: code.trim(),
+          });
 
-    if (!sid || !token || !verifyServiceSid) {
+    if (verifyData.errorCode === "OTP_PROVIDER_UNAVAILABLE") {
       throw this.buildPublicOtpError(
         "OTP_PROVIDER_UNAVAILABLE",
         "OTP provider temporarily unavailable",
       );
     }
-
-    const basicAuth = Buffer.from(`${sid}:${token}`).toString("base64");
-    const params = new URLSearchParams();
-
-    params.set("To", hold.mobile);
-    params.set("Code", code.trim());
-
-    const verifyRes = await fetch(
-      `https://verify.twilio.com/v2/Services/${verifyServiceSid}/VerificationCheck`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${basicAuth}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      },
-    );
-
-    const verifyData = (await verifyRes
-      .json()
-      .catch(() => ({}))) as VerifyResult;
-
-    if (!verifyRes.ok) {
-      throw this.buildPublicOtpError(
-        "OTP_PROVIDER_UNAVAILABLE",
-        "OTP provider temporarily unavailable",
-      );
+    if (verifyData.errorCode === "OTP_HOLD_EXPIRED") {
+      throw this.buildPublicOtpError("OTP_HOLD_EXPIRED", "Hold expired");
     }
 
     if (!verifyData.valid) {
@@ -641,6 +604,8 @@ export class IntakeBookingService {
           .set({
             status: "confirmed",
             confirmedAt: new Date(),
+            otpCodeHash: null,
+            otpCodeExpiresAt: null,
             updatedAt: new Date(),
           })
           .where(eq(bookingHolds.id, hold.id));
@@ -845,7 +810,9 @@ export class IntakeBookingService {
     mobile: string;
     ipAddress: string | null;
     outcome: string;
+    provider?: string;
     providerVerificationSid: string | null;
+    metadata?: Record<string, unknown> | null;
   }) {
     const db = getDb();
     await db.insert(publicOtpSendEvents).values({
@@ -855,9 +822,9 @@ export class IntakeBookingService {
       mobile: input.mobile,
       ipAddress: input.ipAddress,
       outcome: input.outcome,
-      provider: "twilio_verify",
+      provider: input.provider ?? "twilio_verify",
       providerVerificationSid: input.providerVerificationSid,
-      metadata: null,
+      metadata: input.metadata ?? null,
     });
   }
 
@@ -870,6 +837,9 @@ export class IntakeBookingService {
     };
     clientIp?: string;
     outcome: string;
+    provider?: string;
+    providerVerificationSid?: string | null;
+    metadata?: Record<string, unknown> | null;
   }) {
     await this.recordOtpSendEvent({
       organizationId: input.organizationId,
@@ -878,8 +848,49 @@ export class IntakeBookingService {
       mobile: input.hold.mobile,
       ipAddress: this.resolveClientIp(input.clientIp),
       outcome: input.outcome,
-      providerVerificationSid: null,
+      provider: input.provider ?? "twilio_verify",
+      providerVerificationSid: input.providerVerificationSid ?? null,
+      metadata: input.metadata ?? null,
     });
+  }
+
+  private hasReusableOtpChallenge(hold: {
+    otpSid?: string | null;
+    otpProviderMessageId?: string | null;
+    otpCodeHash?: string | null;
+  }): boolean {
+    return !!(hold.otpSid || hold.otpProviderMessageId || hold.otpCodeHash);
+  }
+
+  private buildOtpHoldUpdate(
+    otpResult: SendOtpResult,
+    hold: {
+      id: string;
+      otpSentCount?: number | null;
+      otpSendWindowKey?: string | null;
+    },
+    now: Date,
+    resendAvailableAt: Date,
+  ): Record<string, unknown> {
+    return {
+      otpSid: otpResult.provider === "twilio" ? otpResult.providerMessageId ?? null : null,
+      otpProvider: otpResult.provider,
+      otpProviderMessageId: otpResult.providerMessageId ?? null,
+      otpCodeHash: otpResult.provider === "semaphore" ? otpResult.codeHash ?? null : null,
+      otpCodeExpiresAt:
+        otpResult.provider === "semaphore" ? otpResult.codeExpiresAt ?? null : null,
+      otpSentCount: (hold.otpSentCount ?? 0) + 1,
+      otpLastSentAt: now,
+      otpCooldownEndsAt: resendAvailableAt,
+      otpSendWindowKey:
+        hold.otpSendWindowKey ??
+        `${hold.id}:${Math.floor(now.getTime() / OTP_RESEND_WINDOW_MS)}`,
+      updatedAt: now,
+    };
+  }
+
+  private toOtpAuditProvider(provider: "twilio" | "semaphore"): string {
+    return provider === "semaphore" ? "semaphore_otp" : "twilio_verify";
   }
 
   private buildPublicOtpError(code: string, message: string) {

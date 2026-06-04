@@ -14,7 +14,12 @@ describe("TwilioSmsProvider", () => {
   it("returns provider_not_configured when credentials are missing", async () => {
     const provider = new TwilioSmsProvider();
     const out = await provider.send({ to: "+639171234567", body: "hi", clientRef: "ref" });
-    expect(out).toEqual({ ok: false, transient: false, errorCode: "provider_not_configured" });
+    expect(out).toEqual({
+      ok: false,
+      provider: "twilio",
+      transient: false,
+      errorCode: "provider_not_configured",
+    });
   });
 
   it("sends with messaging service sid", async () => {
@@ -32,7 +37,7 @@ describe("TwilioSmsProvider", () => {
     const provider = new TwilioSmsProvider();
     const out = await provider.send({ to: "+639171234567", body: "hello", clientRef: "ref" });
 
-    expect(out).toEqual({ ok: true, providerMessageId: "SM123" });
+    expect(out).toEqual({ ok: true, provider: "twilio", providerMessageId: "SM123" });
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(String(init?.body)).toContain("MessagingServiceSid=MG123");
     expect(String(init?.body)).toContain("StatusCallback=");
@@ -122,6 +127,7 @@ describe("TwilioSmsProvider", () => {
     const provider = new TwilioSmsProvider();
     await expect(provider.send({ to: "a", body: "b", clientRef: "c" })).resolves.toEqual({
       ok: true,
+      provider: "twilio",
       providerMessageId: "SM123",
       providerMetadata: { num_segments: "2", status: "queued" },
     });

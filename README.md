@@ -209,18 +209,40 @@ Tyvera now uses first-party auth with Resend email OTP and session cookies.
   - `AUTH_BOOTSTRAP_PASSWORD`
   - `AUTH_BOOTSTRAP_ORG_NAME`
 
-## Twilio Setup
+## SMS and OTP Provider Setup
 
-For production SMS, configure Twilio with exact public HTTPS URLs, including the `/api` prefix used by the production reverse proxy:
+Automated outbound SMS is selected explicitly with `SMS_PROVIDER`. Production should use Semaphore for automated messages:
+
+```bash
+SMS_PROVIDER=semaphore
+SEMAPHORE_API_KEY=
+SEMAPHORE_SENDER_NAME=
+```
+
+Booking OTP supports a transitional Twilio-to-Semaphore mode:
+
+```bash
+OTP_PROVIDER_MODE=auto
+TWILIO_OTP_FAILOVER_ON_ERROR_CODES=
+```
+
+`auto` starts from persisted organization provider state, defaults to Twilio, and switches future OTP sends for that organization to Semaphore only after a Twilio error code listed in `TWILIO_OTP_FAILOVER_ON_ERROR_CODES`. Do not populate that allowlist with guessed codes.
+
+For Twilio rollback, inbound STOP handling, delivery status callbacks, and transitional OTP, configure Twilio with exact public HTTPS URLs, including the `/api` prefix used by the production reverse proxy:
 
 - Outbound sender: `TWILIO_MESSAGING_SERVICE_SID` preferred, or `TWILIO_PHONE_NUMBER`
 - Status callback: `POST https://tyvera.app/api/messaging/webhooks/twilio/status`
 - Incoming message webhook: `POST https://tyvera.app/api/messaging/inbound/sms`
-- Booking OTP: `TWILIO_VERIFY_SERVICE_SID`
+- Transitional booking OTP: `TWILIO_VERIFY_SERVICE_SID`
 
-Required production env:
+Provider env:
 
 ```bash
+SMS_PROVIDER=semaphore
+SEMAPHORE_API_KEY=
+SEMAPHORE_SENDER_NAME=
+OTP_PROVIDER_MODE=auto
+TWILIO_OTP_FAILOVER_ON_ERROR_CODES=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_MESSAGING_SERVICE_SID=

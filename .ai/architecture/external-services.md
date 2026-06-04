@@ -3,7 +3,8 @@
 ## Providers
 - First-party auth (in-app): authentication/session logic
 - OpenAI: AI generation/policy flows
-- Twilio: SMS outbound/inbound/webhook status and Verify OTP; inbound/status webhooks use signature validation with exact public callback URL env vars
+- Semaphore: primary automated outbound SMS and failover booking OTP provider
+- Twilio: rollback SMS outbound, inbound/webhook status, and transitional Verify OTP; inbound/status webhooks use signature validation with exact public callback URL env vars
 - Resend: email delivery
 - Lemon Squeezy: hosted checkout creation, customer portal redirects, and billing webhook lifecycle when self-serve billing is enabled
 - CRM sources: CSV, HubSpot, Pipedrive (plus planned adapters)
@@ -18,12 +19,16 @@
 ## Risk Classification
 All external-provider contract changes are HIGH risk and require contract/regression tests.
 
-## Twilio SMS Notes
-- Outbound SMS still uses direct REST calls and supports Messaging Service SID or phone-number sender config.
+## SMS and OTP Provider Notes
+- Automated outbound SMS uses explicit `SMS_PROVIDER`; production should use Semaphore while Twilio can remain configured for rollback/inbound/status handling.
+- Semaphore outbound SMS stores `message_events.provider = semaphore` plus provider message IDs/metadata; delivery polling is deferred.
+- Semaphore booking OTP uses Tyvera-generated codes, stores only hashes on booking holds, and verifies locally with expiration and attempt limits.
+- Booking OTP `OTP_PROVIDER_MODE=auto` defaults organizations to Twilio Verify until an allowlisted Twilio error code triggers durable per-organization failover to Semaphore.
+- Twilio outbound SMS still supports Messaging Service SID or phone-number sender config for rollback.
 - Inbound STOP and status callbacks require valid Twilio signatures.
 - SMS usage units represent estimated billable message segments, not only API requests.
 - Ambiguous network failures are recorded as unknown outcome and are not automatically retried.
-- Public booking OTP sends now check org billing state plus verified online-booking credits before sending, consume a credit only after Twilio Verify accepts the send, and return a safe generic message when billing blocks the action.
+- Public booking OTP sends check org billing state plus verified online-booking credits before sending, consume a credit only after the selected provider accepts the send, and return a safe generic message when billing or providers block the action.
 
 ## Lemon Squeezy Notes
 - All Lemon-backed billing actions are gated by `FF_self_serve_billing_enabled`; when it is off, checkout/portal/mutation/webhook paths are intentionally inert and the freemium cap path remains authoritative.

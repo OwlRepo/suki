@@ -26,6 +26,18 @@ const orgBillingStateMock = {
   getOrgBillingState: vi.fn(),
 } as unknown as OrgBillingStateService;
 
+const otpFailoverServiceMock = {
+  sendOtp: vi.fn(),
+};
+
+const semaphoreOtpProviderMock = {
+  verify: vi.fn(),
+};
+
+const twilioOtpProviderMock = {
+  verify: vi.fn(),
+};
+
 vi.mock("@tyvera/database", () => ({
   getDb: () => ({
     select: selectMock,
@@ -116,10 +128,14 @@ describe("IntakeBookingService OTP", () => {
     vi.mocked(orgBillingStateMock.getOrgBillingState).mockResolvedValue({
       variableCostActionsBlocked: false,
     } as never);
+    otpFailoverServiceMock.sendOtp.mockReset();
+    semaphoreOtpProviderMock.verify.mockReset();
+    twilioOtpProviderMock.verify.mockReset();
 
     delete process.env.TWILIO_ACCOUNT_SID;
     delete process.env.TWILIO_AUTH_TOKEN;
     delete process.env.TWILIO_VERIFY_SERVICE_SID;
+    process.env.OTP_PROVIDER_MODE = "twilio";
   });
 
   it("rejects when hold is not found", async () => {
@@ -228,6 +244,70 @@ describe("IntakeBookingService OTP", () => {
     expect(insertMock).toHaveBeenCalled();
   });
 
+  it("stores Semaphore OTP state and provider audit fields on successful send", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+      otpFailoverServiceMock as never,
+      twilioOtpProviderMock as never,
+      semaphoreOtpProviderMock as never,
+    );
+
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([
+      {
+        organizationId: "org-1",
+        month: "2026-06",
+        includedGranted: 5,
+        addonGranted: 0,
+        used: 2,
+        sourcePlan: "free",
+      },
+    ]);
+    otpFailoverServiceMock.sendOtp.mockResolvedValueOnce({
+      ok: true,
+      provider: "semaphore",
+      providerMessageId: "SEMOTP1",
+      codeHash: "hash:otp",
+      codeExpiresAt: new Date(Date.now() + 300_000),
+      providerMetadata: { status: "Queued" },
+    });
+
+    await expect(service.sendOtp("hold_1")).resolves.toEqual(
+      expect.objectContaining({ success: true, reused: false }),
+    );
+
+    expect(otpFailoverServiceMock.sendOtp).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      mobile: "+639171234567",
+    });
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        otpProvider: "semaphore",
+        otpProviderMessageId: "SEMOTP1",
+        otpCodeHash: "hash:otp",
+        otpCodeExpiresAt: expect.any(Date),
+      }),
+    );
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "semaphore_otp",
+        providerVerificationSid: "SEMOTP1",
+      }),
+    );
+  });
+
   it("blocks public OTP sends with a safe message when verified booking credits are exhausted", async () => {
     process.env.TWILIO_ACCOUNT_SID = "AC123";
     process.env.TWILIO_AUTH_TOKEN = "tok";
@@ -298,6 +378,43 @@ describe("IntakeBookingService OTP", () => {
       sendsRemaining: expect.any(Number),
     });
 
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("reuses a Semaphore OTP challenge inside the resend window", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+      otpFailoverServiceMock as never,
+      twilioOtpProviderMock as never,
+      semaphoreOtpProviderMock as never,
+    );
+
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpProvider: "semaphore",
+        otpProviderMessageId: "SEMOTP1",
+        otpCodeHash: "hash:otp",
+        otpSentCount: 1,
+        updatedAt: new Date(),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+
+    await expect(service.sendOtp("hold_1")).resolves.toEqual({
+      success: true,
+      reused: true,
+      holdExpiresAt: expect.any(String),
+      resendAvailableAt: expect.any(String),
+      sendsRemaining: expect.any(Number),
+    });
+
+    expect(otpFailoverServiceMock.sendOtp).not.toHaveBeenCalled();
     expect(insertMock).not.toHaveBeenCalled();
   });
 
@@ -560,6 +677,52 @@ describe("IntakeBookingService OTP", () => {
     await expect(service.verifyAndConfirm("hold_1", "123456")).rejects.toMatchObject({
       response: expect.objectContaining({ code: "OTP_INVALID_CODE" }),
     });
+  });
+
+  it("verifies Semaphore holds locally based on stored hold provider", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+      otpFailoverServiceMock as never,
+      twilioOtpProviderMock as never,
+      semaphoreOtpProviderMock as never,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpProvider: "semaphore",
+        otpCodeHash: "hash:otp",
+        otpCodeExpiresAt: new Date(Date.now() + 60_000),
+        otpAttempts: 0,
+        scheduledAt: new Date(Date.now() + 120_000),
+      },
+    ]);
+    semaphoreOtpProviderMock.verify.mockResolvedValueOnce({
+      valid: false,
+      provider: "semaphore",
+      errorCode: "OTP_INVALID_CODE",
+    });
+
+    await expect(service.verifyAndConfirm("hold_1", "123456")).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "OTP_INVALID_CODE" }),
+    });
+
+    expect(semaphoreOtpProviderMock.verify).toHaveBeenCalledWith({
+      mobile: "+639171234567",
+      code: "123456",
+      storedCodeHash: "hash:otp",
+      codeExpiresAt: expect.any(Date),
+    });
+    expect(twilioOtpProviderMock.verify).not.toHaveBeenCalled();
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        otpAttempts: 1,
+      }),
+    );
   });
 
   it("returns a stable code when max OTP attempts are reached", async () => {

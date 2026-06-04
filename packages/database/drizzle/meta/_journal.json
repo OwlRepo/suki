@@ -183,6 +183,13 @@
       "when": 1780472300000,
       "tag": "0025_sms_addon_refund_units",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1780589968000,
+      "tag": "0026_semaphore_otp_provider_state",
+      "breakpoints": true
     }
   ]
 }

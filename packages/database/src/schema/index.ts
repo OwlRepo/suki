@@ -457,6 +457,10 @@ export const bookingHolds = pgTable(
     scheduledAt: timestamp("scheduled_at").notNull(),
     status: text("status").notNull().default("held"), // held | confirmed | expired | released
     otpSid: text("otp_sid"),
+    otpProvider: text("otp_provider"),
+    otpCodeHash: text("otp_code_hash"),
+    otpCodeExpiresAt: timestamp("otp_code_expires_at"),
+    otpProviderMessageId: text("otp_provider_message_id"),
     otpAttempts: integer("otp_attempts").notNull().default(0),
     otpSentCount: integer("otp_sent_count").notNull().default(0),
     otpLastSentAt: timestamp("otp_last_sent_at"),
@@ -471,6 +475,26 @@ export const bookingHolds = pgTable(
     index("booking_holds_business_scheduled_idx").on(t.businessId, t.scheduledAt),
     index("booking_holds_expires_at_idx").on(t.expiresAt),
     index("booking_holds_status_idx").on(t.status),
+    index("booking_holds_otp_provider_idx").on(t.otpProvider),
+  ],
+);
+
+export const otpProviderSettings = pgTable(
+  "otp_provider_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().default("twilio"),
+    switchedAt: timestamp("switched_at"),
+    switchReason: text("switch_reason"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("otp_provider_settings_organization_unique").on(t.organizationId),
+    index("otp_provider_settings_org_idx").on(t.organizationId),
   ],
 );
 

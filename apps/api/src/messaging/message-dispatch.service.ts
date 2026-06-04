@@ -146,7 +146,9 @@ export class MessageDispatchService {
 
     let body = input.rawMessage.trim();
     if (input.channel === "sms") {
-      if (!body.endsWith(SMS_STOP)) body += SMS_STOP;
+      if (!this.isSemaphoreSmsProvider() && !body.endsWith(SMS_STOP)) {
+        body += SMS_STOP;
+      }
       if (!body.endsWith(AUTO_FOOTER)) body += AUTO_FOOTER;
     } else {
       if (!body.endsWith(AUTO_FOOTER)) body += AUTO_FOOTER;
@@ -218,7 +220,7 @@ export class MessageDispatchService {
             providerMessageId: smsResult.providerMessageId ?? null,
             sentAt: new Date(),
             deliveryStatus: "sent",
-            provider: "twilio",
+            provider: smsResult.provider ?? "unknown",
             providerMetadata,
           })
           .where(eq(messageEvents.id, messageEventId));
@@ -248,7 +250,7 @@ export class MessageDispatchService {
               sentAt: new Date(),
               retryCount: 1,
               deliveryStatus: "sent",
-              provider: "twilio",
+              provider: retried.provider ?? "unknown",
               providerMetadata,
             })
             .where(eq(messageEvents.id, messageEventId));
@@ -369,6 +371,7 @@ export class MessageDispatchService {
     clientRef: string,
   ): Promise<{
     ok: boolean;
+    provider?: "twilio" | "semaphore" | "unknown";
     providerMessageId?: string;
     errorCode?: string;
     providerMetadata?: Record<string, unknown>;
@@ -376,6 +379,10 @@ export class MessageDispatchService {
     await new Promise((r) => setTimeout(r, 500));
     const res = await this.smsProvider.send({ to, body, clientRef });
     return res;
+  }
+
+  private isSemaphoreSmsProvider(): boolean {
+    return (this.smsProvider as { providerName?: unknown }).providerName === "semaphore";
   }
 
   private buildSmsProviderMetadata(
