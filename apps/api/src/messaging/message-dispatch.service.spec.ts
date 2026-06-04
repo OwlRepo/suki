@@ -84,6 +84,9 @@ function makeService(smsProviderResult: Record<string, unknown>) {
   const emailProvider = {
     send: vi.fn(),
   };
+  const manualFollowUps = {
+    createFromMessageEvent: vi.fn(async () => undefined),
+  };
   return {
     service: new MessageDispatchService(
       planCapacity as never,
@@ -92,9 +95,11 @@ function makeService(smsProviderResult: Record<string, unknown>) {
       emailMetering as never,
       smsProvider as never,
       emailProvider as never,
+      manualFollowUps as never,
     ),
     smsMetering,
     smsProvider,
+    manualFollowUps,
   };
 }
 
@@ -202,8 +207,9 @@ describe("MessageDispatchService SMS hardening", () => {
 
   it("does not retry ambiguous unknown-outcome provider failures", async () => {
     seedDb();
-    const { service, smsMetering, smsProvider } = makeService({
+    const { service, smsMetering, smsProvider, manualFollowUps } = makeService({
       ok: false,
+      provider: "semaphore",
       transient: true,
       safeToRetry: false,
       errorCode: "provider_outcome_unknown",
@@ -219,8 +225,69 @@ describe("MessageDispatchService SMS hardening", () => {
     expect(smsProvider.send).toHaveBeenCalledTimes(1);
     expect(smsMetering.consume).not.toHaveBeenCalled();
     expect(dbState.updates).toContainEqual(
-      expect.objectContaining({ failureReason: "provider_outcome_unknown" }),
+      expect.objectContaining({
+        failureReason: "provider_outcome_unknown",
+        provider: "semaphore",
+      }),
     );
+    expect(manualFollowUps.createFromMessageEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org-1",
+        businessId: "biz-1",
+        originalMessageEventId: "evt-1",
+        fallbackFailureReason: "provider_outcome_unknown",
+      }),
+    );
+  });
+
+  it("retry-failed branch persists provider and creates one task", async () => {
+    seedDb();
+    const { service, smsProvider, manualFollowUps } = makeService({
+      ok: false,
+      provider: "semaphore",
+      transient: true,
+      safeToRetry: true,
+      errorCode: "provider_transient_retryable",
+    });
+    smsProvider.send
+      .mockResolvedValueOnce({
+        ok: false,
+        provider: "semaphore",
+        transient: true,
+        safeToRetry: true,
+        errorCode: "provider_transient_retryable",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        provider: "semaphore",
+        providerMessageId: "SEM2",
+        errorCode: "provider_rejected",
+      });
+
+    await service.dispatch(input);
+
+    expect(dbState.updates).toContainEqual(
+      expect.objectContaining({
+        status: "failed",
+        retryCount: 1,
+        provider: "semaphore",
+        providerMessageId: "SEM2",
+      }),
+    );
+    expect(manualFollowUps.createFromMessageEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("sent SMS creates no manual task", async () => {
+    seedDb();
+    const { service, manualFollowUps } = makeService({
+      ok: true,
+      provider: "semaphore",
+      providerMessageId: "SEM1",
+    });
+
+    await service.dispatch(input);
+
+    expect(manualFollowUps.createFromMessageEvent).not.toHaveBeenCalled();
   });
 
   it("retries safe transient failures at most once and consumes credits once on retry success", async () => {

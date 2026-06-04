@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { AuthButton } from "@/components/auth-button";
@@ -18,6 +18,7 @@ import { MobileBottomNav, BOTTOM_NAV_HEIGHT } from "./mobile-bottom-nav";
 import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { cn } from "@/lib/utils";
 import { TyveraAssistant } from "@/components/tyvera-assistant";
+import { getOpenManualFollowUpCount } from "@/components/needs-attention/manual-follow-up.api";
 
 const SIDEBAR_WIDTH = 240;
 
@@ -28,13 +29,32 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
     (b) => b.id === workspace?.activeBusinessId
   );
   const showPipeline = activeBiz?.crmMode === "full";
+  const [needsAttentionCount, setNeedsAttentionCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    getOpenManualFollowUpCount()
+      .then((result) => {
+        if (!cancelled) setNeedsAttentionCount(result.count);
+      })
+      .catch(() => {
+        if (!cancelled) setNeedsAttentionCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const navGroups = useMemo(
     () =>
-      getDashboardNavGroups(showPipeline, {
-        canSeeAiAnalytics: planCapabilities.canSeeAiAnalytics,
-      }),
-    [planCapabilities.canSeeAiAnalytics, showPipeline]
+      getDashboardNavGroups(
+        showPipeline,
+        {
+          canSeeAiAnalytics: planCapabilities.canSeeAiAnalytics,
+        },
+        needsAttentionCount,
+      ),
+    [needsAttentionCount, planCapabilities.canSeeAiAnalytics, showPipeline]
   );
   const mobileBottomItems = useMemo(
     () => getMobileBottomNavItems(showPipeline),

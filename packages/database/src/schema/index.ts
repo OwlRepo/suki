@@ -51,6 +51,11 @@ export const messageEventStatusEnum = pgEnum("message_event_status", [
   "failed",
   "skipped",
 ]);
+export const manualFollowUpStatusEnum = pgEnum("manual_follow_up_status", [
+  "open",
+  "contacted",
+  "dismissed",
+]);
 export const deliveryStatusEnum = pgEnum("delivery_status", [
   "queued",
   "sent",
@@ -753,6 +758,58 @@ export const messageEvents = pgTable(
       t.createdAt,
     ),
     index("message_events_provider_message_id_idx").on(t.providerMessageId),
+  ],
+);
+
+export const manualFollowUpTasks = pgTable(
+  "manual_follow_up_tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    originalMessageEventId: uuid("original_message_event_id")
+      .notNull()
+      .references(() => messageEvents.id, { onDelete: "cascade" })
+      .unique(),
+    retryMessageEventId: uuid("retry_message_event_id").references(
+      () => messageEvents.id,
+      { onDelete: "set null" },
+    ),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    appointmentId: uuid("appointment_id").references(() => appointments.id, {
+      onDelete: "set null",
+    }),
+    status: manualFollowUpStatusEnum("status").notNull().default("open"),
+    recipientMobile: text("recipient_mobile").notNull(),
+    messageBody: text("message_body").notNull(),
+    manualRetryRawMessage: text("manual_retry_raw_message").notNull(),
+    failureReason: text("failure_reason").notNull(),
+    notifiedAt: timestamp("notified_at"),
+    resolvedAt: timestamp("resolved_at"),
+    resolvedByUserId: uuid("resolved_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("manual_follow_up_tasks_org_status_created_idx").on(
+      t.organizationId,
+      t.status,
+      t.createdAt,
+    ),
+    index("manual_follow_up_tasks_business_status_created_idx").on(
+      t.businessId,
+      t.status,
+      t.createdAt,
+    ),
+    index("manual_follow_up_tasks_notified_idx").on(t.notifiedAt),
   ],
 );
 

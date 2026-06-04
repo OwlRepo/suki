@@ -3,6 +3,7 @@ import {
   BarChart3,
   CalendarDays,
   CircleHelp,
+  AlertCircle,
   Home,
   Import,
   Settings,
@@ -16,6 +17,7 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  badgeCount?: number;
 }
 
 export interface NavGroup {
@@ -32,12 +34,19 @@ export function getDashboardNavGroups(
   capabilities: Pick<PlanCapabilities, "canSeeAiAnalytics"> = {
     canSeeAiAnalytics: true,
   },
+  needsAttentionCount = 0,
 ): NavGroup[] {
   const dailyItems: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/appointments", label: "Appointments", icon: CalendarDays },
     { href: "/share-slots", label: "Share slots", icon: Share2 },
+    {
+      href: "/needs-attention",
+      label: "Needs Attention",
+      icon: AlertCircle,
+      badgeCount: needsAttentionCount,
+    },
   ];
 
   return [

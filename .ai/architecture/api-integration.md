@@ -9,7 +9,7 @@
 
 ## External Integrations
 - Payments: Lemon Squeezy checkout, portal, and webhook billing services
-- Messaging: Semaphore automated SMS + Twilio transitional OTP/rollback/inbound/status + Resend email; Twilio inbound/status callbacks validate signatures against explicit public callback URL env vars instead of internal request URLs
+- Messaging: Semaphore automated SMS + delayed status reconciliation, Twilio transitional OTP/rollback/inbound/status, manual follow-up safety-net APIs, and Resend email/digests; Twilio inbound/status callbacks validate signatures against explicit public callback URL env vars instead of internal request URLs
 - AI: OpenAI via API AI module services
 - CRM import providers: CSV, HubSpot, Pipedrive (+ stubs for others)
 
@@ -28,4 +28,5 @@
 - Contract changes must be test-backed (request + response).
 - Provider/webhook modules are high-risk and require regression protection.
 - SMS credits are counted as estimated billable SMS segments after the final outbound body is assembled; provider-reported segment counts are stored as metadata for audit/reconciliation.
+- Appointment-related SMS final failures create authenticated `/messaging/manual-follow-ups*` safety-net tasks; web `/needs-attention` uses those APIs for native SMS fallback, staff retry, and contacted/dismissed resolution.
 - Booking OTP provider selection is hold/provider-state aware: sends use configured failover mode, while verification always follows the provider stored on the booking hold.

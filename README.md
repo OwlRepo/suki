@@ -217,7 +217,12 @@ Automated outbound SMS is selected explicitly with `SMS_PROVIDER`. Production sh
 SMS_PROVIDER=semaphore
 SEMAPHORE_API_KEY=
 SEMAPHORE_SENDER_NAME=
+SEMAPHORE_RECONCILIATION_ENABLED=true
+SEMAPHORE_RECONCILIATION_CRON=*/5 * * * *
+MANUAL_FOLLOW_UP_DIGEST_CRON=*/15 * * * *
 ```
+
+Semaphore reconciliation polls recent accepted appointment SMS messages for delayed `Failed` or `Refunded` states. Those failures, plus immediate unconfirmed send failures, create owner-visible manual follow-up tasks at `/needs-attention`; digest emails include only a count and secure link, never customer details.
 
 Booking OTP supports a transitional Twilio-to-Semaphore mode:
 
@@ -241,6 +246,9 @@ Provider env:
 SMS_PROVIDER=semaphore
 SEMAPHORE_API_KEY=
 SEMAPHORE_SENDER_NAME=
+SEMAPHORE_RECONCILIATION_ENABLED=true
+SEMAPHORE_RECONCILIATION_CRON=*/5 * * * *
+MANUAL_FOLLOW_UP_DIGEST_CRON=*/15 * * * *
 OTP_PROVIDER_MODE=auto
 TWILIO_OTP_FAILOVER_ON_ERROR_CODES=
 TWILIO_ACCOUNT_SID=

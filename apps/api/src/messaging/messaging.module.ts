@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { MessagingController } from "./messaging.controller";
 import { InboundSmsController } from "./inbound-sms.controller";
 import { MessagingWebhooksController } from "./messaging-webhooks.controller";
+import { ManualFollowUpController } from "./manual-follow-ups/manual-follow-up.controller";
 import { MessagingWebhookService } from "./messaging-webhook.service";
 import { TwilioWebhookValidationService } from "./twilio-webhook-validation.service";
 import { MessagingService } from "./messaging.service";
@@ -22,6 +23,10 @@ import { ResendEmailProvider } from "./providers/resend-email.provider";
 import { SMS_PROVIDER, EMAIL_PROVIDER } from "./providers/provider.tokens";
 import type { ISmsProvider } from "./providers/sms.provider";
 import type { IEmailProvider } from "./providers/email.provider";
+import { ManualFollowUpService } from "./manual-follow-ups/manual-follow-up.service";
+import { ManualFollowUpRetryService } from "./manual-follow-ups/manual-follow-up-retry.service";
+import { ManualFollowUpDigestService } from "./manual-follow-ups/manual-follow-up-digest.service";
+import { SemaphoreMessageReconciliationService } from "./semaphore-message-reconciliation.service";
 
 function isTwilioConfigured(): boolean {
   const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
@@ -42,13 +47,22 @@ function isResendConfigured(): boolean {
 
 @Module({
   imports: [AuthModule, AiModule, PlanCapacityModule, AutomationPolicyModule, SecurityModule],
-  controllers: [MessagingController, InboundSmsController, MessagingWebhooksController],
+  controllers: [
+    MessagingController,
+    InboundSmsController,
+    MessagingWebhooksController,
+    ManualFollowUpController,
+  ],
   providers: [
     MessagingService,
     PlanAiMessagingGuard,
     MessageDispatchService,
     SmsMeteringService,
     EmailMeteringService,
+    ManualFollowUpService,
+    ManualFollowUpRetryService,
+    ManualFollowUpDigestService,
+    SemaphoreMessageReconciliationService,
     MessagingWebhookService,
     TwilioWebhookValidationService,
     NoopSmsProvider,
@@ -77,6 +91,12 @@ function isResendConfigured(): boolean {
       inject: [ResendEmailProvider, NoopEmailProvider],
     },
   ],
-  exports: [MessagingService, MessageDispatchService, SmsMeteringService, EmailMeteringService],
+  exports: [
+    MessagingService,
+    MessageDispatchService,
+    SmsMeteringService,
+    EmailMeteringService,
+    ManualFollowUpService,
+  ],
 })
 export class MessagingModule {}

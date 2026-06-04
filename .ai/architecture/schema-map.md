@@ -13,6 +13,7 @@
 - Drizzle SQL migrations under `packages/database/drizzle`
 - Database package scripts under `packages/database/scripts`
 - Messaging audit data uses existing `message_events.provider` / `provider_message_id` / `provider_metadata` for Twilio, Semaphore, and Resend provider audit data and existing `sms_usage_events.units` for consumed billable segment units.
+- Manual SMS safety-net tasks are stored in `manual_follow_up_tasks`, keyed uniquely by `original_message_event_id`, with optional `retry_message_event_id`, staff resolution fields, notification timestamp, recipient/message snapshots, and duplicate-risk derived from `provider_outcome_unknown`.
 - Subscription persistence now includes provider-neutral Lemon Squeezy fields on `subscriptions` plus provider-aware webhook event storage in `processed_webhook_events`.
 - Verified online booking credits are stored separately from outbound SMS credits via `verified_online_booking_credits`, `verified_online_booking_usage_events`, `verified_online_booking_addons`, and `credit_reconciliation_events`.
 - Current webhook reconciliation mutates `subscriptions`, `organizations`, `verified_online_booking_credits`, and `credit_reconciliation_events` for subscription lifecycle changes; add-on/refund reconciliation is still incomplete.

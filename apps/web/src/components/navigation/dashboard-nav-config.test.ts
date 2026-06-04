@@ -19,6 +19,19 @@ describe("dashboard navigation UX", () => {
     );
   });
 
+  it("includes needs-attention in dashboard navigation with badge count", () => {
+    const dailyItems = getDashboardNavGroups(false, { canSeeAiAnalytics: true }, 7).find((g) => g.key === "daily")?.items ?? [];
+    expect(dailyItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: "/needs-attention",
+          label: "Needs Attention",
+          badgeCount: 7,
+        }),
+      ]),
+    );
+  });
+
   it("includes help center in setup and admin navigation", () => {
     const adminItems = getDashboardNavGroups(false).find((g) => g.key === "admin")?.items ?? [];
     expect(adminItems).toEqual(

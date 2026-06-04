@@ -190,6 +190,13 @@
       "when": 1780589968000,
       "tag": "0026_semaphore_otp_provider_state",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1780591440613,
+      "tag": "0027_fancy_star_brand",
+      "breakpoints": true
     }
   ]
 }

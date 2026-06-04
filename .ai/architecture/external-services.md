@@ -3,9 +3,9 @@
 ## Providers
 - First-party auth (in-app): authentication/session logic
 - OpenAI: AI generation/policy flows
-- Semaphore: primary automated outbound SMS and failover booking OTP provider
+- Semaphore: primary automated outbound SMS, delayed outbound status reconciliation, and failover booking OTP provider
 - Twilio: rollback SMS outbound, inbound/webhook status, and transitional Verify OTP; inbound/status webhooks use signature validation with exact public callback URL env vars
-- Resend: email delivery
+- Resend: email delivery, including privacy-safe owner digests for manual SMS follow-up tasks
 - Lemon Squeezy: hosted checkout creation, customer portal redirects, and billing webhook lifecycle when self-serve billing is enabled
 - CRM sources: CSV, HubSpot, Pipedrive (plus planned adapters)
 
@@ -21,13 +21,14 @@ All external-provider contract changes are HIGH risk and require contract/regres
 
 ## SMS and OTP Provider Notes
 - Automated outbound SMS uses explicit `SMS_PROVIDER`; production should use Semaphore while Twilio can remain configured for rollback/inbound/status handling.
-- Semaphore outbound SMS stores `message_events.provider = semaphore` plus provider message IDs/metadata; delivery polling is deferred.
+- Semaphore outbound SMS stores `message_events.provider = semaphore` plus provider message IDs/metadata; reconciliation can poll recent appointment SMS IDs for delayed Failed/Refunded states.
 - Semaphore booking OTP uses Tyvera-generated codes, stores only hashes on booking holds, and verifies locally with expiration and attempt limits.
 - Booking OTP `OTP_PROVIDER_MODE=auto` defaults organizations to Twilio Verify until an allowlisted Twilio error code triggers durable per-organization failover to Semaphore.
 - Twilio outbound SMS still supports Messaging Service SID or phone-number sender config for rollback.
 - Inbound STOP and status callbacks require valid Twilio signatures.
 - SMS usage units represent estimated billable message segments, not only API requests.
 - Ambiguous network failures are recorded as unknown outcome and are not automatically retried.
+- Appointment-related SMS final failures and delayed Semaphore Failed/Refunded states create one `manual_follow_up_tasks` row per original message event. Unknown-outcome tasks are duplicate-risk and block staff-triggered automatic retry, but still allow native SMS/clipboard fallback after staff review.
 - Public booking OTP sends check org billing state plus verified online-booking credits before sending, consume a credit only after the selected provider accepts the send, and return a safe generic message when billing or providers block the action.
 
 ## Lemon Squeezy Notes

@@ -83,10 +83,9 @@ describe("IntakePage OTP flow", () => {
     fireEvent.change(screen.getByLabelText(/mobile/i), { target: { value: "+639171234567" } });
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
 
-    await screen.findByText(/choose your appointment/i);
-    fireEvent.click(screen.getByRole("button", { name: /continue to time/i }));
-    fireEvent.click(screen.getByRole("button", { name: /continue to review/i }));
-    fireEvent.click(screen.getByRole("button", { name: /proceed to otp/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /continue to time/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /continue to review/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /proceed to otp/i }));
 
     expect(await screen.findByText(/resend available in 1m/i)).toBeInTheDocument();
     expect(screen.getByText(/hold expires in 15m/i)).toBeInTheDocument();
@@ -168,10 +167,9 @@ describe("IntakePage OTP flow", () => {
     fireEvent.change(screen.getByLabelText(/mobile/i), { target: { value: "+639171234567" } });
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
 
-    await screen.findByText(/choose your appointment/i);
-    fireEvent.click(screen.getByRole("button", { name: /continue to time/i }));
-    fireEvent.click(screen.getByRole("button", { name: /continue to review/i }));
-    fireEvent.click(screen.getByRole("button", { name: /proceed to otp/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /continue to time/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /continue to review/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /proceed to otp/i }));
 
     const otpInput = await screen.findByLabelText(/otp code/i);
     fireEvent.change(otpInput, { target: { value: "123456" } });

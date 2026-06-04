@@ -61,7 +61,12 @@ export function MobileNavDrawer({
                         )}
                       >
                         <Icon className="size-5 shrink-0" aria-hidden />
-                        {item.label}
+                        <span className="truncate">{item.label}</span>
+                        {item.badgeCount && item.badgeCount > 0 ? (
+                          <span className="ml-auto rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-destructive-foreground">
+                            {item.badgeCount > 99 ? "99+" : item.badgeCount}
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   );

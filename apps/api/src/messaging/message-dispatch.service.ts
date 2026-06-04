@@ -11,6 +11,7 @@ import type { ISmsProvider } from "./providers/sms.provider";
 import type { IEmailProvider } from "./providers/email.provider";
 import { SMS_PROVIDER, EMAIL_PROVIDER } from "./providers/provider.tokens";
 import { calculateSmsSegments } from "./sms-segmentation";
+import { ManualFollowUpService } from "./manual-follow-ups/manual-follow-up.service";
 
 const SMS_STOP = " Reply STOP to opt out.";
 const AUTO_FOOTER = " Sent automatically by Tyvera";
@@ -69,6 +70,7 @@ export class MessageDispatchService {
     private readonly emailMetering: EmailMeteringService,
     @Inject(SMS_PROVIDER) private readonly smsProvider: ISmsProvider,
     @Inject(EMAIL_PROVIDER) private readonly emailProvider: IEmailProvider,
+    private readonly manualFollowUps: ManualFollowUpService,
   ) {}
 
   async dispatch(input: DispatchInput): Promise<DispatchResult> {
@@ -272,12 +274,21 @@ export class MessageDispatchService {
               status: "failed",
               failureReason: retried.errorCode ?? "provider_error",
               retryCount: 1,
+              provider: retried.provider ?? "unknown",
+              providerMessageId: retried.providerMessageId ?? null,
               providerMetadata: this.buildSmsProviderMetadata(
                 smsSegmentEstimate,
                 retried.providerMetadata,
               ),
             })
             .where(eq(messageEvents.id, messageEventId));
+          await this.manualFollowUps.createFromMessageEvent({
+            organizationId: input.organizationId,
+            businessId: input.businessId,
+            originalMessageEventId: messageEventId,
+            manualRetryRawMessage: input.rawMessage.trim(),
+            fallbackFailureReason: retried.errorCode ?? "provider_error",
+          });
           result = {
             status: "failed",
             reason: retried.errorCode ?? "provider_error",
@@ -288,14 +299,23 @@ export class MessageDispatchService {
         await db
           .update(messageEvents)
           .set({
-          status: "failed",
-          failureReason: smsResult.errorCode ?? "provider_error",
-          providerMetadata: this.buildSmsProviderMetadata(
-            smsSegmentEstimate,
-            smsResult.providerMetadata,
-          ),
-        })
+            status: "failed",
+            failureReason: smsResult.errorCode ?? "provider_error",
+            provider: smsResult.provider ?? "unknown",
+            providerMessageId: smsResult.providerMessageId ?? null,
+            providerMetadata: this.buildSmsProviderMetadata(
+              smsSegmentEstimate,
+              smsResult.providerMetadata,
+            ),
+          })
           .where(eq(messageEvents.id, messageEventId));
+        await this.manualFollowUps.createFromMessageEvent({
+          organizationId: input.organizationId,
+          businessId: input.businessId,
+          originalMessageEventId: messageEventId,
+          manualRetryRawMessage: input.rawMessage.trim(),
+          fallbackFailureReason: smsResult.errorCode ?? "provider_error",
+        });
         result = {
           status: "failed",
           reason: smsResult.errorCode ?? "provider_not_configured",
