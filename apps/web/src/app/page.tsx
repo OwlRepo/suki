@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  BarChart3,
   CalendarCheck,
   Check,
   Dumbbell,
@@ -59,61 +58,72 @@ function TyveraMark({ className = "h-8 w-8" }: TyveraMarkProps) {
 }
 
 const TRUST_CHIPS = [
-  "All core features available",
-  "No payment setup required",
+  "Free during early access",
   "Built for repeat-visit businesses",
-  "Fast setup for small teams",
+  "Guided booking with OTP verification",
+  "Automated customer follow-ups",
 ] as const;
 
 const OUTCOME_STATS = [
   {
-    icon: BarChart3,
-    label: "Fewer no-shows",
-    value: "Customers get reminded before their appointment.",
-    source: "Automated confirmation and reminder messages.",
-  },
-  {
     icon: CalendarCheck,
-    label: "Recovered bookings",
-    value: "Recovered bookings help keep your calendar full and revenue steady.",
-    source: "Built for salons, clinics, gyms, spas, and repeat-visit businesses.",
+    label: "Appointments come in",
+    value:
+      "Customers request a schedule through a guided booking flow instead of lengthy message threads.",
+    source: "Date and time selection, booking review, and OTP verification.",
   },
   {
-    icon: Shield,
-    label: "Clear daily limits",
-    value: "Built-in usage limits help prevent accidental abuse.",
-    source: "Daily caps for AI and follow-up sending.",
+    icon: MessageSquare,
+    label: "Messages go out",
+    value:
+      "Routine reminders and follow-ups continue running without staff remembering every message.",
+    source:
+      "Appointment reminders, missed-appointment recovery, post-visit follow-ups, and winback.",
+  },
+  {
+    icon: RefreshCw,
+    label: "Return visits are encouraged",
+    value:
+      "Completed appointments become opportunities to invite customers back at the right time.",
+    source: "Post-visit follow-ups and inactivity winback workflows.",
   },
 ] as const;
 
 const PROBLEM_POINTS = [
-  "Customers forget appointments, causing empty slots.",
-  "Staff forgets follow-ups, so customers quietly disappear.",
-  "Manual texting takes time and becomes inconsistent.",
-  "Owners only notice lost customers when revenue is already down.",
+  "Customers forget appointments and leave valuable slots unused.",
+  "Busy staff cannot consistently send every reminder and follow-up.",
+  "Manual visit tracking becomes unreliable when the day gets hectic.",
+  "Owners spend time checking routine work instead of handling exceptions.",
 ] as const;
 
 const HOW_IT_WORKS = [
   {
     step: "1",
-    icon: Users,
-    title: "Capture customers once",
+    icon: CalendarCheck,
+    title: "Customers book",
     description:
-      "Use QR signup, manual entry, or imports. Tyvera keeps one organized customer record with visit history.",
+      "Customers choose their preferred date and time through a guided booking flow with review and OTP verification.",
   },
   {
     step: "2",
-    icon: CalendarCheck,
-    title: "Track visits and appointments",
+    icon: MessageSquare,
+    title: "Routine messages go out",
     description:
-      "Tyvera knows who booked, who visited, who missed, and who has not returned in a while.",
+      "Tyvera sends appointment reminders and follow-ups automatically, reducing repetitive manual texting.",
   },
   {
     step: "3",
-    icon: MessageSquare,
-    title: "Automations send the right message",
+    icon: RefreshCw,
+    title: "Completed visits lead to rebooking",
     description:
-      "Reminders, thank-yous, missed appointment recovery, and winback messages run automatically.",
+      "Customer history stays connected to appointments, so post-visit and inactivity follow-ups can encourage the next visit.",
+  },
+  {
+    step: "4",
+    icon: Shield,
+    title: "Your team focuses on exceptions",
+    description:
+      "Instead of manually checking every customer, your team spends more time on appointments that need an actual decision.",
   },
 ] as const;
 
@@ -121,39 +131,41 @@ const KEY_AUTOMATIONS = [
   {
     icon: CalendarCheck,
     name: "Appointment reminders",
-    benefit: "Confirmation and 24-hour reminders reduce forgotten bookings.",
+    benefit:
+      "Send confirmation and reminder messages before the scheduled visit.",
   },
   {
     icon: RefreshCw,
-    name: "Missed appointment recovery",
-    benefit: "Send a rebook message after a missed appointment.",
+    name: "Missed-appointment recovery",
+    benefit:
+      "Invite customers to rebook after a missed appointment instead of quietly losing them.",
   },
   {
     icon: Heart,
-    name: "Post-visit follow-ups",
+    name: "Post-visit rebooking",
     benefit:
-      "Thank customers and invite them to book again while the visit is fresh.",
+      "Thank customers after a completed visit and encourage them to book again.",
   },
   {
     icon: Users,
     name: "Inactivity winback",
     benefit:
-      "Automatically message customers who have not returned after 60+ days.",
+      "Reach customers who have not returned after a configured period of inactivity.",
   },
 ] as const;
 
 const BEFORE_AFTER = {
   before: [
-    "Manual texts",
-    "Spreadsheets and notebooks",
-    "Forgotten follow-ups",
-    "No clear customer return tracking",
+    "Manual reminders sent one customer at a time",
+    "Appointment details spread across message threads",
+    "Visit history tracked through memory or notebooks",
+    "Repeat customers forgotten when staff gets busy",
   ],
   after: [
-    "Automated reminders",
-    "Organized customer records",
-    "Winback messages run automatically",
-    "Clear visibility into repeat customers",
+    "Guided booking in one organized flow",
+    "Routine reminders and follow-ups run automatically",
+    "Customer history stays connected to appointments",
+    "More time spent on customers who actually need attention",
   ],
 } as const;
 
@@ -169,15 +181,23 @@ const BUSINESS_TYPES = [
 const FAQ = [
   {
     q: "Is Tyvera free to use?",
-    a: "Yes. Tyvera is currently in free mode with all core features enabled.",
+    a: "Yes. Tyvera is currently free to use during early validation, with core features enabled and sensible daily usage limits.",
   },
   {
-    q: "How do usage limits work?",
-    a: "Tyvera enforces daily limits for AI and follow-up sending to prevent abuse and keep usage healthy.",
+    q: "Do I need to open Tyvera every day?",
+    a: "Tyvera is designed to reduce daily admin. Routine reminders and follow-ups run automatically. Your team still reviews appointments that need a decision and updates appointment statuses when necessary.",
+  },
+  {
+    q: "How does Tyvera help bring customers back?",
+    a: "Tyvera sends post-visit follow-ups, missed-appointment recovery messages, and inactivity winback messages so customers receive a timely reason to book again.",
+  },
+  {
+    q: "How are repeat visits tracked?",
+    a: "Customer history stays connected to appointments. Completed appointments can be used for post-visit follow-ups, repeat-customer insights, and inactivity winback workflows.",
   },
   {
     q: "Is Tyvera only for the Philippines?",
-    a: "Tyvera is designed first for Philippine service businesses, especially salons, clinics, gyms, spas, and appointment-based businesses.",
+    a: "Tyvera is designed first for Philippine service businesses, especially salons, clinics, gyms, spas, and other businesses where customers book ahead or return regularly.",
   },
 ] as const;
 
@@ -221,20 +241,22 @@ export default function Home() {
               </div>
 
               <h1 className="mt-6 max-w-2xl text-4xl font-bold leading-[1.02] tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-                Recover lost customers automatically.
+                Appointments come in. Tyvera keeps customers coming back.
               </h1>
 
               <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-                Tyvera helps Philippine service businesses reduce no-shows,
-                send follow-ups, and bring customers back automatically.
+                Tyvera helps Philippine service businesses accept bookings,
+                send routine reminders and follow-ups automatically, and
+                encourage repeat visits without managing every customer
+                manually.
               </p>
 
               <div className="mt-6 max-w-xl rounded-2xl border border-blue-200 bg-white/75 p-4 shadow-sm backdrop-blur">
                 <div className="flex gap-3">
-                  <Shield className="mt-0.5 size-5 shrink-0 text-blue-600" />
+                  <Zap className="mt-0.5 size-5 shrink-0 text-blue-600" />
                   <p className="text-sm font-semibold leading-6 text-slate-800">
-                    Free mode is active with core features enabled and sensible
-                    daily limits to prevent abuse.
+                    Automate the routine. Spend more time only on appointments
+                    that actually need your attention.
                   </p>
                 </div>
               </div>
@@ -270,7 +292,9 @@ export default function Home() {
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-900">{label}</p>
                   <p className="mt-1 text-sm leading-5 text-slate-600">{value}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-400">{source}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    {source}
+                  </p>
                 </div>
               </div>
             ))}
@@ -280,11 +304,13 @@ export default function Home() {
         <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-              The problem is not bad service. It is forgotten follow-up.
+              Most appointment work should not require daily checking.
             </h2>
+
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Customers forget appointments. Staff get busy. Follow-ups are
-              missed. Tyvera makes sure the right message still gets sent.
+              Customers forget. Staff get busy. Manual follow-ups become
+              inconsistent. Tyvera keeps the routine moving so fewer customers
+              quietly disappear.
             </p>
           </div>
 
@@ -305,24 +331,28 @@ export default function Home() {
           <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 sm:py-18 lg:grid-cols-[minmax(0,1fr)_minmax(320px,1fr)] lg:items-center">
             <div className="min-w-0">
               <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                Set it once. Tyvera keeps working.
+                Automate the routine. Focus on the exceptions.
               </h2>
 
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
-                Tyvera stores your customer list, tracks visits, and sends
-                reminders or winback messages automatically. You do not need to
-                open it every day.
+                Tyvera handles repeatable communication around bookings and
+                return visits. Instead of relying on memory, spreadsheets, or
+                manual texting, your team focuses on customers and the
+                appointments that require a decision.
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <Card className="h-full border-slate-200/80 bg-white shadow-sm">
                   <CardContent className="p-5">
                     <Zap className="size-5 text-blue-600" />
+
                     <p className="mt-4 font-semibold text-slate-900">
-                      Automated follow-ups
+                      Routine messages keep running
                     </p>
+
                     <p className="mt-1 text-sm leading-5 text-slate-600">
-                      Less manual texting and fewer forgotten customers.
+                      Reduce repetitive texting without forgetting important
+                      customer follow-ups.
                     </p>
                   </CardContent>
                 </Card>
@@ -330,11 +360,14 @@ export default function Home() {
                 <Card className="h-full border-slate-200/80 bg-white shadow-sm">
                   <CardContent className="p-5">
                     <TrendingUp className="size-5 text-blue-600" />
+
                     <p className="mt-4 font-semibold text-slate-900">
-                      Revenue recovery
+                      Return visits stay visible
                     </p>
+
                     <p className="mt-1 text-sm leading-5 text-slate-600">
-                      Bring back customers who might have quietly disappeared.
+                      Encourage repeat bookings before good customers quietly
+                      disappear.
                     </p>
                   </CardContent>
                 </Card>
@@ -352,43 +385,37 @@ export default function Home() {
         <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-              How it works
+              A simple loop from booking to return visit
             </h2>
+
             <p className="mt-2 text-sm text-slate-600 sm:text-base">
-              Built for small service businesses that need repeat customers.
+              Keep the customer journey moving without adding more daily admin.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {HOW_IT_WORKS.map(({ step, icon: Icon, title, description }, index) => (
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {HOW_IT_WORKS.map(({ step, icon: Icon, title, description }) => (
               <Card
                 key={step}
-                className="relative h-full border-slate-200/80 bg-white shadow-sm"
+                className="h-full border-slate-200/80 bg-white shadow-sm"
               >
                 <CardContent className="p-5">
                   <div className="flex items-center gap-3">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                       <Icon className="size-5" />
                     </span>
+
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Step {step}
                     </span>
                   </div>
 
                   <h3 className="mt-5 font-semibold text-slate-900">{title}</h3>
+
                   <p className="mt-2 text-sm leading-6 text-slate-600">
                     {description}
                   </p>
                 </CardContent>
-
-                {index < HOW_IT_WORKS.length - 1 ? (
-                  <span
-                    aria-hidden="true"
-                    className="absolute -right-3 top-1/2 z-10 hidden -translate-y-1/2 text-xl text-blue-600 md:block"
-                  >
-                    →
-                  </span>
-                ) : null}
               </Card>
             ))}
           </div>
@@ -398,10 +425,12 @@ export default function Home() {
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
             <div className="text-center">
               <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                Automations that recover customers
+                Messages that keep the customer journey moving
               </h2>
+
               <p className="mt-2 text-sm text-slate-600 sm:text-base">
-                Tyvera runs the messages that business owners and staff usually forget.
+                Tyvera sends the follow-ups that busy owners and staff often
+                forget.
               </p>
             </div>
 
@@ -418,7 +447,9 @@ export default function Home() {
 
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-900">{name}</p>
-                      <p className="mt-1 text-sm leading-5 text-slate-600">{benefit}</p>
+                      <p className="mt-1 text-sm leading-5 text-slate-600">
+                        {benefit}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -429,7 +460,7 @@ export default function Home() {
 
         <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
           <h2 className="text-center text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-            Before and after
+            Less manual admin. More attention where it matters.
           </h2>
 
           <div className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
@@ -476,8 +507,9 @@ export default function Home() {
             <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
               Built first for Philippine service businesses
             </h2>
+
             <p className="mt-2 text-sm text-slate-600 sm:text-base">
-              Tyvera works best when customers book ahead or come back regularly.
+              Tyvera works best when customers book ahead or return regularly.
             </p>
 
             <div className="mx-auto mt-8 flex max-w-4xl flex-wrap justify-center gap-3">
@@ -500,14 +532,15 @@ export default function Home() {
             <div className="min-w-0">
               <div className="flex items-center gap-3">
                 <Shield className="size-6 shrink-0 text-blue-600" />
+
                 <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                  Your data stays yours
+                  Your customer data stays yours
                 </h2>
               </div>
 
               <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">
-                Tyvera helps you organize your customer list and automate follow-ups.
-                You can view and export your data anytime.
+                Tyvera helps you organize customer history and automate
+                follow-ups. You can view and export your data anytime.
               </p>
             </div>
 
@@ -517,6 +550,7 @@ export default function Home() {
                   <AccordionTrigger className="text-left text-sm font-semibold text-slate-900">
                     {q}
                   </AccordionTrigger>
+
                   <AccordionContent className="text-sm leading-6 text-slate-600">
                     {a}
                   </AccordionContent>
@@ -530,13 +564,13 @@ export default function Home() {
           <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] lg:items-center">
             <div className="min-w-0">
               <h2 className="max-w-2xl text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                Start free. Recover customers automatically. Pay more only when
-                your usage grows.
+                Let Tyvera handle the routine follow-up.
               </h2>
 
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
-                Tyvera is built for small service businesses that want fewer
-                no-shows, more repeat visits, and less manual texting.
+                Spend less time manually chasing appointments and more time
+                serving customers, handling exceptions, and growing repeat
+                visits.
               </p>
 
               <PrimaryPageAction className="mt-6 w-full sm:w-auto [&>div]:justify-start">
@@ -564,7 +598,8 @@ export default function Home() {
           </Link>
 
           <span>
-            Tyvera — Customer recovery automation for Philippine service businesses.
+            Tyvera — Appointment and customer recovery automation for Philippine
+            service businesses.
           </span>
 
           <span>© {new Date().getFullYear()} Tyvera</span>
