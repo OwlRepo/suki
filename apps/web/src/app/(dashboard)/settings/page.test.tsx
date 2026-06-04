@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SettingsPage from "./page";
 
@@ -61,7 +61,19 @@ const featureFlags = {
   manual_billing_controls_enabled: true,
 };
 
-function installDefaultMocks(planType: "free" | "growth") {
+function installDefaultMocks(
+  planType: "free" | "growth",
+  automationMessageTemplates = {},
+  patchAutomationSettings: (body: { messageTemplates?: unknown }) => unknown =
+    (body) => ({
+      appointmentRemindersEnabled: true,
+      appointmentReminder72hEnabled: false,
+      inactivityWinbackEnabled: true,
+      inactivityDays: 60,
+      autoSendChannel: "sms",
+      messageTemplates: body.messageTemplates ?? automationMessageTemplates,
+    }),
+) {
   useSearchParamsMock.mockReturnValue({ get: () => null });
   useAuthSyncMock.mockReturnValue({ data: { organization: { id: "org-1" } } });
   useFeatureFlagsMock.mockReturnValue(featureFlags);
@@ -73,7 +85,7 @@ function installDefaultMocks(planType: "free" | "growth") {
     refetch: vi.fn(),
     setActiveBusinessId: vi.fn(),
   });
-  apiRequestMock.mockImplementation(async (path: string) => {
+  apiRequestMock.mockImplementation(async (path: string, options?: { body?: string }) => {
     if (path === "/organizations/me") {
       return { organization: { id: "org-1", name: "Tyvera Org" } };
     }
@@ -148,8 +160,13 @@ function installDefaultMocks(planType: "free" | "growth") {
         inactivityWinbackEnabled: true,
         inactivityDays: 60,
         autoSendChannel: "sms",
-        messageTemplates: {},
+        messageTemplates: automationMessageTemplates,
       };
+    }
+    if (path === "/automation/settings") {
+      const body =
+        typeof options?.body === "string" ? JSON.parse(options.body) : {};
+      return patchAutomationSettings(body);
     }
     if (path.startsWith("/customers/templates?businessId=")) {
       return { templates: [] };
@@ -183,5 +200,94 @@ describe("SettingsPage AI visibility", () => {
 
     expect(await screen.findByText(/AI Usage & Quotas/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Refine with AI/i }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("SettingsPage message templates", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+  });
+
+  it("shows default template text when the API returns an empty template map", async () => {
+    installDefaultMocks("free");
+
+    render(<SettingsPage />);
+
+    expect(
+      await screen.findByDisplayValue(
+        "Hi {customerName}! Your appointment{staffName} is confirmed for {dateTime}.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Reminder: Your appointment{staffName} is tomorrow. Reschedule: {link}.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("loads saved template text and confirms blur autosave", async () => {
+    installDefaultMocks("free", {
+      appointment_confirmation: {
+        sms: "Saved confirmation for {customerName}",
+      },
+    });
+
+    render(<SettingsPage />);
+
+    const input = await screen.findByDisplayValue(
+      "Saved confirmation for {customerName}",
+    );
+
+    fireEvent.change(input, {
+      target: { value: "Updated confirmation for {customerName}" },
+    });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/automation/settings",
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining(
+            "Updated confirmation for {customerName}",
+          ),
+        }),
+      );
+    });
+    expect(
+      await screen.findByText("Message template saved."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows loading and error statuses for template autosave", async () => {
+    let rejectSave: (error: Error) => void = () => {};
+    installDefaultMocks(
+      "free",
+      {
+        appointment_confirmation: {
+          sms: "Saved confirmation for {customerName}",
+        },
+      },
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSave = reject;
+        }),
+    );
+
+    render(<SettingsPage />);
+
+    const input = await screen.findByDisplayValue(
+      "Saved confirmation for {customerName}",
+    );
+    fireEvent.change(input, {
+      target: { value: "Broken confirmation for {customerName}" },
+    });
+    fireEvent.blur(input);
+
+    expect(await screen.findByText("Saving message template...")).toBeInTheDocument();
+
+    rejectSave(new Error("Save failed"));
+
+    expect(await screen.findByText("Save failed")).toBeInTheDocument();
   });
 });

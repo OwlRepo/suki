@@ -30,7 +30,7 @@ function makeTask(overrides: Partial<ManualFollowUpTask> = {}): ManualFollowUpTa
 
 describe("ManualFollowUpCard", () => {
   it("copies before opening the SMS deep link", () => {
-    render(
+    const { container } = render(
       <ManualFollowUpCard
         task={makeTask()}
         onContacted={vi.fn()}
@@ -44,9 +44,13 @@ describe("ManualFollowUpCard", () => {
       "href",
       "sms:+639171234567?body=Reminder%20body",
     );
+    link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
     expect(writeText).toHaveBeenCalledWith("Reminder body");
     expect(screen.getByText(/copy fallback is available/i)).toBeInTheDocument();
+    expect(
+      container.querySelector("article.rounded-2xl.border-slate-200.bg-white"),
+    ).toBeTruthy();
   });
 
   it("shows duplicate-risk warning and disables automatic retry", () => {
@@ -60,6 +64,7 @@ describe("ManualFollowUpCard", () => {
     );
 
     expect(screen.getByText(/delivery could not be confirmed/i)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveClass("border-amber-500/50");
     expect(
       screen.getByRole("button", { name: /retry automatic sms/i }),
     ).toBeDisabled();

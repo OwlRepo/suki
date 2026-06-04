@@ -32,11 +32,14 @@ Object.assign(navigator, { clipboard: { writeText: vi.fn() } });
 
 describe("NeedsAttentionPage", () => {
   it("renders open manual follow-up tasks", async () => {
-    render(<NeedsAttentionPage />);
+    const { container } = render(<NeedsAttentionPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Ana Santos")).toBeInTheDocument();
     });
     expect(screen.getByRole("heading", { name: /needs attention/i })).toBeInTheDocument();
+    expect(screen.getByText(/what this page is for/i)).toBeInTheDocument();
+    expect(screen.getByText(/what to do next/i)).toBeInTheDocument();
+    expect(container.querySelector(".space-y-6.sm\\:space-y-8")).toBeTruthy();
   });
 });

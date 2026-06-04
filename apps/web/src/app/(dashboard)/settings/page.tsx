@@ -137,6 +137,76 @@ const PAUSED_REASON_MESSAGES: Record<string, string> = {
   manual_pause: "Messaging is manually paused.",
 };
 
+const AUTOMATION_TEMPLATE_KEYS = [
+  "appointment_confirmation",
+  "appointment_reminder_24h",
+  "appointment_reminder_72h",
+  "missed_recovery",
+  "post_visit_followup",
+  "inactivity_winback",
+  "loyalty_unlock",
+] as const;
+
+type AutomationTemplateKey = (typeof AUTOMATION_TEMPLATE_KEYS)[number];
+type MessageTemplateMap = Partial<
+  Record<AutomationTemplateKey, { sms?: string; email?: string }>
+>;
+
+const DEFAULT_MESSAGE_TEMPLATES: Record<
+  AutomationTemplateKey,
+  { sms: string; email: string }
+> = {
+  appointment_confirmation: {
+    sms: "Hi {customerName}! Your appointment{staffName} is confirmed for {dateTime}.",
+    email:
+      "Hi {customerName}, your appointment{staffName} is confirmed for {dateTime}.",
+  },
+  appointment_reminder_24h: {
+    sms: "Reminder: Your appointment{staffName} is tomorrow. Reschedule: {link}.",
+    email:
+      "Reminder: Your appointment{staffName} is tomorrow. Reschedule here: {link}.",
+  },
+  appointment_reminder_72h: {
+    sms: "Reminder: Your appointment{staffName} is in 3 days. Reschedule: {link}.",
+    email:
+      "Reminder: Your appointment{staffName} is in 3 days. Reschedule here: {link}.",
+  },
+  missed_recovery: {
+    sms: "We noticed you missed your appointment. We'd love to see you—rebook here: {link}.",
+    email:
+      "We noticed you missed your appointment. We'd love to see you again. Rebook here: {link}.",
+  },
+  post_visit_followup: {
+    sms: "Thank you for visiting! We hope to see you again soon. Book your next visit: {link}.",
+    email:
+      "Thank you for visiting! We hope to see you again soon. Book your next visit here: {link}.",
+  },
+  inactivity_winback: {
+    sms: "We miss you! Come back and save on your next visit.",
+    email: "We miss you! Come back soon and enjoy your next visit.",
+  },
+  loyalty_unlock: {
+    sms: "Congratulations! You've unlocked your reward. Claim it on your next visit.",
+    email:
+      "Congratulations! You've unlocked your reward. Claim it on your next visit.",
+  },
+};
+
+function mergeMessageTemplateDefaults(
+  templates?: MessageTemplateMap,
+): MessageTemplateMap {
+  const incoming = templates ?? {};
+  return Object.fromEntries(
+    AUTOMATION_TEMPLATE_KEYS.map((key) => [
+      key,
+      {
+        ...DEFAULT_MESSAGE_TEMPLATES[key],
+        ...(incoming[key] ?? {}),
+      },
+    ]),
+  ) as MessageTemplateMap;
+}
+
 function SettingsPageContent() {
   const { getToken } = useAuth();
   const searchParams = useSearchParams();
@@ -182,6 +252,10 @@ function SettingsPageContent() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const [templateSaveFeedback, setTemplateSaveFeedback] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
   const [smsUsage, setSmsUsage] = useState<SmsUsage | null>(null);
   const [emailUsage, setEmailUsage] = useState<{
     included: number;
@@ -197,18 +271,7 @@ function SettingsPageContent() {
     inactivityWinbackEnabled: boolean;
     inactivityDays: number;
     autoSendChannel: "sms" | "email";
-    messageTemplates?: Partial<
-      Record<
-        | "appointment_confirmation"
-        | "appointment_reminder_24h"
-        | "appointment_reminder_72h"
-        | "missed_recovery"
-        | "post_visit_followup"
-        | "inactivity_winback"
-        | "loyalty_unlock",
-        { sms?: string; email?: string }
-      >
-    >;
+    messageTemplates?: MessageTemplateMap;
   }
   const automationDefaults: AutomationSettingsApi = {
     appointmentRemindersEnabled: true,
@@ -216,7 +279,7 @@ function SettingsPageContent() {
     inactivityWinbackEnabled: true,
     inactivityDays: 60,
     autoSendChannel: "sms",
-    messageTemplates: {},
+    messageTemplates: mergeMessageTemplateDefaults(),
   };
   const [automationSettingsByBiz, setAutomationSettingsByBiz] = useState<
     Record<string, AutomationSettingsApi>
@@ -411,6 +474,9 @@ function SettingsPageContent() {
               autoSendChannel:
                 (s?.autoSendChannel as "sms" | "email") ??
                 automationDefaults.autoSendChannel,
+              messageTemplates: mergeMessageTemplateDefaults(
+                s?.messageTemplates,
+              ),
             };
           }),
         );
@@ -676,6 +742,8 @@ function SettingsPageContent() {
   const updateAutomationSettings = async (
     businessId: string,
     patch: Partial<AutomationSettingsApi>,
+    successMessage = "Automation settings updated.",
+    options: { suppressFeedback?: boolean; throwOnError?: boolean } = {},
   ) => {
     setAutomationSavingByBiz((p) => ({ ...p, [businessId]: true }));
     try {
@@ -695,15 +763,27 @@ function SettingsPageContent() {
           ...automationDefaults,
           ...prev[businessId],
           ...res,
+          messageTemplates: mergeMessageTemplateDefaults(
+            res.messageTemplates ??
+              patch.messageTemplates ??
+              prev[businessId]?.messageTemplates,
+          ),
         } as AutomationSettingsApi,
       }));
-      setFeedback({ type: "success", message: "Automation settings updated." });
-      setTimeout(() => setFeedback(null), 4000);
+      if (!options.suppressFeedback) {
+        setFeedback({ type: "success", message: successMessage });
+        setTimeout(() => setFeedback(null), 4000);
+      }
     } catch (err) {
-      setFeedback({
-        type: "error",
-        message: fromError(err, "Failed to update. Please try again."),
-      });
+      if (!options.suppressFeedback) {
+        setFeedback({
+          type: "error",
+          message: fromError(err, "Failed to update. Please try again."),
+        });
+      }
+      if (options.throwOnError) {
+        throw err;
+      }
     } finally {
       setAutomationSavingByBiz((p) => ({ ...p, [businessId]: false }));
     }
@@ -775,6 +855,17 @@ function SettingsPageContent() {
           onDismiss={() => setFeedback(null)}
           className="mt-4"
         />
+      )}
+
+      {templateSaveFeedback && (
+        <div className="fixed bottom-4 right-4 z-50 w-[min(360px,calc(100vw-2rem))]">
+          <StatusBanner
+            variant={templateSaveFeedback.type}
+            message={templateSaveFeedback.message}
+            role={templateSaveFeedback.type === "info" ? "status" : "alert"}
+            onDismiss={() => setTemplateSaveFeedback(null)}
+          />
+        </div>
       )}
 
       {!loading &&
@@ -990,17 +1081,7 @@ function SettingsPageContent() {
                             <p className="text-sm text-muted-foreground">
                               Edit what gets sent per automation. Keep placeholders like {"{customerName}"}, {"{dateTime}"}, {"{staffName}"}, and {"{link}"}.
                             </p>
-                            {(
-                              [
-                                "appointment_confirmation",
-                                "appointment_reminder_24h",
-                                "appointment_reminder_72h",
-                                "missed_recovery",
-                                "post_visit_followup",
-                                "inactivity_winback",
-                                "loyalty_unlock",
-                              ] as const
-                            ).map((key) => {
+                            {AUTOMATION_TEMPLATE_KEYS.map((key) => {
                               const channel = s.autoSendChannel;
                               const current =
                                 s.messageTemplates?.[key]?.[channel] ?? "";
@@ -1025,10 +1106,54 @@ function SettingsPageContent() {
                                         },
                                       }));
                                     }}
-                                    onBlur={async () => {
-                                      await updateAutomationSettings(b.id, {
-                                        messageTemplates: s.messageTemplates ?? {},
+                                    onBlur={async (e) => {
+                                      const next = mergeMessageTemplateDefaults({
+                                        ...(s.messageTemplates ?? {}),
+                                        [key]: {
+                                          ...(s.messageTemplates?.[key] ?? {}),
+                                          [channel]: e.currentTarget.value,
+                                        },
                                       });
+                                      setAutomationSettingsByBiz((prev) => ({
+                                        ...prev,
+                                        [b.id]: {
+                                          ...s,
+                                          messageTemplates: next,
+                                        },
+                                      }));
+                                      setTemplateSaveFeedback({
+                                        type: "info",
+                                        message: "Saving message template...",
+                                      });
+                                      try {
+                                        await updateAutomationSettings(
+                                          b.id,
+                                          {
+                                            messageTemplates: next,
+                                          },
+                                          "Message template saved.",
+                                          {
+                                            suppressFeedback: true,
+                                            throwOnError: true,
+                                          },
+                                        );
+                                        setTemplateSaveFeedback({
+                                          type: "success",
+                                          message: "Message template saved.",
+                                        });
+                                        setTimeout(
+                                          () => setTemplateSaveFeedback(null),
+                                          4000,
+                                        );
+                                      } catch (err) {
+                                        setTemplateSaveFeedback({
+                                          type: "error",
+                                          message: fromError(
+                                            err,
+                                            "Failed to save message template.",
+                                          ),
+                                        });
+                                      }
                                     }}
                                     placeholder={`Template for ${key.replaceAll("_", " ")}`}
                                   />
