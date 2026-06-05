@@ -2,7 +2,8 @@
 
 | File Path | Purpose | Relationships | Usage Patterns |
 |---|---|---|---|
-| `packages/database/src/schema/index.ts` | Database schema exports | Imported by API/domain data access | Shared schema source for first-party auth, billing pending-sync fields, current-month ledgers, OTP send audit rows, booking-hold OTP provider/hash fields, organization OTP provider settings, manual follow-up task safety-net rows, unresolved refund-review resolution fields, and verified-booking/SMS add-on refund-unit tracking |
+| `packages/database/src/schema/index.ts` | Database schema exports | Imported by API/domain data access | Shared schema source for first-party auth, appointment lifecycle statuses/timestamps/duration/visit-recording fields, customer mobile lookup index, billing pending-sync fields, current-month ledgers, OTP send audit rows, booking-hold OTP provider/hash fields, organization OTP provider settings, manual follow-up task safety-net rows, unresolved refund-review resolution fields, and verified-booking/SMS add-on refund-unit tracking |
+| `packages/database/drizzle/0028_equal_micromax.sql` | Appointment lifecycle and customer mobile lookup migration | Generated from database schema | Adds `checked_in`/`needs_review`, appointment duration/lifecycle/visit-recorded columns and indexes, plus `customers_business_mobile_idx` without historical visit backfill |
 | `packages/database/src/database.ts` | Database connection and client setup | Used by DB scripts/services | Query and transaction entry point |
 | `packages/database/drizzle/0009_automation_schema.sql` | Automation schema migration | Used by scheduler/automation modules | Persist automation settings and events |
 | `packages/database/drizzle/0016_org_billing_fields.sql` | Organization billing fields migration | Consumed by billing/org services | Billing state persistence |

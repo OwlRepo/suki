@@ -17,6 +17,7 @@ vi.mock("@tyvera/database", () => ({
   }),
   customers: {},
   businesses: {},
+  appointments: { status: "appointments.status", completedAt: "appointments.completed_at" },
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -52,12 +53,12 @@ describe("InsightsService", () => {
     expect(result).toBeNull();
   });
 
-  it("returns monthly metrics using current repeat definitions", async () => {
+  it("returns monthly metrics using completed appointments for visit totals", async () => {
     queuedWhereResults = [
       { limit: mockLimit }, // business lookup
       Promise.resolve([{ count: 1 }]), // new customers in month
       Promise.resolve([{ count: 2 }]), // returning customers (2+ visits)
-      Promise.resolve([{ count: 3 }]), // customers seen this month
+      Promise.resolve([{ count: 3 }]), // completed appointments in month
     ];
     mockLimit.mockResolvedValueOnce([{ id: "biz1" }]);
 
@@ -70,6 +71,23 @@ describe("InsightsService", () => {
       repeatCustomers: 2,
       repeatVisits: 3,
     });
+    expect(mockFrom).toHaveBeenLastCalledWith(
+      expect.objectContaining({ completedAt: "appointments.completed_at" }),
+    );
+  });
+
+  it("counts two completed appointments from the same customer as two repeat visits", async () => {
+    queuedWhereResults = [
+      { limit: mockLimit },
+      Promise.resolve([{ count: 0 }]),
+      Promise.resolve([{ count: 1 }]),
+      Promise.resolve([{ count: 2 }]),
+    ];
+    mockLimit.mockResolvedValueOnce([{ id: "biz1" }]);
+
+    const result = await service.getMonthlyMetrics("biz1", "org1", 2026, 2);
+
+    expect(result?.repeatVisits).toBe(2);
   });
 
   it("defaults metric counts to zero when queries return empty values", async () => {

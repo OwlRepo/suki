@@ -7,6 +7,7 @@ describe("CustomersController sendFollowUp", () => {
     findById: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    resolveForBooking: vi.fn(),
   };
   const templatesService = {};
   const automationSend = {
@@ -90,5 +91,32 @@ describe("CustomersController sendFollowUp", () => {
       controller.update("c1", { mobile: "+63917 123 4567" }, "org1"),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(customersService.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid nonblank mobile on resolve-for-booking", async () => {
+    await expect(
+      controller.resolveForBooking(
+        { businessId: "biz1", name: "Alice", mobile: "09171234567" },
+        "org1",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(customersService.resolveForBooking).not.toHaveBeenCalled();
+  });
+
+  it("passes normalized mobile to resolve-for-booking service", async () => {
+    customersService.resolveForBooking.mockResolvedValue({ id: "c1" });
+
+    await expect(
+      controller.resolveForBooking(
+        { businessId: "biz1", name: "Alice", mobile: " +639171234567 " },
+        "org1",
+      ),
+    ).resolves.toEqual({ customer: { id: "c1" } });
+
+    expect(customersService.resolveForBooking).toHaveBeenCalledWith(
+      "biz1",
+      "org1",
+      expect.objectContaining({ mobile: "+639171234567" }),
+    );
   });
 });

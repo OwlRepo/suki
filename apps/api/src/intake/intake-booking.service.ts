@@ -22,6 +22,7 @@ import {
   normalizePhilippineMobileE164,
 } from "@tyvera/types";
 import { AutomationSendService } from "../automation/automation-send.service";
+import { appointmentDurationMinutesForBusinessType } from "../common/appointment-timing";
 import { OrgBillingStateService } from "../common/org-billing-state.service";
 import { getPlanCatalogEntry } from "../billing/plan-catalog";
 import { OtpFailoverService } from "./otp/otp-failover.service";
@@ -107,7 +108,9 @@ export class IntakeBookingService {
       throw new BadRequestException("Business not found");
     }
 
-    const slotDurationMins = biz.businessType === "clinic" ? 60 : 30;
+    const slotDurationMins = appointmentDurationMinutesForBusinessType(
+      biz.businessType,
+    );
     const startHour = biz.businessType === "clinic" ? 9 : 10;
     const endHour = biz.businessType === "clinic" ? 17 : 20;
 
@@ -560,6 +563,19 @@ export class IntakeBookingService {
       throw this.buildPublicOtpError("OTP_INVALID_CODE", "Invalid OTP");
     }
 
+    const [appointmentBusiness] = await db
+      .select({
+        organizationId: businesses.organizationId,
+        businessType: businesses.businessType,
+      })
+      .from(businesses)
+      .where(eq(businesses.id, hold.businessId))
+      .limit(1);
+
+    if (!appointmentBusiness?.organizationId) {
+      throw new BadRequestException("Business not found");
+    }
+
     let appointment: {
       id: string;
       businessId: string;
@@ -594,6 +610,9 @@ export class IntakeBookingService {
             businessId: hold.businessId,
             customerId: hold.customerId,
             scheduledAt: hold.scheduledAt,
+            durationMinutes: appointmentDurationMinutesForBusinessType(
+              appointmentBusiness.businessType,
+            ),
             notes: "Booked via customer self-serve flow",
             status: "scheduled",
           })
@@ -628,18 +647,10 @@ export class IntakeBookingService {
       throw err;
     }
 
-    const [business] = await db
-      .select({
-        organizationId: businesses.organizationId,
-      })
-      .from(businesses)
-      .where(eq(businesses.id, appointment.businessId))
-      .limit(1);
-
-    if (business) {
+    if (appointmentBusiness) {
       void this.automationSend
         .sendAppointmentConfirmation(
-          business.organizationId,
+          appointmentBusiness.organizationId,
           appointment.businessId,
           appointment.id,
         )

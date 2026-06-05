@@ -32,6 +32,8 @@ export const promoTypeEnum = pgEnum("promo_type", [
 export const promoStatusEnum = pgEnum("promo_status", ["draft", "sent", "scheduled"]);
 export const appointmentStatusEnum = pgEnum("appointment_status", [
   "scheduled",
+  "checked_in",
+  "needs_review",
   "completed",
   "missed",
   "cancelled",
@@ -250,6 +252,7 @@ export const customers = pgTable(
   (t) => [
     index("customers_last_visit_at_idx").on(t.lastVisitAt),
     index("customers_inactivity_winback_sent_at_idx").on(t.inactivityWinbackSentAt),
+    index("customers_business_mobile_idx").on(t.businessId, t.mobile),
   ],
 );
 
@@ -376,6 +379,11 @@ export const appointments = pgTable(
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
     scheduledAt: timestamp("scheduled_at").notNull(),
+    durationMinutes: integer("duration_minutes").notNull().default(30),
+    checkedInAt: timestamp("checked_in_at"),
+    needsReviewAt: timestamp("needs_review_at"),
+    completedAt: timestamp("completed_at"),
+    visitRecordedAt: timestamp("visit_recorded_at"),
     status: appointmentStatusEnum("status").notNull().default("scheduled"),
     notes: text("notes"),
     confirmationSentAt: timestamp("confirmation_sent_at"),
@@ -392,6 +400,8 @@ export const appointments = pgTable(
   },
   (t) => [
     index("appointments_scheduled_at_idx").on(t.scheduledAt),
+    index("appointments_status_scheduled_at_idx").on(t.status, t.scheduledAt),
+    index("appointments_visit_recorded_at_idx").on(t.visitRecordedAt),
     index("appointments_reminder_24h_sent_at_idx").on(t.reminder24hSentAt),
     index("appointments_reminder_72h_sent_at_idx").on(t.reminder72hSentAt),
   ],

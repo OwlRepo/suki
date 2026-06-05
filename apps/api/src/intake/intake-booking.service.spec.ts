@@ -666,6 +666,9 @@ describe("IntakeBookingService OTP", () => {
         scheduledAt: new Date(Date.now() + 120_000),
       },
     ]);
+    limitMock.mockResolvedValueOnce([
+      { organizationId: "org-1", businessType: "salon" },
+    ]);
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -788,6 +791,9 @@ describe("IntakeBookingService OTP", () => {
         otpAttempts: 0,
         scheduledAt: new Date(Date.now() + 120_000),
       },
+    ]);
+    limitMock.mockResolvedValueOnce([
+      { organizationId: "org-1", businessType: "salon" },
     ]);
     vi.stubGlobal(
       "fetch",

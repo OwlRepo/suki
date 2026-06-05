@@ -21,6 +21,9 @@
 - Booking holds persist OTP challenge provider state in `booking_holds.otp_provider`, `otp_provider_message_id`, `otp_code_hash`, and `otp_code_expires_at`; Semaphore OTP stores hashes only and clears the hash after successful confirmation.
 - Durable OTP failover state is organization-scoped in `otp_provider_settings`; `auto` mode defaults to Twilio when no row exists and switches to Semaphore only after allowlisted permanent Twilio failures.
 - `customers.mobile` is expected to be blank/null or a strict Philippine E.164 mobile value (`+639171234567`) for new API/web/import writes; existing legacy values are not automatically rewritten.
+- `customers.business_id + customers.mobile` is indexed for booking-time exact mobile reuse but is not unique yet because legacy duplicates may exist.
+- `appointments.status` includes lifecycle states `scheduled`, `checked_in`, `needs_review`, `completed`, `missed`, and `cancelled`; `duration_minutes`, `checked_in_at`, `needs_review_at`, `completed_at`, and `visit_recorded_at` snapshot lifecycle state.
+- Completed appointment visit recording is idempotent through `appointments.visit_recorded_at`; historical completed appointments are not replayed or backfilled.
 - `booking_holds.mobile` is expected to be a strict Philippine E.164 mobile value (`+639171234567`) because booking holds feed OTP verification.
 
 ## High-Risk Contract Areas

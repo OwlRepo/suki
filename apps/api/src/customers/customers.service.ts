@@ -16,6 +16,84 @@ function parseTags(tags: string | null | undefined): string | null {
 @Injectable()
 export class CustomersService {
   constructor(private readonly automationSend: AutomationSendService) {}
+
+  async resolveForBooking(
+    businessId: string,
+    organizationId: string,
+    data: {
+      name: string;
+      mobile?: string;
+      email?: string;
+      notes?: string;
+    },
+  ) {
+    await this.assertBusinessAccess(businessId, organizationId);
+    return this.findOrCreateByExactMobile(businessId, data);
+  }
+
+  async resolveForPublicIntake(
+    businessId: string,
+    data: {
+      name: string;
+      mobile?: string;
+      email?: string;
+      notes?: string;
+    },
+  ) {
+    return this.findOrCreateByExactMobile(businessId, data);
+  }
+
+  private async findOrCreateByExactMobile(
+    businessId: string,
+    data: {
+      name: string;
+      mobile?: string;
+      email?: string;
+      notes?: string;
+    },
+  ) {
+    const db = getDb();
+    const mobile = data.mobile
+      ? normalizePhilippineMobileE164(data.mobile)
+      : undefined;
+
+    return db.transaction(async (tx) => {
+      if (mobile) {
+        const lockKey = `${businessId}:${mobile}`;
+
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`,
+        );
+
+        const [existing] = await tx
+          .select()
+          .from(customers)
+          .where(
+            and(
+              eq(customers.businessId, businessId),
+              eq(customers.mobile, mobile),
+            ),
+          )
+          .limit(1);
+
+        if (existing) return existing;
+      }
+
+      const [created] = await tx
+        .insert(customers)
+        .values({
+          businessId,
+          name: data.name.trim(),
+          mobile: mobile ?? null,
+          email: data.email?.trim() || null,
+          notes: data.notes?.trim() || null,
+        })
+        .returning();
+
+      return created!;
+    });
+  }
+
   async create(
     businessId: string,
     organizationId: string,

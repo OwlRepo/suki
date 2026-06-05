@@ -10,9 +10,10 @@ import {
 } from "@nestjs/common";
 import type { Request } from "express";
 import { getDb } from "@tyvera/database";
-import { customers, businesses } from "@tyvera/database";
+import { businesses } from "@tyvera/database";
 import { eq } from "drizzle-orm";
 import { CustomerTemplatesService } from "../customers/customer-templates.service";
+import { CustomersService } from "../customers/customers.service";
 import { IntakeBookingService } from "./intake-booking.service";
 import {
   PH_MOBILE_E164_ERROR,
@@ -24,6 +25,7 @@ export class IntakeController {
   constructor(
     private readonly templatesService: CustomerTemplatesService,
     private readonly bookingService: IntakeBookingService,
+    private readonly customersService: CustomersService,
   ) {}
 
   @Get("config")
@@ -69,17 +71,17 @@ export class IntakeController {
     const mergedNotes = [sourceLine, body.notes?.trim() ?? ""].filter(Boolean).join("\n\n") || null;
     const mobile = this.normalizeOptionalMobile(body.mobile);
 
-    const [c] = await db
-      .insert(customers)
-      .values({
-        businessId: body.businessId,
-        name: body.name.trim(),
-        mobile: mobile ?? null,
-        email: body.email?.trim() || null,
-        notes: mergedNotes,
-      })
-      .returning();
-    return { customer: c, success: true };
+    const customer = await this.customersService.resolveForPublicIntake(
+      body.businessId,
+      {
+        name: body.name,
+        mobile,
+        email: body.email,
+        notes: mergedNotes ?? undefined,
+      },
+    );
+
+    return { customer, success: true };
   }
 
   @Get("availability")

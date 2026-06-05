@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { getDb } from "@tyvera/database";
-import { customers, businesses, aiUsageEvents, messageEvents } from "@tyvera/database";
+import {
+  customers,
+  businesses,
+  appointments,
+  aiUsageEvents,
+  messageEvents,
+} from "@tyvera/database";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 
 @Injectable()
@@ -50,14 +56,15 @@ export class InsightsService {
         ),
       );
 
-    const [visitedThisMonthResult] = await db
+    const [completedVisitsThisMonth] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(customers)
+      .from(appointments)
       .where(
         and(
-          eq(customers.businessId, businessId),
-          gte(customers.lastVisitAt, start),
-          lte(customers.lastVisitAt, end),
+          eq(appointments.businessId, businessId),
+          eq(appointments.status, "completed"),
+          gte(appointments.completedAt, start),
+          lte(appointments.completedAt, end),
         ),
       );
 
@@ -66,7 +73,7 @@ export class InsightsService {
       month,
       newCustomers: newCount?.count ?? 0,
       repeatCustomers: repeatCustomersResult?.count ?? 0,
-      repeatVisits: visitedThisMonthResult?.count ?? 0,
+      repeatVisits: completedVisitsThisMonth?.count ?? 0,
     };
   }
 

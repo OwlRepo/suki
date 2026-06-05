@@ -73,6 +73,10 @@ export class FeatureFlagsService {
   manualBillingControlsEnabled(): boolean {
     return this.isEnabled("manual_billing_controls_enabled");
   }
+
+  appointmentVisitAutomationEnabled(): boolean {
+    return this.isEnabled("appointment_visit_automation_enabled");
+  }
 }
 
 const FLAG_DEFAULTS: Partial<Record<FeatureFlag, boolean>> = {
@@ -97,4 +101,5 @@ export type FeatureFlag =
   | "public_signup_enabled"
   | "self_serve_billing_enabled"
   | "annual_billing_checkout_enabled"
-  | "manual_billing_controls_enabled";
+  | "manual_billing_controls_enabled"
+  | "appointment_visit_automation_enabled";

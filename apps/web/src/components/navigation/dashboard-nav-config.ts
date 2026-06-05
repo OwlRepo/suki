@@ -9,7 +9,6 @@ import {
   Settings,
   Settings2,
   Share2,
-  Users,
 } from "lucide-react";
 import type { PlanCapabilities } from "@/lib/plan-capabilities";
 
@@ -38,7 +37,6 @@ export function getDashboardNavGroups(
 ): NavGroup[] {
   const dailyItems: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
-    { href: "/customers", label: "Customers", icon: Users },
     { href: "/appointments", label: "Appointments", icon: CalendarDays },
     { href: "/share-slots", label: "Share slots", icon: Share2 },
     {
@@ -78,7 +76,6 @@ export function getDashboardNavGroups(
 export function getMobileBottomNavItems(_showPipeline: boolean): NavItem[] {
   const items: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
-    { href: "/customers", label: "Customers", icon: Users },
     { href: "/appointments", label: "Appointments", icon: CalendarDays },
     { href: "/insights", label: "Summary", icon: BarChart3 },
   ];

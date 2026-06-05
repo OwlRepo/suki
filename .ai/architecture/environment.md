@@ -21,6 +21,7 @@
 - `FF_self_serve_billing_enabled=false` keeps Lemon Squeezy checkout/portal/mutation/webhook paths inert while preserving free-cap operation, billing status, and usage meters.
 - `FF_self_serve_billing_enabled=true` requires valid `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`, and `LEMONSQUEEZY_WEBHOOK_SECRET`.
 - `FF_annual_billing_checkout_enabled` only has effect when self-serve billing is enabled.
+- `FF_appointment_visit_automation_enabled=true` enables the appointment lifecycle scheduler that auto-completes checked-in appointments and moves overdue unchecked appointments to Needs Review; keep unset/false in production until the lifecycle migration is applied.
 - `BILLING_GROWTH_VERIFIED_BOOKINGS_PER_MONTH` must be a positive integer when set.
 - Twilio production webhooks require `TWILIO_STATUS_CALLBACK_URL` and `TWILIO_INBOUND_SMS_WEBHOOK_URL` to match the exact public HTTPS URLs, including `/api` when routed through the production proxy.
 - Startup warnings must never print Twilio auth tokens or other secret values.

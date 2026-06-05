@@ -1,8 +1,14 @@
-import { Injectable, ForbiddenException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from "@nestjs/common";
 import { getDb } from "@tyvera/database";
 import {
   appointments,
   businesses,
+  customers,
   appointmentShareTemplates,
   bookingHolds,
   bookingSecuritySettings,
@@ -11,6 +17,10 @@ import {
 import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import { AutomationSendService } from "../automation/automation-send.service";
 import { IntakeBookingService } from "../intake/intake-booking.service";
+import {
+  appointmentDurationMinutesForBusinessType,
+  appointmentLifecycleDueAt,
+} from "../common/appointment-timing";
 import { createHash, timingSafeEqual } from "node:crypto";
 
 const PIN_LOCKOUT_WINDOW_MINUTES = 15;
@@ -42,7 +52,12 @@ export function isAppointmentsVerificationCompatibilityError(error: unknown): bo
     message.includes("verification_mode") ||
     message.includes("otp_skip_reason") ||
     message.includes("verified_by_user_id") ||
-    message.includes("verified_at")
+    message.includes("verified_at") ||
+    message.includes("duration_minutes") ||
+    message.includes("checked_in_at") ||
+    message.includes("needs_review_at") ||
+    message.includes("completed_at") ||
+    message.includes("visit_recorded_at")
   );
 }
 
@@ -65,6 +80,11 @@ const appointmentLegacySelect = {
 function withVerificationCompatibility<T extends Record<string, unknown>>(row: T) {
   return {
     ...row,
+    durationMinutes: (row.durationMinutes as number | undefined) ?? 30,
+    checkedInAt: (row.checkedInAt as Date | null | undefined) ?? null,
+    needsReviewAt: (row.needsReviewAt as Date | null | undefined) ?? null,
+    completedAt: (row.completedAt as Date | null | undefined) ?? null,
+    visitRecordedAt: (row.visitRecordedAt as Date | null | undefined) ?? null,
     verificationMode: "otp_verified" as const,
     otpSkipReason: null,
     verifiedByUserId: null,
@@ -82,6 +102,8 @@ export function isValidOtpSkipPin(pin: string): boolean {
 
 @Injectable()
 export class AppointmentsService {
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(
     private readonly automationSend: AutomationSendService,
     private readonly intakeBookingService: IntakeBookingService,
@@ -95,7 +117,7 @@ export class AppointmentsService {
       notes?: string;
     },
   ) {
-    await this.assertBusinessAccess(businessId, organizationId);
+    const business = await this.assertBusinessAccess(businessId, organizationId);
     const db = getDb();
     const [a] = await db
       .insert(appointments)
@@ -103,6 +125,9 @@ export class AppointmentsService {
         businessId,
         customerId: data.customerId,
         scheduledAt: new Date(data.scheduledAt),
+        durationMinutes: appointmentDurationMinutesForBusinessType(
+          business.businessType,
+        ),
         notes: data.notes ?? null,
       })
       .returning(appointmentLegacySelect);
@@ -195,11 +220,23 @@ export class AppointmentsService {
   ) {
     const existing = await this.findById(id, organizationId);
     if (!existing) return null;
+    if (data.scheduledAt && existing.visitRecordedAt) {
+      throw new BadRequestException(
+        "Completed visits cannot be rescheduled through this workflow.",
+      );
+    }
     const db = getDb();
     const [updated] = await db
       .update(appointments)
       .set({
         ...(data.scheduledAt && { scheduledAt: new Date(data.scheduledAt) }),
+        ...(data.scheduledAt && {
+          status: "scheduled" as const,
+          checkedInAt: null,
+          needsReviewAt: null,
+          completedAt: null,
+          visitRecordedAt: null,
+        }),
         ...(data.notes !== undefined && { notes: data.notes ?? null }),
         updatedAt: new Date(),
       })
@@ -213,17 +250,28 @@ export class AppointmentsService {
     organizationId: string,
     status: "scheduled" | "completed" | "missed" | "cancelled",
   ) {
+    if (status === "completed") {
+      return this.completeAppointmentAndRecordVisit(id, {
+        organizationId,
+        requireCheckedIn: false,
+      });
+    }
+
     const db = getDb();
     const [a] = await db
       .select()
       .from(appointments)
       .where(eq(appointments.id, id))
       .limit(1);
-    if (!a) return null;
+    if (!a) throw new BadRequestException("Appointment not found.");
     await this.assertBusinessAccess(a.businessId, organizationId);
     const [updated] = await db
       .update(appointments)
-      .set({ status, updatedAt: new Date() })
+      .set({
+        status,
+        ...(status === "missed" && { needsReviewAt: null }),
+        updatedAt: new Date(),
+      })
       .where(eq(appointments.id, id))
       .returning(appointmentLegacySelect);
     if (status === "missed") {
@@ -232,6 +280,38 @@ export class AppointmentsService {
         .catch(() => {});
     }
     return withVerificationCompatibility(updated!);
+  }
+
+  async markArrived(id: string, organizationId: string) {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) throw new BadRequestException("Appointment not found.");
+
+    if (!["scheduled", "needs_review"].includes(String(existing.status))) {
+      throw new BadRequestException(
+        "Only scheduled or needs-review appointments can be marked as arrived.",
+      );
+    }
+
+    const db = getDb();
+    const now = new Date();
+
+    const [updated] = await db
+      .update(appointments)
+      .set({
+        status: "checked_in",
+        checkedInAt: now,
+        needsReviewAt: null,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(appointments.id, id),
+          inArray(appointments.status, ["scheduled", "needs_review"]),
+        ),
+      )
+      .returning();
+
+    return updated ?? null;
   }
 
   async markReminderSent(id: string, organizationId: string) {
@@ -443,7 +523,7 @@ export class AppointmentsService {
     staffName?: string;
   }) {
     if (!input.reason.trim()) throw new BadRequestException("Skip reason required.");
-    await this.assertBusinessAccess(input.businessId, input.organizationId);
+    const business = await this.assertBusinessAccess(input.businessId, input.organizationId);
     const db = getDb();
     const lockoutSince = new Date(Date.now() - PIN_LOCKOUT_WINDOW_MINUTES * 60_000);
     let failedRows: Array<{ count: number }> = [];
@@ -535,6 +615,9 @@ export class AppointmentsService {
         businessId: hold.businessId,
         customerId: hold.customerId,
         scheduledAt: hold.scheduledAt,
+        durationMinutes: appointmentDurationMinutesForBusinessType(
+          business.businessType,
+        ),
         status: "scheduled",
         staffName: input.staffName ?? null,
         verificationMode: "pin_override",
@@ -565,5 +648,218 @@ export class AppointmentsService {
       )
       .limit(1);
     if (!biz) throw new ForbiddenException("Business not found");
+    return biz;
+  }
+
+  async listNeedsReview(
+    businessId: string,
+    organizationId: string,
+    limit = 50,
+  ) {
+    await this.assertBusinessAccess(businessId, organizationId);
+
+    const db = getDb();
+
+    return db
+      .select()
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.businessId, businessId),
+          eq(appointments.status, "needs_review"),
+        ),
+      )
+      .orderBy(desc(appointments.scheduledAt))
+      .limit(Math.min(limit, 100));
+  }
+
+  async reconcileVisitLifecycle(now = new Date()) {
+    const db = getDb();
+
+    const candidates = await db
+      .select()
+      .from(appointments)
+      .where(
+        and(
+          inArray(appointments.status, ["scheduled", "checked_in"]),
+          lte(appointments.scheduledAt, now),
+        ),
+      )
+      .limit(500);
+
+    let completed = 0;
+    let needsReview = 0;
+
+    for (const appointment of candidates) {
+      try {
+        const dueAt = appointmentLifecycleDueAt(
+          appointment.scheduledAt,
+          appointment.durationMinutes,
+        );
+
+        if (dueAt > now) continue;
+
+        if (appointment.status === "checked_in") {
+          const updated = await this.completeAppointmentAndRecordVisit(
+            appointment.id,
+            { requireCheckedIn: true },
+          );
+
+          if (updated) completed += 1;
+          continue;
+        }
+
+        const [updated] = await db
+          .update(appointments)
+          .set({
+            status: "needs_review",
+            needsReviewAt: now,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(appointments.id, appointment.id),
+              eq(appointments.status, "scheduled"),
+            ),
+          )
+          .returning({ id: appointments.id });
+
+        if (updated) needsReview += 1;
+      } catch (error) {
+        this.logger.error(
+          `Failed to reconcile appointment ${appointment.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    return { completed, needsReview };
+  }
+
+  private async completeAppointmentAndRecordVisit(
+    id: string,
+    options: {
+      organizationId?: string;
+      requireCheckedIn: boolean;
+    },
+  ) {
+    const db = getDb();
+    const now = new Date();
+
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select ${appointments.id}
+            from ${appointments}
+            where ${appointments.id} = ${id}
+            for update`,
+      );
+
+      const [appointment] = await tx
+        .select()
+        .from(appointments)
+        .where(eq(appointments.id, id))
+        .limit(1);
+
+      if (!appointment) throw new BadRequestException("Appointment not found.");
+
+      const [business] = await tx
+        .select({
+          organizationId: businesses.organizationId,
+        })
+        .from(businesses)
+        .where(eq(businesses.id, appointment.businessId))
+        .limit(1);
+
+      if (!business?.organizationId) {
+        throw new BadRequestException("Appointment business not found.");
+      }
+
+      if (
+        options.organizationId &&
+        business.organizationId !== options.organizationId
+      ) {
+        throw new ForbiddenException("Business not found");
+      }
+
+      if (options.requireCheckedIn && appointment.status !== "checked_in") {
+        return null;
+      }
+
+      if (["cancelled", "missed"].includes(appointment.status)) {
+        throw new BadRequestException(
+          "Cancelled or missed appointments cannot be completed.",
+        );
+      }
+
+      if (appointment.status === "completed" || appointment.visitRecordedAt) {
+        return {
+          appointment,
+          newlyRecorded: false,
+          businessId: appointment.businessId,
+          organizationId: business.organizationId,
+          customerId: appointment.customerId,
+          visitCount: null,
+        };
+      }
+
+      const [customer] = await tx
+        .update(customers)
+        .set({
+          visitCount: sql`${customers.visitCount} + 1`,
+          lastVisitAt: now,
+          updatedAt: now,
+        })
+        .where(eq(customers.id, appointment.customerId))
+        .returning({ visitCount: customers.visitCount });
+
+      if (!customer) {
+        throw new BadRequestException("Customer not found.");
+      }
+
+      const [updated] = await tx
+        .update(appointments)
+        .set({
+          status: "completed",
+          completedAt: appointment.completedAt ?? now,
+          visitRecordedAt: now,
+          needsReviewAt: null,
+          updatedAt: now,
+        })
+        .where(eq(appointments.id, id))
+        .returning();
+
+      return {
+        appointment: updated!,
+        newlyRecorded: true,
+        businessId: appointment.businessId,
+        organizationId: business.organizationId,
+        customerId: appointment.customerId,
+        visitCount: customer.visitCount,
+      };
+    });
+
+    if (!result) return null;
+
+    if (result.newlyRecorded) {
+      void this.automationSend
+        .sendPostVisitFollowup(
+          result.organizationId,
+          result.businessId,
+          result.customerId,
+        )
+        .catch(() => {});
+
+      if ((result.visitCount ?? 0) >= 5) {
+        void this.automationSend
+          .sendLoyaltyUnlock(
+            result.organizationId,
+            result.businessId,
+            result.customerId,
+          )
+          .catch(() => {});
+      }
+    }
+
+    return result.appointment;
   }
 }

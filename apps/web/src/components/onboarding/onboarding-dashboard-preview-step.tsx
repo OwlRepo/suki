@@ -5,16 +5,16 @@ import { cn } from "@/lib/utils";
 
 const PREVIEW_ACTIONS = [
   {
-    title: "Add your first customer",
-    description: "Save a customer's name and phone so you can track visits and send offers.",
-  },
-  {
     title: "Schedule your first appointment",
-    description: "Create a booking for today or tomorrow to see your day at a glance.",
+    description: "Add customer details while booking so the day starts from appointments.",
   },
   {
-    title: "Record a customer visit",
-    description: "Log that a customer came in — this helps with follow-up and rewards.",
+    title: "Mark arriving customers",
+    description: "Tap Arrived once when a customer physically comes in.",
+  },
+  {
+    title: "Let Tyvera record the visit",
+    description: "Checked-in appointments complete automatically after the expected duration.",
   },
 ] as const;
 

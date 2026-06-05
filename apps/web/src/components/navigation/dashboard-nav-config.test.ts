@@ -12,6 +12,26 @@ describe("dashboard navigation UX", () => {
     expect(labels).toContain("Appointments");
   });
 
+  it("does not expose the standalone customers page in desktop navigation", () => {
+    const items = getDashboardNavGroups(false).flatMap((group) => group.items);
+
+    expect(items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ href: "/customers" }),
+      ]),
+    );
+  });
+
+  it("does not expose the standalone customers page in mobile quick navigation", () => {
+    const items = getMobileBottomNavItems(false);
+
+    expect(items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ href: "/customers" }),
+      ]),
+    );
+  });
+
   it("includes a dedicated share slots page in dashboard navigation", () => {
     const dailyItems = getDashboardNavGroups(false).find((g) => g.key === "daily")?.items ?? [];
     expect(dailyItems).toEqual(

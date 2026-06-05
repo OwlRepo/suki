@@ -313,7 +313,6 @@ function ImportsPageContent() {
 
   useEffect(() => {
     if (selectedBatchId) fetchBatchDetail(selectedBatchId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBatchId]);
 
   const reset = () => {

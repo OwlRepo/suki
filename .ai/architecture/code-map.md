@@ -9,7 +9,8 @@
 - Auth/session: `apps/web/src/lib/auth.tsx` + `apps/web/src/lib/auth-client.ts` <-> `apps/api/src/auth/*`
 - Web route protection: `apps/web/src/proxy.ts` + `apps/web/src/lib/protected-routes.ts`
 - Onboarding: web onboarding pages/components + `apps/api/src/onboarding/*`
-- Customers/CRM: dashboard pages + `apps/api/src/customers/*`, `apps/api/src/crm/*`
+- Appointment-first daily workflow: `apps/web/src/app/(dashboard)/appointments/page.tsx` + `apps/api/src/appointments/*`; staff marks `Arrived`, checked-in visits complete automatically after duration plus grace, and unresolved overdue appointments move to Needs Review.
+- Customers/CRM: internal customer records + `apps/api/src/customers/*`, `apps/api/src/crm/*`; customer records remain a retention model and are created/reused during booking rather than a primary dashboard workflow.
 - Public intake and booking: `apps/web/src/app/intake/[businessId]/page.tsx` + `apps/api/src/intake/*`
 - Messaging and AI composition: `apps/api/src/messaging/*` + `apps/api/src/ai/*`
 - Billing/plans: `apps/api/src/billing/*` + plan guards in `apps/api/src/common`

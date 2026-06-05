@@ -1829,7 +1829,7 @@ function SettingsPageContent() {
 
           <SettingsSectionCard
             id="messaging"
-            title="Messaging Usage Caps"
+              title="Messaging usage caps"
             description="Free by default with monthly safety caps."
             collapsedByDefault
             visible={visibleSections.has("messaging")}

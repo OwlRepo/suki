@@ -220,28 +220,22 @@ function DashboardPageContent() {
   };
 
   const nextStep = useMemo(() => {
-    if (summaryDisplay.customers === 0) {
-      return {
-        description: "Add your first customer to get started.",
-        href: "/customers",
-        buttonLabel: "Add your first customer",
-      };
-    }
-
     if (summaryDisplay.appointments === 0) {
       return {
-        description: "Schedule your first appointment to plan your day.",
+        description:
+          "Schedule your first appointment. Add customer details while booking.",
         href: "/appointments",
         buttonLabel: "Schedule your first appointment",
       };
     }
 
     return {
-      description: "Record a customer visit to keep your list up to date.",
-      href: "/customers",
-      buttonLabel: "Record a customer visit",
+      description:
+        "Open today's appointments and mark arriving customers with one tap.",
+      href: "/appointments",
+      buttonLabel: "Open appointments",
     };
-  }, [summaryDisplay.appointments, summaryDisplay.customers]);
+  }, [summaryDisplay.appointments]);
 
   const metricItems: MetricItem[] = [
     {
@@ -303,7 +297,7 @@ function DashboardPageContent() {
       {showWelcome ? (
         <StatusBanner
           variant="success"
-          message="You're ready. Start by adding your first customer."
+          message="You're ready. Start by scheduling your first appointment."
           onDismiss={() => window.history.replaceState({}, "", "/dashboard")}
         />
       ) : null}

@@ -20,6 +20,12 @@ import {
   normalizePhilippineMobileE164,
 } from "@tyvera/types";
 
+type ManualAppointmentStatus =
+  | "scheduled"
+  | "completed"
+  | "missed"
+  | "cancelled";
+
 @Controller("appointments")
 @UseGuards(ClerkAuthGuard, BillingWriteGuard)
 export class AppointmentsController {
@@ -232,11 +238,38 @@ export class AppointmentsController {
     return { template: deleted, success: true };
   }
 
+  @Get("needs-review")
+  async listNeedsReview(
+    @Query("businessId") businessId: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!businessId || !orgId) {
+      throw new BadRequestException("businessId required");
+    }
+
+    const appointments =
+      await this.appointmentsService.listNeedsReview(businessId, orgId);
+
+    return { appointments };
+  }
+
   @Get(":id")
   async get(@Param("id") id: string, @Tenant("organizationId") orgId?: string) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
     const appt = await this.appointmentsService.findById(id, orgId);
     return { appointment: appt };
+  }
+
+  @Patch(":id/arrive")
+  async markArrived(
+    @Param("id") id: string,
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!orgId) throw new UnauthorizedException("Unauthorized");
+
+    const appointment = await this.appointmentsService.markArrived(id, orgId);
+
+    return { appointment };
   }
 
   @Patch(":id")
@@ -257,7 +290,7 @@ export class AppointmentsController {
   @Patch(":id/status")
   async updateStatus(
     @Param("id") id: string,
-    @Body() body: { status: "scheduled" | "completed" | "missed" | "cancelled" },
+    @Body() body: { status: ManualAppointmentStatus },
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!orgId || !body.status) throw new BadRequestException("status required");

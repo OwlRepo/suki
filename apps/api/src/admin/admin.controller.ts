@@ -190,12 +190,13 @@ export class AdminController {
 
     const visits = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(customers)
+      .from(appointments)
       .where(
         and(
-          inArray(customers.businessId, targetBizIds),
-          gte(customers.lastVisitAt, startOfMonth),
-          lte(customers.lastVisitAt, endOfMonth),
+          inArray(appointments.businessId, targetBizIds),
+          eq(appointments.status, "completed"),
+          gte(appointments.completedAt, startOfMonth),
+          lte(appointments.completedAt, endOfMonth),
         ),
       );
     const visitsCount = visits[0]?.count ?? 0;

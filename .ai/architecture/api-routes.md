@@ -12,7 +12,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `GET/POST/PATCH /billing/*`, `POST /billing/webhook/lemonsqueezy`
 - `GET/POST /messaging/*`, `GET /messaging/email-usage`, `POST /messaging/inbound/sms`, `POST /messaging/webhooks/*`
 - `GET/PATCH /automation/settings`, `GET /automation/previews`, `PATCH /automation/refine-message`
-- `GET/POST/PATCH /appointments*`
+- `GET/POST/PATCH /appointments*` including `PATCH /appointments/:id/arrive` for staff arrival and `GET /appointments/needs-review` for overdue unchecked appointments
 - `GET/POST/PATCH /promos*`
 - `GET/POST /crm/*` (deals, stages, tasks, activities, custom-fields)
 - `POST/GET /imports/*` (parse, validate, commit, batches, rollback)
@@ -39,6 +39,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 ## Mobile Number Contract
 - Tyvera currently accepts only Philippine mobile numbers in strict E.164 format: `+639171234567`.
 - `POST /customers` and `PATCH /customers/:id` allow blank optional `mobile`, but reject any nonblank value that is not `+639` followed by 9 digits.
+- `POST /customers/resolve-for-booking` reuses an exact normalized `(businessId, mobile)` match for authenticated booking flows without overwriting the existing customer profile.
 - `POST /intake` allows blank optional `mobile`, but rejects invalid nonblank values before persistence.
 - `POST /intake/hold` and `POST /appointments/booking/hold` require a valid `+639...` mobile because the value feeds OTP/Twilio flows.
 - `POST/GET /imports/*` validation and commit reject invalid nonblank mobile values; accepted imports persist normalized `+639...` values only.
@@ -68,6 +69,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `GET /billing/status` owner warnings are explicit API data, not inferred client-side: only unresolved `refund_review` rows surface a persistent warning and delayed webhook reconciliation surfaces `delayed_webhook_sync` while pending-sync metadata remains uncleared.
 
 ## Public Intake OTP Notes
+- Public intake submit reuses an existing customer by exact normalized business/mobile when available, and creates a new customer only when no safe mobile identity match exists.
 - `POST /intake/otp/send` returns `success`, `reused`, `holdExpiresAt`, `resendAvailableAt`, and `sendsRemaining` so the public booking UI can render resend cooldowns and hold-expiry countdowns without guessing from client state.
 - `POST /intake/otp/send` enforces resend cooldown per hold, max sends per hold, rolling per-mobile limits, rolling per-IP limits, and a per-business daily cap using env-driven thresholds; blocked sends record durable `public_otp_send_events.outcome` codes such as `OTP_RESEND_COOLDOWN`, `OTP_HOLD_SEND_LIMIT`, `OTP_MOBILE_RATE_LIMIT`, `OTP_IP_RATE_LIMIT`, `OTP_BUSINESS_DAILY_LIMIT`, `OTP_BILLING_BLOCKED`, and `OTP_PROVIDER_UNAVAILABLE` once hold/business/org/mobile context is known.
 - `POST /intake/otp/verify` keeps the endpoint public, but the UI should treat returned OTP error codes as customer-safe states (`OTP_INVALID_CODE`, `OTP_MAX_ATTEMPTS`, `OTP_HOLD_EXPIRED`, `OTP_SLOT_CONFLICT`, `OTP_PROVIDER_UNAVAILABLE`) rather than surfacing raw provider or billing internals.

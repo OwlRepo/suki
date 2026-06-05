@@ -19,7 +19,7 @@ It’s just that **everyone forgets**.
 
 Tyvera helps service businesses **recover lost customers automatically**.
 
-It captures your customers, tracks visits, and sends reminders and follow-ups at the right time—so customers come back without you needing to remember.
+It captures or reuses customer records during booking, records completed appointment visits automatically, and sends reminders and follow-ups at the right time—so customers come back without you needing to remember.
 
 You don’t need to open it every day.  
 You set it once. It runs for you.
@@ -31,8 +31,10 @@ You set it once. It runs for you.
 - Public intake page per business (`/intake/[businessId]`) for lead capture and booking requests
 - Guided booking flow with date/time selection, review, and OTP verification
 - Temporary slot holds before confirmation to reduce double-booking
+- Appointment-first daily workflow: staff marks Arrived once; checked-in appointments complete automatically after the expected duration and grace period
+- Customer records are created or reused during booking; completed appointments update visit history automatically
 - Guided Facebook slot sharing flow with source tracking into customer notes
-- Protected dashboard routes for internal staff flows (customers, appointments, insights, settings, and related pages)
+- Protected dashboard routes for internal staff flows (appointments, insights, settings, and related pages)
 - Updated adaptive app shell and navigation for desktop + mobile dashboard use
 
 ---
@@ -89,8 +91,8 @@ You don’t pay for “software”—you pay for:
 
 ### Starter — ₱299/month
 
-- Customer list (QR signup + manual entry)  
-- Visit tracking  
+- Appointment-first booking workspace
+- Automatic visit tracking from completed appointments
 - Core automations:
   - Appointment reminders  
   - Missed appointment recovery  

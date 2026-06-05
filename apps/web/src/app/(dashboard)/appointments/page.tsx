@@ -7,8 +7,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Circle,
-  Clock3,
   Info,
   PlusCircle,
   Send,
@@ -61,12 +59,25 @@ interface Customer {
   mobile?: string | null;
 }
 
+type AppointmentStatus =
+  | "scheduled"
+  | "checked_in"
+  | "needs_review"
+  | "completed"
+  | "missed"
+  | "cancelled";
+
 interface Appointment {
   id: string;
   customerId: string;
   businessId: string;
   scheduledAt: string;
-  status: string;
+  durationMinutes: number;
+  status: AppointmentStatus;
+  checkedInAt?: string | null;
+  needsReviewAt?: string | null;
+  completedAt?: string | null;
+  visitRecordedAt?: string | null;
   notes?: string | null;
   createdAt: string;
 }
@@ -76,6 +87,20 @@ interface Availability {
   slotDurationMins: number;
   byDay: Record<string, string[]>;
 }
+
+type LoadState = "idle" | "loading" | "success" | "error";
+
+type LoadOptions = {
+  preserveExisting?: boolean;
+  rethrow?: boolean;
+};
+
+type PendingAppointmentAction =
+  | "arrive"
+  | "complete"
+  | "missed"
+  | "cancel"
+  | "reschedule";
 
 function monthKey(iso: string): string {
   const date = new Date(iso);
@@ -112,8 +137,22 @@ function AppointmentsPageContent() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [needsReviewAppointments, setNeedsReviewAppointments] = useState<
+    Appointment[]
+  >([]);
   const [syncReady, setSyncReady] = useState(false);
-  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [appointmentsLoadState, setAppointmentsLoadState] =
+    useState<LoadState>("idle");
+  const [appointmentsLoadError, setAppointmentsLoadError] =
+    useState<string | null>(null);
+  const [needsReviewLoadState, setNeedsReviewLoadState] =
+    useState<LoadState>("idle");
+  const [needsReviewLoadError, setNeedsReviewLoadError] =
+    useState<string | null>(null);
+  const [customersLoadState, setCustomersLoadState] =
+    useState<LoadState>("idle");
+  const [customersLoadError, setCustomersLoadError] =
+    useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [step, setStep] = useState<BookingStep>("customer");
@@ -132,6 +171,13 @@ function AppointmentsPageContent() {
   const [selectedAgendaDay, setSelectedAgendaDay] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(
+    null,
+  );
+  const [pendingAppointmentAction, setPendingAppointmentAction] = useState<{
+    id: string;
+    action: PendingAppointmentAction;
+  } | null>(null);
 
   const [newCustomer, setNewCustomer] = useState({
     name: "",
@@ -143,6 +189,7 @@ function AppointmentsPageContent() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityRetryNonce, setAvailabilityRetryNonce] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const [feedback, setFeedback] = useState<{
@@ -155,27 +202,56 @@ function AppointmentsPageContent() {
     customerName: string;
   } | null>(null);
 
-  const loadCustomers = async () => {
+  const isAppointmentActionPending = (
+    id: string,
+    action?: PendingAppointmentAction,
+  ) =>
+    pendingAppointmentAction?.id === id &&
+    (!action || pendingAppointmentAction.action === action);
+
+  const loadCustomers = async (options?: LoadOptions) => {
     if (!selectedBiz) return;
 
     const token = await getToken();
     if (!token) return;
 
-    const response = await apiRequest<{ customers: Customer[] }>(
-      `/customers?businessId=${selectedBiz}&limit=500`,
-      { token },
-    );
+    if (!options?.preserveExisting) {
+      setCustomers([]);
+    }
 
-    setCustomers(response.customers);
+    setCustomersLoadState("loading");
+    setCustomersLoadError(null);
+
+    try {
+      const response = await apiRequest<{ customers: Customer[] }>(
+        `/customers?businessId=${selectedBiz}&limit=500`,
+        { token },
+      );
+
+      setCustomers(response.customers);
+      setCustomersLoadState("success");
+    } catch (loadError) {
+      setCustomersLoadState("error");
+      setCustomersLoadError(
+        fromError(loadError, "Failed to load customers."),
+      );
+      if (options?.rethrow) throw loadError;
+    }
   };
 
-  const loadAppointments = async () => {
+  const loadAppointments = async (options?: LoadOptions) => {
     if (!selectedBiz) return;
 
     const token = await getToken();
     if (!token) return;
 
-    setAppointmentsLoading(true);
+    if (!options?.preserveExisting) {
+      setAppointments([]);
+      setSelectedAgendaDay(null);
+    }
+
+    setAppointmentsLoadState("loading");
+    setAppointmentsLoadError(null);
 
     try {
       const [year, monthNumber] = calendarMonth.split("-").map(Number);
@@ -191,6 +267,7 @@ function AppointmentsPageContent() {
       });
 
       setAppointments(response.appointments);
+      setAppointmentsLoadState("success");
 
       const firstDay =
         response.appointments
@@ -205,8 +282,39 @@ function AppointmentsPageContent() {
           ? previous
           : firstDay,
       );
-    } finally {
-      setAppointmentsLoading(false);
+    } catch (loadError) {
+      setAppointmentsLoadState("error");
+      setAppointmentsLoadError("Failed to load appointments.");
+      if (options?.rethrow) throw loadError;
+    }
+  };
+
+  const loadNeedsReview = async (options?: LoadOptions) => {
+    if (!selectedBiz) return;
+
+    const token = await getToken();
+    if (!token) return;
+
+    if (!options?.preserveExisting) {
+      setNeedsReviewAppointments([]);
+    }
+
+    setNeedsReviewLoadState("loading");
+    setNeedsReviewLoadError(null);
+
+    try {
+      const response = await apiRequest<{ appointments: Appointment[] }>(
+        `/appointments/needs-review?businessId=${selectedBiz}`,
+        { token },
+      );
+
+      setNeedsReviewAppointments(response.appointments);
+      setNeedsReviewLoadState("success");
+    } catch (loadError) {
+      setNeedsReviewLoadState("error");
+      setNeedsReviewLoadError("Failed to load appointments that need review.");
+
+      if (options?.rethrow) throw loadError;
     }
   };
 
@@ -216,14 +324,23 @@ function AppointmentsPageContent() {
   }, [syncData]);
 
   useEffect(() => {
+    setCustomers([]);
+    setAppointments([]);
+    setNeedsReviewAppointments([]);
+    setSelectedAgendaDay(null);
     if (!selectedBiz) return;
-    loadCustomers();
+
+    void Promise.all([
+      loadCustomers(),
+      loadAppointments(),
+      loadNeedsReview(),
+    ]);
   }, [selectedBiz]);
 
   useEffect(() => {
     if (!selectedBiz) return;
-    loadAppointments();
-  }, [selectedBiz, calendarMonth]);
+    void loadAppointments();
+  }, [calendarMonth]);
 
   useEffect(() => {
     if (!showForm || !selectedBiz) return;
@@ -234,6 +351,7 @@ function AppointmentsPageContent() {
       if (!token) return;
 
       setAvailabilityLoading(true);
+      setAvailabilityError(null);
 
       try {
         const data = await apiRequest<Availability>(
@@ -253,14 +371,14 @@ function AppointmentsPageContent() {
           scheduledAt: slot ? slot.slice(0, 16) : previous.scheduledAt,
         }));
       } catch (loadError) {
-        setError(fromError(loadError, "Failed to load availability."));
+        setAvailabilityError(fromError(loadError, "Failed to load availability."));
       } finally {
         setAvailabilityLoading(false);
       }
     };
 
     void run();
-  }, [showForm, selectedBiz, step, month]);
+  }, [showForm, selectedBiz, step, month, availabilityRetryNonce]);
 
   const resetForm = () => {
     const defaultTime = new Date();
@@ -280,6 +398,7 @@ function AppointmentsPageContent() {
     setEntryMode("existing");
     setNewCustomer({ name: "", mobile: "", email: "", notes: "" });
     setAvailability(null);
+    setAvailabilityError(null);
     setSelectedDay(null);
   };
 
@@ -302,6 +421,9 @@ function AppointmentsPageContent() {
     if (!selectedBiz || !formData.customerId || !formData.scheduledAt) return;
 
     setSubmitting(true);
+    if (editingId) {
+      setPendingAppointmentAction({ id: editingId, action: "reschedule" });
+    }
     setError(null);
 
     try {
@@ -337,13 +459,21 @@ function AppointmentsPageContent() {
         recordOnboardingEvent("appointment_created", orgId);
       }
 
-      loadAppointments();
+      const refreshResults = await Promise.allSettled([
+        loadAppointments({ preserveExisting: true, rethrow: true }),
+        loadNeedsReview({ preserveExisting: true, rethrow: true }),
+      ]);
+      const refreshFailed = refreshResults.some(
+        (result) => result.status === "rejected",
+      );
 
       setFeedback({
-        type: "success",
-        message: editingId
-          ? "Appointment updated."
-          : "Appointment created.",
+        type: refreshFailed ? "error" : "success",
+        message: refreshFailed
+          ? "The update was saved, but the list could not refresh. Retry."
+          : editingId
+            ? "Appointment rescheduled."
+            : "Appointment created.",
       });
 
       setTimeout(() => setFeedback(null), 3000);
@@ -353,6 +483,7 @@ function AppointmentsPageContent() {
       );
     } finally {
       setSubmitting(false);
+      setPendingAppointmentAction(null);
     }
   };
 
@@ -377,7 +508,7 @@ function AppointmentsPageContent() {
     }
 
     const response = await apiRequest<{ customer: { id: string } }>(
-      "/customers",
+      "/customers/resolve-for-booking",
       {
         method: "POST",
         token,
@@ -391,7 +522,7 @@ function AppointmentsPageContent() {
       },
     );
 
-    await loadCustomers();
+    await loadCustomers({ preserveExisting: true });
 
     setFormData((previous) => ({
       ...previous,
@@ -423,6 +554,9 @@ function AppointmentsPageContent() {
   const completeWizardBooking = async () => {
     if (!selectedBiz || !formData.scheduledAt) return;
 
+    setSubmitting(true);
+
+    try {
     const customerId = await ensureCustomerForWizard();
 
     if (!customerId) {
@@ -443,16 +577,40 @@ function AppointmentsPageContent() {
       }),
     });
 
-    await loadAppointments();
+    const refreshResults = await Promise.allSettled([
+      loadAppointments({ preserveExisting: true, rethrow: true }),
+      loadNeedsReview({ preserveExisting: true, rethrow: true }),
+    ]);
+    const refreshFailed = refreshResults.some(
+      (result) => result.status === "rejected",
+    );
 
-    setFeedback({ type: "success", message: "Appointment created." });
+    setFeedback({
+      type: refreshFailed ? "error" : "success",
+      message: refreshFailed
+        ? "The update was saved, but the list could not refresh. Retry."
+        : "Appointment created.",
+    });
     setStep("done");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleStatus = async (
     id: string,
     status: "scheduled" | "completed" | "missed" | "cancelled",
   ) => {
+    const action: PendingAppointmentAction =
+      status === "completed"
+        ? "complete"
+        : status === "missed"
+          ? "missed"
+          : status === "cancelled"
+            ? "cancel"
+            : "reschedule";
+    setPendingAppointmentAction({ id, action });
+
     try {
       const token = await getToken();
       if (!token) return;
@@ -463,9 +621,29 @@ function AppointmentsPageContent() {
         body: JSON.stringify({ status }),
       });
 
-      loadAppointments();
+      const refreshResults = await Promise.allSettled([
+        loadAppointments({ preserveExisting: true, rethrow: true }),
+        loadNeedsReview({ preserveExisting: true, rethrow: true }),
+      ]);
+      const refreshFailed = refreshResults.some(
+        (result) => result.status === "rejected",
+      );
 
-      setFeedback({ type: "success", message: "Status updated." });
+      const successMessage =
+        status === "completed"
+          ? "Visit completed and recorded."
+          : status === "missed"
+            ? "Appointment marked as missed."
+            : status === "cancelled"
+              ? "Appointment cancelled."
+              : "Status updated.";
+
+      setFeedback({
+        type: refreshFailed ? "error" : "success",
+        message: refreshFailed
+          ? "The update was saved, but the list could not refresh. Retry."
+          : successMessage,
+      });
       setTimeout(() => setFeedback(null), 3000);
     } catch (statusError) {
       setFeedback({
@@ -475,6 +653,47 @@ function AppointmentsPageContent() {
           "Failed to update status. Please try again.",
         ),
       });
+    } finally {
+      setPendingAppointmentAction(null);
+    }
+  };
+
+  const handleArrived = async (id: string) => {
+    setPendingAppointmentAction({ id, action: "arrive" });
+
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      await apiRequest(`/appointments/${id}/arrive`, {
+        method: "PATCH",
+        token,
+      });
+
+      const refreshResults = await Promise.allSettled([
+        loadAppointments({ preserveExisting: true, rethrow: true }),
+        loadNeedsReview({ preserveExisting: true, rethrow: true }),
+      ]);
+
+      const refreshFailed = refreshResults.some(
+        (result) => result.status === "rejected",
+      );
+
+      setFeedback({
+        type: refreshFailed ? "error" : "success",
+        message: refreshFailed
+          ? "Customer was marked as arrived, but the list could not refresh. Retry."
+          : "Customer marked as arrived. The visit will complete automatically.",
+      });
+
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (arriveError) {
+      setFeedback({
+        type: "error",
+        message: "Failed to mark the customer as arrived. Please try again.",
+      });
+    } finally {
+      setPendingAppointmentAction(null);
     }
   };
 
@@ -488,7 +707,7 @@ function AppointmentsPageContent() {
         token,
       });
 
-      loadAppointments();
+      void loadAppointments({ preserveExisting: true });
 
       setFeedback({
         type: "success",
@@ -527,6 +746,13 @@ function AppointmentsPageContent() {
 
   const agenda = selectedAgendaDay
     ? (appointmentsByDay[selectedAgendaDay] ?? [])
+        .filter(
+          (appointment) =>
+            appointment.status !== "needs_review" ||
+            !needsReviewAppointments.some(
+              (reviewAppointment) => reviewAppointment.id === appointment.id,
+            ),
+        )
         .slice()
         .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
     : [];
@@ -545,8 +771,8 @@ function AppointmentsPageContent() {
       <div className="space-y-6">
         <PageHeader
           title="Appointments"
-          plainLanguageDescription="Appointments help you plan your day."
-          whatThisPageIsFor="Schedule visits and keep each appointment status up to date."
+          plainLanguageDescription="Appointments are your daily workspace."
+          whatThisPageIsFor="Mark a customer as Arrived once. Tyvera records the visit automatically after the appointment."
           whatToDoNext="Create a business in Setup first, then add customers and appointments."
         />
       </div>
@@ -557,12 +783,12 @@ function AppointmentsPageContent() {
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Appointments"
-        plainLanguageDescription="Appointments help you plan your day — but you can use the app without them."
-        whatThisPageIsFor="Schedule visits and keep each appointment status up to date."
+        plainLanguageDescription="Appointments are your daily workspace."
+        whatThisPageIsFor="Mark a customer as Arrived once. Tyvera records the visit automatically after the appointment."
         whatToDoNext={
           appointments.length === 0
             ? "Create your first appointment."
-            : "Update the next appointment status."
+            : "Mark arriving customers as Arrived."
         }
         actions={
           <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
@@ -612,6 +838,26 @@ function AppointmentsPageContent() {
         />
       ) : null}
 
+      {appointmentsLoadState === "error" && appointmentsLoadError ? (
+        <StatusBanner
+          variant="error"
+          message={
+            <span className="flex flex-wrap items-center gap-2">
+              <span>{appointmentsLoadError}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void loadAppointments({ preserveExisting: true })}
+              >
+                Retry
+              </Button>
+            </span>
+          }
+          onDismiss={() => setAppointmentsLoadError(null)}
+        />
+      ) : null}
+
       <ConfirmDialog
         open={Boolean(pendingCancel)}
         onOpenChange={(open) => !open && setPendingCancel(null)}
@@ -624,12 +870,111 @@ function AppointmentsPageContent() {
         confirmLabel="Yes, cancel"
         cancelLabel="No, keep it"
         destructive
+        loading={
+          pendingCancel
+            ? isAppointmentActionPending(pendingCancel.id, "cancel")
+            : false
+        }
         onConfirm={async () => {
           if (pendingCancel) {
             await handleStatus(pendingCancel.id, "cancelled");
           }
         }}
       />
+
+      {needsReviewLoadState === "loading" &&
+      needsReviewAppointments.length === 0 ? (
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Loading appointments that need review...
+        </p>
+      ) : null}
+
+      {needsReviewLoadState === "error" ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>
+              {needsReviewLoadError ??
+                "Failed to load appointments that need review."}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void loadNeedsReview({ preserveExisting: true })}
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {needsReviewAppointments.length > 0 ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm sm:p-5">
+          <h2 className="text-base font-bold text-slate-950">Needs review</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            These appointments passed without an arrival check. Confirm what
+            happened.
+          </p>
+
+          <ul className="mt-4 space-y-3">
+            {needsReviewAppointments.map((appointment) => (
+              <li
+                key={appointment.id}
+                className="rounded-xl border border-amber-200 bg-white p-3"
+              >
+                <p className="font-semibold text-slate-950">
+                  {getCustomerName(appointment.customerId)}
+                </p>
+
+                <p className="mt-1 text-sm text-slate-600">
+                  {new Date(appointment.scheduledAt).toLocaleString()}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    disabled={isAppointmentActionPending(
+                      appointment.id,
+                      "complete",
+                    )}
+                    onClick={() => handleStatus(appointment.id, "completed")}
+                  >
+                    {isAppointmentActionPending(appointment.id, "complete")
+                      ? "Completing..."
+                      : "Completed"}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isAppointmentActionPending(
+                      appointment.id,
+                      "missed",
+                    )}
+                    onClick={() => handleStatus(appointment.id, "missed")}
+                  >
+                    {isAppointmentActionPending(appointment.id, "missed")
+                      ? "Saving..."
+                      : "Missed"}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isAppointmentActionPending(
+                      appointment.id,
+                      "reschedule",
+                    )}
+                    onClick={() => handleEdit(appointment)}
+                  >
+                    Reschedule
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {showForm ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -763,6 +1108,7 @@ function AppointmentsPageContent() {
 
                       <Select
                         value={formData.customerId || "__none__"}
+                        disabled={customersLoadState === "loading"}
                         onValueChange={(value) =>
                           setFormData((previous) => ({
                             ...previous,
@@ -786,6 +1132,36 @@ function AppointmentsPageContent() {
                           ))}
                         </SelectContent>
                       </Select>
+
+                      {customersLoadState === "loading" ? (
+                        <p className="mt-2 text-sm text-slate-500">
+                          Loading saved customers...
+                        </p>
+                      ) : null}
+
+                      {customersLoadState === "error" ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                          <span>
+                            {customersLoadError ?? "Failed to load customers."}
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void loadCustomers()}
+                          >
+                            Retry
+                          </Button>
+                        </div>
+                      ) : null}
+
+                      {customersLoadState === "success" &&
+                      customers.length === 0 ? (
+                        <p className="mt-2 text-sm text-slate-500">
+                          No saved customers yet. Create a new customer while
+                          booking this appointment.
+                        </p>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="grid gap-3 md:grid-cols-2">
@@ -857,6 +1233,26 @@ function AppointmentsPageContent() {
                     <p className="text-sm text-slate-500">
                       Loading available slots...
                     </p>
+                  ) : availabilityError ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                      <span>{availabilityError}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setAvailabilityRetryNonce((value) => value + 1);
+                        }}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  ) : availability &&
+                    Object.keys(availability.byDay ?? {}).length === 0 ? (
+                    <EmptyState
+                      what="No available slots for this month."
+                      why="Choose another month or review your business schedule."
+                    />
                   ) : (
                     <>
                       {step === "date" ? (
@@ -964,6 +1360,7 @@ function AppointmentsPageContent() {
                 {step !== "done" ? (
                   <Button
                     type="button"
+                    disabled={submitting}
                     onClick={async () => {
                       setError(null);
 
@@ -987,7 +1384,7 @@ function AppointmentsPageContent() {
                       }
                     }}
                   >
-                    Continue
+                    {submitting ? "Creating..." : "Continue"}
                   </Button>
                 ) : null}
 
@@ -1009,8 +1406,12 @@ function AppointmentsPageContent() {
       <section>
         {!syncReady ||
         workspace?.loading ||
-        (Boolean(selectedBiz) && appointmentsLoading) ? (
-          <ListSkeleton rowCount={5} className="mt-4" />
+        (Boolean(selectedBiz) &&
+          appointmentsLoadState === "loading" &&
+          appointments.length === 0) ? (
+          <div role="status" aria-label="Loading appointments">
+            <ListSkeleton rowCount={5} className="mt-4" />
+          </div>
         ) : (
           <>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -1163,7 +1564,7 @@ function AppointmentsPageContent() {
                             }
                             className="capitalize"
                           >
-                            {appointment.status}
+                            {appointment.status.replace("_", " ")}
                           </Badge>
 
                           {isNew ? (
@@ -1185,69 +1586,135 @@ function AppointmentsPageContent() {
 
                         <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
                           {appointment.status === "scheduled" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                handleReminderSent(appointment.id)
-                              }
-                            >
-                              <Send className="size-4" />
-                              Reminder sent
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={isAppointmentActionPending(
+                                  appointment.id,
+                                  "arrive",
+                                )}
+                                onClick={() => handleArrived(appointment.id)}
+                              >
+                                {isAppointmentActionPending(
+                                  appointment.id,
+                                  "arrive",
+                                )
+                                  ? "Marking arrived..."
+                                  : "Arrived"}
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleReminderSent(appointment.id)
+                                }
+                              >
+                                <Send className="size-4" />
+                                Reminder sent
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isAppointmentActionPending(
+                                  appointment.id,
+                                  "reschedule",
+                                )}
+                                onClick={() => handleEdit(appointment)}
+                              >
+                                <CalendarDays className="size-4" />
+                                Reschedule
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isAppointmentActionPending(
+                                  appointment.id,
+                                  "cancel",
+                                )}
+                                onClick={() =>
+                                  setPendingCancel({
+                                    id: appointment.id,
+                                    customerName: getCustomerName(
+                                      appointment.customerId,
+                                    ),
+                                  })
+                                }
+                              >
+                                Cancel
+                              </Button>
+                            </>
                           ) : null}
 
-                          <Select
-                            value={appointment.status}
-                            onValueChange={(value) => {
-                              const status = value as
-                                | "scheduled"
-                                | "completed"
-                                | "missed"
-                                | "cancelled";
+                          {appointment.status === "checked_in" ? (
+                            <>
+                              <span className="inline-flex min-h-10 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-700">
+                                Arrived · completes automatically
+                              </span>
 
-                              if (status === "cancelled") {
-                                setPendingCancel({
-                                  id: appointment.id,
-                                  customerName: getCustomerName(
-                                    appointment.customerId,
-                                  ),
-                                });
-                              } else {
-                                handleStatus(appointment.id, status);
-                              }
-                            }}
-                          >
-                            <SelectTrigger
-                              className="min-h-10 capitalize"
-                              aria-label="Change status"
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
+                              <Button
+                                size="sm"
+                                disabled={isAppointmentActionPending(
+                                  appointment.id,
+                                  "complete",
+                                )}
+                                onClick={() =>
+                                  handleStatus(appointment.id, "completed")
+                                }
+                              >
+                                {isAppointmentActionPending(
+                                  appointment.id,
+                                  "complete",
+                                )
+                                  ? "Completing..."
+                                  : "Complete now"}
+                              </Button>
+                            </>
+                          ) : null}
 
-                            <SelectContent>
-                              <SelectItem value="scheduled">
-                                Scheduled
-                              </SelectItem>
-                              <SelectItem value="completed">
+                          {appointment.status === "needs_review" ? (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={isAppointmentActionPending(
+                                  appointment.id,
+                                  "complete",
+                                )}
+                                onClick={() =>
+                                  handleStatus(appointment.id, "completed")
+                                }
+                              >
                                 Completed
-                              </SelectItem>
-                              <SelectItem value="missed">Missed</SelectItem>
-                              <SelectItem value="cancelled">
-                                Cancelled
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
+                              </Button>
 
-                          {appointment.status === "scheduled" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEdit(appointment)}
-                            >
-                              <CalendarDays className="size-4" />
-                              Reschedule
-                            </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isAppointmentActionPending(
+                                  appointment.id,
+                                  "missed",
+                                )}
+                                onClick={() =>
+                                  handleStatus(appointment.id, "missed")
+                                }
+                              >
+                                Missed
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isAppointmentActionPending(
+                                  appointment.id,
+                                  "reschedule",
+                                )}
+                                onClick={() => handleEdit(appointment)}
+                              >
+                                Reschedule
+                              </Button>
+                            </>
                           ) : null}
                         </div>
                       </li>
@@ -1256,13 +1723,11 @@ function AppointmentsPageContent() {
                 </ul>
 
                 {agenda.length === 0 ? (
-                  <div className="mt-4 flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
-                    <div>
-                      <Clock3 className="mx-auto size-7 text-slate-400" />
-                      <p className="mt-3 text-sm text-slate-500">
-                        No appointments for this day.
-                      </p>
-                    </div>
+                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                    <EmptyState
+                      what="No appointments for this day."
+                      why="Create a booking or choose another date."
+                    />
                   </div>
                 ) : (
                   <div className="mt-4 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
@@ -1281,7 +1746,7 @@ function AppointmentsPageContent() {
               <div className="mt-4">
                 <EmptyState
                   what="No appointments yet"
-                  why="Appointments help you plan your day — but you can use the app without them."
+                  why="Create a booking to start your daily appointment workspace."
                   nextAction={
                     <Button
                       onClick={() => {
@@ -1307,12 +1772,12 @@ function AppointmentsPageContent() {
 
           <div>
             <p className="font-semibold text-slate-950">
-              Tip: You can also use the app without appointments.
+              Tip: Arrived starts automatic visit recording.
             </p>
 
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Add customers, send promos, and use reminders even if you do not
-              book visits.
+              Mark the customer once when they arrive. Tyvera completes the
+              visit after the expected duration and grace period.
             </p>
           </div>
         </div>

@@ -26,11 +26,18 @@ describe("IntakeController mobile validation", () => {
     sendOtp: vi.fn(),
     verifyAndConfirm: vi.fn(),
   };
+  const customersService = {
+    resolveForPublicIntake: vi.fn(),
+  };
   let controller: IntakeController;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    controller = new IntakeController(templatesService as never, bookingService as never);
+    controller = new IntakeController(
+      templatesService as never,
+      bookingService as never,
+      customersService as never,
+    );
     selectMock.mockReturnValue({ from: fromMock });
     fromMock.mockReturnValue({ where: whereMock });
     whereMock.mockReturnValue({ limit: limitMock });
@@ -38,21 +45,48 @@ describe("IntakeController mobile validation", () => {
     insertMock.mockReturnValue({ values: valuesMock });
     valuesMock.mockReturnValue({ returning: returningMock });
     returningMock.mockResolvedValue([{ id: "cust1", mobile: "+639171234567" }]);
+    customersService.resolveForPublicIntake.mockResolvedValue({
+      id: "cust1",
+      mobile: "+639171234567",
+    });
   });
 
   it("rejects invalid nonblank mobile on intake submit", async () => {
     await expect(
       controller.submit({ businessId: "biz1", name: "Alice", mobile: "09171234567" }),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(insertMock).not.toHaveBeenCalled();
+    expect(customersService.resolveForPublicIntake).not.toHaveBeenCalled();
   });
 
-  it("stores normalized valid mobile on intake submit", async () => {
-    await controller.submit({ businessId: "biz1", name: "Alice", mobile: " +639171234567 " });
+  it("passes normalized E.164 mobile to resolveForPublicIntake", async () => {
+    await controller.submit({
+      businessId: "biz1",
+      name: "Alice",
+      mobile: " +639171234567 ",
+    });
 
-    expect(valuesMock).toHaveBeenCalledWith(
+    expect(customersService.resolveForPublicIntake).toHaveBeenCalledWith(
+      "biz1",
       expect.objectContaining({ mobile: "+639171234567" }),
     );
+  });
+
+  it("returns the reused customer from CustomersService", async () => {
+    customersService.resolveForPublicIntake.mockResolvedValue({
+      id: "existing-cust",
+      mobile: "+639171234567",
+    });
+
+    await expect(
+      controller.submit({
+        businessId: "biz1",
+        name: "Alice",
+        mobile: "+639171234567",
+      }),
+    ).resolves.toEqual({
+      customer: { id: "existing-cust", mobile: "+639171234567" },
+      success: true,
+    });
   });
 
   it("rejects missing or invalid mobile on booking hold", async () => {

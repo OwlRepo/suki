@@ -204,6 +204,38 @@ export class CustomersController {
     return { customer };
   }
 
+  @Post("resolve-for-booking")
+  async resolveForBooking(
+    @Body()
+    body: {
+      businessId: string;
+      name: string;
+      mobile?: string;
+      email?: string;
+      notes?: string;
+    },
+    @Tenant("organizationId") orgId?: string,
+  ) {
+    if (!body.businessId || !body.name?.trim() || !orgId) {
+      throw new BadRequestException("businessId and name required");
+    }
+
+    const mobile = this.normalizeOptionalMobile(body.mobile);
+
+    const customer = await this.customersService.resolveForBooking(
+      body.businessId,
+      orgId,
+      {
+        name: body.name,
+        mobile,
+        email: body.email,
+        notes: body.notes,
+      },
+    );
+
+    return { customer };
+  }
+
   @Get(":id/message-history")
   async getMessageHistory(
     @Param("id") id: string,
