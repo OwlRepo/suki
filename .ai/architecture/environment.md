@@ -8,6 +8,7 @@
 - Messaging smoke (optional): `SMOKE_REAL_PROVIDERS`, `SMOKE_TWILIO_TO`, `SMOKE_RESEND_TO`
 - AI: OpenAI keys and policy-related settings
 - App runtime: `NODE_ENV`, app URLs, tenant/business context flags
+- Platform-admin bootstrap: `PLATFORM_ADMIN_BOOTSTRAP_EMAIL` or `PLATFORM_ADMIN_BOOTSTRAP_USER_ID` promote an existing user only after RBAC seed has run
 - Web API base: `NEXT_PUBLIC_API_URL` overrides browser API routing; production defaults to same-origin `/api`, development defaults to `http://localhost:3001`
 
 ## Source Files
@@ -25,3 +26,4 @@
 - `BILLING_GROWTH_VERIFIED_BOOKINGS_PER_MONTH` must be a positive integer when set.
 - Twilio production webhooks require `TWILIO_STATUS_CALLBACK_URL` and `TWILIO_INBOUND_SMS_WEBHOOK_URL` to match the exact public HTTPS URLs, including `/api` when routed through the production proxy.
 - Startup warnings must never print Twilio auth tokens or other secret values.
+- Platform-admin bootstrap variables must never create production credentials or passwords; use them only to assign the seeded `FOUNDER` role to an existing user.

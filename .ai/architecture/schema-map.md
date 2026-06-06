@@ -12,6 +12,7 @@
 ## Storage Schema Sources
 - Drizzle SQL migrations under `packages/database/drizzle`
 - Database package scripts under `packages/database/scripts`
+- Platform-admin RBAC uses `platform_admins`, `admin_roles`, `admin_permissions`, `platform_admin_roles`, and `admin_role_permissions`; seed scripts upsert role/permission data and founder bootstrap only promotes an existing `users` row.
 - Messaging audit data uses existing `message_events.provider` / `provider_message_id` / `provider_metadata` for Twilio, Semaphore, and Resend provider audit data and existing `sms_usage_events.units` for consumed billable segment units.
 - Manual SMS safety-net tasks are stored in `manual_follow_up_tasks`, keyed uniquely by `original_message_event_id`, with optional `retry_message_event_id`, staff resolution fields, notification timestamp, recipient/message snapshots, and duplicate-risk derived from `provider_outcome_unknown`.
 - Subscription persistence now includes provider-neutral Lemon Squeezy fields on `subscriptions` plus provider-aware webhook event storage in `processed_webhook_events`.

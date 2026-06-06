@@ -103,6 +103,7 @@ export class AuthService {
     const [user] = await db
       .select({
         id: users.id,
+        clerkId: users.clerkId,
         organizationId: users.organizationId,
         role: users.role,
         email: users.email,
@@ -343,6 +344,7 @@ export class AuthService {
     const [user] = await db
       .select({
         id: users.id,
+        clerkId: users.clerkId,
         organizationId: users.organizationId,
         role: users.role,
         email: users.email,

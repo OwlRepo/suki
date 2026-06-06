@@ -6,6 +6,42 @@ export type BillingPurchaseKind =
   | "subscription"
   | "online_booking_topup"
   | "sms_segment_topup";
+export type BillingAddonSku =
+  | "online-booking-topup-10"
+  | "online-booking-topup-25"
+  | "online-booking-topup-50"
+  | "online-booking-topup-100"
+  | "online-booking-topup-250"
+  | "sms-segment-topup-25"
+  | "sms-segment-topup-50"
+  | "sms-segment-topup-100"
+  | "sms-segment-topup-250";
+export type PlatformAdminRoleCode =
+  | "FOUNDER"
+  | "OPERATIONS"
+  | "FINANCE"
+  | "SUPPORT";
+export type PlatformAdminPermission =
+  | "PLATFORM_ADMIN_ACCESS"
+  | "OVERVIEW_VIEW"
+  | "BUSINESS_VIEW"
+  | "BUSINESS_UPDATE"
+  | "BUSINESS_SUSPEND"
+  | "BILLING_REQUEST_VIEW"
+  | "BILLING_REQUEST_CREATE"
+  | "BILLING_REQUEST_VOID"
+  | "PAYMENT_VIEW"
+  | "PAYMENT_RECORD"
+  | "PAYMENT_VERIFY"
+  | "PAYMENT_REJECT"
+  | "SMS_CREDIT_VIEW"
+  | "SMS_CREDIT_GRANT_PROMOTIONAL"
+  | "SMS_CREDIT_APPLY_CORRECTION"
+  | "COMMUNICATION_VIEW"
+  | "AUTOMATION_RUN_VIEW"
+  | "ALERT_VIEW"
+  | "ALERT_ACKNOWLEDGE"
+  | "AUDIT_LOG_VIEW";
 
 // Message automation types
 export type MessagePurpose = "transactional" | "promotional";

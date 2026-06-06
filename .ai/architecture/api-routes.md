@@ -21,10 +21,12 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `POST /ai/check`, `GET /ai/usage/*`, `PATCH /ai/usage/policies`
 - `POST /help/assistant/chat`, `POST /help/assistant/chat/stream`, `GET /help/answer-source/*`
 - `GET /intake/config`, `POST /intake`, `GET /intake/availability`, `POST /intake/hold`, `POST /intake/otp/send`, `POST /intake/otp/verify`
+- `GET /platform-admin/session`
 
 ## Auth Requirements
 - Most business routes are protected by `ClerkAuthGuard` (compatibility name for first-party session auth guard).
 - Additional guards enforce plan/billing/owner/crm-mode/founder controls by route.
+- Platform-admin routes are protected by `ClerkAuthGuard` plus `PlatformAdminGuard`; users must have an active `platform_admins` row and database-backed role permissions.
 - Intake endpoints are public-facing for external customers; server-side validation and business scoping are required for every request.
 - Public account creation is allowed through `/auth/sign-up/start` + `/auth/sign-up/verify`; verify accepts email, OTP code, and password, then creates the owner account and session.
 - `POST /auth/sign-in/password` sets the session cookie on success and returns `{ ok: true, redirectTo }`, where `redirectTo` is `/onboarding` until user onboarding progress reaches `currentStep >= 7`, otherwise `/dashboard`.
@@ -67,6 +69,10 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `GET /billing/status` is shared by owner and staff billing settings views; staff can read status but all billing mutations remain owner-only.
 - `POST /billing/webhook/lemonsqueezy` verifies the raw-body HMAC signature before recording events idempotently, applying subscription/order reconciliation, marking unknown Lemon events as ignored no-ops, and persisting failed reconciliation rows with `failureReason` for audit/replay.
 - `GET /billing/status` owner warnings are explicit API data, not inferred client-side: only unresolved `refund_review` rows surface a persistent warning and delayed webhook reconciliation surfaces `delayed_webhook_sync` while pending-sync metadata remains uncleared.
+
+## Platform Admin Route Notes
+- `GET /platform-admin/session` returns the active platform-admin row, role codes, and resolved permission codes for the signed-in first-party session.
+- Authenticated non-platform users receive `403 Forbidden`; unauthenticated users are rejected by the first-party session guard before platform-admin authorization runs.
 
 ## Public Intake OTP Notes
 - Public intake submit reuses an existing customer by exact normalized business/mobile when available, and creates a new customer only when no safe mobile identity match exists.

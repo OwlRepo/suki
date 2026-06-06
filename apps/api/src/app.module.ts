@@ -21,6 +21,7 @@ import { AutomationModule } from "./automation/automation.module";
 import { AutomationPolicyModule } from "./automation/automation-policy.module";
 import { SecurityModule } from "./security/security.module";
 import { HelpModule } from "./help/help.module";
+import { PlatformAdminModule } from "./platform-admin/platform-admin.module";
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { HelpModule } from "./help/help.module";
     OnboardingModule,
     SecurityModule,
     HelpModule,
+    PlatformAdminModule,
   ],
 })
 export class AppModule {}

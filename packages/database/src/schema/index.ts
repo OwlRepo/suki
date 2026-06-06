@@ -87,6 +87,10 @@ export const orgBillingStatusEnum = pgEnum("org_billing_status", [
   "subscription_expired",
   "subscription_paused",
 ]);
+export const platformAdminStatusEnum = pgEnum("platform_admin_status", [
+  "active",
+  "disabled",
+]);
 
 // Organizations — tenant for multi-business (future)
 export const organizations = pgTable("organizations", {
@@ -170,6 +174,87 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const platformAdmins = pgTable(
+  "platform_admins",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: platformAdminStatusEnum("status").notNull().default("active"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [unique("platform_admins_user_id_unique").on(t.userId)],
+);
+
+export const adminRoles = pgTable(
+  "admin_roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    isSystemRole: text("is_system_role").notNull().default("true"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [unique("admin_roles_code_unique").on(t.code)],
+);
+
+export const adminPermissions = pgTable(
+  "admin_permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [unique("admin_permissions_code_unique").on(t.code)],
+);
+
+export const platformAdminRoles = pgTable(
+  "platform_admin_roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    platformAdminId: uuid("platform_admin_id")
+      .notNull()
+      .references(() => platformAdmins.id, { onDelete: "cascade" }),
+    adminRoleId: uuid("admin_role_id")
+      .notNull()
+      .references(() => adminRoles.id, { onDelete: "cascade" }),
+    assignedByUserId: uuid("assigned_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("platform_admin_roles_admin_role_unique").on(
+      t.platformAdminId,
+      t.adminRoleId,
+    ),
+  ],
+);
+
+export const adminRolePermissions = pgTable(
+  "admin_role_permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adminRoleId: uuid("admin_role_id")
+      .notNull()
+      .references(() => adminRoles.id, { onDelete: "cascade" }),
+    adminPermissionId: uuid("admin_permission_id")
+      .notNull()
+      .references(() => adminPermissions.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    unique("admin_role_permissions_role_permission_unique").on(
+      t.adminRoleId,
+      t.adminPermissionId,
+    ),
+  ],
+);
 
 export const authIdentities = pgTable("auth_identities", {
   id: uuid("id").primaryKey().defaultRandom(),

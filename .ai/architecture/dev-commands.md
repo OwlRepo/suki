@@ -17,6 +17,8 @@
 - `bun run db:setup`
 - `bun run db:migrate`
 - `bun run db:seed`
+- `bun run db:seed-platform-admin-rbac`
+- `bun run db:bootstrap-platform-admin`
 - `bun run db:reset`
 
 ## Docker

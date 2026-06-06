@@ -67,6 +67,18 @@
         "db:migrate"
       ]
     },
+    "db:seed-platform-admin-rbac": {
+      "cache": false,
+      "dependsOn": [
+        "db:migrate"
+      ]
+    },
+    "db:bootstrap-platform-admin": {
+      "cache": false,
+      "dependsOn": [
+        "db:seed-platform-admin-rbac"
+      ]
+    },
     "db:reset": {
       "cache": false
     },

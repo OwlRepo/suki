@@ -33,7 +33,13 @@ describe("ClerkAuthGuard", () => {
   it("accepts canonical tyvera_session cookies", async () => {
     const { guard, validateSession } = makeGuard(
       vi.fn(async () => ({
-        user: { id: "u1", organizationId: "o1", role: "owner", email: "u@test.com" },
+        user: {
+          id: "u1",
+          organizationId: "o1",
+          role: "owner",
+          clerkId: "local_founder_1",
+          email: "u@test.com",
+        },
       })),
     );
     const { context, request } = makeContext("tyvera_session=current-token");
@@ -45,6 +51,7 @@ describe("ClerkAuthGuard", () => {
       organizationId: "o1",
       userId: "u1",
       role: "owner",
+      clerkId: "local_founder_1",
       email: "u@test.com",
     });
   });

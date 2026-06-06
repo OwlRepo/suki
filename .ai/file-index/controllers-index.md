@@ -15,5 +15,6 @@
 | `apps/api/src/imports/imports.controller.ts` | Contact import endpoints | Uses import/mapping/migration services | Parse/validate/commit/rollback with invalid nonblank mobile rejected before commit |
 | `apps/api/src/help/answer-source.controller.ts` | Assistant-ready read endpoints for app-scoped answers | Uses `AnswerSourceService` + `ClerkAuthGuard` | Source-only business summary, SMS usage, billing status, AI usage responses |
 | `apps/api/src/help/assistant.controller.ts` | Assistant chat + streaming endpoints for plain-language guided responses | Uses `AssistantService` + tenant auth context | Orchestrates OpenAI-backed answer generation and SSE streaming (`POST /help/assistant/chat`, `POST /help/assistant/chat/stream`) with safe action chips |
+| `apps/api/src/platform-admin/platform-admin.controller.ts` | Platform-admin session endpoint | Uses `ClerkAuthGuard`, `PlatformAdminGuard`, and `PlatformAdminService` | Serves `GET /platform-admin/session` with active platform-admin row, role codes, and resolved permission codes |
 | `apps/api/src/security/privacy.controller.ts` | Privacy export/correct/anonymize endpoints | Uses security services and owner guard | PII-sensitive operations |
 | `apps/api/src/licensing/licensing.controller.ts` | License activation and challenge endpoints | Uses licensing services | Activation and attestation |

@@ -9,16 +9,17 @@
 
 ## API Flow
 1. Client sends `tyvera_session` and/or optional Authorization token.
-2. `ClerkAuthGuard` (compatibility name) validates first-party session and resolves principal/tenant context, preferring `tyvera_session` over bearer token.
-3. Domain guards apply additional constraints (billing, owner, crm mode, founder).
+2. `ClerkAuthGuard` (compatibility name) validates first-party session and resolves principal/tenant context, preferring `tyvera_session` over bearer token. Tenant context includes `clerkId` so founder allowlist user IDs continue to work during bootstrap.
+3. Domain guards apply additional constraints (billing, owner, crm mode, founder, platform-admin RBAC).
 4. Controller executes service logic with guarded tenant scope.
 
 ## Web Route Protection Flow
 1. Request enters Next middleware (`proxy.ts`).
 2. Middleware allows routes through so API-origin session cookies are not rejected by a mismatched web-origin check.
 3. Dashboard and onboarding shells render `RequireSession`, which calls `useSession()` and redirects signed-out users to `/sign-in` without rendering protected content.
-4. Protected API data remains guarded server-side by first-party session validation.
-5. Public intake remains available for external booking users without dashboard access.
+4. Platform-admin pages render `RequireSession` and then `RequirePlatformAdmin`, which calls `/platform-admin/session`, redirects unauthenticated users to `/sign-in`, and redirects authenticated non-platform users to `/dashboard`.
+5. Protected API data remains guarded server-side by first-party session validation and route-specific guards.
+6. Public intake remains available for external booking users without dashboard access.
 
 ## Web Auth Stability Notes
 - `apps/web/src/lib/auth.tsx` keeps `getToken` referentially stable for effect safety in auth-aware pages/hooks.
@@ -31,8 +32,10 @@
 ## Key Modules
 - `apps/api/src/auth/*`
 - `apps/api/src/common/*guard.ts`
+- `apps/api/src/platform-admin/*`
 - `apps/web/src/lib/auth.tsx`
 - `apps/web/src/components/require-session.tsx`
+- `apps/web/src/components/platform-admin/require-platform-admin.tsx`
 - `apps/web/src/proxy.ts`
 - `apps/web/src/lib/protected-routes.ts`
 

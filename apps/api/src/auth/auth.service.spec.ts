@@ -22,6 +22,7 @@ const dbMock = vi.hoisted(() => ({
     subscriptions: { organizationId: "subscriptions.organizationId" },
     users: {
       id: "users.id",
+      clerkId: "users.clerkId",
       organizationId: "users.organizationId",
       role: "users.role",
       email: "users.email",

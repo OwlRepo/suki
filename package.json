@@ -21,6 +21,8 @@
     "db:migrate": "turbo run db:migrate --filter=@tyvera/database",
     "db:studio": "turbo run db:studio --filter=@tyvera/database",
     "db:seed": "turbo run db:seed --filter=@tyvera/database",
+    "db:seed-platform-admin-rbac": "turbo run db:seed-platform-admin-rbac --filter=@tyvera/database",
+    "db:bootstrap-platform-admin": "turbo run db:bootstrap-platform-admin --filter=@tyvera/database",
     "db:reset": "turbo run db:reset --filter=@tyvera/database",
     "db:reconcile-orphans": "turbo run db:reconcile-orphans --filter=@tyvera/database",
     "update:ai-indexes": "bun run scripts/update-ai-indexes.ts",

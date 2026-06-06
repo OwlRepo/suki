@@ -50,6 +50,7 @@ export class ClerkAuthGuard implements CanActivate {
       organizationId: session.user.organizationId,
       userId: session.user.id,
       role: session.user.role as "owner" | "staff",
+      clerkId: session.user.clerkId,
       email: session.user.email ?? undefined,
     };
 

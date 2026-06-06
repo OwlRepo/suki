@@ -204,6 +204,13 @@
       "when": 1780635397976,
       "tag": "0028_equal_micromax",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1780776243109,
+      "tag": "0029_nostalgic_agent_zero",
+      "breakpoints": true
     }
   ]
 }
