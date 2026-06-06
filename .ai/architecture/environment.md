@@ -4,6 +4,7 @@
 - Auth: Clerk keys/tokens (web + api auth flows)
 - Database: connection variables used by `@tyvera/database`
 - Billing: Lemon Squeezy API/store/webhook secrets, allowlisted variant ids, and rollout flags
+- Manual billing: platform-admin-only payment instruction variables for GCash and bank transfer copy
 - Messaging: Twilio SID/token, sender config, Verify Service SID, exact public inbound/status callback URLs, and Resend API key
 - Messaging smoke (optional): `SMOKE_REAL_PROVIDERS`, `SMOKE_TWILIO_TO`, `SMOKE_RESEND_TO`
 - AI: OpenAI keys and policy-related settings
@@ -27,3 +28,4 @@
 - Twilio production webhooks require `TWILIO_STATUS_CALLBACK_URL` and `TWILIO_INBOUND_SMS_WEBHOOK_URL` to match the exact public HTTPS URLs, including `/api` when routed through the production proxy.
 - Startup warnings must never print Twilio auth tokens or other secret values.
 - Platform-admin bootstrap variables must never create production credentials or passwords; use them only to assign the seeded `FOUNDER` role to an existing user.
+- `MANUAL_PAYMENT_GCASH_NUMBER`, `MANUAL_PAYMENT_GCASH_ACCOUNT_NAME`, `MANUAL_PAYMENT_BANK_NAME`, `MANUAL_PAYMENT_BANK_ACCOUNT_NUMBER`, and `MANUAL_PAYMENT_BANK_ACCOUNT_NAME` are rendered only inside platform-admin manual billing responses and must not be exposed on public/customer pages.

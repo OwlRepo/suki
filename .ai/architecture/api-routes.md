@@ -21,7 +21,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `POST /ai/check`, `GET /ai/usage/*`, `PATCH /ai/usage/policies`
 - `POST /help/assistant/chat`, `POST /help/assistant/chat/stream`, `GET /help/answer-source/*`
 - `GET /intake/config`, `POST /intake`, `GET /intake/availability`, `POST /intake/hold`, `POST /intake/otp/send`, `POST /intake/otp/verify`
-- `GET /platform-admin/session`
+- `GET /platform-admin/session`, `GET /platform-admin/organizations*`, `GET/POST /platform-admin/billing-requests*`, `POST /platform-admin/manual-payments/*`, `POST /platform-admin/organizations/:organizationId/sms-adjustments`, `GET /platform-admin/audit-logs`
 
 ## Auth Requirements
 - Most business routes are protected by `ClerkAuthGuard` (compatibility name for first-party session auth guard).
@@ -73,6 +73,10 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 ## Platform Admin Route Notes
 - `GET /platform-admin/session` returns the active platform-admin row, role codes, and resolved permission codes for the signed-in first-party session.
 - Authenticated non-platform users receive `403 Forbidden`; unauthenticated users are rejected by the first-party session guard before platform-admin authorization runs.
+- PR2 manual billing routes reuse the same `/platform-admin/*` namespace and `PlatformAdminGuard`; permission decorators gate list/create/void/payment/audit endpoints and the service performs action-specific checks for promotional grants vs corrections.
+- Manual billing request creation resolves SKUs from the canonical billing add-on catalog, snapshots purchase kind, units, quantity, PHP price, and a `TYV-YYYY-000001` reference number, then returns platform-admin-only payment instructions.
+- Manual payment confirmation runs in one transaction, requires exact PHP amount match, checks existing fulfillments before grant, calls shared provider-neutral add-on grant services, inserts fulfillment rows, marks payment/request state, and writes platform-admin audit logs.
+- SMS adjustments require a reason, write reconciliation/audit rows through the shared grant primitive, and reject negative corrections that would reduce remaining credits below zero.
 
 ## Public Intake OTP Notes
 - Public intake submit reuses an existing customer by exact normalized business/mobile when available, and creates a new customer only when no safe mobile identity match exists.

@@ -1,4 +1,9 @@
-import type { BillingInterval, BillingPurchaseKind, PlanType } from "@tyvera/types";
+import type {
+  BillingAddonSku,
+  BillingInterval,
+  BillingPurchaseKind,
+  PlanType,
+} from "@tyvera/types";
 
 export interface PlanCatalogEntry {
   planType: PlanType;
@@ -19,16 +24,7 @@ export interface PlanCatalogEntry {
 }
 
 export interface BillingAddonCatalogEntry {
-  sku:
-    | "online-booking-topup-10"
-    | "online-booking-topup-25"
-    | "online-booking-topup-50"
-    | "online-booking-topup-100"
-    | "online-booking-topup-250"
-    | "sms-segment-topup-25"
-    | "sms-segment-topup-50"
-    | "sms-segment-topup-100"
-    | "sms-segment-topup-250";
+  sku: BillingAddonSku;
   purchaseKind: Exclude<BillingPurchaseKind, "subscription">;
   units: number;
   pricePhp: number;

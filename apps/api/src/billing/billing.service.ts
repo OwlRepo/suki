@@ -19,7 +19,7 @@ import {
 } from "@tyvera/database";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { createHash } from "crypto";
-import type { BillingInterval, PlanType } from "@tyvera/types";
+import type { BillingAddonSku, BillingInterval, PlanType } from "@tyvera/types";
 import {
   LemonsqueezyService,
   type LemonSubscriptionResponse,
@@ -33,17 +33,8 @@ import {
   resolveAddonSku,
   resolveSubscriptionVariantEnvKey,
 } from "./plan-catalog";
-
-type AddonSku =
-  | "online-booking-topup-10"
-  | "online-booking-topup-25"
-  | "online-booking-topup-50"
-  | "online-booking-topup-100"
-  | "online-booking-topup-250"
-  | "sms-segment-topup-25"
-  | "sms-segment-topup-50"
-  | "sms-segment-topup-100"
-  | "sms-segment-topup-250";
+import { SmsAddonGrantService } from "./sms-addon-grant.service";
+import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant.service";
 
 type SubscriptionStatus =
   | "active"
@@ -67,7 +58,11 @@ type LemonWebhookPayload = {
 
 @Injectable()
 export class BillingService {
-  constructor(private readonly lemonsqueezy: LemonsqueezyService) {}
+  constructor(
+    private readonly lemonsqueezy: LemonsqueezyService,
+    private readonly smsAddonGrant: SmsAddonGrantService = new SmsAddonGrantService(),
+    private readonly verifiedBookingAddonGrant: VerifiedBookingAddonGrantService = new VerifiedBookingAddonGrantService(),
+  ) {}
 
   private isSelfServeBillingEnabled(): boolean {
     return process.env.FF_self_serve_billing_enabled === "true";
@@ -248,7 +243,7 @@ export class BillingService {
   async createAddonCheckout(input: {
     organizationId: string;
     userId: string;
-    sku: AddonSku;
+    sku: BillingAddonSku;
   }) {
     if (!this.isSelfServeBillingEnabled()) {
       this.throwBillingDisabled();
@@ -735,57 +730,29 @@ export class BillingService {
       return;
     }
 
-    const addon = resolveAddonSku(sku as AddonSku);
+    const addon = resolveAddonSku(sku as BillingAddonSku);
     if (purchaseKind === "online_booking_topup") {
-      const ledger = await this.getOrCreateVerifiedBookingLedger(
-        tx,
-        organizationId,
-      );
-      await tx
-        .update(verifiedOnlineBookingCredits)
-        .set({
-          addonGranted: ledger.addonGranted + addon.units,
-          used: ledger.used,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(verifiedOnlineBookingCredits.organizationId, organizationId),
-            eq(verifiedOnlineBookingCredits.month, ledger.month),
-          ),
-        );
-      await tx.insert(verifiedOnlineBookingAddons).values({
+      await this.verifiedBookingAddonGrant.grant({
         organizationId,
         units: addon.units,
         pricePhp: addon.pricePhp,
         sku: addon.sku,
-        providerOrderId: eventId,
+        source: "lemonsqueezy",
+        sourceReference: eventId ?? `order_created:${organizationId}:${sku}`,
         purchasedByUserId: userId,
-      });
+      }, tx);
       return;
     }
 
     if (purchaseKind === "sms_segment_topup") {
-      const ledger = await this.getOrCreateSmsLedger(tx, organizationId);
-      await tx
-        .update(smsCredits)
-        .set({
-          addon: ledger.addon + addon.units,
-          used: ledger.used,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(smsCredits.organizationId, organizationId),
-            eq(smsCredits.month, ledger.month),
-          ),
-        );
-      await tx.insert(smsAddons).values({
+      await this.smsAddonGrant.grant({
         organizationId,
-        packSize: addon.units,
-        packPricePhp: addon.pricePhp,
+        units: addon.units,
+        pricePhp: addon.pricePhp,
+        source: "lemonsqueezy",
+        sourceReference: eventId ?? `order_created:${organizationId}:${sku}`,
         purchasedByUserId: userId,
-      });
+      }, tx);
     }
   }
 
@@ -806,7 +773,7 @@ export class BillingService {
       return;
     }
 
-    const addon = resolveAddonSku(sku as AddonSku);
+    const addon = resolveAddonSku(sku as BillingAddonSku);
     if (purchaseKind === "online_booking_topup") {
       const ledger = await this.getOrCreateVerifiedBookingLedger(tx, organizationId);
       const addonUsed = Math.max(0, ledger.used - ledger.includedGranted);

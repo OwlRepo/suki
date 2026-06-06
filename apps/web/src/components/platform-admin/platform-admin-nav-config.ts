@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { ShieldCheck } from "lucide-react";
+import { Building2, ClipboardList, FileClock, ShieldCheck } from "lucide-react";
 
 export interface PlatformAdminNavItem {
   href: string;
@@ -18,7 +18,16 @@ export function getPlatformAdminNavGroups(): PlatformAdminNavGroup[] {
     {
       key: "operations",
       label: "Operations",
-      items: [{ href: "/platform-admin", label: "Overview", icon: ShieldCheck }],
+      items: [
+        { href: "/platform-admin", label: "Overview", icon: ShieldCheck },
+        { href: "/platform-admin/businesses", label: "Businesses", icon: Building2 },
+        {
+          href: "/platform-admin/billing-requests",
+          label: "Billing Requests",
+          icon: ClipboardList,
+        },
+        { href: "/platform-admin/audit-logs", label: "Audit Logs", icon: FileClock },
+      ],
     },
   ];
 }

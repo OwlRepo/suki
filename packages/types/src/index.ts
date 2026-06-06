@@ -16,6 +16,19 @@ export type BillingAddonSku =
   | "sms-segment-topup-50"
   | "sms-segment-topup-100"
   | "sms-segment-topup-250";
+export type AddonFulfillmentSource =
+  | "lemonsqueezy"
+  | "manual_payment"
+  | "admin_adjustment";
+export type ManualBillingRequestStatus =
+  | "draft"
+  | "awaiting_payment"
+  | "payment_reported"
+  | "paid_and_fulfilled"
+  | "rejected"
+  | "void";
+export type ManualPaymentMethod = "gcash" | "bank_transfer" | "other";
+export type ManualPaymentStatus = "pending" | "verified" | "rejected";
 export type PlatformAdminRoleCode =
   | "FOUNDER"
   | "OPERATIONS"

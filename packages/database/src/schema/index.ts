@@ -91,6 +91,27 @@ export const platformAdminStatusEnum = pgEnum("platform_admin_status", [
   "active",
   "disabled",
 ]);
+export const manualBillingRequestStatusEnum = pgEnum(
+  "manual_billing_request_status",
+  [
+    "draft",
+    "awaiting_payment",
+    "payment_reported",
+    "paid_and_fulfilled",
+    "rejected",
+    "void",
+  ],
+);
+export const manualPaymentStatusEnum = pgEnum("manual_payment_status", [
+  "pending",
+  "verified",
+  "rejected",
+]);
+export const manualPaymentMethodEnum = pgEnum("manual_payment_method", [
+  "gcash",
+  "bank_transfer",
+  "other",
+]);
 
 // Organizations — tenant for multi-business (future)
 export const organizations = pgTable("organizations", {
@@ -253,6 +274,34 @@ export const adminRolePermissions = pgTable(
       t.adminRoleId,
       t.adminPermissionId,
     ),
+  ],
+);
+
+export const platformAdminAuditLogs = pgTable(
+  "platform_admin_audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorPlatformAdminId: uuid("actor_platform_admin_id").references(
+      () => platformAdmins.id,
+      { onDelete: "set null" },
+    ),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    action: text("action").notNull(),
+    entity: text("entity").notNull(),
+    entityId: uuid("entity_id"),
+    details: jsonb("details"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("platform_admin_audit_logs_actor_idx").on(t.actorPlatformAdminId),
+    index("platform_admin_audit_logs_organization_idx").on(t.organizationId),
+    index("platform_admin_audit_logs_action_idx").on(t.action),
+    index("platform_admin_audit_logs_created_at_idx").on(t.createdAt),
   ],
 );
 
@@ -982,21 +1031,33 @@ export const emailUsageEvents = pgTable("email_usage_events", {
 });
 
 // SMS add-ons — purchased packs, consumed oldest first
-export const smsAddons = pgTable("sms_addons", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: uuid("organization_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  packSize: integer("pack_size").notNull(),
-  packPricePhp: integer("pack_price_php").notNull(),
-  purchasedByUserId: uuid("purchased_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  purchasedAt: timestamp("purchased_at").defaultNow().notNull(),
-  consumedUnits: integer("consumed_units").notNull().default(0),
-  refundedUnits: integer("refunded_units").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const smsAddons = pgTable(
+  "sms_addons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    packSize: integer("pack_size").notNull(),
+    packPricePhp: integer("pack_price_php").notNull(),
+    source: text("source").notNull().default("lemonsqueezy"),
+    sourceReference: text("source_reference"),
+    purchasedByUserId: uuid("purchased_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    purchasedAt: timestamp("purchased_at").defaultNow().notNull(),
+    consumedUnits: integer("consumed_units").notNull().default(0),
+    refundedUnits: integer("refunded_units").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("sms_addons_source_reference_unique").on(
+      t.source,
+      t.sourceReference,
+    ),
+    index("sms_addons_organization_idx").on(t.organizationId),
+  ],
+);
 
 // Verified online-booking OTP credits — monthly included + purchased add-ons
 export const verifiedOnlineBookingCredits = pgTable(
@@ -1086,23 +1147,161 @@ export const publicOtpSendEvents = pgTable(
   ],
 );
 
-export const verifiedOnlineBookingAddons = pgTable("verified_online_booking_addons", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: uuid("organization_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  units: integer("units").notNull(),
-  pricePhp: integer("price_php").notNull(),
-  sku: text("sku").notNull(),
-  providerOrderId: text("provider_order_id"),
-  purchasedByUserId: uuid("purchased_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  purchasedAt: timestamp("purchased_at").defaultNow().notNull(),
-  consumedUnits: integer("consumed_units").notNull().default(0),
-  refundedUnits: integer("refunded_units").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const verifiedOnlineBookingAddons = pgTable(
+  "verified_online_booking_addons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    units: integer("units").notNull(),
+    pricePhp: integer("price_php").notNull(),
+    sku: text("sku").notNull(),
+    providerOrderId: text("provider_order_id"),
+    source: text("source").notNull().default("lemonsqueezy"),
+    sourceReference: text("source_reference"),
+    purchasedByUserId: uuid("purchased_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    purchasedAt: timestamp("purchased_at").defaultNow().notNull(),
+    consumedUnits: integer("consumed_units").notNull().default(0),
+    refundedUnits: integer("refunded_units").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("verified_booking_addons_source_reference_unique").on(
+      t.source,
+      t.sourceReference,
+    ),
+    index("verified_booking_addons_organization_idx").on(t.organizationId),
+  ],
+);
+
+export const manualBillingRequests = pgTable(
+  "manual_billing_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    referenceNumber: text("reference_number").notNull(),
+    status: manualBillingRequestStatusEnum("status")
+      .notNull()
+      .default("draft"),
+    totalAmountPhp: integer("total_amount_php").notNull(),
+    dueAt: timestamp("due_at"),
+    notes: text("notes"),
+    createdByPlatformAdminId: uuid("created_by_platform_admin_id").references(
+      () => platformAdmins.id,
+      { onDelete: "set null" },
+    ),
+    voidedByPlatformAdminId: uuid("voided_by_platform_admin_id").references(
+      () => platformAdmins.id,
+      { onDelete: "set null" },
+    ),
+    voidedAt: timestamp("voided_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("manual_billing_requests_reference_number_unique").on(
+      t.referenceNumber,
+    ),
+    index("manual_billing_requests_organization_idx").on(t.organizationId),
+    index("manual_billing_requests_status_idx").on(t.status),
+    index("manual_billing_requests_created_at_idx").on(t.createdAt),
+  ],
+);
+
+export const manualBillingRequestItems = pgTable(
+  "manual_billing_request_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    billingRequestId: uuid("billing_request_id")
+      .notNull()
+      .references(() => manualBillingRequests.id, { onDelete: "cascade" }),
+    sku: text("sku").notNull(),
+    purchaseKind: text("purchase_kind").notNull(),
+    units: integer("units").notNull(),
+    unitPricePhp: integer("unit_price_php").notNull(),
+    quantity: integer("quantity").notNull(),
+    totalAmountPhp: integer("total_amount_php").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("manual_billing_request_items_request_idx").on(t.billingRequestId),
+  ],
+);
+
+export const manualPayments = pgTable(
+  "manual_payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    billingRequestId: uuid("billing_request_id")
+      .notNull()
+      .references(() => manualBillingRequests.id, { onDelete: "cascade" }),
+    method: manualPaymentMethodEnum("method").notNull(),
+    amountPhp: integer("amount_php").notNull(),
+    status: manualPaymentStatusEnum("status").notNull().default("pending"),
+    externalReference: text("external_reference"),
+    proofUrl: text("proof_url"),
+    notes: text("notes"),
+    recordedByPlatformAdminId: uuid("recorded_by_platform_admin_id").references(
+      () => platformAdmins.id,
+      { onDelete: "set null" },
+    ),
+    verifiedByPlatformAdminId: uuid("verified_by_platform_admin_id").references(
+      () => platformAdmins.id,
+      { onDelete: "set null" },
+    ),
+    verifiedAt: timestamp("verified_at"),
+    rejectedByPlatformAdminId: uuid("rejected_by_platform_admin_id").references(
+      () => platformAdmins.id,
+      { onDelete: "set null" },
+    ),
+    rejectedAt: timestamp("rejected_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("manual_payments_request_idx").on(t.billingRequestId),
+    index("manual_payments_status_idx").on(t.status),
+  ],
+);
+
+export const manualBillingFulfillments = pgTable(
+  "manual_billing_fulfillments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    billingRequestItemId: uuid("billing_request_item_id")
+      .notNull()
+      .references(() => manualBillingRequestItems.id, { onDelete: "cascade" }),
+    manualPaymentId: uuid("manual_payment_id")
+      .notNull()
+      .references(() => manualPayments.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    purchaseKind: text("purchase_kind").notNull(),
+    units: integer("units").notNull(),
+    source: text("source").notNull().default("manual_payment"),
+    sourceReference: text("source_reference").notNull(),
+    fulfilledByPlatformAdminId: uuid(
+      "fulfilled_by_platform_admin_id",
+    ).references(() => platformAdmins.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("manual_billing_fulfillments_item_unique").on(
+      t.billingRequestItemId,
+    ),
+    unique("manual_billing_fulfillments_source_reference_unique").on(
+      t.source,
+      t.sourceReference,
+    ),
+    index("manual_billing_fulfillments_payment_idx").on(t.manualPaymentId),
+  ],
+);
 
 // Consent audit logs — when/why consent changed
 export const consentAuditLogs = pgTable("consent_audit_logs", {
