@@ -37,6 +37,23 @@ jobs:
             git checkout main
             git pull --ff-only origin main
 
+            mkdir -p ~/apps/tyvera-backups
+            if docker compose -f docker-compose.prod.yml ps -q postgres | grep -q .; then
+              backup_file=~/apps/tyvera-backups/tyvera-$(date +%F-%H%M%S).sql
+              echo "creating PostgreSQL backup: $backup_file"
+              docker compose -f docker-compose.prod.yml exec -T postgres \
+                pg_dump -U postgres -d tyvera \
+                > "$backup_file"
+              test -s "$backup_file"
+              find ~/apps/tyvera-backups \
+                -type f \
+                -name 'tyvera-*.sql' \
+                -mtime +14 \
+                -delete
+            else
+              echo "skipping PostgreSQL backup: production postgres container is not running"
+            fi
+
             for i in 1 2 3 4 5; do
               docker pull postgres:16-alpine && break
               echo "postgres pull retry $i..."
@@ -66,6 +83,22 @@ jobs:
               docker compose -f docker-compose.prod.yml logs --tail=120 api web postgres
               exit 1
             fi
+
+            echo "seeding platform-admin RBAC"
+            docker compose -f docker-compose.prod.yml exec -T api \
+              sh -lc 'cd /app && bun run db:seed-platform-admin-rbac'
+
+            echo "checking platform-admin founder bootstrap"
+            docker compose -f docker-compose.prod.yml exec -T api \
+              sh -lc '
+                cd /app
+                if [ -n "${PLATFORM_ADMIN_BOOTSTRAP_USER_ID:-}" ] || \
+                   [ -n "${PLATFORM_ADMIN_BOOTSTRAP_EMAIL:-}" ]; then
+                  bun run db:bootstrap-platform-admin
+                else
+                  echo "skipping platform-admin founder bootstrap: no bootstrap env configured"
+                fi
+              '
 
             web_ok=0
             for i in 1 2 3 4 5 6 7 8 9 10; do
