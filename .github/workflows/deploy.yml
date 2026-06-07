@@ -86,7 +86,7 @@ jobs:
 
             echo "seeding platform-admin RBAC"
             docker compose -f docker-compose.prod.yml exec -T api \
-              sh -lc 'cd /app && bun run db:seed-platform-admin-rbac'
+              sh -lc 'cd /app && bun run --no-env-file packages/database/scripts/seed-platform-admin-rbac.ts'
 
             echo "checking platform-admin founder bootstrap"
             docker compose -f docker-compose.prod.yml exec -T api \
@@ -94,7 +94,7 @@ jobs:
                 cd /app
                 if [ -n "${PLATFORM_ADMIN_BOOTSTRAP_USER_ID:-}" ] || \
                    [ -n "${PLATFORM_ADMIN_BOOTSTRAP_EMAIL:-}" ]; then
-                  bun run db:bootstrap-platform-admin
+                  bun run --no-env-file packages/database/scripts/bootstrap-platform-admin.ts
                 else
                   echo "skipping platform-admin founder bootstrap: no bootstrap env configured"
                 fi
