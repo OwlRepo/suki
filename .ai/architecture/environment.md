@@ -6,6 +6,7 @@
 - Billing: Lemon Squeezy API/store/webhook secrets, allowlisted variant ids, and rollout flags
 - Manual billing: platform-admin-only payment instruction variables for GCash and bank transfer copy
 - Messaging: Twilio SID/token, sender config, Verify Service SID, exact public inbound/status callback URLs, and Resend API key
+- Provider monitoring: `SEMAPHORE_API_KEY`, `SEMAPHORE_CREDIT_WARNING_THRESHOLD`, `SEMAPHORE_CREDIT_CRITICAL_THRESHOLD`, and `SEMAPHORE_RECONCILIATION_ENABLED` control Semaphore health snapshots and missing-run alerts
 - Messaging smoke (optional): `SMOKE_REAL_PROVIDERS`, `SMOKE_TWILIO_TO`, `SMOKE_RESEND_TO`
 - AI: OpenAI keys and policy-related settings
 - App runtime: `NODE_ENV`, app URLs, tenant/business context flags
@@ -29,3 +30,4 @@
 - Startup warnings must never print Twilio auth tokens or other secret values.
 - Platform-admin bootstrap variables must never create production credentials or passwords; use them only to assign the seeded `FOUNDER` role to an existing user.
 - `MANUAL_PAYMENT_GCASH_NUMBER`, `MANUAL_PAYMENT_GCASH_ACCOUNT_NAME`, `MANUAL_PAYMENT_BANK_NAME`, `MANUAL_PAYMENT_BANK_ACCOUNT_NUMBER`, and `MANUAL_PAYMENT_BANK_ACCOUNT_NAME` are rendered only inside platform-admin manual billing responses and must not be exposed on public/customer pages.
+- `SEMAPHORE_CREDIT_WARNING_THRESHOLD` defaults to 500 and `SEMAPHORE_CREDIT_CRITICAL_THRESHOLD` defaults to 200 when unset; provider-health snapshots and low-credit alerts must never expose the API key.

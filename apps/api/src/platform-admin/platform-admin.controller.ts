@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -20,6 +21,8 @@ import { RequirePlatformAdminPermissions } from "./platform-admin.decorator";
 import { PlatformAdminBillingService } from "./platform-admin-billing.service";
 import { PlatformAdminCommunicationsService } from "./platform-admin-communications.service";
 import { PlatformAdminService } from "./platform-admin.service";
+import { OperationsAlertService } from "../operations/operations-alert.service";
+import { ProviderHealthService } from "../operations/provider-health.service";
 
 @Controller("platform-admin")
 @UseGuards(ClerkAuthGuard, PlatformAdminGuard)
@@ -28,6 +31,8 @@ export class PlatformAdminController {
     private readonly platformAdminService: PlatformAdminService,
     private readonly platformAdminBillingService: PlatformAdminBillingService,
     private readonly platformAdminCommunicationsService: PlatformAdminCommunicationsService,
+    private readonly operationsAlertService: OperationsAlertService,
+    private readonly providerHealthService: ProviderHealthService,
   ) {}
 
   @Get("session")
@@ -111,6 +116,63 @@ export class PlatformAdminController {
     return this.platformAdminCommunicationsService.getCommunicationDetail(
       messageEventId,
     );
+  }
+
+  @Get("automation-runs")
+  @RequirePlatformAdminPermissions("AUTOMATION_RUN_VIEW")
+  listAutomationRuns(
+    @Query("jobKey") jobKey?: string,
+    @Query("status") status?: "running" | "completed" | "failed",
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.operationsAlertService.listAutomationRuns({
+      jobKey,
+      status,
+      from,
+      to,
+      page,
+      limit,
+    });
+  }
+
+  @Get("provider-health")
+  @RequirePlatformAdminPermissions("ALERT_VIEW")
+  getProviderHealth() {
+    return this.providerHealthService.getProviderHealth();
+  }
+
+  @Get("alerts")
+  @RequirePlatformAdminPermissions("ALERT_VIEW")
+  listAlerts(
+    @Query("status") status?: "open" | "acknowledged" | "resolved" | "all",
+    @Query("severity") severity?: "info" | "warning" | "critical" | "all",
+    @Query("provider") provider?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.operationsAlertService.listAlerts({
+      status,
+      severity,
+      provider,
+      page,
+      limit,
+    });
+  }
+
+  @Patch("alerts/:alertId")
+  @RequirePlatformAdminPermissions("ALERT_ACKNOWLEDGE")
+  updateAlert(
+    @Req() request: PlatformAdminRequest,
+    @Param("alertId") alertId: string,
+    @Body() body: { action: "acknowledge" | "resolve" },
+  ) {
+    return this.operationsAlertService.updateAlert(alertId, {
+      action: body.action,
+      platformAdminId: this.requirePlatformAdmin(request).id,
+    });
   }
 
   @Get("billing-requests")

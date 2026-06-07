@@ -218,6 +218,13 @@
       "when": 1780777819852,
       "tag": "0030_small_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1780805187550,
+      "tag": "0031_same_shockwave",
+      "breakpoints": true
     }
   ]
 }

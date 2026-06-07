@@ -18,11 +18,20 @@ import {
 import type {
   PlatformAdminCommunicationsSummary,
 } from "@/components/platform-admin/communications/platform-admin-communications.types";
+import {
+  getPlatformAdminOperationsOverview,
+} from "@/components/platform-admin/operations/platform-admin-operations.api";
+import type {
+  PlatformAdminOperationsOverview,
+  PlatformAdminProviderHealthSnapshot,
+} from "@/components/platform-admin/operations/platform-admin-operations.types";
 
 export function PlatformAdminOverviewPage() {
   const [session, setSession] = useState<PlatformAdminSession | null>(null);
   const [communicationsSummary, setCommunicationsSummary] =
     useState<PlatformAdminCommunicationsSummary | null>(null);
+  const [operationsOverview, setOperationsOverview] =
+    useState<PlatformAdminOperationsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +48,14 @@ export function PlatformAdminOverviewPage() {
         );
       } else {
         setCommunicationsSummary(null);
+      }
+      if (
+        sessionResponse.permissions.includes("ALERT_VIEW") &&
+        sessionResponse.permissions.includes("AUTOMATION_RUN_VIEW")
+      ) {
+        setOperationsOverview(await getPlatformAdminOperationsOverview());
+      } else {
+        setOperationsOverview(null);
       }
     } catch (err) {
       setError(
@@ -154,18 +171,55 @@ export function PlatformAdminOverviewPage() {
               <OverviewMetricCard
                 label="SMS failures in last 24 hours"
                 value={communicationsSummary.totals.smsFailed}
+                href="/platform-admin/communications"
               />
               <OverviewMetricCard
                 label="Email failures in last 24 hours"
                 value={communicationsSummary.totals.emailFailed}
+                href="/platform-admin/communications"
               />
               <OverviewMetricCard
                 label="Open manual follow-ups"
                 value={communicationsSummary.totals.openManualFollowUps}
+                href="/platform-admin/communications"
               />
               <OverviewMetricCard
                 label="OTP failures in last 24 hours"
                 value={communicationsSummary.totals.otpSendFailures}
+                href="/platform-admin/communications"
+              />
+            </section>
+          ) : null}
+
+          {operationsOverview ? (
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <OverviewMetricCard
+                label="Semaphore provider health"
+                value={formatProviderHealth(
+                  operationsOverview.providerHealth.find(
+                    (provider) => provider.provider === "semaphore",
+                  ),
+                )}
+                href="/platform-admin/alerts"
+              />
+              <OverviewMetricCard
+                label="Resend provider health"
+                value={formatProviderHealth(
+                  operationsOverview.providerHealth.find(
+                    (provider) => provider.provider === "resend",
+                  ),
+                )}
+                href="/platform-admin/alerts"
+              />
+              <OverviewMetricCard
+                label="Critical alerts"
+                value={operationsOverview.criticalAlerts}
+                href="/platform-admin/alerts"
+              />
+              <OverviewMetricCard
+                label="Failed automation runs"
+                value={operationsOverview.failedAutomationRunsLast24h}
+                href="/platform-admin/automation-runs"
               />
             </section>
           ) : null}
@@ -175,16 +229,36 @@ export function PlatformAdminOverviewPage() {
   );
 }
 
-function OverviewMetricCard({ label, value }: { label: string; value: number }) {
+function OverviewMetricCard({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: number | string;
+  href: string;
+}) {
   return (
     <Link
-      href="/platform-admin/communications"
+      href={href}
       className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50 sm:p-5"
     >
       <p className="text-sm font-semibold text-slate-600">{label}</p>
       <p className="mt-2 text-3xl font-bold text-slate-950">
-        {new Intl.NumberFormat("en-PH").format(value)}
+        {typeof value === "number"
+          ? new Intl.NumberFormat("en-PH").format(value)
+          : value}
       </p>
     </Link>
   );
+}
+
+function formatProviderHealth(
+  snapshot: PlatformAdminProviderHealthSnapshot | undefined,
+) {
+  if (!snapshot) return "Unknown";
+  if (snapshot.creditBalance !== null) {
+    return `${snapshot.status} (${new Intl.NumberFormat("en-PH").format(snapshot.creditBalance)})`;
+  }
+  return snapshot.status;
 }

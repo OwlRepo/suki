@@ -7,9 +7,10 @@ import { AutomationTriggerService } from "./automation-trigger.service";
 import { AutomationSchedulerService } from "./automation-scheduler.service";
 import { AutomationMessageComposerService } from "./automation-message-composer.service";
 import { AutomationSendService } from "./automation-send.service";
+import { OperationsModule } from "../operations/operations.module";
 
 @Module({
-  imports: [AuthModule, MessagingModule],
+  imports: [AuthModule, MessagingModule, OperationsModule],
   controllers: [AutomationController],
   providers: [
     AutomationSettingsService,

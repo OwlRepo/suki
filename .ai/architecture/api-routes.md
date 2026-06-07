@@ -21,7 +21,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - `POST /ai/check`, `GET /ai/usage/*`, `PATCH /ai/usage/policies`
 - `POST /help/assistant/chat`, `POST /help/assistant/chat/stream`, `GET /help/answer-source/*`
 - `GET /intake/config`, `POST /intake`, `GET /intake/availability`, `POST /intake/hold`, `POST /intake/otp/send`, `POST /intake/otp/verify`
-- `GET /platform-admin/session`, `GET /platform-admin/organizations*`, `GET/POST /platform-admin/billing-requests*`, `POST /platform-admin/manual-payments/*`, `POST /platform-admin/organizations/:organizationId/sms-adjustments`, `GET /platform-admin/communications*`, `GET /platform-admin/audit-logs`
+- `GET /platform-admin/session`, `GET /platform-admin/organizations*`, `GET/POST /platform-admin/billing-requests*`, `POST /platform-admin/manual-payments/*`, `POST /platform-admin/organizations/:organizationId/sms-adjustments`, `GET /platform-admin/communications*`, `GET /platform-admin/automation-runs`, `GET /platform-admin/provider-health`, `GET/PATCH /platform-admin/alerts*`, `GET /platform-admin/audit-logs`
 
 ## Auth Requirements
 - Most business routes are protected by `ClerkAuthGuard` (compatibility name for first-party session auth guard).
@@ -79,6 +79,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - Manual payment confirmation runs in one transaction, requires exact PHP amount match, checks existing fulfillments before grant, calls shared provider-neutral add-on grant services, inserts fulfillment rows, marks payment/request state, and writes platform-admin audit logs.
 - SMS adjustments require a reason, write reconciliation/audit rows through the shared grant primitive, and reject negative corrections that would reduce remaining credits below zero.
 - Communications monitoring routes (`GET /platform-admin/communications`, `/communications/summary`, and `/communications/:messageEventId`) require `COMMUNICATION_VIEW`, reuse existing `message_events` / usage / manual follow-up / public OTP records, mask recipient details, and do not expose full message content or raw provider metadata.
+- Operations monitoring routes (`GET /platform-admin/automation-runs`, `GET /platform-admin/provider-health`, `GET /platform-admin/alerts`, and `PATCH /platform-admin/alerts/:alertId`) reuse the platform-admin namespace and guard; `AUTOMATION_RUN_VIEW` gates scheduler history, `ALERT_VIEW` gates provider/alert reads, and `ALERT_ACKNOWLEDGE` gates acknowledge/resolve actions.
 
 ## Public Intake OTP Notes
 - Public intake submit reuses an existing customer by exact normalized business/mobile when available, and creates a new customer only when no safe mobile identity match exists.

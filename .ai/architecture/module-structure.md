@@ -4,6 +4,7 @@
 - `apps/web`: UI routes, components, hooks, client domain flows
 - `apps/api`: Nest modules for auth, billing, messaging, crm, customers, imports, automation, security, licensing, etc.
 - `apps/api/src/platform-admin`: internal Tyvera platform-admin authorization and session module under `/platform-admin/*`
+- `apps/api/src/operations`: internal scheduler-run tracking, provider-health snapshots, and operational alert evaluation services
 - `packages/database`: migration scripts and database utilities
 - `packages/ui`: reusable UI components
 - `packages/types`: shared type contracts
@@ -15,10 +16,11 @@
 - `*.service.ts` encapsulates domain logic
 - guards/filters in `apps/api/src/common` + `apps/api/src/auth`
 - platform-admin authorization in `apps/api/src/platform-admin`
+- operations monitoring is integrated by API services through `OperationsModule`, not a separate app/API
 
 ## Frontend Module Pattern
 - `src/app/**` page/layout routes
 - `src/components/**` UI/domain components
-- `src/components/platform-admin/**` internal console guard, shell, and overview components
+- `src/components/platform-admin/**` internal console guard, shell, overview, billing, communications, and operations components
 - `src/hooks/**` reusable behavior hooks
 - `src/lib/**` API helpers, utilities, environment behavior

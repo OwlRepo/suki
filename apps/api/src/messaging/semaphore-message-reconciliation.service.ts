@@ -9,6 +9,7 @@ import {
   SEMAPHORE_RECONCILIATION_LOOKBACK_HOURS,
 } from "./manual-follow-ups/manual-follow-up.constants";
 import { ManualFollowUpService } from "./manual-follow-ups/manual-follow-up.service";
+import { AutomationJobRunService } from "../operations/automation-job-run.service";
 
 export function stripKnownAutomationFooter(body: string): string {
   const footer = " Sent automatically by Tyvera";
@@ -17,12 +18,23 @@ export function stripKnownAutomationFooter(body: string): string {
 
 @Injectable()
 export class SemaphoreMessageReconciliationService {
-  constructor(private readonly manualFollowUps: ManualFollowUpService) {}
+  constructor(
+    private readonly manualFollowUps: ManualFollowUpService,
+    private readonly jobRuns: AutomationJobRunService,
+  ) {}
 
   @Cron(SEMAPHORE_RECONCILIATION_CRON)
   async runScheduledReconciliation() {
     if (process.env.SEMAPHORE_RECONCILIATION_ENABLED !== "true") return;
-    await this.reconcileRecentMessages();
+    await this.jobRuns.record("semaphore_reconciliation", async () => {
+      const result = await this.reconcileRecentMessages();
+      return {
+        processedCount: result.checked,
+        successCount: Math.max(0, result.checked - result.failed),
+        failureCount: result.failed,
+        result,
+      };
+    });
   }
 
   async reconcileRecentMessages() {

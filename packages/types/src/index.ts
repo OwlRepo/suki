@@ -55,6 +55,10 @@ export type PlatformAdminPermission =
   | "ALERT_VIEW"
   | "ALERT_ACKNOWLEDGE"
   | "AUDIT_LOG_VIEW";
+export type AutomationJobRunStatus = "running" | "completed" | "failed";
+export type ProviderHealthStatus = "healthy" | "degraded" | "down" | "unknown";
+export type OperationsAlertSeverity = "info" | "warning" | "critical";
+export type OperationsAlertStatus = "open" | "acknowledged" | "resolved";
 
 // Message automation types
 export type MessagePurpose = "transactional" | "promotional";

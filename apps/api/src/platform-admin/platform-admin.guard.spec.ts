@@ -144,4 +144,44 @@ describe("PlatformAdminGuard", () => {
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it("allows operations users to view automation runs and acknowledge alerts", async () => {
+    vi.mocked(service.resolveActivePlatformAdmin).mockResolvedValue({
+      id: "platform-admin-operations",
+      userId: "operations-user-1",
+      roleCodes: ["OPERATIONS"],
+      permissions: new Set<PlatformAdminPermission>([
+        "PLATFORM_ADMIN_ACCESS",
+        "AUTOMATION_RUN_VIEW",
+        "ALERT_VIEW",
+        "ALERT_ACKNOWLEDGE",
+      ]),
+    });
+    const guard = new PlatformAdminGuard(new Reflector(), service as PlatformAdminService);
+    const { context } = makeContext({
+      userId: "operations-user-1",
+      requiredPermissions: ["ALERT_ACKNOWLEDGE"],
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it("denies finance users from acknowledging alerts unless explicitly granted", async () => {
+    vi.mocked(service.resolveActivePlatformAdmin).mockResolvedValue({
+      id: "platform-admin-finance",
+      userId: "finance-user-1",
+      roleCodes: ["FINANCE"],
+      permissions: new Set<PlatformAdminPermission>([
+        "PLATFORM_ADMIN_ACCESS",
+        "PAYMENT_VERIFY",
+      ]),
+    });
+    const guard = new PlatformAdminGuard(new Reflector(), service as PlatformAdminService);
+    const { context } = makeContext({
+      userId: "finance-user-1",
+      requiredPermissions: ["ALERT_ACKNOWLEDGE"],
+    });
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });

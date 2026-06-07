@@ -112,6 +112,20 @@ export const manualPaymentMethodEnum = pgEnum("manual_payment_method", [
   "bank_transfer",
   "other",
 ]);
+export const automationJobRunStatusEnum = pgEnum("automation_job_run_status", [
+  "running",
+  "completed",
+  "failed",
+]);
+export const operationsAlertSeverityEnum = pgEnum(
+  "operations_alert_severity",
+  ["info", "warning", "critical"],
+);
+export const operationsAlertStatusEnum = pgEnum("operations_alert_status", [
+  "open",
+  "acknowledged",
+  "resolved",
+]);
 
 // Organizations — tenant for multi-business (future)
 export const organizations = pgTable("organizations", {
@@ -1352,6 +1366,74 @@ export const processedWebhookEvents = pgTable(
     receivedAt: timestamp("received_at").defaultNow().notNull(),
     processedAt: timestamp("processed_at").defaultNow().notNull(),
   },
+);
+
+export const automationJobRuns = pgTable(
+  "automation_job_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobKey: text("job_key").notNull(),
+    status: automationJobRunStatusEnum("status").notNull().default("running"),
+    processedCount: integer("processed_count").notNull().default(0),
+    successCount: integer("success_count").notNull().default(0),
+    failureCount: integer("failure_count").notNull().default(0),
+    errorSummary: jsonb("error_summary"),
+    startedAt: timestamp("started_at").defaultNow().notNull(),
+    finishedAt: timestamp("finished_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("automation_job_runs_job_key_started_at_idx").on(
+      t.jobKey,
+      t.startedAt,
+    ),
+  ],
+);
+
+export const providerHealthSnapshots = pgTable(
+  "provider_health_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider: text("provider").notNull(),
+    status: text("status").notNull(),
+    creditBalance: integer("credit_balance"),
+    metrics: jsonb("metrics"),
+    observedAt: timestamp("observed_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("provider_health_snapshots_provider_observed_at_idx").on(
+      t.provider,
+      t.observedAt,
+    ),
+  ],
+);
+
+export const operationsAlerts = pgTable(
+  "operations_alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    alertKey: text("alert_key").notNull(),
+    severity: operationsAlertSeverityEnum("severity").notNull(),
+    status: operationsAlertStatusEnum("status").notNull().default("open"),
+    provider: text("provider"),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    metadata: jsonb("metadata"),
+    detectedAt: timestamp("detected_at").defaultNow().notNull(),
+    acknowledgedAt: timestamp("acknowledged_at"),
+    resolvedAt: timestamp("resolved_at"),
+    acknowledgedByPlatformAdminId: uuid(
+      "acknowledged_by_platform_admin_id",
+    ).references(() => platformAdmins.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("operations_alerts_status_detected_at_idx").on(
+      t.status,
+      t.detectedAt,
+    ),
+  ],
 );
 
 export const creditReconciliationEvents = pgTable("credit_reconciliation_events", {

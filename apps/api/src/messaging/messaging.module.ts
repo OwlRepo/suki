@@ -12,6 +12,7 @@ import { AiModule } from "../ai/ai.module";
 import { PlanCapacityModule } from "../common/plan-capacity.module";
 import { AutomationPolicyModule } from "../automation/automation-policy.module";
 import { SecurityModule } from "../security/security.module";
+import { OperationsModule } from "../operations/operations.module";
 import { MessageDispatchService } from "./message-dispatch.service";
 import { SmsMeteringService } from "./sms-metering.service";
 import { EmailMeteringService } from "./email-metering.service";
@@ -46,7 +47,14 @@ function isResendConfigured(): boolean {
 }
 
 @Module({
-  imports: [AuthModule, AiModule, PlanCapacityModule, AutomationPolicyModule, SecurityModule],
+  imports: [
+    AuthModule,
+    AiModule,
+    PlanCapacityModule,
+    AutomationPolicyModule,
+    SecurityModule,
+    OperationsModule,
+  ],
   controllers: [
     MessagingController,
     InboundSmsController,
@@ -97,6 +105,7 @@ function isResendConfigured(): boolean {
     SmsMeteringService,
     EmailMeteringService,
     ManualFollowUpService,
+    SemaphoreMessageReconciliationService,
   ],
 })
 export class MessagingModule {}

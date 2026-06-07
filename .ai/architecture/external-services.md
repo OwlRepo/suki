@@ -4,8 +4,10 @@
 - First-party auth (in-app): authentication/session logic
 - OpenAI: AI generation/policy flows
 - Semaphore: primary automated outbound SMS, delayed outbound status reconciliation, and failover booking OTP provider
+- Semaphore health monitoring: platform-admin operations polling records account balance snapshots and evaluates low-credit alerts without exposing the API key
 - Twilio: rollback SMS outbound, inbound/webhook status, and transitional Verify OTP; inbound/status webhooks use signature validation with exact public callback URL env vars
 - Resend: email delivery, including privacy-safe owner digests for manual SMS follow-up tasks
+- Resend health monitoring: platform-admin operations aggregates recent `message_events` delivery states instead of polling a provider-health endpoint
 - Lemon Squeezy: hosted checkout creation, customer portal redirects, and billing webhook lifecycle when self-serve billing is enabled
 - CRM sources: CSV, HubSpot, Pipedrive (plus planned adapters)
 
@@ -22,6 +24,7 @@ All external-provider contract changes are HIGH risk and require contract/regres
 ## SMS and OTP Provider Notes
 - Automated outbound SMS uses explicit `SMS_PROVIDER`; production should use Semaphore while Twilio can remain configured for rollback/inbound/status handling.
 - Semaphore outbound SMS stores `message_events.provider = semaphore` plus provider message IDs/metadata; reconciliation can poll recent appointment SMS IDs for delayed Failed/Refunded states.
+- Semaphore reconciliation runs are wrapped in `automation_job_runs` with deterministic checked/success/failed counts.
 - Semaphore booking OTP uses Tyvera-generated codes, stores only hashes on booking holds, and verifies locally with expiration and attempt limits.
 - Booking OTP `OTP_PROVIDER_MODE=auto` defaults organizations to Twilio Verify until an allowlisted Twilio error code triggers durable per-organization failover to Semaphore.
 - Twilio outbound SMS still supports Messaging Service SID or phone-number sender config for rollback.
@@ -38,6 +41,11 @@ All external-provider contract changes are HIGH risk and require contract/regres
 - Customer portal access is treated as short-lived and fetched server-side rather than trusted from client input.
 - Subscription webhook reconciliation now upserts provider-neutral subscription fields, updates organization billing state, and raises included verified-booking credits on mid-cycle upgrades without resetting usage.
 - Direct owner actions now use Lemon Squeezy subscription APIs for plan changes, cancellation, and resumption, while plan activation still waits on the trusted webhook path.
+
+## Operations Monitoring Notes
+- Provider-health snapshots store only safe aggregate metadata: Semaphore balance/thresholds or Resend message counts/failure rate.
+- Operations alerts use deterministic keys and resolve open/acknowledged alerts when the condition clears.
+- No Better Stack, Sentry, or external heartbeat calls are emitted from application code.
 
 ## Documentation Drift Guard
 When auth/provider/integration behavior changes:

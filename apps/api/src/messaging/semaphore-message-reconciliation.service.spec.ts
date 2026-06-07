@@ -12,7 +12,10 @@ describe("SemaphoreMessageReconciliationService", () => {
     ["failed", "failed"],
     ["refunded", "failed"],
   ])("maps Semaphore %s to %s", (raw, expected) => {
-    const service = new SemaphoreMessageReconciliationService({} as never);
+    const service = new SemaphoreMessageReconciliationService(
+      {} as never,
+      { record: vi.fn() } as never,
+    );
     expect(service.mapSemaphoreStatus(raw)).toBe(expected);
   });
 
@@ -27,6 +30,7 @@ describe("SemaphoreMessageReconciliationService", () => {
     const manualFollowUps = { createFromMessageEvent: vi.fn(async () => ({})) };
     const service = new SemaphoreMessageReconciliationService(
       manualFollowUps as never,
+      { record: vi.fn() } as never,
     );
     vi.spyOn(service, "fetchSemaphoreStatus").mockResolvedValue("failed");
     process.env.SEMAPHORE_API_KEY = "key";
@@ -36,5 +40,32 @@ describe("SemaphoreMessageReconciliationService", () => {
 
     expect(service.mapSemaphoreStatus("failed")).toBe("failed");
     expect(updates).toEqual([]);
+  });
+
+  it("wraps scheduled reconciliation in a deterministic automation job run", async () => {
+    process.env.SEMAPHORE_RECONCILIATION_ENABLED = "true";
+    const jobRuns = {
+      record: vi.fn(async (_jobKey: string, work: () => Promise<unknown>) => work()),
+    };
+    const service = new SemaphoreMessageReconciliationService(
+      { createFromMessageEvent: vi.fn() } as never,
+      jobRuns as never,
+    );
+    vi.spyOn(service, "reconcileRecentMessages").mockResolvedValue({
+      checked: 4,
+      failed: 1,
+    });
+
+    await service.runScheduledReconciliation();
+
+    expect(jobRuns.record).toHaveBeenCalledWith(
+      "semaphore_reconciliation",
+      expect.any(Function),
+    );
+    await expect(jobRuns.record.mock.results[0].value).resolves.toMatchObject({
+      processedCount: 4,
+      successCount: 3,
+      failureCount: 1,
+    });
   });
 });
