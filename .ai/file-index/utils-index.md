@@ -24,4 +24,5 @@
 | `apps/api/src/common/http-exception.filter.ts` | Standard API error response mapping | Registered in `main.ts` | Global error normalization |
 | `apps/api/src/messaging/smoke/provider-smoke.preflight.ts` | Real-provider smoke preflight validator for messaging tests | Used by provider smoke specs | Gated Twilio/Resend env readiness checks with deterministic skip diagnostics |
 | `apps/api/src/messaging/sms-segmentation.ts` | Deterministic SMS segment estimator | Used by `MessageDispatchService` | Calculates GSM-7/UCS-2 encoding, septet/code-unit length, and billable segment count before quota enforcement |
+| `apps/api/src/platform-admin/platform-admin-communications.util.ts` | Platform-admin communications response helpers | Used by platform-admin communications service | Masks phone/email recipient values and normalizes dates before internal monitoring API responses |
 | `packages/types/src/index.ts` | Shared runtime/type exports | Imported by API and web packages | Exposes Philippine mobile helpers plus shared plan, subscription, billing interval, org billing status, add-on SKU, and platform-admin role/permission contracts |

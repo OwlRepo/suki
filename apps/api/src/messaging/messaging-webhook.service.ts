@@ -1,8 +1,9 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { Webhook } from "svix";
 import { getDb } from "@tyvera/database";
-import { messageEvents } from "@tyvera/database";
-import { eq } from "drizzle-orm";
+import { messageEvents, processedWebhookEvents } from "@tyvera/database";
+import { eq, sql } from "drizzle-orm";
+import { createHash } from "crypto";
 
 const TERMINAL_STATUSES = ["delivered", "failed", "bounced", "rejected"] as const;
 
@@ -33,10 +34,42 @@ export class MessagingWebhookService {
       throw new UnauthorizedException("Invalid signature");
     }
     const type = parsed.type as string | undefined;
+    const eventId = `resend:${headers["svix-id"]}`;
+    const db = getDb();
+    const [claimed] = await db
+      .insert(processedWebhookEvents)
+      .values({
+        eventId,
+        provider: "resend",
+        eventName: type ?? null,
+        payloadHash: createHash("sha256").update(payloadStr).digest("hex"),
+        status: "processed",
+        processedAt: new Date(),
+      })
+      .onConflictDoNothing({ target: processedWebhookEvents.eventId })
+      .returning();
+
+    if (!claimed) return;
+
     const data = parsed.data as Record<string, unknown> | undefined;
     const id = data?.id as string | undefined;
     if (!id) return;
-    await this.updateMessageByProviderId(id, "resend", type ?? "", parsed);
+
+    try {
+      await this.updateMessageByProviderId(id, "resend", type ?? "", parsed);
+    } catch (error) {
+      await db
+        .update(processedWebhookEvents)
+        .set({
+          status: "failed",
+          failureReason:
+            error instanceof Error ? error.message : "Resend webhook failed",
+          retryCount: sql`${processedWebhookEvents.retryCount} + 1`,
+          processedAt: new Date(),
+        })
+        .where(eq(processedWebhookEvents.eventId, eventId));
+      throw error;
+    }
   }
 
   private async updateMessageByProviderId(
@@ -90,8 +123,10 @@ export class MessagingWebhookService {
     if (provider === "resend") {
       if (s === "email.sent") return "sent";
       if (s === "email.delivered") return "delivered";
+      if (s === "email.delivery_delayed") return "queued";
       if (s === "email.bounced") return "bounced";
       if (s === "email.complained") return "rejected";
+      if (s === "email.suppressed") return "rejected";
       if (s === "email.failed") return "failed";
       return null;
     }

@@ -18,6 +18,7 @@ import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { PlatformAdminGuard, type PlatformAdminRequest } from "./platform-admin.guard";
 import { RequirePlatformAdminPermissions } from "./platform-admin.decorator";
 import { PlatformAdminBillingService } from "./platform-admin-billing.service";
+import { PlatformAdminCommunicationsService } from "./platform-admin-communications.service";
 import { PlatformAdminService } from "./platform-admin.service";
 
 @Controller("platform-admin")
@@ -26,6 +27,7 @@ export class PlatformAdminController {
   constructor(
     private readonly platformAdminService: PlatformAdminService,
     private readonly platformAdminBillingService: PlatformAdminBillingService,
+    private readonly platformAdminCommunicationsService: PlatformAdminCommunicationsService,
   ) {}
 
   @Get("session")
@@ -58,6 +60,57 @@ export class PlatformAdminController {
   @RequirePlatformAdminPermissions("BILLING_REQUEST_VIEW")
   listBillingAddons() {
     return this.platformAdminBillingService.listAddons();
+  }
+
+  @Get("communications")
+  @RequirePlatformAdminPermissions("COMMUNICATION_VIEW")
+  listCommunications(
+    @Query("channel") channel?: "sms" | "email",
+    @Query("provider") provider?: string,
+    @Query("deliveryStatus")
+    deliveryStatus?: "queued" | "sent" | "delivered" | "failed" | "bounced" | "rejected",
+    @Query("automationKey") automationKey?: string,
+    @Query("organizationId") organizationId?: string,
+    @Query("businessId") businessId?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.platformAdminCommunicationsService.listCommunications({
+      channel,
+      provider,
+      deliveryStatus,
+      automationKey,
+      organizationId,
+      businessId,
+      from,
+      to,
+      page,
+      limit,
+    });
+  }
+
+  @Get("communications/summary")
+  @RequirePlatformAdminPermissions("COMMUNICATION_VIEW")
+  getCommunicationsSummary(
+    @Query("range") range?: "24h" | "7d" | "30d",
+    @Query("organizationId") organizationId?: string,
+    @Query("businessId") businessId?: string,
+  ) {
+    return this.platformAdminCommunicationsService.getSummary({
+      range,
+      organizationId,
+      businessId,
+    });
+  }
+
+  @Get("communications/:messageEventId")
+  @RequirePlatformAdminPermissions("COMMUNICATION_VIEW")
+  getCommunicationDetail(@Param("messageEventId") messageEventId: string) {
+    return this.platformAdminCommunicationsService.getCommunicationDetail(
+      messageEventId,
+    );
   }
 
   @Get("billing-requests")

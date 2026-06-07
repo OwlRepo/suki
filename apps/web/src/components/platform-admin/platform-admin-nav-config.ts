@@ -1,5 +1,11 @@
 import type { LucideIcon } from "lucide-react";
-import { Building2, ClipboardList, FileClock, ShieldCheck } from "lucide-react";
+import {
+  Building2,
+  ClipboardList,
+  FileClock,
+  MessageSquareWarning,
+  ShieldCheck,
+} from "lucide-react";
 
 export interface PlatformAdminNavItem {
   href: string;
@@ -25,6 +31,11 @@ export function getPlatformAdminNavGroups(): PlatformAdminNavGroup[] {
           href: "/platform-admin/billing-requests",
           label: "Billing Requests",
           icon: ClipboardList,
+        },
+        {
+          href: "/platform-admin/communications",
+          label: "Communications",
+          icon: MessageSquareWarning,
         },
         { href: "/platform-admin/audit-logs", label: "Audit Logs", icon: FileClock },
       ],

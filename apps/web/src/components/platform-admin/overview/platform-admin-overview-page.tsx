@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,17 @@ import {
   getPlatformAdminSession,
 } from "@/components/platform-admin/platform-admin.api";
 import type { PlatformAdminSession } from "@/components/platform-admin/platform-admin.types";
+import {
+  getPlatformAdminCommunicationsSummary,
+} from "@/components/platform-admin/communications/platform-admin-communications.api";
+import type {
+  PlatformAdminCommunicationsSummary,
+} from "@/components/platform-admin/communications/platform-admin-communications.types";
 
 export function PlatformAdminOverviewPage() {
   const [session, setSession] = useState<PlatformAdminSession | null>(null);
+  const [communicationsSummary, setCommunicationsSummary] =
+    useState<PlatformAdminCommunicationsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +31,15 @@ export function PlatformAdminOverviewPage() {
     setError(null);
 
     try {
-      setSession(await getPlatformAdminSession());
+      const sessionResponse = await getPlatformAdminSession();
+      setSession(sessionResponse);
+      if (sessionResponse.permissions.includes("COMMUNICATION_VIEW")) {
+        setCommunicationsSummary(
+          await getPlatformAdminCommunicationsSummary({ range: "24h" }),
+        );
+      } else {
+        setCommunicationsSummary(null);
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -86,51 +103,88 @@ export function PlatformAdminOverviewPage() {
       ) : null}
 
       {!loading && !error && session ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-              <ShieldCheck className="size-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-950">
-                    Internal access verified
-                  </h2>
-                  <p className="mt-1 break-all text-sm leading-6 text-slate-600">
-                    User ID: {session.platformAdmin.userId}
-                  </p>
-                </div>
-                <Badge variant="secondary">{session.platformAdmin.status}</Badge>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm font-semibold text-slate-950">Roles</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {session.roles.map((role) => (
-                      <Badge key={role} variant="outline">
-                        {role}
-                      </Badge>
-                    ))}
+        <>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                <ShieldCheck className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-950">
+                      Internal access verified
+                    </h2>
+                    <p className="mt-1 break-all text-sm leading-6 text-slate-600">
+                      User ID: {session.platformAdmin.userId}
+                    </p>
                   </div>
+                  <Badge variant="secondary">{session.platformAdmin.status}</Badge>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-950">
-                    Permissions
-                  </p>
-                  <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-                    {session.permissions.length}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Database-backed permissions resolved for this session.
-                  </p>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">Roles</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {session.roles.map((role) => (
+                        <Badge key={role} variant="outline">
+                          {role}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      Permissions
+                    </p>
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+                      {session.permissions.length}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      Database-backed permissions resolved for this session.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          {communicationsSummary ? (
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <OverviewMetricCard
+                label="SMS failures in last 24 hours"
+                value={communicationsSummary.totals.smsFailed}
+              />
+              <OverviewMetricCard
+                label="Email failures in last 24 hours"
+                value={communicationsSummary.totals.emailFailed}
+              />
+              <OverviewMetricCard
+                label="Open manual follow-ups"
+                value={communicationsSummary.totals.openManualFollowUps}
+              />
+              <OverviewMetricCard
+                label="OTP failures in last 24 hours"
+                value={communicationsSummary.totals.otpSendFailures}
+              />
+            </section>
+          ) : null}
+        </>
       ) : null}
     </div>
+  );
+}
+
+function OverviewMetricCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Link
+      href="/platform-admin/communications"
+      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50 sm:p-5"
+    >
+      <p className="text-sm font-semibold text-slate-600">{label}</p>
+      <p className="mt-2 text-3xl font-bold text-slate-950">
+        {new Intl.NumberFormat("en-PH").format(value)}
+      </p>
+    </Link>
   );
 }

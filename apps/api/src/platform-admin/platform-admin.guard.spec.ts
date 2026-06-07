@@ -103,4 +103,45 @@ describe("PlatformAdminGuard", () => {
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it.each([
+    ["OPERATIONS", "operations-user-1"],
+    ["SUPPORT", "support-user-1"],
+  ] as const)("allows %s users to view communications", async (roleCode, userId) => {
+    vi.mocked(service.resolveActivePlatformAdmin).mockResolvedValue({
+      id: `platform-admin-${roleCode.toLowerCase()}`,
+      userId,
+      roleCodes: [roleCode],
+      permissions: new Set<PlatformAdminPermission>([
+        "PLATFORM_ADMIN_ACCESS",
+        "COMMUNICATION_VIEW",
+      ]),
+    });
+    const guard = new PlatformAdminGuard(new Reflector(), service as PlatformAdminService);
+    const { context } = makeContext({
+      userId,
+      requiredPermissions: ["COMMUNICATION_VIEW"],
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it("denies finance users without explicit communication permission", async () => {
+    vi.mocked(service.resolveActivePlatformAdmin).mockResolvedValue({
+      id: "platform-admin-finance",
+      userId: "finance-user-1",
+      roleCodes: ["FINANCE"],
+      permissions: new Set<PlatformAdminPermission>([
+        "PLATFORM_ADMIN_ACCESS",
+        "PAYMENT_VERIFY",
+      ]),
+    });
+    const guard = new PlatformAdminGuard(new Reflector(), service as PlatformAdminService);
+    const { context } = makeContext({
+      userId: "finance-user-1",
+      requiredPermissions: ["COMMUNICATION_VIEW"],
+    });
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });

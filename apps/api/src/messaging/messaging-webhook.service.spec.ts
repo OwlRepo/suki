@@ -2,6 +2,7 @@ import { UnauthorizedException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MessagingWebhookService } from "./messaging-webhook.service";
 
+const verifyMock = vi.fn();
 const whereMock = vi.fn();
 const limitMock = vi.fn();
 const setMock = vi.fn();
@@ -9,6 +10,16 @@ const updateWhereMock = vi.fn();
 const updateMock = vi.fn();
 const selectMock = vi.fn();
 const fromMock = vi.fn();
+const insertMock = vi.fn();
+const valuesMock = vi.fn();
+const onConflictDoNothingMock = vi.fn();
+const returningMock = vi.fn();
+
+vi.mock("svix", () => ({
+  Webhook: vi.fn(() => ({
+    verify: verifyMock,
+  })),
+}));
 
 vi.mock("@tyvera/database", () => ({
   getDb: () => ({
@@ -16,8 +27,15 @@ vi.mock("@tyvera/database", () => ({
     from: fromMock,
     where: whereMock,
     update: updateMock,
+    insert: insertMock,
   }),
   messageEvents: { id: "id", providerMessageId: "providerMessageId", deliveryStatus: "deliveryStatus" },
+  processedWebhookEvents: {
+    eventId: "eventId",
+    failureReason: "failureReason",
+    retryCount: "retryCount",
+    status: "status",
+  },
 }));
 
 describe("MessagingWebhookService", () => {
@@ -34,6 +52,15 @@ describe("MessagingWebhookService", () => {
     updateMock.mockReturnValue({ set: setMock });
     setMock.mockReturnValue({ where: updateWhereMock });
     updateWhereMock.mockResolvedValue(undefined);
+
+    insertMock.mockReturnValue({ values: valuesMock });
+    valuesMock.mockReturnValue({ onConflictDoNothing: onConflictDoNothingMock });
+    onConflictDoNothingMock.mockReturnValue({ returning: returningMock });
+    returningMock.mockResolvedValue([{ id: "processed-event-1" }]);
+    verifyMock.mockReturnValue({
+      type: "email.delivered",
+      data: { id: "resend-message-1" },
+    });
   });
 
   it("throws when Twilio config/signature is missing", async () => {
@@ -114,5 +141,46 @@ describe("MessagingWebhookService", () => {
   it("throws when Resend secret missing", async () => {
     const service = new MessagingWebhookService();
     await expect(service.handleResendEvent("{}", {})).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("ignores duplicate Resend Svix event ids without processing again", async () => {
+    process.env.RESEND_WEBHOOK_SECRET = "whsec_test";
+    returningMock.mockResolvedValueOnce([]);
+    const service = new MessagingWebhookService();
+
+    await service.handleResendEvent("{}", {
+      "svix-id": "evt_duplicate",
+      "svix-timestamp": "123",
+      "svix-signature": "sig",
+    });
+
+    expect(insertMock).toHaveBeenCalled();
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["email.delivery_delayed", "queued"],
+    ["email.suppressed", "rejected"],
+    ["email.complained", "rejected"],
+  ])("maps Resend %s safely to %s", async (type, expected) => {
+    process.env.RESEND_WEBHOOK_SECRET = "whsec_test";
+    verifyMock.mockReturnValueOnce({
+      type,
+      data: { id: "resend-message-1" },
+    });
+    const service = new MessagingWebhookService();
+
+    await service.handleResendEvent("{}", {
+      "svix-id": `evt_${type}`,
+      "svix-timestamp": "123",
+      "svix-signature": "sig",
+    });
+
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryStatus: expected,
+      }),
+    );
   });
 });
