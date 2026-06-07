@@ -21,6 +21,11 @@
 - `bun run db:bootstrap-platform-admin`
 - `bun run db:reset`
 
+## Platform Admin Production Bootstrap
+- `bun run db:migrate`
+- `bun run db:seed-platform-admin-rbac`
+- `PLATFORM_ADMIN_BOOTSTRAP_EMAIL=<existing-login-email> bun run db:bootstrap-platform-admin`
+
 ## Docker
 - `bun run docker:dev:up`
 - `bun run docker:dev:down`

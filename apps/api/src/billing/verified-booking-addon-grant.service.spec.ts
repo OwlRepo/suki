@@ -17,7 +17,9 @@ vi.mock("@tyvera/database", async () => {
   };
 });
 
-function createGrantHarness() {
+function createGrantHarness(input?: {
+  addons?: Array<Record<string, unknown>>;
+}) {
   const state = {
     ledger: {
       organizationId: "org-1",
@@ -27,6 +29,7 @@ function createGrantHarness() {
       used: 4,
       sourcePlan: "starter",
     },
+    addons: [...(input?.addons ?? [])],
     inserted: {
       addons: [] as Array<Record<string, unknown>>,
       reconciliation: [] as Array<Record<string, unknown>>,
@@ -40,7 +43,7 @@ function createGrantHarness() {
     from: (table: unknown) => ({
       where: () => ({
         limit: async () => {
-          if (table === verifiedOnlineBookingAddons) return [];
+          if (table === verifiedOnlineBookingAddons) return state.addons.slice(0, 1);
           if (table === verifiedOnlineBookingCredits) return [state.ledger];
           return [];
         },
@@ -50,7 +53,10 @@ function createGrantHarness() {
 
   const insert = vi.fn((table: unknown) => ({
     values: async (value: Record<string, unknown>) => {
-      if (table === verifiedOnlineBookingAddons) state.inserted.addons.push(value);
+      if (table === verifiedOnlineBookingAddons) {
+        state.inserted.addons.push(value);
+        state.addons.push(value);
+      }
       if (table === creditReconciliationEvents) {
         state.inserted.reconciliation.push(value);
       }
@@ -116,5 +122,34 @@ describe("VerifiedBookingAddonGrantService", () => {
       addonBefore: 5,
       addonAfter: 30,
     });
+  });
+
+  it("does not grant twice for the same source and source reference", async () => {
+    const state = createGrantHarness({
+      addons: [
+        {
+          organizationId: "org-1",
+          units: 25,
+          source: "manual_payment",
+          sourceReference: "manual-payment:item-1",
+        },
+      ],
+    });
+    const service = new VerifiedBookingAddonGrantService();
+
+    const result = await service.grant({
+      organizationId: "org-1",
+      units: 25,
+      pricePhp: 699,
+      sku: "online-booking-topup-25",
+      source: "manual_payment",
+      sourceReference: "manual-payment:item-1",
+      purchasedByUserId: "user-1",
+    });
+
+    expect(result.alreadyGranted).toBe(true);
+    expect(state.updated.ledgers).toHaveLength(0);
+    expect(state.inserted.addons).toHaveLength(0);
+    expect(state.inserted.reconciliation).toHaveLength(0);
   });
 });

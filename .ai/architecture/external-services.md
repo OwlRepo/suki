@@ -46,6 +46,8 @@ All external-provider contract changes are HIGH risk and require contract/regres
 - Provider-health snapshots store only safe aggregate metadata: Semaphore balance/thresholds or Resend message counts/failure rate.
 - Operations alerts use deterministic keys and resolve open/acknowledged alerts when the condition clears.
 - No Better Stack, Sentry, or external heartbeat calls are emitted from application code.
+- Production operations docs cover manual Better Stack uptime monitors for `https://tyvera.app`, `/sign-in`, and `/api/health`, plus deferred heartbeat candidates for appointment reminders, inactivity winback, Semaphore reconciliation, and database backups.
+- Sentry is documented only as a future optional integration for web/API errors; application code must not capture OTP codes, full mobile numbers, full email bodies, payment-proof content, or provider API keys.
 
 ## Documentation Drift Guard
 When auth/provider/integration behavior changes:

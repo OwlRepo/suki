@@ -264,6 +264,68 @@ TWILIO_INBOUND_SMS_WEBHOOK_URL=https://tyvera.app/api/messaging/inbound/sms
 
 Trial Twilio accounts may only send to verified recipients. Confirm this before onboarding real customers.
 
+## Platform Admin Production Setup
+
+The platform-admin console uses the existing first-party auth session and `tyvera_session` cookie. Runtime authorization comes from database-backed platform-admin RBAC; founder allowlists remain bootstrap bridges only and should not be treated as normal production authorization.
+
+Required production-ready platform-admin env keys:
+
+```bash
+FF_self_serve_billing_enabled=false
+FF_manual_billing_controls_enabled=true
+FF_founder_led_mode_enabled=true
+
+PLATFORM_ADMIN_BOOTSTRAP_EMAIL=
+PLATFORM_ADMIN_BOOTSTRAP_USER_ID=
+
+MANUAL_PAYMENT_GCASH_NUMBER=
+MANUAL_PAYMENT_GCASH_ACCOUNT_NAME=
+MANUAL_PAYMENT_BANK_NAME=
+MANUAL_PAYMENT_BANK_ACCOUNT_NUMBER=
+MANUAL_PAYMENT_BANK_ACCOUNT_NAME=
+
+SEMAPHORE_RECONCILIATION_ENABLED=true
+SEMAPHORE_CREDIT_WARNING_THRESHOLD=500
+SEMAPHORE_CREDIT_CRITICAL_THRESHOLD=200
+```
+
+Leave payment account values blank in committed files. Set real GCash and bank details only in production environment storage; these values are rendered only inside platform-admin manual billing responses.
+
+One-time production bootstrap:
+
+```bash
+bun run db:migrate
+bun run db:seed-platform-admin-rbac
+
+PLATFORM_ADMIN_BOOTSTRAP_EMAIL=<existing-login-email> \
+  bun run db:bootstrap-platform-admin
+```
+
+The bootstrap command promotes an existing Tyvera user to the seeded `FOUNDER` role. It does not create a password, login identity, or production credential.
+
+Production rollout order:
+
+1. Back up PostgreSQL.
+2. Deploy application code.
+3. Run `bun run db:migrate`.
+4. Run `bun run db:seed-platform-admin-rbac`.
+5. Bootstrap the existing founder account.
+6. Sign in as founder.
+7. Run `docs/platform-admin-production-smoke-test.md`.
+8. Configure Better Stack manually.
+9. Monitor logs, provider health, alerts, and communications.
+
+Emergency rollback rules:
+
+1. Stop using `/platform-admin`.
+2. Roll back the application image.
+3. Keep additive migrations unless they cause a confirmed issue.
+4. Do not delete platform-admin tables during emergency rollback.
+5. Restore PostgreSQL only if data corruption occurred.
+6. Verify customer-facing `/admin/*` routes and messaging flows.
+
+Better Stack and Sentry are not integrated in application code. Better Stack should be configured externally for uptime checks. Sentry is a future optional integration for `apps/web` and `apps/api`, scoped to unhandled frontend errors, NestJS exceptions, webhook-handler exceptions, scheduler exceptions, and Semaphore request failures. Do not capture OTP codes, full mobile numbers, full email bodies, payment-proof content, or provider API keys.
+
 ## Mobile Number Format
 
 Tyvera requires Philippine mobile numbers in strict E.164 format anywhere a mobile value is provided:

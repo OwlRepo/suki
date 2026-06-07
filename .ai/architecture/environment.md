@@ -11,6 +11,7 @@
 - AI: OpenAI keys and policy-related settings
 - App runtime: `NODE_ENV`, app URLs, tenant/business context flags
 - Platform-admin bootstrap: `PLATFORM_ADMIN_BOOTSTRAP_EMAIL` or `PLATFORM_ADMIN_BOOTSTRAP_USER_ID` promote an existing user only after RBAC seed has run
+- Platform-admin release mode: keep `FF_self_serve_billing_enabled=false`, `FF_manual_billing_controls_enabled=true`, and `FF_founder_led_mode_enabled=true` for founder-led manual billing rollout
 - Web API base: `NEXT_PUBLIC_API_URL` overrides browser API routing; production defaults to same-origin `/api`, development defaults to `http://localhost:3001`
 
 ## Source Files
@@ -31,3 +32,4 @@
 - Platform-admin bootstrap variables must never create production credentials or passwords; use them only to assign the seeded `FOUNDER` role to an existing user.
 - `MANUAL_PAYMENT_GCASH_NUMBER`, `MANUAL_PAYMENT_GCASH_ACCOUNT_NAME`, `MANUAL_PAYMENT_BANK_NAME`, `MANUAL_PAYMENT_BANK_ACCOUNT_NUMBER`, and `MANUAL_PAYMENT_BANK_ACCOUNT_NAME` are rendered only inside platform-admin manual billing responses and must not be exposed on public/customer pages.
 - `SEMAPHORE_CREDIT_WARNING_THRESHOLD` defaults to 500 and `SEMAPHORE_CREDIT_CRITICAL_THRESHOLD` defaults to 200 when unset; provider-health snapshots and low-credit alerts must never expose the API key.
+- Production platform-admin rollout should run `bun run db:migrate`, `bun run db:seed-platform-admin-rbac`, then `PLATFORM_ADMIN_BOOTSTRAP_EMAIL=<existing-login-email> bun run db:bootstrap-platform-admin`; the bootstrap promotes an existing user only.

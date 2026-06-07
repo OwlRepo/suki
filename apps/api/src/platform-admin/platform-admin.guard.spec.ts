@@ -64,6 +64,17 @@ describe("PlatformAdminGuard", () => {
     expect(service.resolveActivePlatformAdmin).toHaveBeenCalledWith("tenant-owner-1");
   });
 
+  it("denies disabled platform admins because only active rows are resolved", async () => {
+    vi.mocked(service.resolveActivePlatformAdmin).mockResolvedValue(null);
+    const guard = new PlatformAdminGuard(new Reflector(), service as PlatformAdminService);
+    const { context } = makeContext({ userId: "disabled-platform-admin-1" });
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(service.resolveActivePlatformAdmin).toHaveBeenCalledWith(
+      "disabled-platform-admin-1",
+    );
+  });
+
   it("allows an active founder with the required permission", async () => {
     vi.mocked(service.resolveActivePlatformAdmin).mockResolvedValue({
       id: "platform-admin-1",
