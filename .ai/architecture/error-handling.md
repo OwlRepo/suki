@@ -8,6 +8,7 @@
 ## Logging
 - Filter/service-level logging for operational visibility.
 - Webhook and integration failures should include actionable diagnostics without leaking secrets.
+- Global 5xx exception logging includes only bounded safe nested-cause fields (`name`, `message`, `code`, `detail`, `hint`, `where`, `cause`) so hidden driver errors are diagnosable without expanding client responses.
 
 ## Test Expectations
 - Error-handling changes must include error-path tests.

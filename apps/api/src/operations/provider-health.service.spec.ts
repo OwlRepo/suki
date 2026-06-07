@@ -24,6 +24,17 @@ function sqlChunks(value: unknown): string {
     .join(" ");
 }
 
+function sqlBoundValues(value: unknown): unknown[] {
+  const chunks = (value as { queryChunks?: unknown[] }).queryChunks ?? [];
+  return chunks.flatMap((chunk) => {
+    if ((chunk as { queryChunks?: unknown[] }).queryChunks) {
+      return sqlBoundValues(chunk);
+    }
+    if ((chunk as { value?: string[] }).value) return [];
+    return [chunk];
+  });
+}
+
 function createHealthDbHarness() {
   const snapshots: Array<Record<string, unknown>> = [];
   const execute = vi.fn();
@@ -123,6 +134,12 @@ describe("ProviderHealthService", () => {
         failureRatePct: 16.67,
       },
     });
+    const params = state.execute.mock.calls.flatMap(([query]) => sqlBoundValues(query));
+    expect(params.some((param) => param instanceof Date)).toBe(false);
+    expect(params).toContain("2026-06-07T09:45:00.000Z");
+    const executedSql = sqlChunks(state.execute.mock.calls[0][0]);
+    expect(executedSql).toContain("created_at >=");
+    expect(executedSql).toContain("::timestamptz");
   });
 
   it("counts queued Resend messages with explicit delivery/status checks instead of enum coalesce", async () => {
@@ -140,5 +157,30 @@ describe("ProviderHealthService", () => {
     expect(executedSql).toContain("delivery_status = 'queued'");
     expect(executedSql).toContain("delivery_status is null");
     expect(executedSql).toContain("status = 'queued'");
+  });
+
+  it("binds provider-health history cutoff as a timestamp string", async () => {
+    const state = createHealthDbHarness();
+    state.execute
+      .mockResolvedValueOnce([
+        {
+          provider: "semaphore",
+          status: "healthy",
+          creditBalance: 900,
+          metrics: {},
+          observedAt: new Date("2026-06-07T09:55:00.000Z"),
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await new ProviderHealthService({ evaluateEmailFailures: vi.fn() } as never)
+      .getProviderHealth();
+
+    const params = state.execute.mock.calls.flatMap(([query]) => sqlBoundValues(query));
+    expect(params.some((param) => param instanceof Date)).toBe(false);
+    expect(params).toContain("2026-06-06T10:00:00.000Z");
+    const executedSql = sqlChunks(state.execute.mock.calls[1][0]);
+    expect(executedSql).toContain("observed_at >=");
+    expect(executedSql).toContain("::timestamptz");
   });
 });

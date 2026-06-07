@@ -78,6 +78,7 @@ export class ProviderHealthService {
   @Cron(OPERATIONS_PROVIDER_HEALTH_CRON)
   async aggregateResendHealth() {
     const db = getDb() as unknown as DbWithExecute;
+    const cutoff = timestampParam(new Date(Date.now() - 15 * 60 * 1000));
     const [row] = await db.execute<{
       sent: number;
       delivered: number;
@@ -101,7 +102,7 @@ export class ProviderHealthService {
         ) then 1 else 0 end), 0)::int as queued
       from message_events
       where provider = 'resend'
-        and created_at >= ${new Date(Date.now() - 15 * 60 * 1000)}
+        and created_at >= ${cutoff}::timestamptz
     `);
     const metrics = {
       sent: numberFrom(row?.sent),
@@ -130,6 +131,9 @@ export class ProviderHealthService {
 
   async getProviderHealth() {
     const db = getDb() as unknown as DbWithExecute;
+    const historyCutoff = timestampParam(
+      new Date(Date.now() - 24 * 60 * 60 * 1000),
+    );
     const rows = await db.execute<Record<string, unknown>>(sql`
       select distinct on (provider)
         provider,
@@ -148,7 +152,7 @@ export class ProviderHealthService {
         metrics,
         observed_at as "observedAt"
       from provider_health_snapshots
-      where observed_at >= ${new Date(Date.now() - 24 * 60 * 60 * 1000)}
+      where observed_at >= ${historyCutoff}::timestamptz
       order by observed_at desc
       limit 100
     `);
@@ -226,4 +230,8 @@ function toIso(value: unknown) {
   if (value instanceof Date) return value.toISOString();
   const date = new Date(String(value));
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+function timestampParam(date: Date) {
+  return date.toISOString();
 }

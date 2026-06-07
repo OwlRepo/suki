@@ -436,10 +436,10 @@ export class PlatformAdminCommunicationsService {
     if (query.businessId?.trim()) {
       filters.push(sql`me.business_id = ${query.businessId.trim()}`);
     }
-    const from = parseDate(query.from);
-    if (from) filters.push(sql`me.created_at >= ${from}`);
-    const to = parseDate(query.to);
-    if (to) filters.push(sql`me.created_at <= ${to}`);
+    const from = parseTimestampParam(query.from);
+    if (from) filters.push(sql`me.created_at >= ${from}::timestamptz`);
+    const to = parseTimestampParam(query.to);
+    if (to) filters.push(sql`me.created_at <= ${to}::timestamptz`);
     return filters;
   }
 
@@ -455,8 +455,8 @@ export class PlatformAdminCommunicationsService {
     if (query.businessId?.trim()) {
       filters.push(sql`business_id = ${query.businessId.trim()}`);
     }
-    const from = parseDate(query.from);
-    if (from) filters.push(sql`created_at >= ${from}`);
+    const from = parseTimestampParam(query.from);
+    if (from) filters.push(sql`created_at >= ${from}::timestamptz`);
     return filters;
   }
 
@@ -471,10 +471,10 @@ function parsePositiveInt(value: number | string | undefined, fallback: number) 
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
-function parseDate(value: string | undefined) {
+function parseTimestampParam(value: string | undefined) {
   if (!value) return null;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function numberFrom(value: unknown) {

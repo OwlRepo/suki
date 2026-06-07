@@ -80,6 +80,7 @@ Routes discovered from `@Controller` and HTTP decorators in `apps/api/src/**`.
 - SMS adjustments require a reason, write reconciliation/audit rows through the shared grant primitive, and reject negative corrections that would reduce remaining credits below zero.
 - Communications monitoring routes (`GET /platform-admin/communications`, `/communications/summary`, and `/communications/:messageEventId`) require `COMMUNICATION_VIEW`, reuse existing `message_events` / usage / manual follow-up / public OTP records, mask recipient details, and do not expose full message content or raw provider metadata.
 - Operations monitoring routes (`GET /platform-admin/automation-runs`, `GET /platform-admin/provider-health`, `GET /platform-admin/alerts`, and `PATCH /platform-admin/alerts/:alertId`) reuse the platform-admin namespace and guard; `AUTOMATION_RUN_VIEW` gates scheduler history, `ALERT_VIEW` gates provider/alert reads, and `ALERT_ACKNOWLEDGE` gates acknowledge/resolve actions.
+- Platform-admin monitoring services bind raw SQL timestamp filters/cutoffs as ISO strings with explicit `timestamptz` casts to avoid postgres driver Date-parameter failures while preserving endpoint response contracts.
 
 ## Public Intake OTP Notes
 - Public intake submit reuses an existing customer by exact normalized business/mobile when available, and creates a new customer only when no safe mobile identity match exists.

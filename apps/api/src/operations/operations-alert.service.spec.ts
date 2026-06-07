@@ -12,6 +12,29 @@ vi.mock("@tyvera/database", async () => {
   };
 });
 
+function sqlChunks(value: unknown): string {
+  const chunks = (value as { queryChunks?: unknown[] }).queryChunks ?? [];
+  return chunks
+    .map((chunk) => {
+      if (typeof chunk === "string" || typeof chunk === "number") return String(chunk);
+      if ((chunk as { queryChunks?: unknown[] }).queryChunks) return sqlChunks(chunk);
+      const value = (chunk as { value?: string[] }).value;
+      return Array.isArray(value) ? value.join("") : "";
+    })
+    .join(" ");
+}
+
+function sqlBoundValues(value: unknown): unknown[] {
+  const chunks = (value as { queryChunks?: unknown[] }).queryChunks ?? [];
+  return chunks.flatMap((chunk) => {
+    if ((chunk as { queryChunks?: unknown[] }).queryChunks) {
+      return sqlBoundValues(chunk);
+    }
+    if ((chunk as { value?: string[] }).value) return [];
+    return [chunk];
+  });
+}
+
 function createAlertDbHarness() {
   const inserted: Array<Record<string, unknown>> = [];
   const updates: Array<Record<string, unknown>> = [];
@@ -166,5 +189,71 @@ describe("OperationsAlertService", () => {
       alertKey: "automation_run_missing:appointment_reminders",
       severity: "critical",
     });
+    const params = state.execute.mock.calls.flatMap(([query]) => sqlBoundValues(query));
+    expect(params.some((param) => param instanceof Date)).toBe(false);
+    expect(params).toContain("2026-06-07T09:35:00.000Z");
+    const executedSql = sqlChunks(state.execute.mock.calls[0][0]);
+    expect(executedSql).toContain("started_at >=");
+    expect(executedSql).toContain("::timestamptz");
+  });
+
+  it("binds recent messaging alert cutoffs as timestamp strings", async () => {
+    const state = createAlertDbHarness();
+    state.execute
+      .mockResolvedValueOnce([{ failed: 0, total: 0 }])
+      .mockResolvedValueOnce([{ failed: 0, total: 0 }])
+      .mockResolvedValueOnce([{ failed: 0 }]);
+
+    await new OperationsAlertService().evaluateRecentMessagingAlerts();
+
+    const params = state.execute.mock.calls.flatMap(([query]) => sqlBoundValues(query));
+    expect(params.some((param) => param instanceof Date)).toBe(false);
+    expect(params).toEqual([
+      "2026-06-07T09:45:00.000Z",
+      "2026-06-07T09:30:00.000Z",
+      "2026-06-07T09:50:00.000Z",
+    ]);
+    const executedSql = state.execute.mock.calls.map(([query]) => sqlChunks(query)).join("\n");
+    expect(executedSql).toContain("created_at >=");
+    expect(executedSql).toContain("::timestamptz");
+  });
+
+  it("binds automation-run filters and summary cutoff as timestamp strings", async () => {
+    const state = createAlertDbHarness();
+    state.execute
+      .mockResolvedValueOnce([{ total: 0 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ failedRunsLast24h: 0 }]);
+
+    await new OperationsAlertService().listAutomationRuns({
+      from: "2026-06-06T10:00:00.000Z",
+      to: "2026-06-07T10:00:00.000Z",
+    });
+
+    const params = state.execute.mock.calls.flatMap(([query]) => sqlBoundValues(query));
+    expect(params.some((param) => param instanceof Date)).toBe(false);
+    expect(params).toContain("2026-06-06T10:00:00.000Z");
+    expect(params).toContain("2026-06-07T10:00:00.000Z");
+    const executedSql = state.execute.mock.calls.map(([query]) => sqlChunks(query)).join("\n");
+    expect(executedSql).toContain("started_at >=");
+    expect(executedSql).toContain("started_at <=");
+    expect(executedSql).toContain("::timestamptz");
+  });
+
+  it("binds alerts summary cutoff as a timestamp string", async () => {
+    const state = createAlertDbHarness();
+    state.execute
+      .mockResolvedValueOnce([{ total: 0 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ resolvedAlertsLast24h: 0 }]);
+
+    await new OperationsAlertService().listAlerts({ limit: 25 });
+
+    const params = state.execute.mock.calls.flatMap(([query]) => sqlBoundValues(query));
+    expect(params.some((param) => param instanceof Date)).toBe(false);
+    expect(params).toContain("2026-06-06T10:00:00.000Z");
+    const executedSql = sqlChunks(state.execute.mock.calls[2][0]);
+    expect(executedSql).toContain("resolved_at >=");
+    expect(executedSql).toContain("::timestamptz");
   });
 });

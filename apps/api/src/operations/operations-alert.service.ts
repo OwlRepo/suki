@@ -164,37 +164,40 @@ export class OperationsAlertService {
 
   async evaluateRecentMessagingAlerts() {
     const db = getDb() as unknown as DbWithExecute;
+    const smsCutoff = timestampParam(new Date(Date.now() - 15 * 60 * 1000));
     const [sms] = await db.execute<{ failed: number; total: number }>(sql`
       select
         coalesce(sum(case when status = 'failed' or delivery_status = 'failed' then 1 else 0 end), 0)::int as failed,
         count(*)::int as total
       from message_events
       where channel = 'sms'
-        and created_at >= ${new Date(Date.now() - 15 * 60 * 1000)}
+        and created_at >= ${smsCutoff}::timestamptz
     `);
     await this.evaluateSmsFailures({
       failed: numberFrom(sms?.failed),
       total: numberFrom(sms?.total),
     });
 
+    const emailCutoff = timestampParam(new Date(Date.now() - 30 * 60 * 1000));
     const [email] = await db.execute<{ failed: number; total: number }>(sql`
       select
         coalesce(sum(case when status = 'failed' or delivery_status = 'failed' then 1 else 0 end), 0)::int as failed,
         count(*)::int as total
       from message_events
       where channel = 'email'
-        and created_at >= ${new Date(Date.now() - 30 * 60 * 1000)}
+        and created_at >= ${emailCutoff}::timestamptz
     `);
     await this.evaluateEmailFailures({
       failed: numberFrom(email?.failed),
       total: numberFrom(email?.total),
     });
 
+    const otpCutoff = timestampParam(new Date(Date.now() - 10 * 60 * 1000));
     const [otp] = await db.execute<{ failed: number }>(sql`
       select count(*)::int as failed
       from public_otp_send_events
       where outcome <> 'sent'
-        and created_at >= ${new Date(Date.now() - 10 * 60 * 1000)}
+        and created_at >= ${otpCutoff}::timestamptz
     `);
     await this.evaluateOtpFailures({ failed: numberFrom(otp?.failed) });
   }
@@ -214,18 +217,20 @@ export class OperationsAlertService {
     const db = getDb() as unknown as DbWithExecute;
     for (const jobKey of jobs) {
       const interval = EXPECTED_JOB_INTERVALS[jobKey];
-      const cutoff = new Date(
-        Date.now() -
-          (interval.expectedEveryMinutes + interval.graceMinutes) *
-            60 *
-            1000,
+      const cutoff = timestampParam(
+        new Date(
+          Date.now() -
+            (interval.expectedEveryMinutes + interval.graceMinutes) *
+              60 *
+              1000,
+        ),
       );
       const rows = await db.execute<{ id: string }>(sql`
         select id
         from automation_job_runs
         where job_key = ${jobKey}
           and status = 'completed'
-          and started_at >= ${cutoff}
+          and started_at >= ${cutoff}::timestamptz
         limit 1
       `);
       if (rows.length === 0) {
@@ -281,12 +286,15 @@ export class OperationsAlertService {
       limit ${limit}
       offset ${offset}
     `);
+    const failedRunsCutoff = timestampParam(
+      new Date(Date.now() - 24 * 60 * 60 * 1000),
+    );
     const [summary] = await db.execute<Record<string, unknown>>(sql`
       select
         max(case when job_key = 'appointment_reminders' then started_at end) as "lastAppointmentReminderRun",
         max(case when job_key = 'inactivity_winback' then started_at end) as "lastInactivityWinbackRun",
         max(case when job_key = 'semaphore_reconciliation' then started_at end) as "lastSemaphoreReconciliationRun",
-        coalesce(sum(case when status = 'failed' and started_at >= ${new Date(Date.now() - 24 * 60 * 60 * 1000)} then 1 else 0 end), 0)::int as "failedRunsLast24h"
+        coalesce(sum(case when status = 'failed' and started_at >= ${failedRunsCutoff}::timestamptz then 1 else 0 end), 0)::int as "failedRunsLast24h"
       from automation_job_runs
     `);
     const total = numberFrom(countRow?.total);
@@ -343,12 +351,15 @@ export class OperationsAlertService {
       limit ${limit}
       offset ${offset}
     `);
+    const resolvedCutoff = timestampParam(
+      new Date(Date.now() - 24 * 60 * 60 * 1000),
+    );
     const [summary] = await db.execute<Record<string, unknown>>(sql`
       select
         coalesce(sum(case when status = 'open' and severity = 'critical' then 1 else 0 end), 0)::int as "openCriticalAlerts",
         coalesce(sum(case when status = 'open' and severity = 'warning' then 1 else 0 end), 0)::int as "openWarningAlerts",
         coalesce(sum(case when status = 'acknowledged' then 1 else 0 end), 0)::int as "acknowledgedAlerts",
-        coalesce(sum(case when status = 'resolved' and resolved_at >= ${new Date(Date.now() - 24 * 60 * 60 * 1000)} then 1 else 0 end), 0)::int as "resolvedAlertsLast24h"
+        coalesce(sum(case when status = 'resolved' and resolved_at >= ${resolvedCutoff}::timestamptz then 1 else 0 end), 0)::int as "resolvedAlertsLast24h"
       from operations_alerts
     `);
     const total = numberFrom(countRow?.total);
@@ -473,10 +484,10 @@ function buildAutomationRunWhere(query: {
   ) {
     filters.push(sql`status = ${query.status}`);
   }
-  const from = parseDate(query.from);
-  if (from) filters.push(sql`started_at >= ${from}`);
-  const to = parseDate(query.to);
-  if (to) filters.push(sql`started_at <= ${to}`);
+  const from = parseTimestampParam(query.from);
+  if (from) filters.push(sql`started_at >= ${from}::timestamptz`);
+  const to = parseTimestampParam(query.to);
+  if (to) filters.push(sql`started_at <= ${to}::timestamptz`);
   return filters.length > 0 ? sql.join(filters, sql` and `) : sql`true`;
 }
 
@@ -539,10 +550,10 @@ function parsePositiveInt(value: number | string | undefined, fallback: number) 
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
-function parseDate(value: string | undefined) {
+function parseTimestampParam(value: string | undefined) {
   if (!value) return null;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function numberFrom(value: unknown) {
@@ -560,4 +571,8 @@ function toIso(value: unknown) {
   if (value instanceof Date) return value.toISOString();
   const date = new Date(String(value));
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+function timestampParam(date: Date) {
+  return date.toISOString();
 }

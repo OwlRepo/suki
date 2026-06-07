@@ -8,9 +8,28 @@ import {
 } from "@nestjs/common";
 import { Request, Response } from "express";
 
+type SafeNestedCause = {
+  name?: string;
+  message?: string;
+  code?: string;
+  detail?: string;
+  hint?: string;
+  where?: string;
+  cause?: SafeNestedCause;
+};
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
+  private static readonly safeErrorFields = [
+    "name",
+    "message",
+    "code",
+    "detail",
+    "hint",
+    "where",
+  ] as const;
+  private static readonly maxCauseDepth = 4;
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -48,10 +67,35 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (status >= 500) {
       this.logger.error(
         `${req.method} ${req.url} ${status}`,
-        exception instanceof Error ? exception.stack : String(exception),
+        this.serializeSafeNestedCause(exception),
       );
     }
 
     res.status(status).json(errorResponse);
+  }
+
+  private serializeSafeNestedCause(error: unknown, depth = 0): SafeNestedCause {
+    if (error === null || error === undefined || typeof error !== "object") {
+      return { message: String(error) };
+    }
+
+    const value = error as Record<string, unknown>;
+    const safeError: SafeNestedCause = {};
+
+    for (const key of HttpExceptionFilter.safeErrorFields) {
+      if (typeof value[key] === "string") {
+        safeError[key] = value[key];
+      }
+    }
+
+    if (
+      depth < HttpExceptionFilter.maxCauseDepth &&
+      "cause" in value &&
+      value.cause
+    ) {
+      safeError.cause = this.serializeSafeNestedCause(value.cause, depth + 1);
+    }
+
+    return safeError;
   }
 }

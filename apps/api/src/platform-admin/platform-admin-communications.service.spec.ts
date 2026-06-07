@@ -27,6 +27,17 @@ function sqlChunks(value: unknown): string {
     .join(" ");
 }
 
+function sqlBoundValues(value: unknown): unknown[] {
+  const chunks = (value as { queryChunks?: unknown[] }).queryChunks ?? [];
+  return chunks.flatMap((chunk) => {
+    if ((chunk as { queryChunks?: unknown[] }).queryChunks) {
+      return sqlBoundValues(chunk);
+    }
+    if ((chunk as { value?: string[] }).value) return [];
+    return [chunk];
+  });
+}
+
 describe("PlatformAdminCommunicationsService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -98,6 +109,25 @@ describe("PlatformAdminCommunicationsService", () => {
     expect(executedSql).toContain("me.delivery_status");
     expect(executedSql).toContain("b.organization_id");
   });
+
+  it("binds list timestamp filters as timestamp strings instead of Date objects", async () => {
+    executeMock.mockResolvedValueOnce([{ total: 0 }]).mockResolvedValueOnce([]);
+
+    await new PlatformAdminCommunicationsService().listCommunications({
+      from: "2026-06-06T12:00:00.000Z",
+      to: "2026-06-07T12:00:00.000Z",
+    });
+
+    const params = executeMock.mock.calls.flatMap(([query]) => sqlBoundValues(query));
+    expect(params.some((param) => param instanceof Date)).toBe(false);
+    expect(params).toContain("2026-06-06T12:00:00.000Z");
+    expect(params).toContain("2026-06-07T12:00:00.000Z");
+    const executedSql = executeMock.mock.calls.map(([query]) => sqlChunks(query)).join("\n");
+    expect(executedSql).toContain("me.created_at >=");
+    expect(executedSql).toContain("me.created_at <=");
+    expect(executedSql).toContain("::timestamptz");
+  });
+
 
   it("masks email recipients in list responses", async () => {
     executeMock
@@ -199,10 +229,10 @@ describe("PlatformAdminCommunicationsService", () => {
   });
 
   it.each([
-    ["24h", "hour"],
-    ["7d", "day"],
-    ["30d", "day"],
-  ] as const)("summarizes %s communications with %s buckets", async (range, bucketUnit) => {
+    ["24h", "hour", "2026-06-06T12:00:00.000Z"],
+    ["7d", "day", "2026-05-31T12:00:00.000Z"],
+    ["30d", "day", "2026-05-08T12:00:00.000Z"],
+  ] as const)("summarizes %s communications with %s buckets", async (range, bucketUnit, expectedStart) => {
     executeMock
       .mockResolvedValueOnce([
         {
@@ -254,6 +284,11 @@ describe("PlatformAdminCommunicationsService", () => {
 
     const executedSql = executeMock.mock.calls.map(([query]) => sqlChunks(query)).join("\n");
     expect(executedSql).toContain(`date_trunc('${bucketUnit}'`);
+    const params = executeMock.mock.calls.flatMap(([query]) => sqlBoundValues(query));
+    expect(params.some((param) => param instanceof Date)).toBe(false);
+    expect(params).toContain(expectedStart);
+    expect(executedSql).toContain("created_at >=");
+    expect(executedSql).toContain("::timestamptz");
   });
 
   it("counts queued SMS with explicit delivery/status checks instead of enum coalesce", async () => {
