@@ -173,7 +173,13 @@ export class PlatformAdminCommunicationsService {
 
     const [totalsRow] = await db.execute<SummaryTotalsRow>(sql`
       select
-        coalesce(sum(case when me.channel = 'sms' and coalesce(me.delivery_status, me.status) = 'queued' then 1 else 0 end), 0)::int as "smsQueued",
+        coalesce(sum(case when me.channel = 'sms' and (
+          me.delivery_status = 'queued'
+          or (
+            me.delivery_status is null
+            and me.status = 'queued'
+          )
+        ) then 1 else 0 end), 0)::int as "smsQueued",
         coalesce(sum(case when me.channel = 'sms' and me.status = 'sent' then 1 else 0 end), 0)::int as "smsSent",
         coalesce(sum(case when me.channel = 'sms' and (me.status = 'failed' or me.delivery_status = 'failed') then 1 else 0 end), 0)::int as "smsFailed",
         coalesce(sum(case when me.channel = 'sms' and me.delivery_status = 'delivered' then 1 else 0 end), 0)::int as "smsDelivered",

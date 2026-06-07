@@ -255,4 +255,23 @@ describe("PlatformAdminCommunicationsService", () => {
     const executedSql = executeMock.mock.calls.map(([query]) => sqlChunks(query)).join("\n");
     expect(executedSql).toContain(`date_trunc('${bucketUnit}'`);
   });
+
+  it("counts queued SMS with explicit delivery/status checks instead of enum coalesce", async () => {
+    executeMock
+      .mockResolvedValueOnce([{ smsQueued: 2 }])
+      .mockResolvedValueOnce([{ openManualFollowUps: 0 }])
+      .mockResolvedValueOnce([{ otpSendFailures: 0, otpTotal: 0 }])
+      .mockResolvedValueOnce([]);
+
+    const summary = await new PlatformAdminCommunicationsService().getSummary({
+      range: "24h",
+    });
+
+    expect(summary.totals.smsQueued).toBe(2);
+    const executedSql = sqlChunks(executeMock.mock.calls[0][0]);
+    expect(executedSql).not.toContain("coalesce(me.delivery_status, me.status)");
+    expect(executedSql).toContain("me.delivery_status = 'queued'");
+    expect(executedSql).toContain("me.delivery_status is null");
+    expect(executedSql).toContain("me.status = 'queued'");
+  });
 });

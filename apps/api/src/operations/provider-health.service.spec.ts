@@ -12,6 +12,18 @@ vi.mock("@tyvera/database", async () => {
   };
 });
 
+function sqlChunks(value: unknown): string {
+  const chunks = (value as { queryChunks?: unknown[] }).queryChunks ?? [];
+  return chunks
+    .map((chunk) => {
+      if (typeof chunk === "string" || typeof chunk === "number") return String(chunk);
+      if ((chunk as { queryChunks?: unknown[] }).queryChunks) return sqlChunks(chunk);
+      const value = (chunk as { value?: string[] }).value;
+      return Array.isArray(value) ? value.join("") : "";
+    })
+    .join(" ");
+}
+
 function createHealthDbHarness() {
   const snapshots: Array<Record<string, unknown>> = [];
   const execute = vi.fn();
@@ -111,5 +123,22 @@ describe("ProviderHealthService", () => {
         failureRatePct: 16.67,
       },
     });
+  });
+
+  it("counts queued Resend messages with explicit delivery/status checks instead of enum coalesce", async () => {
+    const state = createHealthDbHarness();
+    state.execute.mockResolvedValueOnce([
+      { sent: 0, delivered: 0, failed: 0, bounced: 0, rejected: 0, queued: 2 },
+    ]);
+
+    await new ProviderHealthService({ evaluateEmailFailures: vi.fn() } as never)
+      .aggregateResendHealth();
+
+    expect(state.snapshots[0].metrics).toMatchObject({ queued: 2 });
+    const executedSql = sqlChunks(state.execute.mock.calls[0][0]);
+    expect(executedSql).not.toContain("coalesce(delivery_status, status)");
+    expect(executedSql).toContain("delivery_status = 'queued'");
+    expect(executedSql).toContain("delivery_status is null");
+    expect(executedSql).toContain("status = 'queued'");
   });
 });

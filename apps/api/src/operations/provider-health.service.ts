@@ -92,7 +92,13 @@ export class ProviderHealthService {
         coalesce(sum(case when status = 'failed' or delivery_status = 'failed' then 1 else 0 end), 0)::int as failed,
         coalesce(sum(case when delivery_status = 'bounced' then 1 else 0 end), 0)::int as bounced,
         coalesce(sum(case when delivery_status = 'rejected' then 1 else 0 end), 0)::int as rejected,
-        coalesce(sum(case when coalesce(delivery_status, status) = 'queued' then 1 else 0 end), 0)::int as queued
+        coalesce(sum(case when (
+          delivery_status = 'queued'
+          or (
+            delivery_status is null
+            and status = 'queued'
+          )
+        ) then 1 else 0 end), 0)::int as queued
       from message_events
       where provider = 'resend'
         and created_at >= ${new Date(Date.now() - 15 * 60 * 1000)}
