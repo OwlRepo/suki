@@ -37,19 +37,48 @@ export class AssistantController {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
 
-    const events = await this.assistant.chatStream({
-      organizationId: orgId,
-      userId,
-      message: body.message ?? "",
-      businessId: body.businessId,
-      threadId: body.threadId,
-    });
-
-    for (const event of events) {
+    const writeEvent = (event: { type: string }) => {
       res.write(`event: ${event.type}\n`);
       res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    try {
+      await this.assistant.chatStreamToEmitter(
+        {
+          organizationId: orgId,
+          userId,
+          message: body.message ?? "",
+          businessId: body.businessId,
+          threadId: body.threadId,
+        },
+        writeEvent,
+      );
+    } catch {
+      writeEvent({ type: "state", state: "error" } as never);
+      writeEvent({
+        type: "error",
+        code: "ASSISTANT_STREAM_FAILED",
+        message: "Unable to process your request safely right now.",
+      } as never);
+    } finally {
+      res.end();
     }
-    res.end();
+  }
+
+  @Post("actions/confirm")
+  async confirmMutation(
+    @Body() body: { token: string; businessId?: string },
+    @Tenant("organizationId") orgId?: string,
+    @Tenant("userId") userId?: string,
+  ) {
+    if (!orgId || !userId) throw new UnauthorizedException("Unauthorized");
+    return this.assistant.confirmMutation({
+      organizationId: orgId,
+      userId,
+      businessId: body.businessId,
+      token: body.token ?? "",
+    });
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { AnswerSourceService } from "./answer-source.service";
 import { AiExecutionService } from "../ai/ai-execution.service";
 import type {
@@ -8,6 +8,10 @@ import type {
 } from "./assistant.types";
 import { AssistantThreadMemoryService } from "./assistant-thread-memory.service";
 import { buildAssistantContextPack, type AssistantIntent } from "./assistant-context";
+import { AssistantOpenAiToolsService } from "./assistant-openai-tools.service";
+import { AssistantMutationService } from "./assistant-mutation.service";
+import { AssistantPlainAnswerStreamParser } from "./assistant-json-stream-parser";
+import { MAX_ASSISTANT_TOOL_ROUNDS } from "../ai/ai-execution.service";
 
 const SAFE_ROUTE_WHITELIST = new Set([
   "/dashboard",
@@ -123,10 +127,14 @@ const INTENT_REGISTRY: AssistantIntentRegistry = {
 
 @Injectable()
 export class AssistantService {
+  private readonly logger = new Logger(AssistantService.name);
+
   constructor(
     private readonly answerSource: AnswerSourceService,
     private readonly aiExecution: AiExecutionService,
     private readonly threadMemory: AssistantThreadMemoryService,
+    private readonly openAiTools?: AssistantOpenAiToolsService,
+    private readonly mutations?: AssistantMutationService,
   ) {}
 
   async chat(input: {
@@ -218,6 +226,295 @@ export class AssistantService {
       events.push({ type: "error", message: "Unable to process your request right now." });
       return events;
     }
+  }
+
+  async chatStreamToEmitter(
+    input: {
+      organizationId: string;
+      userId: string;
+      message: string;
+      businessId?: string;
+      threadId?: string;
+    },
+    emit: (event: AssistantChatStreamEvent) => void | Promise<void>,
+  ): Promise<void> {
+    const streamEnabled =
+      process.env.FF_openai_native_assistant_stream_enabled === "true";
+    const toolsEnabled =
+      process.env.FF_openai_native_assistant_tools_enabled === "true";
+    const mutationsEnabled =
+      process.env.FF_openai_native_assistant_mutations_enabled === "true";
+
+    if (!streamEnabled) {
+      if (toolsEnabled || mutationsEnabled) {
+        this.logger.warn(
+          "Native assistant tools or mutations require native streaming; using legacy flow.",
+        );
+      }
+      const legacyEvents = await this.chatStream(input);
+      for (const event of legacyEvents) await emit(event);
+      return;
+    }
+
+    if (!this.aiExecution.hasOpenAi()) {
+      const legacyEvents = await this.chatStream(input);
+      for (const event of legacyEvents) await emit(event);
+      return;
+    }
+
+    const normalizedMessage = input.message.trim();
+    const intent = this.detectIntent(normalizedMessage);
+    const locale = this.detectLocale(normalizedMessage);
+    const registry = INTENT_REGISTRY[intent];
+    const threadId = input.threadId?.trim() || `thread-${input.userId}`;
+    const parser = new AssistantPlainAnswerStreamParser();
+    let receivedRawDelta = false;
+
+    await emit({ type: "meta", threadId, intent });
+    await emit({ type: "state", state: "sending" });
+    await emit({ type: "stage", stage: "normalize" });
+    await emit({ type: "stage", stage: "intent" });
+    await emit({ type: "state", state: "streaming" });
+
+    try {
+      const memory = await this.safeLoadMemory(
+        input.organizationId,
+        input.userId,
+        threadId,
+      );
+      const deterministicToolExecution = toolsEnabled
+        ? []
+        : await this.executeIntentTools(
+            intent,
+            input.organizationId,
+            input.businessId,
+          );
+      const dataContext = this.buildDataContextFromToolExecution(
+        deterministicToolExecution,
+      );
+      const contextPack = buildAssistantContextPack({
+        intent,
+        locale,
+        query: normalizedMessage,
+        memory,
+        dataContext,
+      });
+      const defaultChips = this.defaultChipsForIntent(
+        intent,
+        normalizedMessage,
+      );
+      const modelContext = this.buildContextWithinBudget(
+        contextPack,
+        normalizedMessage,
+        ASSISTANT_CONTEXT_CHAR_BUDGET,
+      );
+
+      await emit({ type: "stage", stage: "context" });
+      await emit({ type: "stage", stage: "tools" });
+
+      const readDefinitions =
+        toolsEnabled && this.openAiTools
+          ? this.openAiTools.getToolDefinitions()
+          : [];
+      const mutationDefinitions =
+        toolsEnabled && mutationsEnabled && this.mutations
+          ? this.mutations.getToolDefinitions()
+          : [];
+      const tools = [...readDefinitions, ...mutationDefinitions];
+      const mutationToolNames = new Set(
+        mutationDefinitions.flatMap((tool) =>
+          tool.type === "function" ? [tool.name] : [],
+        ),
+      );
+      const confirmations: Array<{
+        token: string;
+        action: "update_customer" | "reschedule_appointment";
+        summary: string;
+        expiresAt: string;
+      }> = [];
+
+      await emit({ type: "stage", stage: "openai" });
+      const result =
+        await this.aiExecution.executeResponsesToolLoopWithGuardrails({
+          organizationId: input.organizationId,
+          userId: input.userId,
+          businessId: input.businessId,
+          feature: "summarization",
+          input: [
+            {
+              role: "system",
+              content: this.buildNativeSystemPrompt(
+                registry,
+                tools.flatMap((tool) =>
+                  tool.type === "function" ? [tool.name] : [],
+                ),
+                mutationsEnabled,
+              ),
+            },
+            {
+              role: "user",
+              content: JSON.stringify({
+                question: normalizedMessage,
+                context: modelContext,
+                deterministicToolResults: deterministicToolExecution,
+              }),
+            },
+          ],
+          tools,
+          maxToolRounds: MAX_ASSISTANT_TOOL_ROUNDS,
+          maxOutputTokens: 500,
+          temperature: 0.2,
+          text: this.assistantResponsesTextConfig(),
+          onTextDelta: async (fragment) => {
+            receivedRawDelta = true;
+            const visible = parser.push(fragment);
+            if (visible) await emit({ type: "delta", chunk: visible });
+          },
+          executeToolCall: async (toolCall) => {
+            if (
+              mutationToolNames.has(toolCall.name) &&
+              this.mutations
+            ) {
+              const mutationResult = await this.mutations.executeTool({
+                organizationId: input.organizationId,
+                userId: input.userId,
+                businessId: input.businessId,
+                name: toolCall.name,
+                argumentsJson: toolCall.argumentsJson,
+              });
+              if (mutationResult.confirmation) {
+                if (confirmations.length >= 1) {
+                  throw new Error("ASSISTANT_MUTATION_PROPOSAL_LIMIT");
+                }
+                confirmations.push(mutationResult.confirmation);
+              }
+              return mutationResult;
+            }
+            if (!this.openAiTools) {
+              return {
+                tool: "unsupported",
+                status: "error",
+                output: { code: "UNSUPPORTED_ASSISTANT_TOOL" },
+              };
+            }
+            return this.openAiTools.execute({
+              organizationId: input.organizationId,
+              businessId: input.businessId,
+              name: toolCall.name,
+              argumentsJson: toolCall.argumentsJson,
+            });
+          },
+        });
+
+      if (!receivedRawDelta) {
+        const visible = parser.push(result.content);
+        if (visible) await emit({ type: "delta", chunk: visible });
+      }
+      parser.finish();
+
+      await emit({ type: "stage", stage: "validate" });
+      const parsed = this.tryParseAssistantResponse(result.content);
+      if (!parsed) throw new Error("ASSISTANT_RESPONSE_SCHEMA_INVALID");
+      const normalizedPayload = this.normalizeModelPayload(parsed);
+      normalizedPayload.usedTools = result.executedTools.map(
+        (tool) => tool.name,
+      );
+      const toolUsageValidation = this.validateToolUsage(
+        normalizedPayload.usedTools,
+      );
+      if (!toolUsageValidation.ok) {
+        throw new Error(toolUsageValidation.reason.toUpperCase());
+      }
+      normalizedPayload.actionChips = this.retainWhitelistedRoutes(
+        normalizedPayload.actionChips,
+      );
+      const normalized = this.normalizeResponse(
+        normalizedPayload,
+        defaultChips,
+      );
+      if (
+        !normalized.plainAnswer ||
+        !normalized.nextStep ||
+        normalized.actionChips.length === 0 ||
+        normalized.confidence < registry.minConfidence
+      ) {
+        throw new Error("ASSISTANT_RESPONSE_SCHEMA_INVALID");
+      }
+
+      await this.safeSaveMemory(
+        input.organizationId,
+        input.userId,
+        threadId,
+        memory.turns,
+        normalizedMessage,
+        `${normalized.plainAnswer} ${normalized.nextStep}`.trim(),
+      );
+
+      await emit({ type: "stage", stage: "finalize" });
+      await emit({ type: "actions", actionChips: normalized.actionChips });
+      for (const confirmation of confirmations) {
+        await emit({ type: "confirmation", confirmation });
+      }
+      const usageEvent = await this.buildUsageStreamEvent(
+        input.organizationId,
+      );
+      if (usageEvent) await emit(usageEvent);
+      await emit({ type: "state", state: "sent" });
+      await emit({ type: "state", state: "read" });
+      await emit({
+        type: "done",
+        response: this.withThreadId(normalized, threadId),
+      });
+    } catch (error) {
+      const reason = this.extractErrorReason(error);
+      await emit({ type: "state", state: "error" });
+      if (reason === "AI_DISABLED") {
+        await emit({
+          type: "error",
+          code: "AI_DISABLED",
+          message: "AI assistant is disabled for this organization.",
+          meta: { aiEnabled: false },
+          actionChips: [
+            { label: "Open Settings", href: "/settings", kind: "primary" },
+            { label: "Open Help Center", href: "/help", kind: "secondary" },
+          ],
+        });
+        return;
+      }
+      if (reason && AI_CAP_ERROR_CODES.has(reason)) {
+        await emit({
+          type: "error",
+          code: reason,
+          message: "You reached today’s AI limit.",
+          actionChips: [
+            { label: "View AI Usage", href: "/settings", kind: "primary" },
+            { label: "Open Help Center", href: "/help", kind: "secondary" },
+          ],
+        });
+        return;
+      }
+      await emit({
+        type: "error",
+        code: this.safeNativeErrorCode(reason),
+        message: "Unable to process your request safely right now.",
+      });
+    }
+  }
+
+  async confirmMutation(input: {
+    organizationId: string;
+    userId: string;
+    businessId?: string;
+    token: string;
+  }) {
+    const enabled =
+      process.env.FF_openai_native_assistant_stream_enabled === "true" &&
+      process.env.FF_openai_native_assistant_tools_enabled === "true" &&
+      process.env.FF_openai_native_assistant_mutations_enabled === "true";
+    if (!enabled || !this.mutations) {
+      throw new Error("ASSISTANT_MUTATIONS_DISABLED");
+    }
+    return this.mutations.confirm(input);
   }
 
   private async orchestrate(input: {
@@ -378,13 +675,17 @@ export class AssistantService {
     return { response: finalResponse, stages };
   }
 
-  private isKnownTool(tool: string): tool is IntentToolKey {
+  private isKnownTool(tool: string): boolean {
     return [
       "get_business_summary",
       "get_sms_usage",
       "get_billing_status",
       "get_ai_usage",
       "route_guidance",
+      "find_customers",
+      "list_appointments",
+      "update_customer",
+      "reschedule_appointment",
     ].includes(tool);
   }
 
@@ -536,6 +837,26 @@ export class AssistantService {
       base.push("Confidence must reflect certainty from provided context only. Use fallback-style wording when uncertain. No markdown.");
     }
     return base.join(" ");
+  }
+
+  private buildNativeSystemPrompt(
+    registry: AssistantIntentRegistry[AssistantIntent],
+    toolNames: string[],
+    mutationsEnabled: boolean,
+  ): string {
+    return [
+      "You are Tyvera Assistant for non-technical users.",
+      "Return only strict JSON matching the provided response schema.",
+      "Use concise plain language and never expose raw tool output or provider errors.",
+      "Only use tools supplied by the server.",
+      `Available tools: ${toolNames.join(",") || "none"}.`,
+      `The intent normally uses: ${registry.requiredTools.join(",") || "none"}.`,
+      mutationsEnabled
+        ? "Mutation tools create one confirmation proposal only. Never claim a mutation completed until the server reports completion."
+        : "Do not propose or claim any data mutation.",
+      "The usedTools field is informational only; the server derives authoritative tool history.",
+      "Action chip href values must use existing Tyvera routes only.",
+    ].join(" ");
   }
 
   private tryParseAssistantResponse(content: string): ModelAssistantPayload | null {
@@ -718,6 +1039,32 @@ export class AssistantService {
         },
       },
     };
+  }
+
+  private assistantResponsesTextConfig() {
+    const chatSchema = this.assistantResponseJsonSchema();
+    return {
+      format: {
+        type: "json_schema" as const,
+        name: chatSchema.json_schema.name,
+        strict: chatSchema.json_schema.strict,
+        schema: chatSchema.json_schema.schema,
+      },
+    };
+  }
+
+  private safeNativeErrorCode(reason: string | null): string {
+    if (
+      reason === "ASSISTANT_TOOL_ROUND_LIMIT_EXCEEDED" ||
+      reason === "ASSISTANT_TOOL_CALL_LIMIT_EXCEEDED" ||
+      reason === "UNSUPPORTED_ASSISTANT_TOOL" ||
+      reason === "ASSISTANT_MUTATION_PROPOSAL_LIMIT" ||
+      reason === "ASSISTANT_RESPONSE_SCHEMA_INVALID" ||
+      reason === "ASSISTANT_STREAM_PARSE_INCOMPLETE"
+    ) {
+      return reason;
+    }
+    return "ASSISTANT_NATIVE_STREAM_FAILED";
   }
 
   private clampConfidence(value: number | undefined): number {

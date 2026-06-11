@@ -12,17 +12,32 @@ const answerSource = {
 const aiExecution = {
   hasOpenAi: vi.fn(),
   executeWithGuardrails: vi.fn(),
+  executeResponsesToolLoopWithGuardrails: vi.fn(),
 };
 const threadMemory = {
   getThreadMemory: vi.fn(),
   saveThreadMemory: vi.fn(),
 };
+const openAiTools = {
+  getToolDefinitions: vi.fn(),
+  execute: vi.fn(),
+};
+const mutations = {
+  getToolDefinitions: vi.fn(),
+  executeTool: vi.fn(),
+  confirm: vi.fn(),
+};
 
 describe("AssistantService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("FF_openai_native_assistant_stream_enabled", "false");
+    vi.stubEnv("FF_openai_native_assistant_tools_enabled", "false");
+    vi.stubEnv("FF_openai_native_assistant_mutations_enabled", "false");
     threadMemory.getThreadMemory.mockResolvedValue({ summary: "", turns: [] });
     threadMemory.saveThreadMemory.mockResolvedValue(undefined);
+    openAiTools.getToolDefinitions.mockReturnValue([]);
+    mutations.getToolDefinitions.mockReturnValue([]);
     answerSource.getAiUsageSummary.mockResolvedValue({
       canonical: {
         tokensUsed: 1100,
@@ -485,5 +500,316 @@ describe("AssistantService", () => {
     if (done?.type === "done") {
       expect(done.response.actionChips[0]?.href).toBe("/customers");
     }
+  });
+
+  it("preserves legacy stream behavior when native flags are disabled", async () => {
+    aiExecution.hasOpenAi.mockReturnValue(false);
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+    );
+    const legacy = await service.chatStream({
+      organizationId: "org-1",
+      userId: "user-1",
+      message: "How do I add a customer?",
+      businessId: "biz-1",
+    });
+    const emitted: unknown[] = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "How do I add a customer?",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event);
+      },
+    );
+
+    expect(emitted).toEqual(legacy);
+    expect(aiExecution.executeResponsesToolLoopWithGuardrails).not.toHaveBeenCalled();
+  });
+
+  it("forwards decoded native plainAnswer deltas before done", async () => {
+    vi.stubEnv("FF_openai_native_assistant_stream_enabled", "true");
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockImplementation(
+      async (options: { onTextDelta?: (delta: string) => Promise<void> }) => {
+        await options.onTextDelta?.('{"plainAnswer":"Hello ');
+        await options.onTextDelta?.(
+          'world","nextStep":"Open customers.","details":null,"actionChips":[{"label":"Customers","href":"/customers","kind":"primary"}],"confidence":0.95,"intentKey":"how_to","usedTools":[]}',
+        );
+        return {
+          content:
+            '{"plainAnswer":"Hello world","nextStep":"Open customers.","details":null,"actionChips":[{"label":"Customers","href":"/customers","kind":"primary"}],"confidence":0.95,"intentKey":"how_to","usedTools":[]}',
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+          executedTools: [],
+        };
+      },
+    );
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+    );
+    const emitted: Array<{ type: string; chunk?: string }> = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "How do I add a customer?",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event);
+      },
+    );
+
+    const deltaIndex = emitted.findIndex((event) => event.type === "delta");
+    const doneIndex = emitted.findIndex((event) => event.type === "done");
+    expect(deltaIndex).toBeGreaterThan(-1);
+    expect(doneIndex).toBeGreaterThan(deltaIndex);
+    expect(
+      emitted.filter((event) => event.type === "delta").map((event) => event.chunk).join(""),
+    ).toBe("Hello world");
+  });
+
+  it("uses server execution history instead of model-provided usedTools", async () => {
+    vi.stubEnv("FF_openai_native_assistant_stream_enabled", "true");
+    vi.stubEnv("FF_openai_native_assistant_tools_enabled", "true");
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    openAiTools.getToolDefinitions.mockReturnValue([
+      {
+        type: "function",
+        name: "get_sms_usage",
+        strict: true,
+        parameters: { type: "object", additionalProperties: false, properties: {} },
+      },
+    ]);
+    openAiTools.execute.mockResolvedValue({
+      tool: "get_sms_usage",
+      status: "ok",
+      output: { remaining: 10 },
+    });
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockImplementation(
+      async (options: {
+        executeToolCall: (call: {
+          name: string;
+          argumentsJson: string;
+          callId: string;
+        }) => Promise<unknown>;
+      }) => {
+        await options.executeToolCall({
+          name: "get_sms_usage",
+          argumentsJson: "{}",
+          callId: "call-1",
+        });
+        return {
+          content:
+            '{"plainAnswer":"You have SMS left.","nextStep":"Open settings.","details":null,"actionChips":[{"label":"Settings","href":"/settings","kind":"primary"}],"confidence":0.95,"intentKey":"usage","usedTools":["delete_customer"]}',
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+          executedTools: [
+            { name: "get_sms_usage", callId: "call-1", round: 1 },
+          ],
+        };
+      },
+    );
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+    );
+    const emitted: Array<{ type: string }> = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "How many SMS credits?",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event);
+      },
+    );
+
+    expect(openAiTools.execute).toHaveBeenCalled();
+    expect(emitted.some((event) => event.type === "done")).toBe(true);
+    expect(emitted.some((event) => event.type === "error")).toBe(false);
+  });
+
+  it("emits an AI_DISABLED-specific terminal error", async () => {
+    vi.stubEnv("FF_openai_native_assistant_stream_enabled", "true");
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockRejectedValue(
+      new ForbiddenException("AI_DISABLED"),
+    );
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+    );
+    const emitted: Array<{ type: string; code?: string; message?: string }> = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "Help",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event);
+      },
+    );
+
+    expect(emitted).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        code: "AI_DISABLED",
+        message: expect.stringMatching(/disabled/i),
+      }),
+    );
+    expect(emitted.some((event) => event.type === "done")).toBe(false);
+  });
+
+  it("emits a safe error for malformed streamed JSON without leaking JSON syntax", async () => {
+    vi.stubEnv("FF_openai_native_assistant_stream_enabled", "true");
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockImplementation(
+      async (options: { onTextDelta?: (delta: string) => Promise<void> }) => {
+        await options.onTextDelta?.('{"plainAnswer":"Partial');
+        return {
+          content: '{"plainAnswer":"Partial',
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+          executedTools: [],
+        };
+      },
+    );
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+    );
+    const emitted: Array<{ type: string; chunk?: string; message?: string }> = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "Help",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event);
+      },
+    );
+
+    expect(emitted.some((event) => event.type === "error")).toBe(true);
+    expect(emitted.some((event) => event.type === "done")).toBe(false);
+    expect(emitted.map((event) => event.chunk ?? "").join("")).not.toMatch(/[{}]/);
+    expect(threadMemory.saveThreadMemory).not.toHaveBeenCalled();
+  });
+
+  it("emits guarded mutation confirmation without applying it", async () => {
+    vi.stubEnv("FF_openai_native_assistant_stream_enabled", "true");
+    vi.stubEnv("FF_openai_native_assistant_tools_enabled", "true");
+    vi.stubEnv("FF_openai_native_assistant_mutations_enabled", "true");
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    mutations.getToolDefinitions.mockReturnValue([
+      {
+        type: "function",
+        name: "update_customer",
+        strict: true,
+        parameters: { type: "object", additionalProperties: false, properties: {} },
+      },
+    ]);
+    mutations.executeTool.mockResolvedValue({
+      tool: "update_customer",
+      status: "confirmation_required",
+      output: { code: "CONFIRMATION_REQUIRED" },
+      confirmation: {
+        token: "signed.token",
+        action: "update_customer",
+        summary: "Update Ana's name",
+        expiresAt: "2026-06-11T16:00:00.000Z",
+      },
+    });
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockImplementation(
+      async (options: {
+        executeToolCall: (call: {
+          name: string;
+          argumentsJson: string;
+          callId: string;
+        }) => Promise<unknown>;
+      }) => {
+        await options.executeToolCall({
+          name: "update_customer",
+          argumentsJson: "{}",
+          callId: "call-1",
+        });
+        return {
+          content:
+            '{"plainAnswer":"Please confirm the update.","nextStep":"Review the proposed change.","details":null,"actionChips":[{"label":"Customers","href":"/customers","kind":"primary"}],"confidence":0.95,"intentKey":"how_to","usedTools":[]}',
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+          executedTools: [
+            { name: "update_customer", callId: "call-1", round: 1 },
+          ],
+        };
+      },
+    );
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+    );
+    const emitted: Array<{ type: string; confirmation?: unknown }> = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "Change Ana's name",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event);
+      },
+    );
+
+    expect(emitted).toContainEqual({
+      type: "confirmation",
+      confirmation: {
+        token: "signed.token",
+        action: "update_customer",
+        summary: "Update Ana's name",
+        expiresAt: "2026-06-11T16:00:00.000Z",
+      },
+    });
+    expect(mutations.confirm).not.toHaveBeenCalled();
   });
 });

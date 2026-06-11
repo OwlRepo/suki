@@ -10,5 +10,6 @@ import { IntakeModule } from "../intake/intake.module";
   imports: [AuthModule, AutomationModule, IntakeModule],
   controllers: [AppointmentsController],
   providers: [AppointmentsService, AppointmentLifecycleSchedulerService],
+  exports: [AppointmentsService],
 })
 export class AppointmentsModule {}

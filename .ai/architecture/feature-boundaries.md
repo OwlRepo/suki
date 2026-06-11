@@ -13,6 +13,9 @@
 - Cross-domain behavior should integrate via service injection, not controller coupling.
 - Appointment lifecycle state belongs to `apps/api/src/appointments/*`; appointment completion is the idempotency boundary for customer visit counters and post-visit/loyalty side effects.
 - Customer identity reuse belongs to `CustomersService` and matches exact normalized `(businessId, mobile)` with an advisory lock; do not add a uniqueness constraint until legacy duplicates are reconciled.
+- Assistant model execution belongs to `apps/api/src/help/*` and must pass through `AiExecutionService` guardrails. Native streaming and tools remain independently disabled by default, with the deterministic assistant flow retained as the rollback path.
+- Assistant tools must use authenticated server tenant scope. Read tools are allowlisted; mutation tools are limited to customer profile updates and appointment rescheduling, create signed short-lived proposals only, and require explicit authenticated confirmation with read-only and stale-state checks before existing domain services perform the write.
+- Do not add assistant delete, send, billing, authentication, appointment-status, visit-recording, or other irreversible/high-impact tools without a separate approval and safety design.
 - Shared guards/utilities remain in `apps/api/src/common` and `apps/api/src/auth`.
 - Intake booking hold + OTP confirmation behavior belongs to `apps/api/src/intake/*` and persists hold state via `packages/database` schema.
 

@@ -4,15 +4,33 @@ import { InsightsModule } from "../insights/insights.module";
 import { MessagingModule } from "../messaging/messaging.module";
 import { BillingModule } from "../billing/billing.module";
 import { AiModule } from "../ai/ai.module";
+import { AppointmentsModule } from "../appointments/appointments.module";
+import { CustomersModule } from "../customers/customers.module";
 import { AnswerSourceController } from "./answer-source.controller";
 import { AnswerSourceService } from "./answer-source.service";
 import { AssistantController } from "./assistant.controller";
+import { AssistantMutationService } from "./assistant-mutation.service";
+import { AssistantOpenAiToolsService } from "./assistant-openai-tools.service";
 import { AssistantService } from "./assistant.service";
 import { AssistantThreadMemoryService } from "./assistant-thread-memory.service";
 
 @Module({
-  imports: [AuthModule, InsightsModule, MessagingModule, BillingModule, AiModule],
+  imports: [
+    AuthModule,
+    InsightsModule,
+    MessagingModule,
+    BillingModule,
+    AiModule,
+    AppointmentsModule,
+    CustomersModule,
+  ],
   controllers: [AnswerSourceController, AssistantController],
-  providers: [AnswerSourceService, AssistantService, AssistantThreadMemoryService],
+  providers: [
+    AnswerSourceService,
+    AssistantService,
+    AssistantThreadMemoryService,
+    AssistantMutationService,
+    AssistantOpenAiToolsService,
+  ],
 })
 export class HelpModule {}

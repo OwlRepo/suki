@@ -389,4 +389,157 @@ describe("TyveraAssistant orchestration UI", () => {
     const chatCalls = apiRequestMock.mock.calls.filter(([path]) => path === "/help/assistant/chat");
     expect(chatCalls).toHaveLength(0);
   });
+
+  it("renders deltas arriving in separate reader reads before done", async () => {
+    const encoder = new TextEncoder();
+    let releaseDone: (() => void) | undefined;
+    const waitForDone = new Promise<void>((resolve) => {
+      releaseDone = resolve;
+    });
+    const stream = new ReadableStream({
+      async start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: state\ndata: {"type":"state","state":"streaming"}\n\n' +
+              'event: delta\ndata: {"type":"delta","chunk":"First chunk"}\n\n',
+          ),
+        );
+        await waitForDone;
+        controller.enqueue(
+          encoder.encode(
+            'event: done\ndata: {"type":"done","response":{"plainAnswer":"First chunk","nextStep":"Finished.","actionChips":[],"confidence":0.95}}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
+
+    render(<TyveraAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    fireEvent.change(input, { target: { value: "Help" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("First chunk")).toBeInTheDocument();
+    expect(screen.queryByText(/finished\./i)).not.toBeInTheDocument();
+    releaseDone?.();
+    expect(await screen.findByText(/first chunk finished\./i)).toBeInTheDocument();
+  });
+
+  it("renders AI_DISABLED distinctly without opening the cap dialog", async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: error\ndata: {"type":"error","message":"AI assistant is disabled for this organization.","code":"AI_DISABLED","meta":{"aiEnabled":false}}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
+
+    render(<TyveraAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    fireEvent.change(input, { target: { value: "Help" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(
+      (
+        await screen.findAllByText(
+          /ai assistant is disabled for this organization/i,
+        )
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("heading", { name: /ai limit reached/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("applies usage aiEnabled false from SSE", async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: usage\ndata: {"type":"usage","usage":{"tokensUsed":0,"tokensLimit":0,"requestsUsed":0,"requestsLimit":0,"dailyTokensUsed":0,"dailyTokensLimit":0,"dailyRequestsUsed":0,"dailyRequestsLimit":0,"aiEnabled":false}}\n\n' +
+              'event: done\ndata: {"type":"done","response":{"plainAnswer":"Done.","nextStep":"Open help.","actionChips":[],"confidence":0.95}}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
+
+    render(<TyveraAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    fireEvent.change(input, { target: { value: "Help" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText(/ai assistant is disabled/i)).toBeInTheDocument();
+  });
+
+  it("requires explicit confirmation before applying a proposed mutation", async () => {
+    apiRequestMock.mockImplementation(async (path: string) => {
+      if (path === "/help/assistant/actions/confirm") {
+        return { status: "ok", action: "update_customer" };
+      }
+      if (path.startsWith("/ai/usage/summary")) {
+        return {
+          tokensUsed: 100,
+          tokensLimit: 1000,
+          requestsUsed: 10,
+          requestsLimit: 100,
+          dailyTokensUsed: 50,
+          dailyTokensLimit: 200,
+          dailyRequestsUsed: 2,
+          dailyRequestsLimit: 10,
+          resetDate: "2026-06-01",
+          dailyResetDateTime: "2026-05-10T16:00:00.000Z",
+          aiEnabled: true,
+        };
+      }
+      return {};
+    });
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: confirmation\ndata: {"type":"confirmation","confirmation":{"token":"signed.token","action":"update_customer","summary":"Update Ana name to Ana Reyes","expiresAt":"2026-06-11T16:00:00.000Z"}}\n\n' +
+              'event: done\ndata: {"type":"done","response":{"plainAnswer":"Please confirm the update.","nextStep":"Review the proposed change.","actionChips":[],"confidence":0.95}}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
+
+    render(<TyveraAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    fireEvent.change(input, { target: { value: "Change Ana name" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText(/update ana name to ana reyes/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /confirm change/i }));
+
+    await waitFor(() => {
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/help/assistant/actions/confirm",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            token: "signed.token",
+            businessId: "biz-1",
+          }),
+        }),
+      );
+    });
+    expect(await screen.findByText(/change applied/i)).toBeInTheDocument();
+  });
 });

@@ -40,6 +40,16 @@ export type AssistantChatStreamEvent =
         dailyRequestsLimit?: number;
         dailyResetDateTime?: string;
         resetDate?: string;
+        aiEnabled?: boolean;
+      };
+    }
+  | {
+      type: "confirmation";
+      confirmation: {
+        token: string;
+        action: "update_customer" | "reschedule_appointment";
+        summary: string;
+        expiresAt: string;
       };
     }
   | { type: "done"; response: AssistantChatResponse }
@@ -52,5 +62,6 @@ export type AssistantChatStreamEvent =
         dailyTokensRemaining?: number;
         dailyRequestsRemaining?: number;
         dailyResetDateTime?: string;
+        aiEnabled?: boolean;
       };
     };

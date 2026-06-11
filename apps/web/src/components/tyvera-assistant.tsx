@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageCircle, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
@@ -11,6 +11,7 @@ import { usePlanCapabilities } from "@/hooks/use-plan-capabilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmActionInline } from "@/components/ui/confirm-action-inline";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,13 @@ type AssistantMessage = {
   sources?: string[];
   details?: string;
   actionChips?: Array<{ label: string; href: string; kind: "primary" | "secondary" }>;
+  confirmation?: {
+    token: string;
+    action: "update_customer" | "reschedule_appointment";
+    summary: string;
+    expiresAt: string;
+    state?: "pending" | "submitting" | "applied" | "error";
+  };
 };
 
 const PROMPTS = [
@@ -90,22 +98,27 @@ export function TyveraAssistant() {
   const [threadId, setThreadId] = useState<string>("");
   const [assistantState, setAssistantState] = useState<AssistantMessage["state"]>("read");
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const aiDisabledByStream = useRef(false);
   const assistantLauncherEnabled =
     process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED === "true";
   const canRenderAssistant =
     assistantLauncherEnabled && planCapabilities.canSeeAssistant;
 
-  const refreshUsageSummary = async () => {
+  const refreshUsageSummary = useCallback(async () => {
     const token = await getToken();
     try {
       const summary = await apiRequest<AiUsageSummary>("/ai/usage/summary", {
         token: isUsableBearerToken(token) ? token : undefined,
       });
-      setUsage(summary);
+      setUsage(
+        aiDisabledByStream.current
+          ? { ...summary, aiEnabled: false }
+          : summary,
+      );
     } catch {
       // Non-fatal: keep last known snapshot.
     }
-  };
+  }, [getToken]);
 
   useEffect(() => {
     const id = `thread-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -127,7 +140,7 @@ export function TyveraAssistant() {
     (async () => {
       await refreshUsageSummary();
     })();
-  }, [open, getToken]);
+  }, [open, refreshUsageSummary]);
 
   const usageModel = useMemo(
     () =>
@@ -231,7 +244,9 @@ export function TyveraAssistant() {
     };
   };
 
-  const streamAnswerQuery = async (query: string): Promise<boolean> => {
+  const streamAnswerQuery = async (
+    query: string,
+  ): Promise<"completed" | "disabled" | false> => {
     const token = await getToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (isUsableBearerToken(token)) {
@@ -255,6 +270,8 @@ export function TyveraAssistant() {
     let text = "";
     let details: string | undefined;
     let actionChips: AssistantMessage["actionChips"] = [];
+    let confirmation: AssistantMessage["confirmation"];
+    let streamAiEnabled: boolean | undefined;
     let sawDoneEvent = false;
     let hadProtocolError = false;
     let sawErrorEvent = false;
@@ -299,9 +316,43 @@ export function TyveraAssistant() {
           dailyResetDateTime:
             typeof usagePayload.dailyResetDateTime === "string" ? usagePayload.dailyResetDateTime : undefined,
           resetDate: typeof usagePayload.resetDate === "string" ? usagePayload.resetDate : undefined,
-          aiEnabled: true,
+          aiEnabled:
+            typeof usagePayload.aiEnabled === "boolean"
+              ? usagePayload.aiEnabled
+              : true,
         };
+        streamAiEnabled = nextUsage.aiEnabled;
+        if (nextUsage.aiEnabled === false) {
+          aiDisabledByStream.current = true;
+        }
         setUsage(nextUsage);
+      }
+      if (
+        eventType === "confirmation" &&
+        payload.confirmation &&
+        typeof payload.confirmation === "object"
+      ) {
+        const value = payload.confirmation as Record<string, unknown>;
+        if (
+          typeof value.token === "string" &&
+          (value.action === "update_customer" ||
+            value.action === "reschedule_appointment") &&
+          typeof value.summary === "string" &&
+          typeof value.expiresAt === "string"
+        ) {
+          confirmation = {
+            token: value.token,
+            action: value.action,
+            summary: value.summary,
+            expiresAt: value.expiresAt,
+            state: "pending",
+          };
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId ? { ...msg, confirmation } : msg,
+            ),
+          );
+        }
       }
       if (eventType === "done" && payload.response && typeof payload.response === "object") {
         sawDoneEvent = true;
@@ -317,12 +368,22 @@ export function TyveraAssistant() {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === messageId
-              ? { ...msg, text: finalText || text, details, actionChips, sources: ["Tyvera Assistant"], state: "read" }
+              ? {
+                  ...msg,
+                  text: finalText || text,
+                  details,
+                  actionChips,
+                  confirmation,
+                  sources: ["Tyvera Assistant"],
+                  state: "read",
+                }
               : msg,
           ),
         );
         setAssistantState("read");
-        void refreshUsageSummary();
+        if (streamAiEnabled !== false) {
+          void refreshUsageSummary();
+        }
       }
       if (eventType === "error") {
         sawErrorEvent = true;
@@ -332,8 +393,26 @@ export function TyveraAssistant() {
           actionChips?: AssistantMessage["actionChips"];
         };
         const isCapError = typeof errorPayload.code === "string" && errorPayload.code.includes("CAP");
+        const isDisabledError = errorPayload.code === "AI_DISABLED";
         if (isCapError) {
           setShowCapDialog(true);
+        }
+        if (isDisabledError) {
+          streamAiEnabled = false;
+          aiDisabledByStream.current = true;
+          setUsage((current) => ({
+            tokensUsed: current?.tokensUsed ?? 0,
+            tokensLimit: current?.tokensLimit ?? 0,
+            requestsUsed: current?.requestsUsed ?? 0,
+            requestsLimit: current?.requestsLimit ?? 0,
+            resetDate: current?.resetDate,
+            dailyTokensUsed: current?.dailyTokensUsed,
+            dailyTokensLimit: current?.dailyTokensLimit,
+            dailyRequestsUsed: current?.dailyRequestsUsed,
+            dailyRequestsLimit: current?.dailyRequestsLimit,
+            dailyResetDateTime: current?.dailyResetDateTime,
+            aiEnabled: false,
+          }));
         }
         setAssistantState("error");
         setMessages((prev) =>
@@ -377,7 +456,7 @@ export function TyveraAssistant() {
     // SSE transport/protocol failures should fallback to /chat.
     // Stream-level assistant "error" events are valid terminal events and should not fallback.
     if (sawErrorEvent) {
-      return true;
+      return streamAiEnabled === false ? "disabled" : "completed";
     }
 
     if (!sawDoneEvent || hadProtocolError) {
@@ -385,7 +464,55 @@ export function TyveraAssistant() {
       return false;
     }
 
-    return true;
+    return streamAiEnabled === false ? "disabled" : "completed";
+  };
+
+  const confirmMutation = async (
+    messageId: string,
+    confirmation: NonNullable<AssistantMessage["confirmation"]>,
+  ) => {
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === messageId
+          ? {
+              ...message,
+              confirmation: { ...confirmation, state: "submitting" },
+            }
+          : message,
+      ),
+    );
+    try {
+      const token = await getToken();
+      await apiRequest("/help/assistant/actions/confirm", {
+        method: "POST",
+        token: isUsableBearerToken(token) ? token : undefined,
+        body: JSON.stringify({
+          token: confirmation.token,
+          businessId: workspace?.activeBusinessId ?? undefined,
+        }),
+      });
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId
+            ? {
+                ...message,
+                confirmation: { ...confirmation, state: "applied" },
+              }
+            : message,
+        ),
+      );
+    } catch {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId
+            ? {
+                ...message,
+                confirmation: { ...confirmation, state: "error" },
+              }
+            : message,
+        ),
+      );
+    }
   };
 
   const submit = async (text: string) => {
@@ -398,9 +525,11 @@ export function TyveraAssistant() {
     setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text: trimmed, state: "sending" }]);
     setInput("");
     setAssistantState("sending");
-    const streamed = await streamAnswerQuery(trimmed).catch(() => false);
-      if (streamed) {
-      void refreshUsageSummary();
+    const streamed = await streamAnswerQuery(trimmed).catch(() => false as const);
+    if (streamed) {
+      if (streamed !== "disabled") {
+        void refreshUsageSummary();
+      }
       setMessages((prev) =>
         prev.map((msg) =>
           msg.role === "user" && msg.state === "sending" ? { ...msg, state: "sent" as const } : msg,
@@ -548,6 +677,11 @@ export function TyveraAssistant() {
                 Daily AI limit reached for now. Check daily reset and usage details below.
               </div>
             )}
+            {!usageModel.aiEnabled && (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+                AI assistant is disabled for this organization.
+              </div>
+            )}
           </div>
 
           <div className="flex-1 space-y-3 overflow-y-auto p-3.5">
@@ -559,6 +693,38 @@ export function TyveraAssistant() {
                   </p>
                 )}
                 <p className="font-normal">{message.text}</p>
+                {message.confirmation?.state === "pending" ||
+                message.confirmation?.state === "submitting" ? (
+                  <ConfirmActionInline
+                    className="mt-2.5"
+                    confirmMessage={message.confirmation.summary}
+                    confirmLabel="Confirm change"
+                    cancelLabel="Keep current data"
+                    loading={message.confirmation.state === "submitting"}
+                    onConfirm={() =>
+                      void confirmMutation(message.id, message.confirmation!)
+                    }
+                    onCancel={() =>
+                      setMessages((prev) =>
+                        prev.map((current) =>
+                          current.id === message.id
+                            ? { ...current, confirmation: undefined }
+                            : current,
+                        ),
+                      )
+                    }
+                  />
+                ) : null}
+                {message.confirmation?.state === "applied" && (
+                  <p className="mt-2 text-xs font-medium text-emerald-700">
+                    Change applied.
+                  </p>
+                )}
+                {message.confirmation?.state === "error" && (
+                  <p className="mt-2 text-xs font-medium text-red-700">
+                    The change was not applied. Refresh the record and try again.
+                  </p>
+                )}
                 {!!message.actionChips?.length && (
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     {message.actionChips.map((chip) => (
