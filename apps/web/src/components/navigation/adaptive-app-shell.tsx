@@ -145,9 +145,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
         />
-        
-        {process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED === "true" &&
-        planCapabilities.canSeeAssistant ? (
+        {planCapabilities.canSeeAssistant ? (
           <TyveraAssistant />
         ) : null}
       </div>

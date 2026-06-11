@@ -99,10 +99,7 @@ export function TyveraAssistant() {
   const [assistantState, setAssistantState] = useState<AssistantMessage["state"]>("read");
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const aiDisabledByStream = useRef(false);
-  const assistantLauncherEnabled =
-    process.env.NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED === "true";
-  const canRenderAssistant =
-    assistantLauncherEnabled && planCapabilities.canSeeAssistant;
+  const canRenderAssistant = planCapabilities.canSeeAssistant;
 
   const refreshUsageSummary = useCallback(async () => {
     const token = await getToken();
