@@ -29,6 +29,26 @@ Run this after deploying platform-admin changes, applying migrations, seeding RB
 15. Acknowledge one alert.
 16. Confirm a normal tenant user cannot open `/platform-admin`.
 
+## Manual Subscription Smoke Test
+
+Use a non-paying test organization currently on the free plan. Do not run destructive lifecycle steps against a real paying customer.
+
+1. Search the test organization.
+2. Create a `starter-monthly` billing request.
+3. Confirm the canonical amount is exactly ₱999.
+4. Record an exact ₱999 manual payment.
+5. Confirm and fulfill the payment.
+6. Verify the organization plan is `starter`.
+7. Verify billing status is `active_manual`.
+8. Verify coverage end and next billing due dates are populated.
+9. Retry payment confirmation.
+10. Verify no duplicate subscription period, fulfillment, or credit reconciliation is created.
+11. Mark the subscription past due with a reason.
+12. Set a future grace-until date and verify tenant writes remain available during grace.
+13. Suspend the test organization and verify it becomes read-only.
+14. Reactivate while paid coverage remains.
+15. Verify subscription request, activation, lifecycle, and billing-contact audit events.
+
 ## Expected Results
 
 - Founder can access platform-admin pages.
@@ -39,3 +59,5 @@ Run this after deploying platform-admin changes, applying migrations, seeding RB
 - Communications recipients are masked.
 - Provider-health cards do not expose provider secrets.
 - Alert acknowledgement persists after refresh.
+- Manual subscription fulfillment activates canonical paid coverage exactly once.
+- Manual lifecycle changes require explicit platform-admin action and are audited.

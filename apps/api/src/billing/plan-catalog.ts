@@ -2,6 +2,8 @@ import type {
   BillingAddonSku,
   BillingInterval,
   BillingPurchaseKind,
+  ManualBillingSku,
+  ManualSubscriptionSku,
   PlanType,
 } from "@tyvera/types";
 
@@ -29,6 +31,14 @@ export interface BillingAddonCatalogEntry {
   units: number;
   pricePhp: number;
   variantEnvKey: string;
+}
+
+export interface ManualSubscriptionCatalogEntry {
+  sku: ManualSubscriptionSku;
+  purchaseKind: "subscription";
+  planType: Exclude<PlanType, "free">;
+  billingInterval: "monthly";
+  pricePhp: number;
 }
 
 export const BILLING_INTERVALS = ["monthly", "annual"] as const satisfies BillingInterval[];
@@ -230,6 +240,35 @@ export const BILLING_ADDON_CATALOG: BillingAddonCatalogEntry[] = [
   },
 ];
 
+export const MANUAL_SUBSCRIPTION_CATALOG: ManualSubscriptionCatalogEntry[] = [
+  {
+    sku: "starter-monthly",
+    purchaseKind: "subscription",
+    planType: "starter",
+    billingInterval: "monthly",
+    pricePhp: 999,
+  },
+  {
+    sku: "growth-monthly",
+    purchaseKind: "subscription",
+    planType: "growth",
+    billingInterval: "monthly",
+    pricePhp: 2_499,
+  },
+  {
+    sku: "pro-monthly",
+    purchaseKind: "subscription",
+    planType: "pro",
+    billingInterval: "monthly",
+    pricePhp: 5_999,
+  },
+];
+
+export const MANUAL_BILLING_CATALOG = [
+  ...MANUAL_SUBSCRIPTION_CATALOG,
+  ...BILLING_ADDON_CATALOG,
+];
+
 export function getPlanCatalogEntry(planType: PlanType): PlanCatalogEntry {
   const entry = BILLING_PLAN_CATALOG.find((plan) => plan.planType === planType);
   if (!entry) {
@@ -249,6 +288,16 @@ export function resolveAddonSku(sku: BillingAddonCatalogEntry["sku"]): BillingAd
   const entry = BILLING_ADDON_CATALOG.find((item) => item.sku === sku);
   if (!entry) {
     throw new Error(`Unknown add-on sku: ${sku}`);
+  }
+  return entry;
+}
+
+export function resolveManualBillingSku(
+  sku: ManualBillingSku,
+): ManualSubscriptionCatalogEntry | BillingAddonCatalogEntry {
+  const entry = MANUAL_BILLING_CATALOG.find((item) => item.sku === sku);
+  if (!entry) {
+    throw new Error(`Unknown manual billing sku: ${sku}`);
   }
   return entry;
 }

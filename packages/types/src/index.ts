@@ -1,7 +1,7 @@
 // Billing and plan types
 export type PlanType = "free" | "starter" | "growth" | "pro";
 export type BillingInterval = "monthly" | "annual";
-export type BillingProvider = "lemonsqueezy";
+export type BillingProvider = "lemonsqueezy" | "manual";
 export type BillingPurchaseKind =
   | "subscription"
   | "online_booking_topup"
@@ -16,6 +16,17 @@ export type BillingAddonSku =
   | "sms-segment-topup-50"
   | "sms-segment-topup-100"
   | "sms-segment-topup-250";
+export type ManualSubscriptionSku =
+  | "starter-monthly"
+  | "growth-monthly"
+  | "pro-monthly";
+export type ManualBillingSku = BillingAddonSku | ManualSubscriptionSku;
+export type ManualSubscriptionAction =
+  | "mark_past_due"
+  | "set_grace_until"
+  | "suspend"
+  | "reactivate"
+  | "cancel";
 export type AddonFulfillmentSource =
   | "lemonsqueezy"
   | "manual_payment"
@@ -54,7 +65,16 @@ export type PlatformAdminPermission =
   | "AUTOMATION_RUN_VIEW"
   | "ALERT_VIEW"
   | "ALERT_ACKNOWLEDGE"
-  | "AUDIT_LOG_VIEW";
+  | "AUDIT_LOG_VIEW"
+  | "SUBSCRIPTION_VIEW"
+  | "SUBSCRIPTION_CREATE"
+  | "SUBSCRIPTION_RENEW"
+  | "SUBSCRIPTION_CHANGE_PLAN"
+  | "SUBSCRIPTION_MARK_PAST_DUE"
+  | "SUBSCRIPTION_SET_GRACE"
+  | "SUBSCRIPTION_SUSPEND"
+  | "SUBSCRIPTION_REACTIVATE"
+  | "SUBSCRIPTION_CANCEL";
 export type AutomationJobRunStatus = "running" | "completed" | "failed";
 export type ProviderHealthStatus = "healthy" | "degraded" | "down" | "unknown";
 export type OperationsAlertSeverity = "info" | "warning" | "critical";
@@ -150,6 +170,10 @@ export interface Organization {
   nextBillingDueAt?: Date | null;
   billingPausedAt?: Date | null;
   accessEndsAt?: Date | null;
+  billingContactName?: string | null;
+  billingContactMobile?: string | null;
+  billingContactEmail?: string | null;
+  preferredPaymentMethod?: ManualPaymentMethod | null;
   createdAt: Date;
   updatedAt: Date;
 }

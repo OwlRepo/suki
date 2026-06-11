@@ -18,6 +18,7 @@
 - Do not add assistant delete, send, billing, authentication, appointment-status, visit-recording, or other irreversible/high-impact tools without a separate approval and safety design.
 - Shared guards/utilities remain in `apps/api/src/common` and `apps/api/src/auth`.
 - Intake booking hold + OTP confirmation behavior belongs to `apps/api/src/intake/*` and persists hold state via `packages/database` schema.
+- Founder-led manual subscription request, fulfillment, billing-contact, and lifecycle behavior belongs to `apps/api/src/platform-admin/*`. Provider-managed Lemon Squeezy checkout and webhook lifecycle authority remain isolated in `apps/api/src/billing/*`; manual fulfillment must never overwrite a Lemon Squeezy subscription row.
 
 ## High-Risk Protected Zones
 - Authentication/authorization (`apps/api/src/auth`, guards)

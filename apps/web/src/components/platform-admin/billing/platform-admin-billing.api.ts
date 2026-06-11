@@ -22,6 +22,7 @@ export type BillingRequestListItem = {
 
 export type BillingRequestDetail = BillingRequestListItem & {
   notes?: string | null;
+  manualBillingControlsEnabled: boolean;
   paymentInstructions: { copyText: string };
   items: Array<{
     id: string;
@@ -31,6 +32,10 @@ export type BillingRequestDetail = BillingRequestListItem & {
     unitPricePhp: number;
     quantity: number;
     totalAmountPhp: number;
+    planType?: "starter" | "growth" | "pro" | null;
+    billingInterval?: "monthly" | null;
+    coverageStartsAt?: string | null;
+    coverageEndsAt?: string | null;
   }>;
   payments: Array<{
     id: string;
@@ -44,6 +49,23 @@ export type BillingRequestDetail = BillingRequestListItem & {
   }>;
   fulfillments: Array<Record<string, unknown>>;
   auditLogs: Array<Record<string, unknown>>;
+};
+
+export type ManualSubscriptionSku =
+  | "starter-monthly"
+  | "growth-monthly"
+  | "pro-monthly";
+
+export type ManualBillingCatalogItem = {
+  sku: string;
+  purchaseKind:
+    | "subscription"
+    | "online_booking_topup"
+    | "sms_segment_topup";
+  units?: number;
+  pricePhp: number;
+  planType?: "starter" | "growth" | "pro";
+  billingInterval?: "monthly";
 };
 
 export function listPlatformAdminBillingRequests(status = "all") {
@@ -65,11 +87,19 @@ export function createPlatformAdminBillingRequest(input: {
   quantity: number;
   dueAt?: string | null;
   notes?: string | null;
+  coverageStartsAt?: string | null;
 }) {
   return apiRequest<{ billingRequest: BillingRequestDetail; paymentInstructions: { copyText: string } }>(
     "/platform-admin/billing-requests",
     { method: "POST", body: JSON.stringify(input) },
   );
+}
+
+export function getPlatformAdminManualBillingCatalog() {
+  return apiRequest<{
+    manualBillingControlsEnabled: boolean;
+    items: ManualBillingCatalogItem[];
+  }>("/platform-admin/billing/manual-catalog");
 }
 
 export function recordManualPayment(

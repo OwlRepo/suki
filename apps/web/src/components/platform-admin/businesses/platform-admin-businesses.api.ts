@@ -15,7 +15,14 @@ export type PlatformAdminBusinessDetail = {
     name: string;
     currentPlan?: string | null;
     billingStatus?: string | null;
+    accessEndsAt?: string | null;
+    nextBillingDueAt?: string | null;
+    billingContactName?: string | null;
+    billingContactMobile?: string | null;
+    billingContactEmail?: string | null;
+    preferredPaymentMethod?: "gcash" | "bank_transfer" | "other" | null;
   };
+  manualBillingControlsEnabled: boolean;
   smsLedger: CreditLedger;
   verifiedBookingLedger: CreditLedger;
   recentSmsAddons: Array<Record<string, unknown>>;
@@ -72,6 +79,40 @@ export function createSmsAdjustment(
 ) {
   return apiRequest<{ smsLedger: CreditLedger }>(
     `/platform-admin/organizations/${organizationId}/sms-adjustments`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function updatePlatformAdminBillingContact(
+  organizationId: string,
+  input: {
+    billingContactName?: string | null;
+    billingContactMobile?: string | null;
+    billingContactEmail?: string | null;
+    preferredPaymentMethod?: "gcash" | "bank_transfer" | "other" | null;
+  },
+) {
+  return apiRequest<{ organization: PlatformAdminBusinessDetail["organization"] }>(
+    `/platform-admin/organizations/${organizationId}/billing-contact`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}
+
+export function updatePlatformAdminManualSubscriptionStatus(
+  organizationId: string,
+  input: {
+    action:
+      | "mark_past_due"
+      | "set_grace_until"
+      | "suspend"
+      | "reactivate"
+      | "cancel";
+    graceUntil?: string | null;
+    reason: string;
+  },
+) {
+  return apiRequest<{ organization: PlatformAdminBusinessDetail["organization"] }>(
+    `/platform-admin/organizations/${organizationId}/manual-subscription/actions`,
     { method: "POST", body: JSON.stringify(input) },
   );
 }

@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getDb,
@@ -9,6 +14,8 @@ import {
   organizations,
   platformAdminAuditLogs,
   smsCredits,
+  subscriptions,
+  verifiedOnlineBookingCredits,
 } from "@tyvera/database";
 import type { ActivePlatformAdmin } from "./platform-admin.service";
 import { PlatformAdminBillingService } from "./platform-admin-billing.service";
@@ -31,6 +38,16 @@ const financeAdmin: ActivePlatformAdmin = {
     "PLATFORM_ADMIN_ACCESS",
     "BILLING_REQUEST_CREATE",
     "PAYMENT_VERIFY",
+    "BUSINESS_UPDATE",
+    "SUBSCRIPTION_VIEW",
+    "SUBSCRIPTION_CREATE",
+    "SUBSCRIPTION_RENEW",
+    "SUBSCRIPTION_CHANGE_PLAN",
+    "SUBSCRIPTION_MARK_PAST_DUE",
+    "SUBSCRIPTION_SET_GRACE",
+    "SUBSCRIPTION_SUSPEND",
+    "SUBSCRIPTION_REACTIVATE",
+    "SUBSCRIPTION_CANCEL",
     "SMS_CREDIT_GRANT_PROMOTIONAL",
     "SMS_CREDIT_APPLY_CORRECTION",
   ]),
@@ -42,13 +59,17 @@ function createBillingHarness(input?: {
   payment?: Record<string, unknown>;
   fulfillment?: Record<string, unknown> | null;
   smsLedger?: Record<string, unknown>;
+  organization?: Record<string, unknown>;
+  subscription?: Record<string, unknown> | null;
+  verifiedLedger?: Record<string, unknown> | null;
 }) {
   const state = {
-    organization: {
+    organization: input?.organization ?? {
       id: "org-1",
       name: "Tyvera Clinic",
       currentPlan: "starter",
-      billingStatus: "subscription_active",
+      billingStatus: "active_manual",
+      accessEndsAt: new Date("2026-07-01T00:00:00.000Z"),
     },
     request: input?.request ?? {
       id: "billing-request-1",
@@ -75,6 +96,21 @@ function createBillingHarness(input?: {
       method: "gcash",
     },
     fulfillment: input?.fulfillment ?? null,
+    subscription:
+      input?.subscription === undefined
+        ? {
+            id: "subscription-1",
+            organizationId: "org-1",
+            planType: "starter",
+            status: "active",
+            provider: "manual",
+            billingInterval: "monthly",
+            currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+            currentPeriodEnd: new Date("2026-07-01T00:00:00.000Z"),
+            renewsAt: new Date("2026-07-01T00:00:00.000Z"),
+            planPricePhp: 999,
+          }
+        : input.subscription,
     smsLedger: input?.smsLedger ?? {
       organizationId: "org-1",
       month: "2026-06",
@@ -82,16 +118,29 @@ function createBillingHarness(input?: {
       addon: 0,
       used: 20,
     },
+    verifiedLedger: input?.verifiedLedger ?? {
+      organizationId: "org-1",
+      month: "2026-07",
+      includedGranted: 5,
+      addonGranted: 0,
+      used: 2,
+      sourcePlan: "free",
+    },
     inserted: {
       requests: [] as Array<Record<string, unknown>>,
       items: [] as Array<Record<string, unknown>>,
       payments: [] as Array<Record<string, unknown>>,
       fulfillments: [] as Array<Record<string, unknown>>,
+      subscriptions: [] as Array<Record<string, unknown>>,
+      verifiedCredits: [] as Array<Record<string, unknown>>,
       audit: [] as Array<Record<string, unknown>>,
     },
     updated: {
       requests: [] as Array<Record<string, unknown>>,
       payments: [] as Array<Record<string, unknown>>,
+      organizations: [] as Array<Record<string, unknown>>,
+      subscriptions: [] as Array<Record<string, unknown>>,
+      verifiedCredits: [] as Array<Record<string, unknown>>,
     },
   };
 
@@ -107,8 +156,22 @@ function createBillingHarness(input?: {
             return state.fulfillment ? [state.fulfillment] : [];
           }
           if (table === smsCredits) return [state.smsLedger];
+          if (table === subscriptions) {
+            return state.subscription ? [state.subscription] : [];
+          }
+          if (table === verifiedOnlineBookingCredits) {
+            return state.verifiedLedger ? [state.verifiedLedger] : [];
+          }
           return [];
         },
+        orderBy: () => ({
+          limit: async () => {
+            if (table === subscriptions) {
+              return state.subscription ? [state.subscription] : [];
+            }
+            return [];
+          },
+        }),
       }),
       orderBy: () => ({
         limit: async () => {
@@ -151,6 +214,18 @@ function createBillingHarness(input?: {
           state.fulfillment = row;
           return [row];
         }
+        if (table === subscriptions) {
+          const row = { id: "subscription-1", ...value };
+          state.inserted.subscriptions.push(row);
+          state.subscription = row;
+          return [row];
+        }
+        if (table === verifiedOnlineBookingCredits) {
+          const row = { id: "verified-credit-1", ...value };
+          state.inserted.verifiedCredits.push(row);
+          state.verifiedLedger = row;
+          return [row];
+        }
         if (table === platformAdminAuditLogs) {
           state.inserted.audit.push(value);
           return [value];
@@ -178,6 +253,18 @@ function createBillingHarness(input?: {
           state.updated.payments.push(value);
           state.payment = { ...state.payment, ...value };
         }
+        if (table === organizations) {
+          state.updated.organizations.push(value);
+          state.organization = { ...state.organization, ...value };
+        }
+        if (table === subscriptions) {
+          state.updated.subscriptions.push(value);
+          state.subscription = { ...state.subscription, ...value };
+        }
+        if (table === verifiedOnlineBookingCredits) {
+          state.updated.verifiedCredits.push(value);
+          state.verifiedLedger = { ...state.verifiedLedger, ...value };
+        }
       },
     }),
   }));
@@ -197,6 +284,7 @@ function createBillingHarness(input?: {
 
 function createService(overrides?: {
   smsGrant?: { grant: ReturnType<typeof vi.fn> };
+  manualBillingEnabled?: boolean;
 }) {
   return new PlatformAdminBillingService(
     (overrides?.smsGrant ??
@@ -213,6 +301,11 @@ function createService(overrides?: {
         ledgerBefore: { addonGranted: 0, used: 0 },
         ledgerAfter: { addonGranted: 25, used: 0 },
       })),
+    } as never,
+    {
+      manualBillingControlsEnabled: vi.fn(
+        () => overrides?.manualBillingEnabled ?? true,
+      ),
     } as never,
   );
 }
@@ -269,6 +362,50 @@ describe("PlatformAdminBillingService", () => {
     expect(result.paymentInstructions.copyText).toContain("Amount: ₱1,198");
   });
 
+  it("creates a monthly starter manual subscription request with canonical snapshot", async () => {
+    const state = createBillingHarness({
+      request: {
+        id: "previous-request",
+        referenceNumber: "TYV-2026-000000",
+        status: "awaiting_payment",
+      },
+    });
+    const service = createService();
+
+    await service.createBillingRequest(financeAdmin, {
+      organizationId: "org-1",
+      sku: "starter-monthly",
+      quantity: 1,
+      notes: "Founder-led activation",
+    });
+
+    expect(state.inserted.items[0]).toMatchObject({
+      sku: "starter-monthly",
+      purchaseKind: "subscription",
+      units: 1,
+      unitPricePhp: 999,
+      quantity: 1,
+      totalAmountPhp: 999,
+      planType: "starter",
+      billingInterval: "monthly",
+      coverageStartsAt: new Date("2026-07-01T00:00:00.000Z"),
+      coverageEndsAt: new Date("2026-08-01T00:00:00.000Z"),
+    });
+  });
+
+  it("rejects subscription quantity greater than one", async () => {
+    createBillingHarness();
+    const service = createService();
+
+    await expect(
+      service.createBillingRequest(financeAdmin, {
+        organizationId: "org-1",
+        sku: "starter-monthly",
+        quantity: 2,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it("fulfills an exact manual payment once and marks the request paid", async () => {
     const state = createBillingHarness();
     const smsGrant = { grant: vi.fn(async () => ({ alreadyGranted: false })) };
@@ -295,6 +432,158 @@ describe("PlatformAdminBillingService", () => {
     expect(state.updated.payments[0]).toMatchObject({ status: "verified" });
     expect(state.updated.requests[0]).toMatchObject({
       status: "paid_and_fulfilled",
+    });
+  });
+
+  it("fulfills an exact starter subscription payment and activates manual billing", async () => {
+    const state = createBillingHarness({
+      organization: {
+        id: "org-1",
+        name: "Tyvera Clinic",
+        currentPlan: "free",
+        billingStatus: "free_active",
+        accessEndsAt: null,
+      },
+      subscription: null,
+      request: {
+        id: "billing-request-1",
+        organizationId: "org-1",
+        referenceNumber: "TYV-2026-000001",
+        status: "payment_reported",
+        totalAmountPhp: 999,
+      },
+      item: {
+        id: "item-1",
+        billingRequestId: "billing-request-1",
+        sku: "starter-monthly",
+        purchaseKind: "subscription",
+        units: 1,
+        unitPricePhp: 999,
+        quantity: 1,
+        totalAmountPhp: 999,
+        planType: "starter",
+        billingInterval: "monthly",
+        coverageStartsAt: new Date("2026-06-07T10:00:00.000Z"),
+        coverageEndsAt: new Date("2026-07-07T10:00:00.000Z"),
+      },
+      payment: {
+        id: "payment-1",
+        billingRequestId: "billing-request-1",
+        amountPhp: 999,
+        status: "pending",
+        method: "gcash",
+      },
+    });
+    const service = createService();
+
+    await service.confirmAndFulfillManualPayment(financeAdmin, "payment-1");
+
+    expect(state.inserted.subscriptions[0]).toMatchObject({
+      planType: "starter",
+      status: "active",
+      provider: "manual",
+      billingInterval: "monthly",
+      planPricePhp: 999,
+    });
+    expect(state.updated.organizations[0]).toMatchObject({
+      currentPlan: "starter",
+      billingStatus: "active_manual",
+      billingPausedAt: null,
+      accessEndsAt: new Date("2026-07-07T10:00:00.000Z"),
+      nextBillingDueAt: new Date("2026-07-07T10:00:00.000Z"),
+    });
+  });
+
+  it("rejects manual fulfillment for a Lemon Squeezy managed subscription", async () => {
+    createBillingHarness({
+      subscription: {
+        id: "subscription-lemon",
+        organizationId: "org-1",
+        provider: "lemonsqueezy",
+        currentPeriodEnd: new Date("2026-07-01T00:00:00.000Z"),
+      },
+      request: {
+        id: "billing-request-1",
+        organizationId: "org-1",
+        status: "payment_reported",
+        totalAmountPhp: 999,
+      },
+      item: {
+        id: "item-1",
+        billingRequestId: "billing-request-1",
+        purchaseKind: "subscription",
+        totalAmountPhp: 999,
+        quantity: 1,
+        units: 1,
+        planType: "starter",
+        billingInterval: "monthly",
+        coverageStartsAt: new Date("2026-07-01T00:00:00.000Z"),
+        coverageEndsAt: new Date("2026-08-01T00:00:00.000Z"),
+      },
+      payment: {
+        id: "payment-1",
+        billingRequestId: "billing-request-1",
+        amountPhp: 999,
+        status: "pending",
+      },
+    });
+    const service = createService();
+
+    await expect(
+      service.confirmAndFulfillManualPayment(financeAdmin, "payment-1"),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: "PROVIDER_MANAGED_SUBSCRIPTION",
+      }),
+    });
+  });
+
+  it("extends active manual renewal from the future access end", async () => {
+    const state = createBillingHarness({
+      request: {
+        id: "previous-request",
+        referenceNumber: "TYV-2026-000000",
+      },
+    });
+    const service = createService();
+
+    await service.createBillingRequest(financeAdmin, {
+      organizationId: "org-1",
+      sku: "growth-monthly",
+      quantity: 1,
+    });
+
+    expect(state.inserted.items[0]).toMatchObject({
+      coverageStartsAt: new Date("2026-07-01T00:00:00.000Z"),
+      coverageEndsAt: new Date("2026-08-01T00:00:00.000Z"),
+    });
+  });
+
+  it("starts an expired renewal immediately", async () => {
+    const state = createBillingHarness({
+      organization: {
+        id: "org-1",
+        name: "Tyvera Clinic",
+        currentPlan: "starter",
+        billingStatus: "past_due_manual",
+        accessEndsAt: new Date("2026-06-01T00:00:00.000Z"),
+      },
+      request: {
+        id: "previous-request",
+        referenceNumber: "TYV-2026-000000",
+      },
+    });
+    const service = createService();
+
+    await service.createBillingRequest(financeAdmin, {
+      organizationId: "org-1",
+      sku: "starter-monthly",
+      quantity: 1,
+    });
+
+    expect(state.inserted.items[0]).toMatchObject({
+      coverageStartsAt: new Date("2026-06-07T10:00:00.000Z"),
+      coverageEndsAt: new Date("2026-07-07T10:00:00.000Z"),
     });
   });
 
@@ -384,5 +673,119 @@ describe("PlatformAdminBillingService", () => {
     await expect(
       service.confirmAndFulfillManualPayment(supportAdmin, "payment-1"),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("returns MANUAL_BILLING_DISABLED when manual controls are disabled", async () => {
+    createBillingHarness();
+    const service = createService({ manualBillingEnabled: false });
+
+    await expect(
+      service.createBillingRequest(financeAdmin, {
+        organizationId: "org-1",
+        sku: "starter-monthly",
+        quantity: 1,
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(
+      service.createBillingRequest(financeAdmin, {
+        organizationId: "org-1",
+        sku: "starter-monthly",
+        quantity: 1,
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "MANUAL_BILLING_DISABLED" }),
+    });
+  });
+
+  it("updates billing contact and writes an audit log", async () => {
+    const state = createBillingHarness();
+    const service = createService();
+
+    await service.updateOrganizationBillingContact(financeAdmin, "org-1", {
+      billingContactName: "Ana Reyes",
+      billingContactMobile: "+639171234567",
+      billingContactEmail: "ana@example.com",
+      preferredPaymentMethod: "gcash",
+    });
+
+    expect(state.updated.organizations[0]).toMatchObject({
+      billingContactName: "Ana Reyes",
+      billingContactMobile: "+639171234567",
+      billingContactEmail: "ana@example.com",
+      preferredPaymentMethod: "gcash",
+    });
+    expect(state.inserted.audit.at(-1)).toMatchObject({
+      action: "organization.billing_contact.updated",
+    });
+  });
+
+  it("rejects invalid optional Philippine mobile billing contact", async () => {
+    createBillingHarness();
+    const service = createService();
+
+    await expect(
+      service.updateOrganizationBillingContact(financeAdmin, "org-1", {
+        billingContactMobile: "09171234567",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it.each([
+    ["active_manual", "mark_past_due", "past_due_manual"],
+    ["past_due_manual", "set_grace_until", "past_due_manual"],
+    ["past_due_manual", "suspend", "suspended"],
+    ["suspended", "reactivate", "active_manual"],
+    ["active_manual", "cancel", "cancelled_manual"],
+  ] as const)(
+    "handles %s lifecycle action %s",
+    async (billingStatus, action, expectedStatus) => {
+      const state = createBillingHarness({
+        organization: {
+          id: "org-1",
+          name: "Tyvera Clinic",
+          currentPlan: "starter",
+          billingStatus,
+          accessEndsAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+      });
+      const service = createService();
+
+      await service.updateManualSubscriptionStatus(financeAdmin, "org-1", {
+        action,
+        graceUntil:
+          action === "set_grace_until"
+            ? "2026-06-20T00:00:00.000Z"
+            : null,
+        reason: "Founder approved",
+      });
+
+      expect(state.updated.organizations.at(-1)).toMatchObject({
+        billingStatus: expectedStatus,
+      });
+      expect(state.inserted.audit.at(-1)).toMatchObject({
+        action: `manual_subscription.${action}`,
+      });
+    },
+  );
+
+  it("rejects unsupported lifecycle transitions", async () => {
+    createBillingHarness({
+      organization: {
+        id: "org-1",
+        name: "Tyvera Clinic",
+        currentPlan: "free",
+        billingStatus: "free_active",
+        accessEndsAt: null,
+      },
+      subscription: null,
+    });
+    const service = createService();
+
+    await expect(
+      service.updateManualSubscriptionStatus(financeAdmin, "org-1", {
+        action: "suspend",
+        reason: "Invalid transition",
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

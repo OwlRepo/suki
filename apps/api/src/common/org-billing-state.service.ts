@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { getDb } from "@tyvera/database";
-import { organizations } from "@tyvera/database";
-import { eq } from "drizzle-orm";
+import { organizations, subscriptions } from "@tyvera/database";
+import { desc, eq } from "drizzle-orm";
 import type { OrgBillingStatus, PlanType } from "@tyvera/types";
 
 export interface OrgBillingState {
@@ -42,7 +42,21 @@ export class OrgBillingStateService {
       .where(eq(organizations.id, orgId))
       .limit(1);
     if (!org) return null;
-    return this.deriveState(org);
+    const [subscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, orgId))
+      .orderBy(desc(subscriptions.currentPeriodEnd))
+      .limit(1);
+    return this.deriveState({
+      ...org,
+      subscriptionStatus: subscription?.status ?? null,
+      subscriptionEndsAt: subscription?.endsAt ?? null,
+      subscriptionRenewsAt: subscription?.renewsAt ?? null,
+      subscriptionCancelled: subscription?.cancelled === "true",
+      subscriptionGraceUntil: subscription?.graceUntil ?? null,
+      subscriptionProvider: subscription?.provider ?? null,
+    });
   }
 
   deriveState(org: {
@@ -57,6 +71,8 @@ export class OrgBillingStateService {
     subscriptionEndsAt?: Date | null;
     subscriptionRenewsAt?: Date | null;
     subscriptionCancelled?: boolean | null;
+    subscriptionGraceUntil?: Date | null;
+    subscriptionProvider?: string | null;
   }): OrgBillingState {
     const now = new Date();
     let effectiveStatus = (org.billingStatus ?? "free_active") as OrgBillingStatus;
@@ -64,16 +80,20 @@ export class OrgBillingStateService {
     const plan = (org.currentPlan ?? "free") as PlanType;
     const subscriptionStatus = org.subscriptionStatus ?? null;
     const subscriptionEndsAt = org.subscriptionEndsAt ?? null;
+    const manualSubscription = org.subscriptionProvider === "manual";
 
-    if (subscriptionStatus === "active") {
+    if (!manualSubscription && subscriptionStatus === "active") {
       effectiveStatus = "subscription_active";
-    } else if (subscriptionStatus === "past_due" || subscriptionStatus === "unpaid") {
+    } else if (
+      !manualSubscription &&
+      (subscriptionStatus === "past_due" || subscriptionStatus === "unpaid")
+    ) {
       effectiveStatus = "subscription_past_due";
-    } else if (subscriptionStatus === "paused") {
+    } else if (!manualSubscription && subscriptionStatus === "paused") {
       effectiveStatus = "subscription_paused";
-    } else if (subscriptionStatus === "expired") {
+    } else if (!manualSubscription && subscriptionStatus === "expired") {
       effectiveStatus = "subscription_expired";
-    } else if (subscriptionStatus === "cancelled") {
+    } else if (!manualSubscription && subscriptionStatus === "cancelled") {
       effectiveStatus =
         subscriptionEndsAt && subscriptionEndsAt.getTime() > now.getTime()
           ? "subscription_cancelled"
@@ -92,9 +112,16 @@ export class OrgBillingStateService {
       effectiveStatus = "suspended";
     }
 
-    const isReadOnly = READ_ONLY_STATUSES.includes(effectiveStatus);
+    const manualGraceActive =
+      manualSubscription &&
+      effectiveStatus === "past_due_manual" &&
+      org.subscriptionGraceUntil instanceof Date &&
+      org.subscriptionGraceUntil.getTime() > now.getTime();
+    const isReadOnly =
+      READ_ONLY_STATUSES.includes(effectiveStatus) && !manualGraceActive;
     const canSendAutomations =
       CAN_SEND_STATUSES.includes(effectiveStatus) ||
+      manualGraceActive ||
       effectiveStatus === "free_active" ||
       effectiveStatus === "subscription_active" ||
       effectiveStatus === "subscription_cancelled";

@@ -140,6 +140,10 @@ export const organizations = pgTable("organizations", {
   nextBillingDueAt: timestamp("next_billing_due_at"),
   billingPausedAt: timestamp("billing_paused_at"),
   accessEndsAt: timestamp("access_ends_at"),
+  billingContactName: text("billing_contact_name"),
+  billingContactMobile: text("billing_contact_mobile"),
+  billingContactEmail: text("billing_contact_email"),
+  preferredPaymentMethod: manualPaymentMethodEnum("preferred_payment_method"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1240,6 +1244,10 @@ export const manualBillingRequestItems = pgTable(
     unitPricePhp: integer("unit_price_php").notNull(),
     quantity: integer("quantity").notNull(),
     totalAmountPhp: integer("total_amount_php").notNull(),
+    planType: planTypeEnum("plan_type"),
+    billingInterval: text("billing_interval"),
+    coverageStartsAt: timestamp("coverage_starts_at"),
+    coverageEndsAt: timestamp("coverage_ends_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [

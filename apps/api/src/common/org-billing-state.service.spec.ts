@@ -84,4 +84,26 @@ describe("OrgBillingStateService", () => {
     expect(state.billingStatus).toBe("subscription_cancelled");
     expect(state.isReadOnly).toBe(false);
   });
+
+  it("keeps a past-due manual tenant writable during an approved grace period", () => {
+    const state = service.deriveState({
+      trialStartsAt: null,
+      trialEndsAt: null,
+      billingStatus: "past_due_manual",
+      currentPlan: "starter",
+      accessEndsAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+      nextBillingDueAt: null,
+      manualBillingNotes: null,
+      subscriptionStatus: "past_due",
+      subscriptionEndsAt: null,
+      subscriptionRenewsAt: null,
+      subscriptionCancelled: false,
+      subscriptionGraceUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      subscriptionProvider: "manual",
+    });
+
+    expect(state.billingStatus).toBe("past_due_manual");
+    expect(state.isReadOnly).toBe(false);
+    expect(state.canSendAutomations).toBe(true);
+  });
 });

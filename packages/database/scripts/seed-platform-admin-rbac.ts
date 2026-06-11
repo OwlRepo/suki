@@ -66,6 +66,15 @@ const PERMISSION_DEFINITIONS: Array<{
   { code: "ALERT_VIEW", description: "View platform operations alerts." },
   { code: "ALERT_ACKNOWLEDGE", description: "Acknowledge platform operations alerts." },
   { code: "AUDIT_LOG_VIEW", description: "View platform-admin audit logs." },
+  { code: "SUBSCRIPTION_VIEW", description: "View manual subscription state." },
+  { code: "SUBSCRIPTION_CREATE", description: "Create manual subscription billing requests." },
+  { code: "SUBSCRIPTION_RENEW", description: "Renew manual subscriptions." },
+  { code: "SUBSCRIPTION_CHANGE_PLAN", description: "Schedule or apply approved manual plan changes." },
+  { code: "SUBSCRIPTION_MARK_PAST_DUE", description: "Mark manual subscriptions past due." },
+  { code: "SUBSCRIPTION_SET_GRACE", description: "Set manual subscription grace periods." },
+  { code: "SUBSCRIPTION_SUSPEND", description: "Suspend tenant access for manual billing." },
+  { code: "SUBSCRIPTION_REACTIVATE", description: "Reactivate suspended manual subscriptions." },
+  { code: "SUBSCRIPTION_CANCEL", description: "Cancel manual subscriptions." },
 ];
 
 const ROLE_PERMISSIONS: Record<PlatformAdminRoleCode, PlatformAdminPermission[]> = {
@@ -80,6 +89,7 @@ const ROLE_PERMISSIONS: Record<PlatformAdminRoleCode, PlatformAdminPermission[]>
     "ALERT_VIEW",
     "ALERT_ACKNOWLEDGE",
     "AUDIT_LOG_VIEW",
+    "SUBSCRIPTION_VIEW",
   ],
   FINANCE: [
     "PLATFORM_ADMIN_ACCESS",
@@ -96,6 +106,15 @@ const ROLE_PERMISSIONS: Record<PlatformAdminRoleCode, PlatformAdminPermission[]>
     "SMS_CREDIT_GRANT_PROMOTIONAL",
     "SMS_CREDIT_APPLY_CORRECTION",
     "AUDIT_LOG_VIEW",
+    "SUBSCRIPTION_VIEW",
+    "SUBSCRIPTION_CREATE",
+    "SUBSCRIPTION_RENEW",
+    "SUBSCRIPTION_CHANGE_PLAN",
+    "SUBSCRIPTION_MARK_PAST_DUE",
+    "SUBSCRIPTION_SET_GRACE",
+    "SUBSCRIPTION_SUSPEND",
+    "SUBSCRIPTION_REACTIVATE",
+    "SUBSCRIPTION_CANCEL",
   ],
   SUPPORT: [
     "PLATFORM_ADMIN_ACCESS",
@@ -103,6 +122,7 @@ const ROLE_PERMISSIONS: Record<PlatformAdminRoleCode, PlatformAdminPermission[]>
     "BUSINESS_VIEW",
     "SMS_CREDIT_VIEW",
     "COMMUNICATION_VIEW",
+    "SUBSCRIPTION_VIEW",
   ],
 };
 

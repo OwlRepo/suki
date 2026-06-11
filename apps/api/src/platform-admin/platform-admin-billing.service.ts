@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   creditReconciliationEvents,
@@ -17,21 +18,41 @@ import {
   smsAddons,
   smsCredits,
   smsUsageEvents,
+  subscriptions,
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
   verifiedOnlineBookingUsageEvents,
 } from "@tyvera/database";
 import type {
   BillingAddonSku,
+  ManualBillingSku,
   ManualBillingRequestStatus,
   ManualPaymentMethod,
+  ManualSubscriptionAction,
+  OrgBillingStatus,
   PlatformAdminPermission,
+  PlanType,
+} from "@tyvera/types";
+import {
+  PH_MOBILE_E164_ERROR,
+  isValidPhilippineMobileE164,
 } from "@tyvera/types";
 import { and, desc, eq, ilike } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { BILLING_ADDON_CATALOG, resolveAddonSku } from "../billing/plan-catalog";
+import {
+  BILLING_ADDON_CATALOG,
+  MANUAL_BILLING_CATALOG,
+  getPlanCatalogEntry,
+  resolveManualBillingSku,
+} from "../billing/plan-catalog";
 import { SmsAddonGrantService } from "../billing/sms-addon-grant.service";
 import { VerifiedBookingAddonGrantService } from "../billing/verified-booking-addon-grant.service";
+import { FeatureFlagsService } from "../common/feature-flags.service";
+import {
+  assertManualSubscriptionActionAllowed,
+  isPaidManualPlan,
+  resolveManualCoveragePeriod,
+} from "./manual-subscription-policy";
 import type { ActivePlatformAdmin } from "./platform-admin.service";
 
 type BillingTx = {
@@ -42,10 +63,11 @@ type BillingTx = {
 
 interface CreateBillingRequestInput {
   organizationId: string;
-  sku: BillingAddonSku;
+  sku: ManualBillingSku;
   quantity: number;
   dueAt?: string | null;
   notes?: string | null;
+  coverageStartsAt?: string | null;
 }
 
 interface RecordManualPaymentInput {
@@ -62,11 +84,25 @@ interface SmsAdjustmentInput {
   reason: string;
 }
 
+interface UpdateBillingContactInput {
+  billingContactName?: string | null;
+  billingContactMobile?: string | null;
+  billingContactEmail?: string | null;
+  preferredPaymentMethod?: ManualPaymentMethod | null;
+}
+
+interface UpdateManualSubscriptionStatusInput {
+  action: ManualSubscriptionAction;
+  graceUntil?: string | null;
+  reason: string;
+}
+
 @Injectable()
 export class PlatformAdminBillingService {
   constructor(
     private readonly smsAddonGrant: SmsAddonGrantService,
     private readonly verifiedBookingAddonGrant: VerifiedBookingAddonGrantService,
+    private readonly featureFlags: FeatureFlagsService,
   ) {}
 
   async listOrganizations(input: { search?: string | null } = {}) {
@@ -160,6 +196,8 @@ export class PlatformAdminBillingService {
 
     return {
       organization,
+      manualBillingControlsEnabled:
+        this.featureFlags.manualBillingControlsEnabled(),
       smsLedger: this.serializeSmsLedger(smsLedger),
       verifiedBookingLedger: this.serializeVerifiedLedger(verifiedBookingLedger),
       recentSmsAddons,
@@ -180,6 +218,14 @@ export class PlatformAdminBillingService {
 
   listAddons() {
     return { addons: BILLING_ADDON_CATALOG };
+  }
+
+  listManualBillingCatalog() {
+    return {
+      manualBillingControlsEnabled:
+        this.featureFlags.manualBillingControlsEnabled(),
+      items: MANUAL_BILLING_CATALOG,
+    };
   }
 
   async listBillingRequests(input: {
@@ -234,11 +280,16 @@ export class PlatformAdminBillingService {
     actor: ActivePlatformAdmin,
     input: CreateBillingRequestInput,
   ) {
-    this.ensurePermission(actor, "BILLING_REQUEST_CREATE");
-    const addon = resolveAddonSku(input.sku);
+    this.ensureManualBillingControlsEnabled();
+    const catalogItem = resolveManualBillingSku(input.sku);
     const quantity = Number(input.quantity);
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new BadRequestException("Quantity must be a positive integer.");
+    }
+    if (catalogItem.purchaseKind === "subscription" && quantity !== 1) {
+      throw new BadRequestException(
+        "Manual subscription quantity must equal one.",
+      );
     }
 
     const db = getDb();
@@ -247,8 +298,30 @@ export class PlatformAdminBillingService {
         tx,
         input.organizationId,
       );
+      if (catalogItem.purchaseKind === "subscription") {
+        this.ensureSubscriptionRequestPermission(actor, organization, {
+          planType: catalogItem.planType,
+        });
+      } else {
+        this.ensurePermission(actor, "BILLING_REQUEST_CREATE");
+      }
       const referenceNumber = await this.generateReferenceNumber(tx);
-      const totalAmountPhp = addon.pricePhp * quantity;
+      const totalAmountPhp = catalogItem.pricePhp * quantity;
+      const coverage =
+        catalogItem.purchaseKind === "subscription"
+          ? resolveManualCoveragePeriod({
+              now: input.coverageStartsAt
+                ? this.parseRequiredDate(
+                    input.coverageStartsAt,
+                    "Invalid coverage start date.",
+                  )
+                : new Date(),
+              currentAccessEndsAt: input.coverageStartsAt
+                ? null
+                : organization.accessEndsAt,
+              billingInterval: catalogItem.billingInterval,
+            })
+          : null;
       const [request] = await tx
         .insert(manualBillingRequests)
         .values({
@@ -265,12 +338,23 @@ export class PlatformAdminBillingService {
 
       await tx.insert(manualBillingRequestItems).values({
         billingRequestId: request.id,
-        sku: addon.sku,
-        purchaseKind: addon.purchaseKind,
-        units: addon.units,
-        unitPricePhp: addon.pricePhp,
+        sku: catalogItem.sku,
+        purchaseKind: catalogItem.purchaseKind,
+        units:
+          catalogItem.purchaseKind === "subscription" ? 1 : catalogItem.units,
+        unitPricePhp: catalogItem.pricePhp,
         quantity,
         totalAmountPhp,
+        planType:
+          catalogItem.purchaseKind === "subscription"
+            ? catalogItem.planType
+            : null,
+        billingInterval:
+          catalogItem.purchaseKind === "subscription"
+            ? catalogItem.billingInterval
+            : null,
+        coverageStartsAt: coverage?.startAt ?? null,
+        coverageEndsAt: coverage?.endAt ?? null,
       }).returning();
 
       await this.writeAudit(tx, actor, {
@@ -280,9 +364,11 @@ export class PlatformAdminBillingService {
         entityId: request.id,
         details: {
           referenceNumber,
-          sku: addon.sku,
+          sku: catalogItem.sku,
           quantity,
           totalAmountPhp,
+          coverageStartsAt: coverage?.startAt.toISOString() ?? null,
+          coverageEndsAt: coverage?.endAt.toISOString() ?? null,
         },
       });
 
@@ -290,7 +376,7 @@ export class PlatformAdminBillingService {
         billingRequest: await this.serializeBillingRequest(tx, request.id),
         paymentInstructions: this.buildPaymentInstructions({
           businessName: organization.name,
-          sku: addon.sku,
+          sku: catalogItem.sku,
           amountPhp: totalAmountPhp,
           referenceNumber,
         }),
@@ -307,6 +393,7 @@ export class PlatformAdminBillingService {
     billingRequestId: string,
     input: RecordManualPaymentInput,
   ) {
+    this.ensureManualBillingControlsEnabled();
     this.ensurePermission(actor, "PAYMENT_RECORD");
     if (!["gcash", "bank_transfer", "other"].includes(input.method)) {
       throw new BadRequestException("Invalid manual payment method.");
@@ -368,6 +455,7 @@ export class PlatformAdminBillingService {
     actor: ActivePlatformAdmin,
     paymentId: string,
   ) {
+    this.ensureManualBillingControlsEnabled();
     this.ensurePermission(actor, "PAYMENT_VERIFY");
     const db = getDb();
 
@@ -462,6 +550,12 @@ export class PlatformAdminBillingService {
             },
             tx,
           );
+        } else if (item.purchaseKind === "subscription") {
+          await this.fulfillManualSubscription(tx, actor, {
+            request,
+            item,
+            payment,
+          });
         } else {
           throw new BadRequestException("Unsupported billing item.");
         }
@@ -512,6 +606,7 @@ export class PlatformAdminBillingService {
   }
 
   async rejectManualPayment(actor: ActivePlatformAdmin, paymentId: string) {
+    this.ensureManualBillingControlsEnabled();
     this.ensurePermission(actor, "PAYMENT_REJECT");
     const db = getDb();
     return db.transaction(async (tx) => {
@@ -557,6 +652,7 @@ export class PlatformAdminBillingService {
     actor: ActivePlatformAdmin,
     billingRequestId: string,
   ) {
+    this.ensureManualBillingControlsEnabled();
     this.ensurePermission(actor, "BILLING_REQUEST_VOID");
     const db = getDb();
     return db.transaction(async (tx) => {
@@ -592,6 +688,7 @@ export class PlatformAdminBillingService {
     organizationId: string,
     input: SmsAdjustmentInput,
   ) {
+    this.ensureManualBillingControlsEnabled();
     if (input.type === "promotional_grant") {
       this.ensurePermission(actor, "SMS_CREDIT_GRANT_PROMOTIONAL");
       if (input.units <= 0) {
@@ -658,6 +755,160 @@ export class PlatformAdminBillingService {
     });
   }
 
+  async updateOrganizationBillingContact(
+    actor: ActivePlatformAdmin,
+    organizationId: string,
+    input: UpdateBillingContactInput,
+  ) {
+    this.ensureManualBillingControlsEnabled();
+    this.ensurePermission(actor, "BUSINESS_UPDATE");
+    const billingContactMobile = input.billingContactMobile?.trim() || null;
+    if (
+      billingContactMobile &&
+      !isValidPhilippineMobileE164(billingContactMobile)
+    ) {
+      throw new BadRequestException(PH_MOBILE_E164_ERROR);
+    }
+    if (
+      input.preferredPaymentMethod != null &&
+      !["gcash", "bank_transfer", "other"].includes(
+        input.preferredPaymentMethod,
+      )
+    ) {
+      throw new BadRequestException("Invalid preferred payment method.");
+    }
+
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      await this.getOrganizationOrThrow(tx, organizationId);
+      const updates = {
+        billingContactName: input.billingContactName?.trim() || null,
+        billingContactMobile,
+        billingContactEmail: input.billingContactEmail?.trim() || null,
+        preferredPaymentMethod: input.preferredPaymentMethod ?? null,
+        updatedAt: new Date(),
+      };
+      await tx
+        .update(organizations)
+        .set(updates)
+        .where(eq(organizations.id, organizationId));
+      await this.writeAudit(tx, actor, {
+        organizationId,
+        action: "organization.billing_contact.updated",
+        entity: "organization",
+        entityId: organizationId,
+        details: {
+          billingContactName: updates.billingContactName,
+          billingContactMobile: updates.billingContactMobile,
+          billingContactEmail: updates.billingContactEmail,
+          preferredPaymentMethod: updates.preferredPaymentMethod,
+        },
+      });
+      return {
+        organization: await this.getOrganizationOrThrow(tx, organizationId),
+      };
+    });
+  }
+
+  async updateManualSubscriptionStatus(
+    actor: ActivePlatformAdmin,
+    organizationId: string,
+    input: UpdateManualSubscriptionStatusInput,
+  ) {
+    this.ensureManualBillingControlsEnabled();
+    if (!input.reason?.trim()) {
+      throw new BadRequestException("Reason is required.");
+    }
+    this.ensurePermission(actor, this.permissionForAction(input.action));
+
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      const organization = await this.getOrganizationOrThrow(tx, organizationId);
+      try {
+        assertManualSubscriptionActionAllowed(
+          organization.billingStatus as OrgBillingStatus | null,
+          input.action,
+        );
+      } catch (error) {
+        throw new ConflictException({
+          code: "INVALID_SUBSCRIPTION_TRANSITION",
+          message: error instanceof Error ? error.message : "Invalid transition.",
+        });
+      }
+
+      const subscription = await this.getLatestSubscription(tx, organizationId);
+      if (subscription?.provider === "lemonsqueezy") {
+        throw new ConflictException({
+          code: "PROVIDER_MANAGED_SUBSCRIPTION",
+          message: "Use provider-managed billing controls for this subscription.",
+        });
+      }
+      if (!subscription || subscription.provider !== "manual") {
+        throw new ConflictException({
+          code: "MANUAL_SUBSCRIPTION_NOT_FOUND",
+        });
+      }
+
+      const now = new Date();
+      const graceUntil =
+        input.action === "set_grace_until"
+          ? this.parseRequiredDate(
+              input.graceUntil,
+              "A valid grace-until date is required.",
+            )
+          : null;
+      if (graceUntil && graceUntil.getTime() <= now.getTime()) {
+        throw new BadRequestException(
+          "Grace-until date must be in the future.",
+        );
+      }
+      if (
+        input.action === "reactivate" &&
+        (!organization.accessEndsAt ||
+          organization.accessEndsAt.getTime() <= now.getTime())
+      ) {
+        throw new ConflictException({
+          code: "RENEWAL_REQUIRED",
+          message: "Renew the subscription before reactivation.",
+        });
+      }
+
+      const organizationUpdates = this.organizationLifecycleUpdates(
+        input.action,
+        now,
+      );
+      const subscriptionUpdates = this.subscriptionLifecycleUpdates(
+        input.action,
+        now,
+        graceUntil,
+      );
+      await tx
+        .update(organizations)
+        .set({ ...organizationUpdates, updatedAt: now })
+        .where(eq(organizations.id, organizationId));
+      await tx
+        .update(subscriptions)
+        .set({ ...subscriptionUpdates, updatedAt: now })
+        .where(eq(subscriptions.id, subscription.id));
+
+      await this.writeAudit(tx, actor, {
+        organizationId,
+        action: `manual_subscription.${input.action}`,
+        entity: "subscription",
+        entityId: subscription.id,
+        details: {
+          reason: input.reason.trim(),
+          previousBillingStatus: organization.billingStatus,
+          nextBillingStatus: organizationUpdates.billingStatus,
+          graceUntil: graceUntil?.toISOString() ?? null,
+        },
+      });
+      return {
+        organization: await this.getOrganizationOrThrow(tx, organizationId),
+      };
+    });
+  }
+
   async listAuditLogs() {
     const db = getDb();
     const rows = await db
@@ -666,6 +917,327 @@ export class PlatformAdminBillingService {
       .orderBy(desc(platformAdminAuditLogs.createdAt))
       .limit(100);
     return { auditLogs: rows };
+  }
+
+  private ensureManualBillingControlsEnabled() {
+    if (!this.featureFlags.manualBillingControlsEnabled()) {
+      throw new ServiceUnavailableException({
+        code: "MANUAL_BILLING_DISABLED",
+        message: "Manual billing controls are disabled.",
+      });
+    }
+  }
+
+  private ensureSubscriptionRequestPermission(
+    actor: ActivePlatformAdmin,
+    organization: {
+      currentPlan: string | null;
+      billingStatus: string | null;
+    },
+    input: { planType: Exclude<PlanType, "free"> },
+  ) {
+    const isExistingManualSubscription = [
+      "active_manual",
+      "past_due_manual",
+      "cancelled_manual",
+      "suspended",
+    ].includes(organization.billingStatus ?? "");
+    if (!isExistingManualSubscription) {
+      this.ensurePermission(actor, "SUBSCRIPTION_CREATE");
+      return;
+    }
+    this.ensurePermission(
+      actor,
+      organization.currentPlan === input.planType
+        ? "SUBSCRIPTION_RENEW"
+        : "SUBSCRIPTION_CHANGE_PLAN",
+    );
+  }
+
+  private async fulfillManualSubscription(
+    tx: BillingTx,
+    actor: ActivePlatformAdmin,
+    input: {
+      request: typeof manualBillingRequests.$inferSelect;
+      item: typeof manualBillingRequestItems.$inferSelect;
+      payment: typeof manualPayments.$inferSelect;
+    },
+  ) {
+    const snapshotPlanType = input.item.planType as PlanType | null;
+    const billingInterval = input.item.billingInterval;
+    const coverageStartsAt = input.item.coverageStartsAt;
+    const coverageEndsAt = input.item.coverageEndsAt;
+    if (
+      !isPaidManualPlan(snapshotPlanType) ||
+      billingInterval !== "monthly" ||
+      !(coverageStartsAt instanceof Date) ||
+      !(coverageEndsAt instanceof Date)
+    ) {
+      throw new ConflictException({
+        code: "INVALID_SUBSCRIPTION_SNAPSHOT",
+      });
+    }
+    const planType = snapshotPlanType;
+
+    const latestSubscription = await this.getLatestSubscription(
+      tx,
+      input.request.organizationId,
+    );
+    if (latestSubscription?.provider === "lemonsqueezy") {
+      throw new ConflictException({
+        code: "PROVIDER_MANAGED_SUBSCRIPTION",
+        message: "Use provider-managed billing controls for this subscription.",
+      });
+    }
+
+    const [latestManualSubscription] = await tx
+      .select()
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.organizationId, input.request.organizationId),
+          eq(subscriptions.provider, "manual"),
+        ),
+      )
+      .orderBy(desc(subscriptions.currentPeriodEnd))
+      .limit(1);
+    const subscriptionValues = {
+      organizationId: input.request.organizationId,
+      planType,
+      status: "active" as const,
+      provider: "manual" as const,
+      billingInterval,
+      cancelled: "false",
+      currentPeriodStart: coverageStartsAt,
+      currentPeriodEnd: coverageEndsAt,
+      renewsAt: coverageEndsAt,
+      endsAt: null,
+      graceUntil: null,
+      planPricePhp: input.item.unitPricePhp,
+      updatedAt: new Date(),
+    };
+    let subscriptionId: string;
+    if (latestManualSubscription?.id) {
+      await tx
+        .update(subscriptions)
+        .set(subscriptionValues)
+        .where(eq(subscriptions.id, latestManualSubscription.id));
+      subscriptionId = latestManualSubscription.id;
+    } else {
+      const [createdSubscription] = await tx
+        .insert(subscriptions)
+        .values(subscriptionValues)
+        .returning();
+      subscriptionId = createdSubscription.id;
+    }
+
+    await tx
+      .update(organizations)
+      .set({
+        currentPlan: planType,
+        billingStatus: "active_manual",
+        lastBillingAt: new Date(),
+        nextBillingDueAt: coverageEndsAt,
+        accessEndsAt: coverageEndsAt,
+        billingPausedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, input.request.organizationId));
+
+    await this.reconcileManualIncludedBookingCredits(tx, {
+      organizationId: input.request.organizationId,
+      planType,
+      coverageStartsAt,
+      paymentId: input.payment.id,
+    });
+    await this.writeAudit(tx, actor, {
+      organizationId: input.request.organizationId,
+      action: "manual_subscription.activated",
+      entity: "subscription",
+      entityId: subscriptionId,
+      details: {
+        billingRequestId: input.request.id,
+        manualPaymentId: input.payment.id,
+        planType,
+        billingInterval,
+        coverageStartsAt: coverageStartsAt.toISOString(),
+        coverageEndsAt: coverageEndsAt.toISOString(),
+        amountPhp: input.payment.amountPhp,
+      },
+    });
+  }
+
+  private async reconcileManualIncludedBookingCredits(
+    tx: BillingTx,
+    input: {
+      organizationId: string;
+      planType: Exclude<PlanType, "free">;
+      coverageStartsAt: Date;
+      paymentId: string;
+    },
+  ) {
+    const month = this.currentMonthKey(input.coverageStartsAt);
+    const nextIncluded = getPlanCatalogEntry(input.planType).limits
+      .verifiedOnlineBookingsPerMonth;
+    const [existing] = await tx
+      .select()
+      .from(verifiedOnlineBookingCredits)
+      .where(
+        and(
+          eq(
+            verifiedOnlineBookingCredits.organizationId,
+            input.organizationId,
+          ),
+          eq(verifiedOnlineBookingCredits.month, month),
+        ),
+      )
+      .limit(1);
+    if (!existing) {
+      await tx.insert(verifiedOnlineBookingCredits).values({
+        organizationId: input.organizationId,
+        month,
+        includedGranted: nextIncluded,
+        addonGranted: 0,
+        used: 0,
+        sourcePlan: input.planType,
+        lastReconciledAt: new Date(),
+      }).returning();
+      return;
+    }
+
+    const includedGranted = Math.max(existing.includedGranted, nextIncluded);
+    if (
+      includedGranted === existing.includedGranted &&
+      existing.sourcePlan === input.planType
+    ) {
+      return;
+    }
+    await tx
+      .update(verifiedOnlineBookingCredits)
+      .set({
+        includedGranted,
+        used: existing.used,
+        sourcePlan: input.planType,
+        lastReconciledAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(
+            verifiedOnlineBookingCredits.organizationId,
+            input.organizationId,
+          ),
+          eq(verifiedOnlineBookingCredits.month, month),
+        ),
+      );
+    await tx.insert(creditReconciliationEvents).values({
+      organizationId: input.organizationId,
+      creditType: "verified_online_booking",
+      month,
+      eventType: "subscription_upgrade",
+      previousPlan: existing.sourcePlan,
+      nextPlan: input.planType,
+      includedBefore: existing.includedGranted,
+      includedAfter: includedGranted,
+      addonBefore: existing.addonGranted,
+      addonAfter: existing.addonGranted,
+      usedBefore: existing.used,
+      usedAfter: existing.used,
+      providerEventId: input.paymentId,
+    });
+  }
+
+  private async getLatestSubscription(tx: BillingTx, organizationId: string) {
+    const [subscription] = await tx
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, organizationId))
+      .orderBy(desc(subscriptions.currentPeriodEnd))
+      .limit(1);
+    return subscription ?? null;
+  }
+
+  private permissionForAction(
+    action: ManualSubscriptionAction,
+  ): PlatformAdminPermission {
+    const permissions: Record<
+      ManualSubscriptionAction,
+      PlatformAdminPermission
+    > = {
+      mark_past_due: "SUBSCRIPTION_MARK_PAST_DUE",
+      set_grace_until: "SUBSCRIPTION_SET_GRACE",
+      suspend: "SUBSCRIPTION_SUSPEND",
+      reactivate: "SUBSCRIPTION_REACTIVATE",
+      cancel: "SUBSCRIPTION_CANCEL",
+    };
+    return permissions[action];
+  }
+
+  private organizationLifecycleUpdates(
+    action: ManualSubscriptionAction,
+    now: Date,
+  ) {
+    switch (action) {
+      case "mark_past_due":
+      case "set_grace_until":
+        return { billingStatus: "past_due_manual" as const };
+      case "suspend":
+        return {
+          billingStatus: "suspended" as const,
+          billingPausedAt: now,
+        };
+      case "reactivate":
+        return {
+          billingStatus: "active_manual" as const,
+          billingPausedAt: null,
+        };
+      case "cancel":
+        return {
+          billingStatus: "cancelled_manual" as const,
+          billingPausedAt: now,
+        };
+    }
+  }
+
+  private subscriptionLifecycleUpdates(
+    action: ManualSubscriptionAction,
+    now: Date,
+    graceUntil: Date | null,
+  ) {
+    switch (action) {
+      case "mark_past_due":
+        return { status: "past_due" as const, graceUntil: null };
+      case "set_grace_until":
+        return { status: "past_due" as const, graceUntil };
+      case "suspend":
+        return { status: "paused" as const, graceUntil: null };
+      case "reactivate":
+        return {
+          status: "active" as const,
+          cancelled: "false",
+          endsAt: null,
+          graceUntil: null,
+        };
+      case "cancel":
+        return {
+          status: "cancelled" as const,
+          cancelled: "true",
+          endsAt: now,
+          renewsAt: null,
+          graceUntil: null,
+        };
+    }
+  }
+
+  private parseRequiredDate(
+    value: string | null | undefined,
+    message: string,
+  ) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) {
+      throw new BadRequestException(message);
+    }
+    return date;
   }
 
   private ensurePermission(
@@ -753,6 +1325,8 @@ export class PlatformAdminBillingService {
       referenceNumber: request.referenceNumber,
       organizationId: request.organizationId,
       organizationName: organization.name,
+      manualBillingControlsEnabled:
+        this.featureFlags.manualBillingControlsEnabled(),
       status: request.status,
       totalAmountPhp: request.totalAmountPhp,
       dueAt: request.dueAt?.toISOString?.() ?? request.dueAt ?? null,

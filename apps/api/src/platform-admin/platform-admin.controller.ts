@@ -11,9 +11,10 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type {
-  BillingAddonSku,
+  ManualBillingSku,
   ManualBillingRequestStatus,
   ManualPaymentMethod,
+  ManualSubscriptionAction,
 } from "@tyvera/types";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { PlatformAdminGuard, type PlatformAdminRequest } from "./platform-admin.guard";
@@ -65,6 +66,12 @@ export class PlatformAdminController {
   @RequirePlatformAdminPermissions("BILLING_REQUEST_VIEW")
   listBillingAddons() {
     return this.platformAdminBillingService.listAddons();
+  }
+
+  @Get("billing/manual-catalog")
+  @RequirePlatformAdminPermissions("BILLING_REQUEST_VIEW")
+  listManualBillingCatalog() {
+    return this.platformAdminBillingService.listManualBillingCatalog();
   }
 
   @Get("communications")
@@ -190,10 +197,11 @@ export class PlatformAdminController {
     @Body()
     body: {
       organizationId: string;
-      sku: BillingAddonSku;
+      sku: ManualBillingSku;
       quantity: number;
       dueAt?: string | null;
       notes?: string | null;
+      coverageStartsAt?: string | null;
     },
   ) {
     return this.platformAdminBillingService.createBillingRequest(
@@ -278,6 +286,45 @@ export class PlatformAdminController {
     },
   ) {
     return this.platformAdminBillingService.adjustSmsCredits(
+      this.requirePlatformAdmin(request),
+      organizationId,
+      body,
+    );
+  }
+
+  @Patch("organizations/:organizationId/billing-contact")
+  @RequirePlatformAdminPermissions("BUSINESS_UPDATE")
+  updateOrganizationBillingContact(
+    @Req() request: PlatformAdminRequest,
+    @Param("organizationId") organizationId: string,
+    @Body()
+    body: {
+      billingContactName?: string | null;
+      billingContactMobile?: string | null;
+      billingContactEmail?: string | null;
+      preferredPaymentMethod?: ManualPaymentMethod | null;
+    },
+  ) {
+    return this.platformAdminBillingService.updateOrganizationBillingContact(
+      this.requirePlatformAdmin(request),
+      organizationId,
+      body,
+    );
+  }
+
+  @Post("organizations/:organizationId/manual-subscription/actions")
+  @RequirePlatformAdminPermissions("SUBSCRIPTION_VIEW")
+  updateManualSubscriptionStatus(
+    @Req() request: PlatformAdminRequest,
+    @Param("organizationId") organizationId: string,
+    @Body()
+    body: {
+      action: ManualSubscriptionAction;
+      graceUntil?: string | null;
+      reason: string;
+    },
+  ) {
+    return this.platformAdminBillingService.updateManualSubscriptionStatus(
       this.requirePlatformAdmin(request),
       organizationId,
       body,

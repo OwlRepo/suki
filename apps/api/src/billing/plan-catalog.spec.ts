@@ -3,8 +3,10 @@ import {
   BILLING_ADDON_CATALOG,
   BILLING_INTERVALS,
   BILLING_PLAN_CATALOG,
+  MANUAL_SUBSCRIPTION_CATALOG,
   getPlanCatalogEntry,
   resolveAddonSku,
+  resolveManualBillingSku,
   resolveSubscriptionVariantEnvKey,
 } from "./plan-catalog";
 
@@ -117,5 +119,31 @@ describe("plan-catalog", () => {
       pricePhp: 2_099,
       variantEnvKey: "LEMONSQUEEZY_VARIANT_SMS_SEGMENT_TOPUP_100",
     });
+  });
+
+  it("keeps canonical validation-stage monthly manual subscription prices", () => {
+    expect(MANUAL_SUBSCRIPTION_CATALOG.map((item) => item.sku)).toEqual([
+      "starter-monthly",
+      "growth-monthly",
+      "pro-monthly",
+    ]);
+    expect(resolveManualBillingSku("starter-monthly")).toMatchObject({
+      purchaseKind: "subscription",
+      planType: "starter",
+      billingInterval: "monthly",
+      pricePhp: 999,
+    });
+    expect(resolveManualBillingSku("growth-monthly")).toMatchObject({
+      pricePhp: 2_499,
+    });
+    expect(resolveManualBillingSku("pro-monthly")).toMatchObject({
+      pricePhp: 5_999,
+    });
+  });
+
+  it("keeps existing add-on resolution unchanged for manual billing", () => {
+    expect(resolveManualBillingSku("sms-segment-topup-25")).toEqual(
+      resolveAddonSku("sms-segment-topup-25"),
+    );
   });
 });

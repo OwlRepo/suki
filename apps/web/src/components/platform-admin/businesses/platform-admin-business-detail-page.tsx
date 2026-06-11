@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +18,18 @@ import {
 import { ListSkeleton, MetricGridSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { Textarea } from "@/components/ui/textarea";
-import { createPlatformAdminBillingRequest } from "../billing/platform-admin-billing.api";
+import {
+  createPlatformAdminBillingRequest,
+  getPlatformAdminManualBillingCatalog,
+  type ManualBillingCatalogItem,
+} from "../billing/platform-admin-billing.api";
 import {
   createSmsAdjustment,
   getPlatformAdminBillingAddons,
   getPlatformAdminBusiness,
   type PlatformAdminBusinessDetail,
+  updatePlatformAdminBillingContact,
+  updatePlatformAdminManualSubscriptionStatus,
 } from "./platform-admin-businesses.api";
 
 export function PlatformAdminBusinessDetailPage({
@@ -32,7 +39,9 @@ export function PlatformAdminBusinessDetailPage({
 }) {
   const [detail, setDetail] = useState<PlatformAdminBusinessDetail | null>(null);
   const [addons, setAddons] = useState<Array<{ sku: string; units: number; pricePhp: number }>>([]);
+  const [manualCatalog, setManualCatalog] = useState<ManualBillingCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -46,22 +55,64 @@ export function PlatformAdminBusinessDetailPage({
     units: "",
     reason: "",
   });
+  const [subscriptionForm, setSubscriptionForm] = useState({
+    sku: "starter-monthly",
+    coverageStartsAt: "",
+  });
+  const [billingContactForm, setBillingContactForm] = useState({
+    billingContactName: "",
+    billingContactMobile: "",
+    billingContactEmail: "",
+    preferredPaymentMethod: "gcash" as
+      | "gcash"
+      | "bank_transfer"
+      | "other",
+  });
+  const [lifecycleForm, setLifecycleForm] = useState({
+    reason: "",
+    graceUntil: "",
+  });
+  const [pendingLifecycleAction, setPendingLifecycleAction] = useState<
+    | "mark_past_due"
+    | "set_grace_until"
+    | "suspend"
+    | "reactivate"
+    | "cancel"
+    | null
+  >(null);
+  const [lifecycleSubmitting, setLifecycleSubmitting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setCatalogLoading(true);
     setError(null);
     try {
-      const [business, addonResponse] = await Promise.all([
+      const [business, addonResponse, catalogResponse] = await Promise.all([
         getPlatformAdminBusiness(organizationId),
         getPlatformAdminBillingAddons(),
+        getPlatformAdminManualBillingCatalog(),
       ]);
       setDetail(business);
       setAddons(addonResponse.addons);
+      setManualCatalog(
+        catalogResponse.items.filter(
+          (item) => item.purchaseKind === "subscription",
+        ),
+      );
+      setBillingContactForm({
+        billingContactName: business.organization.billingContactName ?? "",
+        billingContactMobile:
+          business.organization.billingContactMobile ?? "",
+        billingContactEmail: business.organization.billingContactEmail ?? "",
+        preferredPaymentMethod:
+          business.organization.preferredPaymentMethod ?? "gcash",
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load business");
     } finally {
       setLoading(false);
+      setCatalogLoading(false);
     }
   }, [organizationId]);
 
@@ -91,6 +142,96 @@ export function PlatformAdminBusinessDetailPage({
     }
   }
 
+  async function createSubscriptionRequest() {
+    setSubmitting(true);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      const response = await createPlatformAdminBillingRequest({
+        organizationId,
+        sku: subscriptionForm.sku,
+        quantity: 1,
+        coverageStartsAt: subscriptionForm.coverageStartsAt
+          ? new Date(subscriptionForm.coverageStartsAt).toISOString()
+          : null,
+      });
+      setActionMessage(
+        `Created ${response.billingRequest.referenceNumber}. Payment instructions are ready to copy from the request detail.`,
+      );
+      await refresh();
+    } catch (err) {
+      setActionError(readableError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function saveBillingContact() {
+    setSubmitting(true);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      await updatePlatformAdminBillingContact(organizationId, {
+        billingContactName: billingContactForm.billingContactName || null,
+        billingContactMobile: billingContactForm.billingContactMobile || null,
+        billingContactEmail: billingContactForm.billingContactEmail || null,
+        preferredPaymentMethod: billingContactForm.preferredPaymentMethod,
+      });
+      setActionMessage("Billing contact saved.");
+      await refresh();
+    } catch (err) {
+      setActionError(readableError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function requestLifecycleAction(
+    action:
+      | "mark_past_due"
+      | "set_grace_until"
+      | "suspend"
+      | "reactivate"
+      | "cancel",
+  ) {
+    if (!lifecycleForm.reason.trim()) {
+      setActionError("Reason is required for lifecycle actions.");
+      return;
+    }
+    if (action === "set_grace_until" && !lifecycleForm.graceUntil) {
+      setActionError("Grace-until date is required.");
+      return;
+    }
+    setActionError(null);
+    setPendingLifecycleAction(action);
+  }
+
+  async function submitLifecycleAction() {
+    if (!pendingLifecycleAction) return;
+    setLifecycleSubmitting(true);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      await updatePlatformAdminManualSubscriptionStatus(organizationId, {
+        action: pendingLifecycleAction,
+        graceUntil:
+          pendingLifecycleAction === "set_grace_until"
+            ? new Date(lifecycleForm.graceUntil).toISOString()
+            : null,
+        reason: lifecycleForm.reason.trim(),
+      });
+      setActionMessage(
+        `${formatStatus(pendingLifecycleAction)} completed successfully.`,
+      );
+      setPendingLifecycleAction(null);
+      await refresh();
+    } catch (err) {
+      setActionError(readableError(err));
+    } finally {
+      setLifecycleSubmitting(false);
+    }
+  }
+
   async function submitAdjustment() {
     setSubmitting(true);
     setActionError(null);
@@ -110,6 +251,13 @@ export function PlatformAdminBusinessDetailPage({
     }
   }
 
+  const manualBillingControlsEnabled =
+    Boolean(detail?.manualBillingControlsEnabled) &&
+    !catalogLoading;
+  const selectedSubscription = manualCatalog.find(
+    (item) => item.sku === subscriptionForm.sku,
+  );
+
   return (
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
@@ -122,10 +270,11 @@ export function PlatformAdminBusinessDetailPage({
             type="button"
             variant="outline"
             onClick={() => void refresh()}
+            disabled={loading}
             className="w-full gap-2 sm:w-auto"
           >
             <RefreshCw className="size-4" />
-            Refresh
+            {loading ? "Refreshing..." : "Refresh"}
           </Button>
         }
       />
@@ -153,6 +302,12 @@ export function PlatformAdminBusinessDetailPage({
       {actionMessage ? (
         <StatusBanner variant="success" message={actionMessage} onDismiss={() => setActionMessage(null)} />
       ) : null}
+      {!loading && detail && !manualBillingControlsEnabled ? (
+        <StatusBanner
+          variant="warning"
+          message="Manual billing controls are disabled. Review is available, but billing changes cannot be submitted."
+        />
+      ) : null}
 
       {!loading && !error && !detail ? (
         <EmptyState
@@ -178,6 +333,231 @@ export function PlatformAdminBusinessDetailPage({
           <section className="grid gap-4 lg:grid-cols-2">
             <LedgerCard title="Current-month SMS credits" ledger={detail.smsLedger} />
             <LedgerCard title="Current-month verified-booking credits" ledger={detail.verifiedBookingLedger} />
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="text-lg font-bold text-slate-950">Manual Subscription</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <DetailValue
+                label="Current plan"
+                value={detail.organization.currentPlan ?? "free"}
+              />
+              <DetailValue
+                label="Current billing status"
+                value={formatStatus(
+                  detail.organization.billingStatus ?? "free_active",
+                )}
+              />
+              <DetailValue
+                label="Access end"
+                value={formatDate(detail.organization.accessEndsAt)}
+              />
+              <DetailValue
+                label="Next billing due"
+                value={formatDate(detail.organization.nextBillingDueAt)}
+              />
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>Target plan</Label>
+                <Select
+                  value={subscriptionForm.sku}
+                  onValueChange={(sku) =>
+                    setSubscriptionForm((current) => ({ ...current, sku }))
+                  }
+                  disabled={catalogLoading || manualCatalog.length === 0}
+                >
+                  <SelectTrigger className="mt-2 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manualCatalog.map((item) => (
+                      <SelectItem key={item.sku} value={item.sku}>
+                        {item.planType} monthly · {formatPhp(item.pricePhp)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="coverageStartsAt">
+                  Coverage start date (optional)
+                </Label>
+                <Input
+                  id="coverageStartsAt"
+                  type="datetime-local"
+                  value={subscriptionForm.coverageStartsAt}
+                  onChange={(event) =>
+                    setSubscriptionForm((current) => ({
+                      ...current,
+                      coverageStartsAt: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <p className="mt-4 text-sm text-slate-600">
+              Canonical amount:{" "}
+              {selectedSubscription
+                ? formatPhp(selectedSubscription.pricePhp)
+                : "Catalog unavailable"}
+            </p>
+            <Button
+              type="button"
+              className="mt-4"
+              disabled={
+                submitting ||
+                !manualBillingControlsEnabled ||
+                !selectedSubscription
+              }
+              onClick={() => void createSubscriptionRequest()}
+            >
+              {submitting ? "Creating..." : "Create subscription request"}
+            </Button>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="text-lg font-bold text-slate-950">Billing Contact</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="billingContactName">Billing contact name</Label>
+                <Input
+                  id="billingContactName"
+                  value={billingContactForm.billingContactName}
+                  onChange={(event) =>
+                    setBillingContactForm((current) => ({
+                      ...current,
+                      billingContactName: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="billingContactMobile">Billing contact mobile</Label>
+                <Input
+                  id="billingContactMobile"
+                  placeholder="+639171234567"
+                  value={billingContactForm.billingContactMobile}
+                  onChange={(event) =>
+                    setBillingContactForm((current) => ({
+                      ...current,
+                      billingContactMobile: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="billingContactEmail">Billing contact email</Label>
+                <Input
+                  id="billingContactEmail"
+                  type="email"
+                  value={billingContactForm.billingContactEmail}
+                  onChange={(event) =>
+                    setBillingContactForm((current) => ({
+                      ...current,
+                      billingContactEmail: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Preferred payment method</Label>
+                <Select
+                  value={billingContactForm.preferredPaymentMethod}
+                  onValueChange={(
+                    preferredPaymentMethod:
+                      | "gcash"
+                      | "bank_transfer"
+                      | "other",
+                  ) =>
+                    setBillingContactForm((current) => ({
+                      ...current,
+                      preferredPaymentMethod,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="mt-2 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gcash">GCash</SelectItem>
+                    <SelectItem value="bank_transfer">Bank transfer</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button
+              type="button"
+              className="mt-4"
+              disabled={submitting || !manualBillingControlsEnabled}
+              onClick={() => void saveBillingContact()}
+            >
+              {submitting ? "Saving..." : "Save billing contact"}
+            </Button>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="text-lg font-bold text-slate-950">Lifecycle Actions</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label htmlFor="lifecycleReason">Reason</Label>
+                <Textarea
+                  id="lifecycleReason"
+                  value={lifecycleForm.reason}
+                  onChange={(event) =>
+                    setLifecycleForm((current) => ({
+                      ...current,
+                      reason: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="graceUntil">Grace-until date</Label>
+                <Input
+                  id="graceUntil"
+                  type="datetime-local"
+                  value={lifecycleForm.graceUntil}
+                  onChange={(event) =>
+                    setLifecycleForm((current) => ({
+                      ...current,
+                      graceUntil: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[
+                ["mark_past_due", "Mark past due"],
+                ["set_grace_until", "Set grace period"],
+                ["suspend", "Suspend"],
+                ["reactivate", "Reactivate"],
+                ["cancel", "Cancel"],
+              ].map(([action, label]) => (
+                <Button
+                  key={action}
+                  type="button"
+                  variant={action === "cancel" ? "destructive" : "outline"}
+                  disabled={
+                    lifecycleSubmitting || !manualBillingControlsEnabled
+                  }
+                  onClick={() =>
+                    requestLifecycleAction(
+                      action as
+                        | "mark_past_due"
+                        | "set_grace_until"
+                        | "suspend"
+                        | "reactivate"
+                        | "cancel",
+                    )
+                  }
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -232,7 +612,7 @@ export function PlatformAdminBusinessDetailPage({
             <Button
               type="button"
               className="mt-4"
-              disabled={submitting}
+              disabled={submitting || !manualBillingControlsEnabled}
               onClick={() => void createBillingRequest()}
             >
               {submitting ? "Creating..." : "Create billing request"}
@@ -290,7 +670,7 @@ export function PlatformAdminBusinessDetailPage({
             <Button
               type="button"
               className="mt-4"
-              disabled={submitting}
+              disabled={submitting || !manualBillingControlsEnabled}
               onClick={() => void submitAdjustment()}
             >
               {submitting ? "Applying..." : "Apply SMS adjustment"}
@@ -304,6 +684,23 @@ export function PlatformAdminBusinessDetailPage({
           <HistorySection title="Credit reconciliation history" rows={detail.reconciliation} />
         </>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(pendingLifecycleAction)}
+        onOpenChange={(open) => !open && setPendingLifecycleAction(null)}
+        title="Confirm lifecycle action"
+        description={`Apply ${formatStatus(
+          pendingLifecycleAction ?? "",
+        )} to this manual subscription?`}
+        confirmLabel={
+          lifecycleSubmitting ? "Applying..." : "Confirm lifecycle action"
+        }
+        destructive={
+          pendingLifecycleAction === "suspend" ||
+          pendingLifecycleAction === "cancel"
+        }
+        onConfirm={submitLifecycleAction}
+      />
     </div>
   );
 }
@@ -314,6 +711,15 @@ function Metric({ title, value }: { title: string; value: string }) {
       <p className="text-sm font-semibold text-slate-600">{title}</p>
       <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
     </article>
+  );
+}
+
+function DetailValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-slate-600">{label}</p>
+      <p className="mt-1 text-sm text-slate-950">{value}</p>
+    </div>
   );
 }
 
@@ -366,4 +772,16 @@ function formatStatus(value: string) {
 
 function formatPhp(amount: number) {
   return `₱${new Intl.NumberFormat("en-PH").format(amount)}`;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "Not set";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not set";
+  return new Intl.DateTimeFormat("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
 }

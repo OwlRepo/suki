@@ -89,7 +89,7 @@ You don’t pay for “software”—you pay for:
 
 ---
 
-### Starter — ₱299/month
+### Starter — ₱999/month
 
 - Appointment-first booking workspace
 - Automatic visit tracking from completed appointments
@@ -103,7 +103,7 @@ You don’t pay for “software”—you pay for:
 
 ---
 
-### Growth — ₱799/month
+### Growth — ₱2,499/month
 
 Everything in Starter +
 
@@ -116,7 +116,7 @@ Everything in Starter +
 
 ---
 
-### Pro — ₱1,499/month
+### Pro — ₱5,999/month
 
 Everything in Growth +
 
@@ -138,10 +138,10 @@ If you’re on Starter:
 
 Billing:
 
-- ₱299 base  
+- ₱999 base
 - 200 extra × ₱2.50 = ₱500  
 
-**Total: ₱799**
+**Total: ₱1,499**
 
 ---
 
@@ -290,6 +290,8 @@ SEMAPHORE_CREDIT_CRITICAL_THRESHOLD=200
 ```
 
 Leave payment account values blank in committed files. Set real GCash and bank details only in production environment storage; these values are rendered only inside platform-admin manual billing responses.
+
+Founder-led manual billing through GCash or bank transfer is used during validation. Self-serve billing remains disabled until rollout approval.
 
 One-time production bootstrap:
 

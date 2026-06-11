@@ -30,6 +30,7 @@ export function PlatformAdminBillingRequestDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [confirmPaymentId, setConfirmPaymentId] = useState<string | null>(null);
   const [rejectPaymentId, setRejectPaymentId] = useState<string | null>(null);
   const [voidOpen, setVoidOpen] = useState(false);
@@ -61,6 +62,7 @@ export function PlatformAdminBillingRequestDetailPage({
     if (!detail) return;
     setRecording(true);
     setActionError(null);
+    setActionMessage(null);
     try {
       setDetail(
         await recordManualPayment(detail.id, {
@@ -76,6 +78,7 @@ export function PlatformAdminBillingRequestDetailPage({
         externalReference: "",
         notes: "",
       });
+      setActionMessage("Payment recorded.");
     } catch (err) {
       setActionError(readableError(err));
     } finally {
@@ -85,9 +88,11 @@ export function PlatformAdminBillingRequestDetailPage({
 
   async function confirmPayment(paymentId: string) {
     setActionError(null);
+    setActionMessage(null);
     try {
       await confirmManualPaymentAndFulfill(paymentId);
       await refresh();
+      setActionMessage("Payment confirmed and fulfillment completed.");
     } catch (err) {
       setActionError(readableError(err));
     }
@@ -95,8 +100,10 @@ export function PlatformAdminBillingRequestDetailPage({
 
   async function rejectPayment(paymentId: string) {
     setActionError(null);
+    setActionMessage(null);
     try {
       setDetail(await rejectManualPayment(paymentId));
+      setActionMessage("Payment rejected.");
     } catch (err) {
       setActionError(readableError(err));
     }
@@ -105,8 +112,10 @@ export function PlatformAdminBillingRequestDetailPage({
   async function voidRequest() {
     if (!detail) return;
     setActionError(null);
+    setActionMessage(null);
     try {
       setDetail(await voidBillingRequest(detail.id));
+      setActionMessage("Billing request voided.");
     } catch (err) {
       setActionError(readableError(err));
     }
@@ -164,6 +173,21 @@ export function PlatformAdminBillingRequestDetailPage({
           onDismiss={() => setActionError(null)}
         />
       ) : null}
+      {actionMessage ? (
+        <StatusBanner
+          variant="success"
+          message={actionMessage}
+          onDismiss={() => setActionMessage(null)}
+        />
+      ) : null}
+      {!loading &&
+      detail &&
+      detail.manualBillingControlsEnabled === false ? (
+        <StatusBanner
+          variant="warning"
+          message="Manual billing controls are disabled. Review is available, but billing changes cannot be submitted."
+        />
+      ) : null}
 
       {!loading && !error && !detail ? (
         <EmptyState
@@ -196,15 +220,30 @@ export function PlatformAdminBillingRequestDetailPage({
                 <div key={item.id} className="rounded-xl border border-slate-200 p-3">
                   <p className="text-sm font-semibold text-slate-950">{item.sku}</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {formatStatus(item.purchaseKind)} · {item.units} units × {item.quantity}
+                    {item.purchaseKind === "subscription"
+                      ? `${item.planType ?? "Unknown"} · ${formatStatus(
+                          item.billingInterval ?? "Unknown",
+                        )}`
+                      : `${formatStatus(item.purchaseKind)} · ${item.units} units × ${item.quantity}`}
                   </p>
                   <p className="mt-1 text-sm text-slate-600">
                     {formatPhp(item.unitPricePhp)} each
                   </p>
+                  {item.purchaseKind === "subscription" ? (
+                    <p className="mt-1 text-sm text-slate-600">
+                      Coverage: {formatDate(item.coverageStartsAt)} to{" "}
+                      {formatDate(item.coverageEndsAt)}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>
           </section>
+
+          {detail.status === "paid_and_fulfilled" &&
+          detail.items.some((item) => item.purchaseKind === "subscription") ? (
+            <PaymentAcknowledgment detail={detail} />
+          ) : null}
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -280,7 +319,9 @@ export function PlatformAdminBillingRequestDetailPage({
             <Button
               type="button"
               className="mt-4 w-full sm:w-auto"
-              disabled={recording}
+              disabled={
+                recording || detail.manualBillingControlsEnabled === false
+              }
               onClick={() => void submitPayment()}
             >
               {recording ? "Recording..." : "Record payment"}
@@ -319,7 +360,10 @@ export function PlatformAdminBillingRequestDetailPage({
                       <Button
                         type="button"
                         size="sm"
-                        disabled={payment.status !== "pending"}
+                        disabled={
+                          payment.status !== "pending" ||
+                          detail.manualBillingControlsEnabled === false
+                        }
                         onClick={() => setConfirmPaymentId(payment.id)}
                       >
                         Confirm payment
@@ -328,7 +372,10 @@ export function PlatformAdminBillingRequestDetailPage({
                         type="button"
                         size="sm"
                         variant="outline"
-                        disabled={payment.status !== "pending"}
+                        disabled={
+                          payment.status !== "pending" ||
+                          detail.manualBillingControlsEnabled === false
+                        }
                         onClick={() => setRejectPaymentId(payment.id)}
                       >
                         Reject payment
@@ -359,7 +406,10 @@ export function PlatformAdminBillingRequestDetailPage({
               type="button"
               variant="outline"
               className="mt-4"
-              disabled={detail.status === "paid_and_fulfilled"}
+              disabled={
+                detail.status === "paid_and_fulfilled" ||
+                detail.manualBillingControlsEnabled === false
+              }
               onClick={() => setVoidOpen(true)}
             >
               Void request
@@ -402,6 +452,56 @@ export function PlatformAdminBillingRequestDetailPage({
   );
 }
 
+function PaymentAcknowledgment({
+  detail,
+}: {
+  detail: BillingRequestDetail;
+}) {
+  const item = detail.items.find(
+    (candidate) => candidate.purchaseKind === "subscription",
+  );
+  const verifiedPayment = detail.payments.find(
+    (payment) => payment.status === "verified",
+  );
+  if (!item || !verifiedPayment) return null;
+  const copyText = [
+    "Payment acknowledgment",
+    `Reference: ${detail.referenceNumber}`,
+    `Business: ${detail.organizationName}`,
+    `Plan: ${item.planType ?? item.sku}`,
+    `Amount received: ${formatPhp(verifiedPayment.amountPhp)}`,
+    `Coverage: ${formatDate(item.coverageStartsAt)} to ${formatDate(
+      item.coverageEndsAt,
+    )}`,
+    "Status: Paid and activated",
+  ].join("\n");
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">
+            Payment acknowledgment
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">Paid and activated</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full gap-2 sm:w-auto"
+          onClick={() => navigator.clipboard?.writeText(copyText)}
+        >
+          <Copy className="size-4" />
+          Copy acknowledgment
+        </Button>
+      </div>
+      <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+        {copyText}
+      </pre>
+    </section>
+  );
+}
+
 function readableError(err: unknown) {
   const body = (err as { responseBody?: Record<string, unknown> })?.responseBody;
   if (body?.code === "PAYMENT_AMOUNT_MISMATCH") {
@@ -425,4 +525,16 @@ function formatStatus(value: string) {
 
 function formatPhp(amount: number) {
   return `₱${new Intl.NumberFormat("en-PH").format(amount)}`;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
+  return new Intl.DateTimeFormat("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
 }
