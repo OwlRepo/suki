@@ -7,6 +7,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getDb,
+  manualBillingEmailDeliveries,
   manualBillingFulfillments,
   manualBillingRequestItems,
   manualBillingRequests,
@@ -62,6 +63,7 @@ function createBillingHarness(input?: {
   organization?: Record<string, unknown>;
   subscription?: Record<string, unknown> | null;
   verifiedLedger?: Record<string, unknown> | null;
+  emailDeliveries?: Array<Record<string, unknown>>;
 }) {
   const state = {
     organization: input?.organization ?? {
@@ -126,6 +128,8 @@ function createBillingHarness(input?: {
       used: 2,
       sourcePlan: "free",
     },
+    emailDeliveries: input?.emailDeliveries ?? [],
+    inTransaction: false,
     inserted: {
       requests: [] as Array<Record<string, unknown>>,
       items: [] as Array<Record<string, unknown>>,
@@ -155,6 +159,9 @@ function createBillingHarness(input?: {
           if (table === manualBillingFulfillments) {
             return state.fulfillment ? [state.fulfillment] : [];
           }
+          if (table === manualBillingEmailDeliveries) {
+            return state.emailDeliveries;
+          }
           if (table === smsCredits) return [state.smsLedger];
           if (table === subscriptions) {
             return state.subscription ? [state.subscription] : [];
@@ -166,6 +173,9 @@ function createBillingHarness(input?: {
         },
         orderBy: () => ({
           limit: async () => {
+            if (table === manualBillingEmailDeliveries) {
+              return state.emailDeliveries;
+            }
             if (table === subscriptions) {
               return state.subscription ? [state.subscription] : [];
             }
@@ -275,7 +285,14 @@ function createBillingHarness(input?: {
     insert,
     update,
     transaction: vi.fn(async (callback: (trx: typeof tx) => Promise<unknown>) =>
-      callback(tx),
+      {
+        state.inTransaction = true;
+        try {
+          return await callback(tx);
+        } finally {
+          state.inTransaction = false;
+        }
+      },
     ),
   } as never);
 
@@ -285,6 +302,10 @@ function createBillingHarness(input?: {
 function createService(overrides?: {
   smsGrant?: { grant: ReturnType<typeof vi.fn> };
   manualBillingEnabled?: boolean;
+  billingEmails?: {
+    sendPaymentRequestEmail: ReturnType<typeof vi.fn>;
+    sendPaymentAcknowledgmentEmail: ReturnType<typeof vi.fn>;
+  };
 }) {
   return new PlatformAdminBillingService(
     (overrides?.smsGrant ??
@@ -307,6 +328,18 @@ function createService(overrides?: {
         () => overrides?.manualBillingEnabled ?? true,
       ),
     } as never,
+    (overrides?.billingEmails ?? {
+      sendPaymentRequestEmail: vi.fn(async () => ({
+        id: "delivery-request",
+        status: "sent",
+        recipientEmail: "billing@example.com",
+      })),
+      sendPaymentAcknowledgmentEmail: vi.fn(async () => ({
+        id: "delivery-acknowledgment",
+        status: "sent",
+        recipientEmail: "billing@example.com",
+      })),
+    }) as never,
   );
 }
 
@@ -393,6 +426,160 @@ describe("PlatformAdminBillingService", () => {
     });
   });
 
+  it("returns sent email delivery after request creation and sends after commit", async () => {
+    const state = createBillingHarness({
+      request: {
+        id: "previous-request",
+        referenceNumber: "TYV-2026-000000",
+        status: "awaiting_payment",
+      },
+    });
+    const billingEmails = {
+      sendPaymentRequestEmail: vi.fn(async () => {
+        expect(state.inTransaction).toBe(false);
+        return {
+          id: "delivery-request",
+          status: "sent",
+          recipientEmail: "billing@example.com",
+        };
+      }),
+      sendPaymentAcknowledgmentEmail: vi.fn(),
+    };
+    const service = createService({ billingEmails });
+
+    const result = await service.createBillingRequest(financeAdmin, {
+      organizationId: "org-1",
+      sku: "starter-monthly",
+      quantity: 1,
+    });
+
+    expect(billingEmails.sendPaymentRequestEmail).toHaveBeenCalledWith({
+      billingRequestId: "billing-request-1",
+      attemptedByPlatformAdminId: "platform-admin-finance",
+      mode: "automatic",
+    });
+    expect(result.emailDelivery).toMatchObject({
+      status: "sent",
+      recipientEmail: "billing@example.com",
+    });
+  });
+
+  it("returns failed email delivery without rolling back request", async () => {
+    const state = createBillingHarness({
+      request: {
+        id: "previous-request",
+        referenceNumber: "TYV-2026-000000",
+        status: "awaiting_payment",
+      },
+    });
+    const service = createService({
+      billingEmails: {
+        sendPaymentRequestEmail: vi.fn(async () => ({
+          id: "delivery-request",
+          status: "failed",
+          failureReason: "provider_transient",
+        })),
+        sendPaymentAcknowledgmentEmail: vi.fn(),
+      },
+    });
+
+    const result = await service.createBillingRequest(financeAdmin, {
+      organizationId: "org-1",
+      sku: "starter-monthly",
+      quantity: 1,
+    });
+
+    expect(state.inserted.requests).toHaveLength(1);
+    expect(result.billingRequest.referenceNumber).toBe("TYV-2026-000001");
+    expect(result.emailDelivery).toMatchObject({
+      status: "failed",
+      failureReason: "provider_transient",
+    });
+  });
+
+  it("returns a stable failed delivery shape when the email subsystem throws", async () => {
+    const state = createBillingHarness({
+      request: {
+        id: "previous-request",
+        referenceNumber: "TYV-2026-000000",
+        status: "awaiting_payment",
+      },
+    });
+    const service = createService({
+      billingEmails: {
+        sendPaymentRequestEmail: vi.fn(async () => {
+          throw new Error("delivery persistence unavailable");
+        }),
+        sendPaymentAcknowledgmentEmail: vi.fn(),
+      },
+    });
+
+    const result = await service.createBillingRequest(financeAdmin, {
+      organizationId: "org-1",
+      sku: "starter-monthly",
+      quantity: 1,
+    });
+
+    expect(state.inserted.requests).toHaveLength(1);
+    expect(result.emailDelivery).toMatchObject({
+      billingRequestId: "billing-request-1",
+      status: "failed",
+      failureReason: "unexpected_provider_error",
+    });
+    expect(result.emailDelivery.id).toMatch(/^unpersisted:/);
+  });
+
+  it("uses subscription-specific copy wording", async () => {
+    createBillingHarness({
+      request: {
+        id: "previous-request",
+        referenceNumber: "TYV-2026-000000",
+        status: "awaiting_payment",
+      },
+    });
+    const service = createService();
+
+    const result = await service.createBillingRequest(financeAdmin, {
+      organizationId: "org-1",
+      sku: "starter-monthly",
+      quantity: 1,
+    });
+
+    expect(result.paymentInstructions.copyText).toContain(
+      "Your Tyvera subscription payment request is ready.",
+    );
+    expect(result.paymentInstructions.copyText).toContain(
+      "activate your Tyvera subscription",
+    );
+    expect(result.paymentInstructions.copyText).not.toContain(
+      "top-up request",
+    );
+  });
+
+  it("preserves add-on top-up copy wording", async () => {
+    createBillingHarness({
+      request: {
+        id: "previous-request",
+        referenceNumber: "TYV-2026-000000",
+        status: "awaiting_payment",
+      },
+    });
+    const service = createService();
+
+    const result = await service.createBillingRequest(financeAdmin, {
+      organizationId: "org-1",
+      sku: "sms-segment-topup-25",
+      quantity: 1,
+    });
+
+    expect(result.paymentInstructions.copyText).toContain(
+      "Your Tyvera top-up request is ready.",
+    );
+    expect(result.paymentInstructions.copyText).toContain(
+      "apply your credits",
+    );
+  });
+
   it("rejects subscription quantity greater than one", async () => {
     createBillingHarness();
     const service = createService();
@@ -432,6 +619,67 @@ describe("PlatformAdminBillingService", () => {
     expect(state.updated.payments[0]).toMatchObject({ status: "verified" });
     expect(state.updated.requests[0]).toMatchObject({
       status: "paid_and_fulfilled",
+    });
+  });
+
+  it("fulfills payment even when acknowledgment email fails", async () => {
+    const state = createBillingHarness();
+    const billingEmails = {
+      sendPaymentRequestEmail: vi.fn(),
+      sendPaymentAcknowledgmentEmail: vi.fn(async () => {
+        expect(state.inTransaction).toBe(false);
+        return {
+          id: "delivery-acknowledgment",
+          status: "failed",
+          failureReason: "provider_rejected",
+        };
+      }),
+    };
+    const service = createService({ billingEmails });
+
+    const result = await service.confirmAndFulfillManualPayment(
+      financeAdmin,
+      "payment-1",
+    );
+
+    expect(state.inserted.fulfillments).toHaveLength(1);
+    expect(state.updated.payments[0]).toMatchObject({ status: "verified" });
+    expect(state.updated.requests[0]).toMatchObject({
+      status: "paid_and_fulfilled",
+    });
+    expect(result.latestEmailDelivery).toMatchObject({
+      status: "failed",
+      failureReason: "provider_rejected",
+    });
+  });
+
+  it("serializes email delivery history", async () => {
+    createBillingHarness({
+      emailDeliveries: [
+        {
+          id: "delivery-request",
+          kind: "payment_request",
+          status: "sent",
+          attemptedAt: new Date("2026-06-12T00:00:00.000Z"),
+        },
+        {
+          id: "delivery-ack",
+          kind: "payment_acknowledgment",
+          status: "failed",
+          attemptedAt: new Date("2026-06-13T00:00:00.000Z"),
+        },
+      ],
+    });
+    const service = createService();
+
+    const result = await service.getBillingRequest("billing-request-1");
+
+    expect(result.emailDeliveries).toHaveLength(2);
+    expect(result.latestPaymentRequestEmailDelivery).toMatchObject({
+      id: "delivery-request",
+    });
+    expect(result.latestPaymentAcknowledgmentEmailDelivery).toMatchObject({
+      id: "delivery-ack",
     });
   });
 

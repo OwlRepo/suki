@@ -20,6 +20,23 @@ export type BillingRequestListItem = {
   itemSummary: string;
 };
 
+export type ManualBillingEmailDelivery = {
+  id: string;
+  billingRequestId: string;
+  manualPaymentId?: string | null;
+  kind: "payment_request" | "payment_acknowledgment";
+  recipientEmail?: string | null;
+  status:
+    | "skipped_missing_recipient"
+    | "skipped_disabled"
+    | "sent"
+    | "failed";
+  providerMessageId?: string | null;
+  failureReason?: string | null;
+  attemptedAt: string;
+  sentAt?: string | null;
+};
+
 export type BillingRequestDetail = BillingRequestListItem & {
   notes?: string | null;
   manualBillingControlsEnabled: boolean;
@@ -49,6 +66,9 @@ export type BillingRequestDetail = BillingRequestListItem & {
   }>;
   fulfillments: Array<Record<string, unknown>>;
   auditLogs: Array<Record<string, unknown>>;
+  emailDeliveries: ManualBillingEmailDelivery[];
+  latestPaymentRequestEmailDelivery?: ManualBillingEmailDelivery | null;
+  latestPaymentAcknowledgmentEmailDelivery?: ManualBillingEmailDelivery | null;
 };
 
 export type ManualSubscriptionSku =
@@ -89,7 +109,11 @@ export function createPlatformAdminBillingRequest(input: {
   notes?: string | null;
   coverageStartsAt?: string | null;
 }) {
-  return apiRequest<{ billingRequest: BillingRequestDetail; paymentInstructions: { copyText: string } }>(
+  return apiRequest<{
+    billingRequest: BillingRequestDetail;
+    paymentInstructions: { copyText: string };
+    emailDelivery: ManualBillingEmailDelivery;
+  }>(
     "/platform-admin/billing-requests",
     { method: "POST", body: JSON.stringify(input) },
   );
@@ -135,6 +159,24 @@ export function rejectManualPayment(paymentId: string) {
 export function voidBillingRequest(billingRequestId: string) {
   return apiRequest<BillingRequestDetail>(
     `/platform-admin/billing-requests/${billingRequestId}/void`,
+    { method: "POST" },
+  );
+}
+
+export function sendPlatformAdminPaymentRequestEmail(
+  billingRequestId: string,
+) {
+  return apiRequest<ManualBillingEmailDelivery>(
+    `/platform-admin/billing-requests/${billingRequestId}/send-payment-request-email`,
+    { method: "POST" },
+  );
+}
+
+export function sendPlatformAdminPaymentAcknowledgmentEmail(
+  billingRequestId: string,
+) {
+  return apiRequest<ManualBillingEmailDelivery>(
+    `/platform-admin/billing-requests/${billingRequestId}/send-payment-acknowledgment-email`,
     { method: "POST" },
   );
 }

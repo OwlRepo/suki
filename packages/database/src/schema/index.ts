@@ -1325,6 +1325,42 @@ export const manualBillingFulfillments = pgTable(
   ],
 );
 
+export const manualBillingEmailDeliveries = pgTable(
+  "manual_billing_email_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    billingRequestId: uuid("billing_request_id")
+      .notNull()
+      .references(() => manualBillingRequests.id, { onDelete: "cascade" }),
+    manualPaymentId: uuid("manual_payment_id").references(
+      () => manualPayments.id,
+      { onDelete: "set null" },
+    ),
+    kind: text("kind").notNull(),
+    recipientEmail: text("recipient_email"),
+    status: text("status").notNull(),
+    clientRef: text("client_ref").notNull(),
+    providerMessageId: text("provider_message_id"),
+    failureReason: text("failure_reason"),
+    attemptedByPlatformAdminId: uuid(
+      "attempted_by_platform_admin_id",
+    ).references(() => platformAdmins.id, { onDelete: "set null" }),
+    attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    unique("manual_billing_email_deliveries_client_ref_unique").on(
+      t.clientRef,
+    ),
+    index("manual_billing_email_deliveries_request_idx").on(
+      t.billingRequestId,
+    ),
+    index("manual_billing_email_deliveries_status_idx").on(t.status),
+  ],
+);
+
 // Consent audit logs — when/why consent changed
 export const consentAuditLogs = pgTable("consent_audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),

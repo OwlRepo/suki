@@ -40,6 +40,14 @@ export type ManualBillingRequestStatus =
   | "void";
 export type ManualPaymentMethod = "gcash" | "bank_transfer" | "other";
 export type ManualPaymentStatus = "pending" | "verified" | "rejected";
+export type ManualBillingEmailKind =
+  | "payment_request"
+  | "payment_acknowledgment";
+export type ManualBillingEmailDeliveryStatus =
+  | "skipped_missing_recipient"
+  | "skipped_disabled"
+  | "sent"
+  | "failed";
 export type PlatformAdminRoleCode =
   | "FOUNDER"
   | "OPERATIONS"

@@ -129,6 +129,16 @@ describe("PlatformAdminBusinessDetailPage", () => {
         referenceNumber: "TYV-2026-000001",
       },
       paymentInstructions: { copyText: "Payment instructions" },
+      emailDelivery: {
+        id: "delivery-1",
+        billingRequestId: "request-1",
+        manualPaymentId: null,
+        kind: "payment_request",
+        recipientEmail: "billing@example.com",
+        status: "sent",
+        attemptedAt: "2026-06-12T00:00:00.000Z",
+        sentAt: "2026-06-12T00:00:00.000Z",
+      },
     } as never);
 
     render(<PlatformAdminBusinessDetailPage organizationId="org-1" />);
@@ -148,7 +158,72 @@ describe("PlatformAdminBusinessDetailPage", () => {
       ),
     );
     expect(
-      await screen.findByText(/created TYV-2026-000001/i),
+      await screen.findByText(
+        /created TYV-2026-000001.*sent to billing@example.com/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a created-but-email-failed warning", async () => {
+    vi.mocked(createPlatformAdminBillingRequest).mockResolvedValue({
+      billingRequest: {
+        id: "request-1",
+        referenceNumber: "TYV-2026-000001",
+      },
+      paymentInstructions: { copyText: "Payment instructions" },
+      emailDelivery: {
+        id: "delivery-1",
+        billingRequestId: "request-1",
+        kind: "payment_request",
+        recipientEmail: "billing@example.com",
+        status: "failed",
+        failureReason: "provider_transient",
+        attemptedAt: "2026-06-12T00:00:00.000Z",
+      },
+    } as never);
+
+    render(<PlatformAdminBusinessDetailPage organizationId="org-1" />);
+    await screen.findByText("Manual Subscription");
+    fireEvent.click(
+      screen.getByRole("button", { name: /create subscription request/i }),
+    );
+
+    expect(
+      await screen.findByText(
+        /created TYV-2026-000001, but the payment request email was not sent/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/copy the fallback instructions/i)).toBeInTheDocument();
+  });
+
+  it("shows a missing-recipient fallback warning", async () => {
+    vi.mocked(createPlatformAdminBillingRequest).mockResolvedValue({
+      billingRequest: {
+        id: "request-1",
+        referenceNumber: "TYV-2026-000001",
+      },
+      paymentInstructions: { copyText: "Payment instructions" },
+      emailDelivery: {
+        id: "delivery-1",
+        billingRequestId: "request-1",
+        kind: "payment_request",
+        recipientEmail: null,
+        status: "skipped_missing_recipient",
+        failureReason: "Billing contact email is missing.",
+        attemptedAt: "2026-06-12T00:00:00.000Z",
+      },
+    } as never);
+
+    render(<PlatformAdminBusinessDetailPage organizationId="org-1" />);
+    await screen.findByText("Manual Subscription");
+    fireEvent.click(
+      screen.getByRole("button", { name: /create subscription request/i }),
+    );
+
+    expect(
+      await screen.findByText(
+        /created TYV-2026-000001, but no billing contact email is configured/i,
+      ),
     ).toBeInTheDocument();
   });
 

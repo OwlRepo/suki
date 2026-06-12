@@ -216,6 +216,32 @@ export class PlatformAdminController {
     return this.platformAdminBillingService.getBillingRequest(billingRequestId);
   }
 
+  @Post("billing-requests/:billingRequestId/send-payment-request-email")
+  @RequirePlatformAdminPermissions("BILLING_REQUEST_VIEW")
+  sendPaymentRequestEmail(
+    @Req() request: PlatformAdminRequest,
+    @Param("billingRequestId") billingRequestId: string,
+  ) {
+    return this.platformAdminBillingService.sendPaymentRequestEmail(
+      this.requirePlatformAdmin(request),
+      billingRequestId,
+    );
+  }
+
+  @Post(
+    "billing-requests/:billingRequestId/send-payment-acknowledgment-email",
+  )
+  @RequirePlatformAdminPermissions("PAYMENT_VIEW")
+  sendPaymentAcknowledgmentEmail(
+    @Req() request: PlatformAdminRequest,
+    @Param("billingRequestId") billingRequestId: string,
+  ) {
+    return this.platformAdminBillingService.sendPaymentAcknowledgmentEmail(
+      this.requirePlatformAdmin(request),
+      billingRequestId,
+    );
+  }
+
   @Post("billing-requests/:billingRequestId/payments")
   @RequirePlatformAdminPermissions("PAYMENT_RECORD")
   recordManualPayment(

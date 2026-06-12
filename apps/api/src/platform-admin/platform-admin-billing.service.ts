@@ -9,6 +9,7 @@ import {
 import {
   creditReconciliationEvents,
   getDb,
+  manualBillingEmailDeliveries,
   manualBillingFulfillments,
   manualBillingRequestItems,
   manualBillingRequests,
@@ -54,6 +55,7 @@ import {
   resolveManualCoveragePeriod,
 } from "./manual-subscription-policy";
 import type { ActivePlatformAdmin } from "./platform-admin.service";
+import { PlatformAdminBillingEmailService } from "./platform-admin-billing-email.service";
 
 type BillingTx = {
   select: ReturnType<typeof getDb>["select"];
@@ -103,6 +105,7 @@ export class PlatformAdminBillingService {
     private readonly smsAddonGrant: SmsAddonGrantService,
     private readonly verifiedBookingAddonGrant: VerifiedBookingAddonGrantService,
     private readonly featureFlags: FeatureFlagsService,
+    private readonly billingEmails: PlatformAdminBillingEmailService,
   ) {}
 
   async listOrganizations(input: { search?: string | null } = {}) {
@@ -293,7 +296,7 @@ export class PlatformAdminBillingService {
     }
 
     const db = getDb();
-    return db.transaction(async (tx) => {
+    const created = await db.transaction(async (tx) => {
       const organization = await this.getOrganizationOrThrow(
         tx,
         input.organizationId,
@@ -377,11 +380,24 @@ export class PlatformAdminBillingService {
         paymentInstructions: this.buildPaymentInstructions({
           businessName: organization.name,
           sku: catalogItem.sku,
+          purchaseKind: catalogItem.purchaseKind,
           amountPhp: totalAmountPhp,
           referenceNumber,
         }),
       };
     });
+    const emailDelivery = await this.sendAutomaticPaymentRequestEmail(
+      actor,
+      created.billingRequest.id,
+    );
+    return {
+      ...created,
+      billingRequest: this.withLatestDelivery(
+        created.billingRequest,
+        emailDelivery,
+      ),
+      emailDelivery,
+    };
   }
 
   async getBillingRequest(billingRequestId: string) {
@@ -403,7 +419,7 @@ export class PlatformAdminBillingService {
     }
 
     const db = getDb();
-    return db.transaction(async (tx) => {
+    const fulfilled = await db.transaction(async (tx) => {
       const request = await this.getBillingRequestOrThrow(tx, billingRequestId);
       if (
         request.status !== "awaiting_payment" &&
@@ -459,7 +475,7 @@ export class PlatformAdminBillingService {
     this.ensurePermission(actor, "PAYMENT_VERIFY");
     const db = getDb();
 
-    return db.transaction(async (tx) => {
+    const fulfilled = await db.transaction(async (tx) => {
       const payment = await this.getManualPaymentOrThrow(tx, paymentId);
       if (payment.status !== "pending") {
         throw new ConflictException({
@@ -602,6 +618,54 @@ export class PlatformAdminBillingService {
       });
 
       return this.serializeBillingRequest(tx, request.id);
+    });
+    const latestEmailDelivery =
+      await this.sendAutomaticPaymentAcknowledgmentEmail(
+        actor,
+        fulfilled.id,
+        paymentId,
+      );
+    return {
+      ...this.withLatestDelivery(fulfilled, latestEmailDelivery),
+      latestEmailDelivery,
+    };
+  }
+
+  async sendPaymentRequestEmail(
+    actor: ActivePlatformAdmin,
+    billingRequestId: string,
+  ) {
+    this.ensureManualBillingControlsEnabled();
+    this.ensurePermission(actor, "BILLING_REQUEST_CREATE");
+    await this.getBillingRequestOrThrow(getDb(), billingRequestId);
+    return this.billingEmails.sendPaymentRequestEmail({
+      billingRequestId,
+      attemptedByPlatformAdminId: actor.id,
+      mode: "manual_resend",
+    });
+  }
+
+  async sendPaymentAcknowledgmentEmail(
+    actor: ActivePlatformAdmin,
+    billingRequestId: string,
+  ) {
+    this.ensureManualBillingControlsEnabled();
+    this.ensurePermission(actor, "PAYMENT_VERIFY");
+    const detail = await this.serializeBillingRequest(
+      getDb(),
+      billingRequestId,
+    );
+    const payment = detail.payments.find(
+      (candidate) => candidate.status === "verified",
+    );
+    if (!payment) {
+      throw new ConflictException("No verified payment is available.");
+    }
+    return this.billingEmails.sendPaymentAcknowledgmentEmail({
+      billingRequestId,
+      manualPaymentId: payment.id,
+      attemptedByPlatformAdminId: actor.id,
+      mode: "manual_resend",
     });
   }
 
@@ -1319,6 +1383,18 @@ export class PlatformAdminBillingService {
       .from(platformAdminAuditLogs)
       .where(eq(platformAdminAuditLogs.organizationId, request.organizationId))
       .limit(50);
+    const emailDeliveries = await tx
+      .select()
+      .from(manualBillingEmailDeliveries)
+      .where(eq(manualBillingEmailDeliveries.billingRequestId, request.id))
+      .orderBy(desc(manualBillingEmailDeliveries.attemptedAt))
+      .limit(100);
+    const serializedEmailDeliveries = emailDeliveries.map((delivery) => ({
+      ...delivery,
+      attemptedAt:
+        delivery.attemptedAt?.toISOString?.() ?? delivery.attemptedAt,
+      sentAt: delivery.sentAt?.toISOString?.() ?? delivery.sentAt ?? null,
+    }));
 
     return {
       id: request.id,
@@ -1336,9 +1412,19 @@ export class PlatformAdminBillingService {
       payments,
       fulfillments: fulfillments.filter(Boolean),
       auditLogs,
+      emailDeliveries: serializedEmailDeliveries,
+      latestPaymentRequestEmailDelivery:
+        serializedEmailDeliveries.find(
+          (delivery) => delivery.kind === "payment_request",
+        ) ?? null,
+      latestPaymentAcknowledgmentEmailDelivery:
+        serializedEmailDeliveries.find(
+          (delivery) => delivery.kind === "payment_acknowledgment",
+        ) ?? null,
       paymentInstructions: this.buildPaymentInstructions({
         businessName: organization.name,
         sku: items[0]?.sku ?? "Manual top-up",
+        purchaseKind: items[0]?.purchaseKind ?? "sms_segment_topup",
         amountPhp: request.totalAmountPhp,
         referenceNumber: request.referenceNumber,
       }),
@@ -1363,6 +1449,7 @@ export class PlatformAdminBillingService {
   private buildPaymentInstructions(input: {
     businessName: string;
     sku: string;
+    purchaseKind: string;
     amountPhp: number;
     referenceNumber: string;
   }) {
@@ -1384,13 +1471,19 @@ export class PlatformAdminBillingService {
 
     const copyText = [
       `Hi ${input.businessName},`,
-      "Your Tyvera top-up request is ready.",
-      `Package: ${input.sku}`,
+      input.purchaseKind === "subscription"
+        ? "Your Tyvera subscription payment request is ready."
+        : "Your Tyvera top-up request is ready.",
+      input.purchaseKind === "subscription"
+        ? `Plan: ${input.sku}`
+        : `Package: ${input.sku}`,
       `Amount: ${this.formatPhp(input.amountPhp)}`,
       `Reference: ${input.referenceNumber}`,
       "Payment method:",
       paymentMethodLines.join("\n") || "Use the payment account shared by Tyvera support.",
-      "After payment, please send your transaction reference number so we can apply your credits.",
+      input.purchaseKind === "subscription"
+        ? "After payment, please send your transaction reference number so we can verify the payment and activate your Tyvera subscription."
+        : "After payment, please send your transaction reference number so we can apply your credits.",
     ].join("\n");
 
     return {
@@ -1402,6 +1495,81 @@ export class PlatformAdminBillingService {
 
   private formatPhp(amountPhp: number) {
     return `₱${new Intl.NumberFormat("en-PH").format(amountPhp)}`;
+  }
+
+  private async sendAutomaticPaymentRequestEmail(
+    actor: ActivePlatformAdmin,
+    billingRequestId: string,
+  ) {
+    try {
+      return await this.billingEmails.sendPaymentRequestEmail({
+        billingRequestId,
+        attemptedByPlatformAdminId: actor.id,
+        mode: "automatic",
+      });
+    } catch {
+      return this.unavailableEmailDelivery(
+        billingRequestId,
+        "payment_request",
+      );
+    }
+  }
+
+  private async sendAutomaticPaymentAcknowledgmentEmail(
+    actor: ActivePlatformAdmin,
+    billingRequestId: string,
+    manualPaymentId: string,
+  ) {
+    try {
+      return await this.billingEmails.sendPaymentAcknowledgmentEmail({
+        billingRequestId,
+        manualPaymentId,
+        attemptedByPlatformAdminId: actor.id,
+        mode: "automatic",
+      });
+    } catch {
+      return this.unavailableEmailDelivery(
+        billingRequestId,
+        "payment_acknowledgment",
+        manualPaymentId,
+      );
+    }
+  }
+
+  private unavailableEmailDelivery(
+    billingRequestId: string,
+    kind: "payment_request" | "payment_acknowledgment",
+    manualPaymentId: string | null = null,
+  ) {
+    return {
+      id: `unpersisted:${randomUUID()}`,
+      billingRequestId,
+      manualPaymentId,
+      kind,
+      recipientEmail: null,
+      status: "failed" as const,
+      providerMessageId: null,
+      failureReason: "unexpected_provider_error",
+      attemptedAt: new Date().toISOString(),
+      sentAt: null,
+    };
+  }
+
+  private withLatestDelivery<
+    T extends {
+      emailDeliveries?: Array<Record<string, unknown>>;
+      latestPaymentRequestEmailDelivery?: Record<string, unknown> | null;
+      latestPaymentAcknowledgmentEmailDelivery?: Record<string, unknown> | null;
+    },
+  >(detail: T, delivery: Record<string, unknown>) {
+    const kind = delivery.kind;
+    return {
+      ...detail,
+      emailDeliveries: [delivery, ...(detail.emailDeliveries ?? [])],
+      ...(kind === "payment_request"
+        ? { latestPaymentRequestEmailDelivery: delivery }
+        : { latestPaymentAcknowledgmentEmailDelivery: delivery }),
+    };
   }
 
   private async writeAudit(

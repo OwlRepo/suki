@@ -7,12 +7,19 @@ export interface EmailSendResult {
   errorCode?: string;
 }
 
+export interface EmailAttachment {
+  filename: string;
+  contentType: string;
+  content: Uint8Array;
+}
+
 export interface IEmailProvider {
   send(input: {
     to: string;
     subject: string;
     body: string;
     clientRef: string;
+    attachments?: EmailAttachment[];
   }): Promise<EmailSendResult>;
 }
 
@@ -26,6 +33,7 @@ export class NoopEmailProvider implements IEmailProvider {
     subject: string;
     body: string;
     clientRef: string;
+    attachments?: EmailAttachment[];
   }): Promise<EmailSendResult> {
     return {
       ok: false,

@@ -1,5 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import type { IEmailProvider, EmailSendResult } from "./email.provider";
+import type {
+  EmailAttachment,
+  IEmailProvider,
+  EmailSendResult,
+} from "./email.provider";
 
 @Injectable()
 export class ResendEmailProvider implements IEmailProvider {
@@ -18,6 +22,7 @@ export class ResendEmailProvider implements IEmailProvider {
     subject: string;
     body: string;
     clientRef: string;
+    attachments?: EmailAttachment[];
   }): Promise<EmailSendResult> {
     if (!this.apiKey || !this.fromEmail) {
       return {
@@ -33,12 +38,22 @@ export class ResendEmailProvider implements IEmailProvider {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
+          "Idempotency-Key": input.clientRef,
         },
         body: JSON.stringify({
           from: this.fromEmail,
           to: [input.to],
           subject: input.subject,
           text: input.body,
+          ...(input.attachments?.length
+            ? {
+                attachments: input.attachments.map((attachment) => ({
+                  filename: attachment.filename,
+                  content: Buffer.from(attachment.content).toString("base64"),
+                  content_type: attachment.contentType,
+                })),
+              }
+            : {}),
         }),
       });
 

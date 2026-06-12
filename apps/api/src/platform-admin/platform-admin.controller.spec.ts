@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { PLATFORM_ADMIN_PERMISSIONS_KEY } from "./platform-admin.decorator";
 import { PlatformAdminController } from "./platform-admin.controller";
 import type { PlatformAdminRequest } from "./platform-admin.guard";
 
@@ -16,6 +17,8 @@ function createController() {
       items: [],
     })),
     createBillingRequest: vi.fn(),
+    sendPaymentRequestEmail: vi.fn(),
+    sendPaymentAcknowledgmentEmail: vi.fn(),
     updateOrganizationBillingContact: vi.fn(),
     updateManualSubscriptionStatus: vi.fn(),
   };
@@ -92,5 +95,46 @@ describe("PlatformAdminController manual subscriptions", () => {
         reason: "Payment unresolved",
       },
     );
+  });
+
+  it("routes manual payment-request resend", async () => {
+    const { billing, controller, request } = createController();
+    billing.sendPaymentRequestEmail.mockResolvedValue({ status: "sent" });
+
+    await controller.sendPaymentRequestEmail(request, "request-1");
+
+    expect(billing.sendPaymentRequestEmail).toHaveBeenCalledWith(
+      actor,
+      "request-1",
+    );
+  });
+
+  it("routes payment-acknowledgment resend", async () => {
+    const { billing, controller, request } = createController();
+    billing.sendPaymentAcknowledgmentEmail.mockResolvedValue({
+      status: "sent",
+    });
+
+    await controller.sendPaymentAcknowledgmentEmail(request, "request-1");
+
+    expect(billing.sendPaymentAcknowledgmentEmail).toHaveBeenCalledWith(
+      actor,
+      "request-1",
+    );
+  });
+
+  it("requires platform-admin permission decorators for resend routes", () => {
+    expect(
+      Reflect.getMetadata(
+        PLATFORM_ADMIN_PERMISSIONS_KEY,
+        PlatformAdminController.prototype.sendPaymentRequestEmail,
+      ),
+    ).toEqual(["BILLING_REQUEST_VIEW"]);
+    expect(
+      Reflect.getMetadata(
+        PLATFORM_ADMIN_PERMISSIONS_KEY,
+        PlatformAdminController.prototype.sendPaymentAcknowledgmentEmail,
+      ),
+    ).toEqual(["PAYMENT_VIEW"]);
   });
 });

@@ -131,9 +131,7 @@ export function PlatformAdminBusinessDetailPage({
         quantity: Number(requestForm.quantity),
         notes: requestForm.notes || null,
       });
-      setActionMessage(
-        `Created ${response.billingRequest.referenceNumber}. Payment instructions are ready to copy from the request detail.`,
-      );
+      showBillingRequestCreated(response);
       await refresh();
     } catch (err) {
       setActionError(readableError(err));
@@ -155,15 +153,41 @@ export function PlatformAdminBusinessDetailPage({
           ? new Date(subscriptionForm.coverageStartsAt).toISOString()
           : null,
       });
-      setActionMessage(
-        `Created ${response.billingRequest.referenceNumber}. Payment instructions are ready to copy from the request detail.`,
-      );
+      showBillingRequestCreated(response);
       await refresh();
     } catch (err) {
       setActionError(readableError(err));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function showBillingRequestCreated(
+    response: Awaited<ReturnType<typeof createPlatformAdminBillingRequest>>,
+  ) {
+    const reference = response.billingRequest.referenceNumber;
+    const delivery = response.emailDelivery;
+    if (delivery.status === "sent") {
+      setActionMessage(
+        `Created ${reference}. Payment request email sent to ${delivery.recipientEmail}.`,
+      );
+      return;
+    }
+    if (delivery.status === "skipped_missing_recipient") {
+      setActionError(
+        `Created ${reference}, but no billing contact email is configured. Open the request detail to retry after saving a recipient or copy the fallback instructions.`,
+      );
+      return;
+    }
+    if (delivery.status === "skipped_disabled") {
+      setActionError(
+        `Created ${reference}, but email controls are disabled. Copy fallback instructions remain available in the request detail.`,
+      );
+      return;
+    }
+    setActionError(
+      `Created ${reference}, but the payment request email was not sent. Open the request detail to retry or copy the fallback instructions.`,
+    );
   }
 
   async function saveBillingContact() {

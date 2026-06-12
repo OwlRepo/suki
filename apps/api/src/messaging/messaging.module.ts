@@ -100,6 +100,7 @@ function isResendConfigured(): boolean {
     },
   ],
   exports: [
+    EMAIL_PROVIDER,
     MessagingService,
     MessageDispatchService,
     SmsMeteringService,

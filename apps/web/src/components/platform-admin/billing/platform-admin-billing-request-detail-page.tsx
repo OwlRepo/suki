@@ -17,8 +17,11 @@ import {
   getPlatformAdminBillingRequest,
   recordManualPayment,
   rejectManualPayment,
+  sendPlatformAdminPaymentAcknowledgmentEmail,
+  sendPlatformAdminPaymentRequestEmail,
   voidBillingRequest,
   type BillingRequestDetail,
+  type ManualBillingEmailDelivery,
 } from "./platform-admin-billing.api";
 
 export function PlatformAdminBillingRequestDetailPage({
@@ -35,6 +38,9 @@ export function PlatformAdminBillingRequestDetailPage({
   const [rejectPaymentId, setRejectPaymentId] = useState<string | null>(null);
   const [voidOpen, setVoidOpen] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [resending, setResending] = useState<
+    "payment_request" | "payment_acknowledgment" | null
+  >(null);
   const [paymentForm, setPaymentForm] = useState({
     method: "gcash" as "gcash" | "bank_transfer" | "other",
     amountPhp: "",
@@ -90,11 +96,57 @@ export function PlatformAdminBillingRequestDetailPage({
     setActionError(null);
     setActionMessage(null);
     try {
-      await confirmManualPaymentAndFulfill(paymentId);
-      await refresh();
+      const fulfilled = await confirmManualPaymentAndFulfill(paymentId);
+      setDetail(fulfilled);
       setActionMessage("Payment confirmed and fulfillment completed.");
+      const acknowledgment =
+        fulfilled.latestPaymentAcknowledgmentEmailDelivery;
+      if (acknowledgment?.status === "sent") {
+        setActionMessage(
+          "Payment confirmed and fulfillment completed. Payment acknowledgment email sent.",
+        );
+      } else if (acknowledgment) {
+        setActionError(
+          "Payment was verified and fulfillment completed, but the payment acknowledgment email was not sent. Copy fallback remains available.",
+        );
+      }
     } catch (err) {
       setActionError(readableError(err));
+    }
+  }
+
+  async function resendEmail(
+    kind: "payment_request" | "payment_acknowledgment",
+  ) {
+    if (!detail) return;
+    setResending(kind);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      const delivery =
+        kind === "payment_request"
+          ? await sendPlatformAdminPaymentRequestEmail(detail.id)
+          : await sendPlatformAdminPaymentAcknowledgmentEmail(detail.id);
+      setDetail((current) =>
+        current ? addEmailDelivery(current, delivery) : current,
+      );
+      if (delivery.status === "sent") {
+        setActionMessage(
+          kind === "payment_request"
+            ? "Payment request email sent."
+            : "Payment acknowledgment email sent.",
+        );
+      } else {
+        setActionError(
+          `${kind === "payment_request" ? "Payment request" : "Payment acknowledgment"} email was not sent: ${deliveryStatusLabel(delivery)}. Copy fallback remains available.`,
+        );
+      }
+    } catch (err) {
+      setActionError(
+        `${kind === "payment_request" ? "Payment request" : "Payment acknowledgment"} resend failed. ${readableError(err)}`,
+      );
+    } finally {
+      setResending(null);
     }
   }
 
@@ -240,8 +292,13 @@ export function PlatformAdminBillingRequestDetailPage({
             </div>
           </section>
 
-          {detail.status === "paid_and_fulfilled" &&
-          detail.items.some((item) => item.purchaseKind === "subscription") ? (
+          <BillingEmailDeliverySection
+            detail={detail}
+            resending={resending}
+            onResend={resendEmail}
+          />
+
+          {detail.status === "paid_and_fulfilled" ? (
             <PaymentAcknowledgment detail={detail} />
           ) : null}
 
@@ -452,28 +509,198 @@ export function PlatformAdminBillingRequestDetailPage({
   );
 }
 
+function BillingEmailDeliverySection({
+  detail,
+  resending,
+  onResend,
+}: {
+  detail: BillingRequestDetail;
+  resending: "payment_request" | "payment_acknowledgment" | null;
+  onResend: (
+    kind: "payment_request" | "payment_acknowledgment",
+  ) => Promise<void>;
+}) {
+  const requestDelivery = detail.latestPaymentRequestEmailDelivery ?? null;
+  const acknowledgmentDelivery =
+    detail.latestPaymentAcknowledgmentEmailDelivery ?? null;
+  const hasVerifiedPayment = detail.payments.some(
+    (payment) => payment.status === "verified",
+  );
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <h2 className="text-lg font-bold text-slate-950">
+        Billing email delivery
+      </h2>
+      {!detail.emailDeliveries.length ? (
+        <p className="mt-2 text-sm text-slate-600">No email attempts yet.</p>
+      ) : null}
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <DeliverySummary
+          label="Payment request"
+          delivery={requestDelivery}
+          buttonLabel={
+            requestDelivery
+              ? "Resend payment request email"
+              : "Send payment request email"
+          }
+          pending={resending === "payment_request"}
+          disabled={detail.manualBillingControlsEnabled === false}
+          onSend={() => onResend("payment_request")}
+        />
+        {detail.status === "paid_and_fulfilled" || hasVerifiedPayment ? (
+          <DeliverySummary
+            label="Payment acknowledgment"
+            delivery={acknowledgmentDelivery}
+            buttonLabel={
+              acknowledgmentDelivery
+                ? "Resend acknowledgment"
+                : "Send acknowledgment"
+            }
+            pending={resending === "payment_acknowledgment"}
+            disabled={detail.manualBillingControlsEnabled === false}
+            onSend={() => onResend("payment_acknowledgment")}
+          />
+        ) : null}
+      </div>
+
+      {detail.emailDeliveries.length ? (
+        <div className="mt-5 border-t border-slate-200 pt-4">
+          <h3 className="text-sm font-semibold text-slate-950">
+            Delivery history
+          </h3>
+          <div className="mt-2 grid gap-2">
+            {detail.emailDeliveries.map((delivery) => (
+              <div
+                key={delivery.id}
+                className="rounded-xl border border-slate-200 p-3 text-sm text-slate-700"
+              >
+                <p className="font-semibold text-slate-950">
+                  {delivery.kind === "payment_request"
+                    ? "Payment request"
+                    : "Payment acknowledgment"}{" "}
+                  - {deliveryStatusLabel(delivery)}
+                </p>
+                <p className="mt-1">
+                  {delivery.recipientEmail ?? "No recipient"} ·{" "}
+                  {formatDateTime(delivery.attemptedAt)}
+                </p>
+                {delivery.failureReason ? (
+                  <p className="mt-1">
+                    {formatStatus(delivery.failureReason)}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function DeliverySummary({
+  label,
+  delivery,
+  buttonLabel,
+  pending,
+  disabled,
+  onSend,
+}: {
+  label: string;
+  delivery: ManualBillingEmailDelivery | null;
+  buttonLabel: string;
+  pending: boolean;
+  disabled: boolean;
+  onSend: () => Promise<void>;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 p-3">
+      <p className="text-sm font-semibold text-slate-950">
+        {label}: {delivery ? deliveryStatusLabel(delivery) : "No attempt"}
+      </p>
+      {delivery?.recipientEmail ? (
+        <p className="mt-1 text-sm text-slate-600">
+          {delivery.recipientEmail}
+        </p>
+      ) : null}
+      {delivery?.attemptedAt ? (
+        <p className="mt-1 text-sm text-slate-600">
+          Last attempted: {formatDateTime(delivery.attemptedAt)}
+        </p>
+      ) : null}
+      {delivery?.failureReason ? (
+        <p className="mt-1 text-sm text-rose-700">
+          {formatStatus(delivery.failureReason)}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="mt-3"
+        disabled={disabled || pending}
+        onClick={() => void onSend()}
+      >
+        {pending ? "Sending..." : buttonLabel}
+      </Button>
+    </div>
+  );
+}
+
+function addEmailDelivery(
+  detail: BillingRequestDetail,
+  delivery: ManualBillingEmailDelivery,
+): BillingRequestDetail {
+  return {
+    ...detail,
+    emailDeliveries: [delivery, ...detail.emailDeliveries],
+    ...(delivery.kind === "payment_request"
+      ? { latestPaymentRequestEmailDelivery: delivery }
+      : { latestPaymentAcknowledgmentEmailDelivery: delivery }),
+  };
+}
+
+function deliveryStatusLabel(delivery: ManualBillingEmailDelivery) {
+  if (delivery.status === "skipped_missing_recipient") {
+    return "Missing recipient";
+  }
+  if (delivery.status === "skipped_disabled") return "Disabled";
+  return formatStatus(delivery.status);
+}
+
 function PaymentAcknowledgment({
   detail,
 }: {
   detail: BillingRequestDetail;
 }) {
-  const item = detail.items.find(
-    (candidate) => candidate.purchaseKind === "subscription",
-  );
+  const item = detail.items[0];
   const verifiedPayment = detail.payments.find(
     (payment) => payment.status === "verified",
   );
   if (!item || !verifiedPayment) return null;
+  const isSubscription = item.purchaseKind === "subscription";
+  const fulfillmentStatus = isSubscription
+    ? "Paid and activated"
+    : "Paid and fulfilled";
   const copyText = [
     "Payment acknowledgment",
     `Reference: ${detail.referenceNumber}`,
     `Business: ${detail.organizationName}`,
-    `Plan: ${item.planType ?? item.sku}`,
+    isSubscription
+      ? `Plan: ${item.planType ?? item.sku}`
+      : `Package: ${item.sku}`,
     `Amount received: ${formatPhp(verifiedPayment.amountPhp)}`,
-    `Coverage: ${formatDate(item.coverageStartsAt)} to ${formatDate(
-      item.coverageEndsAt,
-    )}`,
-    "Status: Paid and activated",
+    ...(isSubscription
+      ? [
+          `Coverage: ${formatDate(item.coverageStartsAt)} to ${formatDate(
+            item.coverageEndsAt,
+          )}`,
+        ]
+      : []),
+    `Status: ${fulfillmentStatus}`,
+    isSubscription ? "Subscription activated" : "Credits applied",
   ].join("\n");
 
   return (
@@ -483,7 +710,7 @@ function PaymentAcknowledgment({
           <h2 className="text-lg font-bold text-slate-950">
             Payment acknowledgment
           </h2>
-          <p className="mt-1 text-sm text-slate-600">Paid and activated</p>
+          <p className="mt-1 text-sm text-slate-600">{fulfillmentStatus}</p>
         </div>
         <Button
           type="button"
@@ -535,6 +762,20 @@ function formatDate(value?: string | null) {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
+  return new Intl.DateTimeFormat("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
     timeZone: "UTC",
   }).format(date);
 }
