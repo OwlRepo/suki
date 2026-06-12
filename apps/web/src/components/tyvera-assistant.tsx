@@ -23,6 +23,13 @@ import {
 import { cn } from "@/lib/utils";
 import { buildUsageModel, type AiUsageSummary } from "@/lib/assistant-usage";
 import { searchHelpContent } from "@/lib/help-content";
+import { AssistantMarkdown } from "@/components/assistant/assistant-markdown";
+import { useProgressiveAssistantText } from "@/components/assistant/use-progressive-assistant-text";
+
+type AssistantNotice = {
+  kind: "draft_only";
+  text: "Draft only. Nothing was saved or sent.";
+};
 
 type AssistantMessage = {
   id: string;
@@ -31,6 +38,8 @@ type AssistantMessage = {
   state?: "sending" | "streaming" | "sent" | "read" | "error";
   sources?: string[];
   details?: string;
+  progressive?: boolean;
+  notices?: AssistantNotice[];
   actionChips?: Array<{ label: string; href: string; kind: "primary" | "secondary" }>;
   confirmation?: {
     token: string;
@@ -40,6 +49,48 @@ type AssistantMessage = {
     state?: "pending" | "submitting" | "applied" | "error";
   };
 };
+
+function AssistantMessageText({
+  message,
+  onProgress,
+  onRevealChange,
+}: {
+  message: AssistantMessage;
+  onProgress: () => void;
+  onRevealChange: (isRevealing: boolean) => void;
+}) {
+  const { visibleText, isRevealing } = useProgressiveAssistantText({
+    targetText: message.text,
+    enabled: message.role === "assistant" && message.progressive === true,
+    onProgress,
+    onRevealChange,
+  });
+  const displayedState = isRevealing ? "streaming" : message.state;
+
+  return (
+    <>
+      {message.notices?.map((notice) => (
+        <div
+          key={`${message.id}-${notice.kind}`}
+          data-testid="assistant-draft-notice"
+          className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900"
+        >
+          {notice.text}
+        </div>
+      ))}
+      {displayedState && (
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-85">
+          {displayedState}
+        </p>
+      )}
+      {message.role === "assistant" ? (
+        <AssistantMarkdown text={visibleText} />
+      ) : (
+        <p className="font-normal whitespace-pre-wrap">{message.text}</p>
+      )}
+    </>
+  );
+}
 
 const PROMPTS = [
   "How do I add a customer?",
@@ -97,9 +148,56 @@ export function TyveraAssistant() {
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
   const [threadId, setThreadId] = useState<string>("");
   const [assistantState, setAssistantState] = useState<AssistantMessage["state"]>("read");
+  const [revealingMessageIds, setRevealingMessageIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const aiDisabledByStream = useRef(false);
+  const messagesViewportRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
   const canRenderAssistant = planCapabilities.canSeeAssistant;
+
+  const scrollMessagesToBottom = useCallback(() => {
+    if (!shouldStickToBottomRef.current) return;
+    const element = messagesViewportRef.current;
+    if (!element) return;
+    if (typeof element.scrollTo === "function") {
+      element.scrollTo({ top: element.scrollHeight, behavior: "auto" });
+    } else {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, []);
+
+  const handleMessagesScroll = useCallback(() => {
+    const element = messagesViewportRef.current;
+    if (!element) return;
+    const distanceFromBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom <= 64;
+  }, []);
+
+  const handleRevealChange = useCallback(
+    (messageId: string, isRevealing: boolean) => {
+      setRevealingMessageIds((current) => {
+        const next = new Set(current);
+        if (isRevealing) {
+          next.add(messageId);
+        } else {
+          next.delete(messageId);
+        }
+        if (next.size === current.size && [...next].every((id) => current.has(id))) {
+          return current;
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const displayedAssistantState =
+    assistantState !== "error" && revealingMessageIds.size > 0
+      ? "streaming"
+      : assistantState;
 
   const refreshUsageSummary = useCallback(async () => {
     const token = await getToken();
@@ -138,6 +236,10 @@ export function TyveraAssistant() {
       await refreshUsageSummary();
     })();
   }, [open, refreshUsageSummary]);
+
+  useEffect(() => {
+    scrollMessagesToBottom();
+  }, [messages, scrollMessagesToBottom]);
 
   const usageModel = useMemo(
     () =>
@@ -276,7 +378,16 @@ export function TyveraAssistant() {
     const reader = response.body.getReader();
     let buffer = "";
 
-    setMessages((prev) => [...prev, { id: messageId, role: "assistant", text: "", state: "streaming" }]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: messageId,
+        role: "assistant",
+        text: "",
+        state: "streaming",
+        progressive: true,
+      },
+    ]);
     setAssistantState("streaming");
 
     const applyEvent = (eventType: string, payload: Record<string, unknown>) => {
@@ -358,6 +469,7 @@ export function TyveraAssistant() {
           nextStep: string;
           details?: string;
           actionChips?: AssistantMessage["actionChips"];
+          notices?: AssistantNotice[];
         };
         details = finalResponse.details;
         actionChips = finalResponse.actionChips ?? actionChips;
@@ -371,6 +483,7 @@ export function TyveraAssistant() {
                   details,
                   actionChips,
                   confirmation,
+                  notices: finalResponse.notices ?? [],
                   sources: ["Tyvera Assistant"],
                   state: "read",
                 }
@@ -419,6 +532,7 @@ export function TyveraAssistant() {
                   ...msg,
                   text: text || errorPayload.message || "I hit a connection issue. Please try again.",
                   state: "error",
+                  progressive: false,
                   actionChips: errorPayload.actionChips ?? [
                     { label: "Retry", href: "#", kind: "primary" },
                     { label: "Open Help Center", href: "/help", kind: "secondary" },
@@ -540,7 +654,7 @@ export function TyveraAssistant() {
       ...prev.map((msg) =>
         msg.role === "user" && msg.state === "sending" ? { ...msg, state: "sent" as const } : msg,
       ),
-      { ...reply, state: "read" },
+      { ...reply, state: "read", progressive: false },
     ]);
     setAssistantState("read");
   };
@@ -604,7 +718,7 @@ export function TyveraAssistant() {
               </div>
             </div>
             <p className="mt-2 text-xs font-medium text-muted-foreground">
-              Status: {assistantState === "read" ? "Read" : assistantState === "sent" ? "Sent" : assistantState === "streaming" ? "Streaming" : assistantState === "sending" ? "Sending" : "Error"}
+              Status: {displayedAssistantState === "read" ? "Read" : displayedAssistantState === "sent" ? "Sent" : displayedAssistantState === "streaming" ? "Streaming" : displayedAssistantState === "sending" ? "Sending" : "Error"}
             </p>
 
             {headerCollapsed ? (
@@ -681,15 +795,21 @@ export function TyveraAssistant() {
             )}
           </div>
 
-          <div className="flex-1 space-y-3 overflow-y-auto p-3.5">
+          <div
+            ref={messagesViewportRef}
+            data-testid="assistant-messages-viewport"
+            className="flex-1 space-y-3 overflow-y-auto p-3.5"
+            onScroll={handleMessagesScroll}
+          >
             {messages.map((message) => (
               <div key={message.id} className={cn("max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm", message.role === "user" ? "ml-auto border border-primary/20 bg-primary text-primary-foreground" : "border border-border/70 bg-muted/90 text-foreground")}>
-                {message.state && (
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-85">
-                    {message.state}
-                  </p>
-                )}
-                <p className="font-normal">{message.text}</p>
+                <AssistantMessageText
+                  message={message}
+                  onProgress={scrollMessagesToBottom}
+                  onRevealChange={(isRevealing) =>
+                    handleRevealChange(message.id, isRevealing)
+                  }
+                />
                 {message.confirmation?.state === "pending" ||
                 message.confirmation?.state === "submitting" ? (
                   <ConfirmActionInline
@@ -756,9 +876,9 @@ export function TyveraAssistant() {
                       Show details
                     </Button>
                     {expandedDetails[message.id] && (
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        {message.details}
-                      </p>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        <AssistantMarkdown text={message.details} />
+                      </div>
                     )}
                   </div>
                 )}

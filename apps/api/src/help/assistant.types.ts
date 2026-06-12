@@ -8,6 +8,11 @@ export type AssistantFallback = {
   reason: "low_confidence" | "no_source" | "out_of_scope" | "capped";
 };
 
+export type AssistantNotice = {
+  kind: "draft_only";
+  text: "Draft only. Nothing was saved or sent.";
+};
+
 export type AssistantChatResponse = {
   threadId?: string;
   plainAnswer: string;
@@ -16,6 +21,7 @@ export type AssistantChatResponse = {
   actionChips: AssistantActionChip[];
   confidence: number;
   fallback?: AssistantFallback;
+  notices?: AssistantNotice[];
 };
 
 export type AssistantChatStreamEvent =

@@ -931,4 +931,311 @@ describe("AssistantService", () => {
       }),
     );
   });
+
+  it("preserves restricted Markdown in native plain answers and details", async () => {
+    featureFlags.assistantNativeStreamEnabled.mockReturnValue(true);
+    featureFlags.assistantDynamicReadToolsEnabled.mockReturnValue(false);
+    featureFlags.assistantMutationsEnabled.mockReturnValue(false);
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    const plainAnswer = [
+      "## **SMS Usage**",
+      "",
+      "- Used: 10",
+      "- Left: 90",
+      "",
+      "| Type | Count |",
+      "| --- | ---: |",
+      "| Left | 90 |",
+      "",
+      "This first sentence explains usage. This second sentence adds context. This third sentence must remain.",
+    ].join("\n");
+    const details = [
+      "### Details",
+      "",
+      "> Values come from the current billing period.",
+      "",
+      "Use `AI credits` when reviewing the total.",
+    ].join("\n");
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockResolvedValue({
+      content: JSON.stringify({
+        plainAnswer,
+        nextStep: "Open settings.",
+        details,
+        actionChips: [
+          { label: "Settings", href: "/settings", kind: "primary" },
+        ],
+        confidence: 0.95,
+        intentKey: "usage",
+        usedTools: [],
+      }),
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      executedTools: [],
+    });
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+      featureFlags as never,
+    );
+    const emitted: Array<{
+      type: string;
+      response?: { plainAnswer: string; details?: string };
+    }> = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "Show SMS usage",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event as never);
+      },
+    );
+
+    const done = emitted.find((event) => event.type === "done");
+    expect(done?.response?.plainAnswer).toContain("## **SMS Usage**");
+    expect(done?.response?.plainAnswer).toContain("| Left | 90 |");
+    expect(done?.response?.plainAnswer).toContain(
+      "This third sentence must remain.",
+    );
+    expect(done?.response?.details).toBe(details);
+    const systemPrompt =
+      aiExecution.executeResponsesToolLoopWithGuardrails.mock.calls[0][0]
+        .input[0].content;
+    expect(systemPrompt).toMatch(/restricted Markdown/i);
+    expect(systemPrompt).toMatch(/Do not emit raw HTML/i);
+  });
+
+  it("strips raw HTML, replaces jargon, and caps native Markdown at 2000 characters", async () => {
+    featureFlags.assistantNativeStreamEnabled.mockReturnValue(true);
+    featureFlags.assistantDynamicReadToolsEnabled.mockReturnValue(false);
+    featureFlags.assistantMutationsEnabled.mockReturnValue(false);
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    const longMarkdown = `## Tokens\n\n<script>alert(1)</script>${"x".repeat(2100)}`;
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockResolvedValue({
+      content: JSON.stringify({
+        plainAnswer: longMarkdown,
+        nextStep: "Check token quota.",
+        details: "<b>Quota details</b>",
+        actionChips: [
+          { label: "Settings", href: "/settings", kind: "primary" },
+        ],
+        confidence: 0.95,
+        intentKey: "usage",
+        usedTools: [],
+      }),
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      executedTools: [],
+    });
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+      featureFlags as never,
+    );
+    const emitted: Array<{
+      type: string;
+      response?: { plainAnswer: string; nextStep: string; details?: string };
+    }> = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "Show token quota",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event as never);
+      },
+    );
+
+    const response = emitted.find((event) => event.type === "done")?.response;
+    expect(response?.plainAnswer).not.toContain("<script>");
+    expect(response?.plainAnswer).toContain("AI credits");
+    expect(response?.plainAnswer).toHaveLength(2000);
+    expect(response?.details).toBe("AI credits details");
+    expect(response?.nextStep).toBe("Check AI credit AI credits.");
+  });
+
+  it("keeps legacy chat normalization limited to two concise sentences", async () => {
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    aiExecution.executeWithGuardrails.mockResolvedValue({
+      content: JSON.stringify({
+        plainAnswer: "First sentence. Second sentence. Third sentence.",
+        nextStep: "Open settings.",
+        details: "First detail. Second detail. Third detail.",
+        intentKey: "how_to",
+        usedTools: ["route_guidance"],
+        actionChips: [
+          { label: "Settings", href: "/settings", kind: "primary" },
+        ],
+        confidence: 0.95,
+      }),
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+    });
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+    );
+
+    const response = await service.chat({
+      organizationId: "org-1",
+      userId: "user-1",
+      message: "How do I open settings?",
+      businessId: "biz-1",
+    });
+
+    expect(response.plainAnswer).toBe("First sentence. Second sentence.");
+    expect(response.details).toBe("First detail. Second detail.");
+  });
+
+  it.each(["draft_winback_message", "draft_reminder_message"])(
+    "derives one trusted draft-only notice from executed %s",
+    async (toolName) => {
+      featureFlags.assistantNativeStreamEnabled.mockReturnValue(true);
+      featureFlags.assistantDynamicReadToolsEnabled.mockReturnValue(true);
+      featureFlags.assistantMutationsEnabled.mockReturnValue(false);
+      aiExecution.hasOpenAi.mockReturnValue(true);
+      openAiTools.getToolDefinitions.mockReturnValue([
+        {
+          type: "function",
+          name: toolName,
+          strict: true,
+          parameters: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
+            required: [],
+          },
+        },
+      ]);
+      aiExecution.executeResponsesToolLoopWithGuardrails.mockResolvedValue({
+        content: JSON.stringify({
+          plainAnswer: "Draft ready.",
+          nextStep: "Review it.",
+          details: null,
+          actionChips: [
+            {
+              label: "Needs attention",
+              href: "/needs-attention",
+              kind: "primary",
+            },
+          ],
+          confidence: 0.95,
+          intentKey: "general",
+          usedTools: [],
+        }),
+        promptTokens: 10,
+        completionTokens: 5,
+        totalTokens: 15,
+        executedTools: [{ name: toolName, callId: "call-1", round: 1 }],
+      });
+      const service = new AssistantService(
+        answerSource as never,
+        aiExecution as never,
+        threadMemory as never,
+        openAiTools as never,
+        mutations as never,
+        featureFlags as never,
+      );
+      const emitted: Array<{
+        type: string;
+        response?: { notices?: unknown[] };
+      }> = [];
+
+      await service.chatStreamToEmitter(
+        {
+          organizationId: "org-1",
+          userId: "user-1",
+          message: "Draft a message",
+          businessId: "biz-1",
+        },
+        (event) => {
+          emitted.push(event as never);
+        },
+      );
+
+      expect(
+        emitted.find((event) => event.type === "done")?.response?.notices,
+      ).toEqual([
+        {
+          kind: "draft_only",
+          text: "Draft only. Nothing was saved or sent.",
+        },
+      ]);
+    },
+  );
+
+  it("omits notices without an executed draft tool and excludes them from the model schema", async () => {
+    featureFlags.assistantNativeStreamEnabled.mockReturnValue(true);
+    featureFlags.assistantDynamicReadToolsEnabled.mockReturnValue(false);
+    featureFlags.assistantMutationsEnabled.mockReturnValue(false);
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockResolvedValue({
+      content: JSON.stringify({
+        plainAnswer: "Done.",
+        nextStep: "Open help.",
+        details: null,
+        notices: [
+          {
+            kind: "draft_only",
+            text: "Model-authored content must not be trusted.",
+          },
+        ],
+        actionChips: [{ label: "Help", href: "/help", kind: "primary" }],
+        confidence: 0.95,
+        intentKey: "general",
+        usedTools: [],
+      }),
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      executedTools: [],
+    });
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+      featureFlags as never,
+    );
+    const emitted: Array<{
+      type: string;
+      response?: { notices?: unknown[] };
+    }> = [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "Help",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event as never);
+      },
+    );
+
+    const options =
+      aiExecution.executeResponsesToolLoopWithGuardrails.mock.calls[0][0];
+    expect(options.text.format.schema.properties).not.toHaveProperty("notices");
+    expect(
+      emitted.find((event) => event.type === "done")?.response?.notices,
+    ).toBeUndefined();
+  });
 });

@@ -5,6 +5,7 @@ import type {
   AssistantActionChip,
   AssistantChatResponse,
   AssistantChatStreamEvent,
+  AssistantNotice,
 } from "./assistant.types";
 import { AssistantThreadMemoryService } from "./assistant-thread-memory.service";
 import { buildAssistantContextPack, type AssistantIntent } from "./assistant-context";
@@ -30,6 +31,10 @@ const JARGON_REPLACEMENTS: Record<string, string> = {
   tokens: "AI credits",
   token: "AI credit",
   quota: "AI credits",
+};
+const DRAFT_ONLY_NOTICE: AssistantNotice = {
+  kind: "draft_only",
+  text: "Draft only. Nothing was saved or sent.",
 };
 const ASSISTANT_CONTEXT_CHAR_BUDGET = 5800;
 const AI_CAP_ERROR_CODES = new Set([
@@ -432,6 +437,7 @@ export class AssistantService {
       const normalized = this.normalizeResponse(
         normalizedPayload,
         defaultChips,
+        { allowMarkdown: true },
       );
       if (
         !normalized.plainAnswer ||
@@ -462,9 +468,18 @@ export class AssistantService {
       if (usageEvent) await emit(usageEvent);
       await emit({ type: "state", state: "sent" });
       await emit({ type: "state", state: "read" });
+      const notices = this.trustedNoticesForExecutedTools(
+        result.executedTools,
+      );
       await emit({
         type: "done",
-        response: this.withThreadId(normalized, threadId),
+        response: this.withThreadId(
+          {
+            ...normalized,
+            ...(notices.length > 0 ? { notices } : {}),
+          },
+          threadId,
+        ),
       });
     } catch (error) {
       const reason = this.extractErrorReason(error);
@@ -870,6 +885,8 @@ export class AssistantService {
         : "Do not propose or claim any data mutation.",
       "The usedTools field is informational only; the server derives authoritative tool history.",
       "Action chip href values must use existing Tyvera routes only.",
+      "plainAnswer and details may use restricted Markdown headings, paragraphs, bold, italic, lists, tables, blockquotes, horizontal rules, inline code, and fenced code blocks when that improves readability.",
+      "Do not emit raw HTML. Keep nextStep as one short plain sentence. Keep action chips separate from prose.",
     ].join(" ");
   }
 
@@ -920,15 +937,32 @@ export class AssistantService {
   private normalizeResponse(
     parsed: NormalizedModelAssistantPayload,
     fallbackChips: AssistantActionChip[],
+    options: { allowMarkdown?: boolean } = {},
   ): AssistantChatResponse {
     const sanitized = this.sanitizeChips(parsed.actionChips, fallbackChips);
     return {
-      plainAnswer: this.simplifyText(parsed.plainAnswer ?? ""),
+      plainAnswer: options.allowMarkdown
+        ? this.sanitizeAssistantMarkdown(parsed.plainAnswer ?? "")
+        : this.simplifyText(parsed.plainAnswer ?? ""),
       nextStep: this.simplifyText(parsed.nextStep ?? ""),
-      details: parsed.details ? this.simplifyText(parsed.details) : undefined,
+      details: parsed.details
+        ? options.allowMarkdown
+          ? this.sanitizeAssistantMarkdown(parsed.details)
+          : this.simplifyText(parsed.details)
+        : undefined,
       actionChips: sanitized,
       confidence: this.clampConfidence(parsed.confidence),
     };
+  }
+
+  private sanitizeAssistantMarkdown(text: string): string {
+    let out = text.trim();
+    for (const [from, to] of Object.entries(JARGON_REPLACEMENTS)) {
+      const re = new RegExp(`\\b${from}\\b`, "gi");
+      out = out.replace(re, to);
+    }
+    out = out.replace(/<[^>]*>/g, "");
+    return out.slice(0, 2000).trim();
   }
 
   private simplifyText(text: string): string {
@@ -1079,6 +1113,18 @@ export class AssistantService {
       return reason;
     }
     return "ASSISTANT_NATIVE_STREAM_FAILED";
+  }
+
+  private trustedNoticesForExecutedTools(
+    executedTools: Array<{ name: string }>,
+  ): AssistantNotice[] {
+    const hasDraft = executedTools.some(
+      ({ name }) =>
+        name === "draft_winback_message" ||
+        name === "draft_reminder_message",
+    );
+
+    return hasDraft ? [DRAFT_ONLY_NOTICE] : [];
   }
 
   private clampConfidence(value: number | undefined): number {
