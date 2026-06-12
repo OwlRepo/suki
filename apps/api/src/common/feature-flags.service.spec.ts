@@ -13,6 +13,9 @@ describe("FeatureFlagsService", () => {
     delete process.env.FF_crm_mode_toggle_enabled;
     delete process.env.FF_ai_usage_transparency_enabled;
     delete process.env.FF_onboarding_v2_enabled;
+    delete process.env.FF_openai_native_assistant_stream_enabled;
+    delete process.env.FF_openai_native_assistant_tools_enabled;
+    delete process.env.FF_openai_native_assistant_mutations_enabled;
   });
 
   afterEach(() => {
@@ -50,5 +53,21 @@ describe("FeatureFlagsService", () => {
     expect(service.crmModeToggleEnabled()).toBe(true);
     expect(service.aiUsageTransparencyEnabled()).toBe(true);
     expect(service.onboardingV2Enabled()).toBe(true);
+  });
+
+  it("centralizes assistant flags with rollback-safe defaults", () => {
+    process.env.NODE_ENV = "development";
+
+    expect(service.assistantNativeStreamEnabled()).toBe(false);
+    expect(service.assistantDynamicReadToolsEnabled()).toBe(false);
+    expect(service.assistantMutationsEnabled()).toBe(false);
+
+    process.env.FF_openai_native_assistant_stream_enabled = "true";
+    process.env.FF_openai_native_assistant_tools_enabled = "true";
+    process.env.FF_openai_native_assistant_mutations_enabled = "true";
+
+    expect(service.assistantNativeStreamEnabled()).toBe(true);
+    expect(service.assistantDynamicReadToolsEnabled()).toBe(true);
+    expect(service.assistantMutationsEnabled()).toBe(true);
   });
 });

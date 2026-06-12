@@ -24,8 +24,14 @@ const openAiTools = {
 };
 const mutations = {
   getToolDefinitions: vi.fn(),
+  getMutationToolDefinitions: vi.fn(),
   executeTool: vi.fn(),
   confirm: vi.fn(),
+};
+const featureFlags = {
+  assistantNativeStreamEnabled: vi.fn(),
+  assistantDynamicReadToolsEnabled: vi.fn(),
+  assistantMutationsEnabled: vi.fn(),
 };
 
 describe("AssistantService", () => {
@@ -38,6 +44,16 @@ describe("AssistantService", () => {
     threadMemory.saveThreadMemory.mockResolvedValue(undefined);
     openAiTools.getToolDefinitions.mockReturnValue([]);
     mutations.getToolDefinitions.mockReturnValue([]);
+    mutations.getMutationToolDefinitions.mockReturnValue([]);
+    featureFlags.assistantNativeStreamEnabled.mockImplementation(
+      () => process.env.FF_openai_native_assistant_stream_enabled === "true",
+    );
+    featureFlags.assistantDynamicReadToolsEnabled.mockImplementation(
+      () => process.env.FF_openai_native_assistant_tools_enabled === "true",
+    );
+    featureFlags.assistantMutationsEnabled.mockImplementation(
+      () => process.env.FF_openai_native_assistant_mutations_enabled === "true",
+    );
     answerSource.getAiUsageSummary.mockResolvedValue({
       canonical: {
         tokensUsed: 1100,
@@ -736,7 +752,7 @@ describe("AssistantService", () => {
     vi.stubEnv("FF_openai_native_assistant_tools_enabled", "true");
     vi.stubEnv("FF_openai_native_assistant_mutations_enabled", "true");
     aiExecution.hasOpenAi.mockReturnValue(true);
-    mutations.getToolDefinitions.mockReturnValue([
+    mutations.getMutationToolDefinitions.mockReturnValue([
       {
         type: "function",
         name: "update_customer",
@@ -786,6 +802,7 @@ describe("AssistantService", () => {
       threadMemory as never,
       openAiTools as never,
       mutations as never,
+      featureFlags as never,
     );
     const emitted: Array<{ type: string; confirmation?: unknown }> = [];
 
@@ -811,5 +828,107 @@ describe("AssistantService", () => {
       },
     });
     expect(mutations.confirm).not.toHaveBeenCalled();
+  });
+
+  it("uses centralized flags and registers reads separately from confirmed writes", async () => {
+    featureFlags.assistantNativeStreamEnabled.mockReturnValue(true);
+    featureFlags.assistantDynamicReadToolsEnabled.mockReturnValue(true);
+    featureFlags.assistantMutationsEnabled.mockReturnValue(true);
+    aiExecution.hasOpenAi.mockReturnValue(true);
+    openAiTools.getToolDefinitions.mockReturnValue([
+      {
+        type: "function",
+        name: "find_customers",
+        strict: true,
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: { query: { type: "string" } },
+          required: ["query"],
+        },
+      },
+      {
+        type: "function",
+        name: "draft_winback_message",
+        strict: true,
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        },
+      },
+    ]);
+    mutations.getMutationToolDefinitions.mockReturnValue([
+      {
+        type: "function",
+        name: "update_customer",
+        strict: true,
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+          required: [],
+        },
+      },
+    ]);
+    aiExecution.executeResponsesToolLoopWithGuardrails.mockResolvedValue({
+      content:
+        '{"plainAnswer":"Done.","nextStep":"Open needs attention.","details":null,"actionChips":[{"label":"Needs attention","href":"/needs-attention","kind":"primary"}],"confidence":0.95,"intentKey":"general","usedTools":[]}',
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      executedTools: [],
+    });
+    const service = new AssistantService(
+      answerSource as never,
+      aiExecution as never,
+      threadMemory as never,
+      openAiTools as never,
+      mutations as never,
+      featureFlags as never,
+    );
+    const emitted: Array<{ type: string; response?: { actionChips: unknown[] } }> =
+      [];
+
+    await service.chatStreamToEmitter(
+      {
+        organizationId: "org-1",
+        userId: "user-1",
+        message: "What needs attention?",
+        businessId: "biz-1",
+      },
+      (event) => {
+        emitted.push(event as never);
+      },
+    );
+
+    expect(featureFlags.assistantNativeStreamEnabled).toHaveBeenCalled();
+    expect(featureFlags.assistantDynamicReadToolsEnabled).toHaveBeenCalled();
+    expect(featureFlags.assistantMutationsEnabled).toHaveBeenCalled();
+    expect(openAiTools.getToolDefinitions).toHaveBeenCalledWith();
+    expect(mutations.getMutationToolDefinitions).toHaveBeenCalledWith();
+    const toolNames = aiExecution.executeResponsesToolLoopWithGuardrails.mock
+      .calls[0][0].tools.map((tool: { name?: string }) => tool.name);
+    expect(toolNames).toEqual([
+      "find_customers",
+      "draft_winback_message",
+      "update_customer",
+    ]);
+    expect(new Set(toolNames).size).toBe(toolNames.length);
+    expect(emitted).toContainEqual(
+      expect.objectContaining({
+        type: "done",
+        response: expect.objectContaining({
+          actionChips: [
+            {
+              label: "Needs attention",
+              href: "/needs-attention",
+              kind: "primary",
+            },
+          ],
+        }),
+      }),
+    );
   });
 });

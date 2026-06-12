@@ -182,6 +182,15 @@ export class AssistantMutationService {
     ];
   }
 
+  getMutationToolDefinitions(): OpenAI.Responses.Tool[] {
+    return this.getToolDefinitions().filter(
+      (tool) =>
+        tool.type === "function" &&
+        (tool.name === "update_customer" ||
+          tool.name === "reschedule_appointment"),
+    );
+  }
+
   async executeTool(input: ExecuteMutationToolInput): Promise<{
     tool: AssistantMutationToolName | "unsupported";
     status: "ok" | "error" | "confirmation_required";

@@ -77,6 +77,18 @@ export class FeatureFlagsService {
   appointmentVisitAutomationEnabled(): boolean {
     return this.isEnabled("appointment_visit_automation_enabled");
   }
+
+  assistantNativeStreamEnabled(): boolean {
+    return this.isEnabled("openai_native_assistant_stream_enabled");
+  }
+
+  assistantDynamicReadToolsEnabled(): boolean {
+    return this.isEnabled("openai_native_assistant_tools_enabled");
+  }
+
+  assistantMutationsEnabled(): boolean {
+    return this.isEnabled("openai_native_assistant_mutations_enabled");
+  }
 }
 
 const FLAG_DEFAULTS: Partial<Record<FeatureFlag, boolean>> = {
@@ -85,6 +97,9 @@ const FLAG_DEFAULTS: Partial<Record<FeatureFlag, boolean>> = {
   self_serve_billing_enabled: false,
   annual_billing_checkout_enabled: false,
   manual_billing_controls_enabled: true,
+  openai_native_assistant_stream_enabled: false,
+  openai_native_assistant_tools_enabled: false,
+  openai_native_assistant_mutations_enabled: false,
 };
 
 export type FeatureFlag =
@@ -102,4 +117,7 @@ export type FeatureFlag =
   | "self_serve_billing_enabled"
   | "annual_billing_checkout_enabled"
   | "manual_billing_controls_enabled"
-  | "appointment_visit_automation_enabled";
+  | "appointment_visit_automation_enabled"
+  | "openai_native_assistant_stream_enabled"
+  | "openai_native_assistant_tools_enabled"
+  | "openai_native_assistant_mutations_enabled";

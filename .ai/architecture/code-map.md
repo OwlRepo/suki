@@ -13,7 +13,7 @@
 - Customers/CRM: internal customer records + `apps/api/src/customers/*`, `apps/api/src/crm/*`; customer records remain a retention model and are created/reused during booking rather than a primary dashboard workflow.
 - Public intake and booking: `apps/web/src/app/intake/[businessId]/page.tsx` + `apps/api/src/intake/*`
 - Messaging and AI composition: `apps/api/src/messaging/*` + `apps/api/src/ai/*`
-- Tyvera Assistant: `apps/web/src/components/tyvera-assistant.tsx` <-> `apps/api/src/help/*` -> `AiExecutionService`; deterministic orchestration remains the default, while ordered backend flags enable native Responses streaming, allowlisted dynamic reads, then signed confirm-before-write customer/reschedule actions.
+- Tyvera Assistant: `apps/web/src/components/tyvera-assistant.tsx` <-> `apps/api/src/help/*` -> `AiExecutionService`; deterministic orchestration remains the default, while centralized backend flags enable native Responses streaming, then allowlisted aggregate reads, masked/minimal scoped reads, immutable drafts, and separately gated signed confirm-before-write customer/reschedule actions.
 - Billing/plans: provider-managed Lemon Squeezy behavior stays in `apps/api/src/billing/*`; founder-led manual subscription requests, fulfillment, contacts, and lifecycle actions live in `apps/api/src/platform-admin/*`; plan/access guards remain in `apps/api/src/common`
 - Imports: `apps/web/src/app/(dashboard)/imports/page.tsx` + `apps/api/src/imports/*`
 

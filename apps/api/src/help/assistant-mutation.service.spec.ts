@@ -65,6 +65,14 @@ describe("AssistantMutationService", () => {
     );
   });
 
+  it("registers only confirmed writes for mutation rollout", () => {
+    const names = createService()
+      .getMutationToolDefinitions()
+      .map((tool) => ("name" in tool ? tool.name : null));
+
+    expect(names).toEqual(["update_customer", "reschedule_appointment"]);
+  });
+
   it("returns a signed confirmation proposal without applying a mutation", async () => {
     const result = await createService().executeTool({
       organizationId: "org-1",

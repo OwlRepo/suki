@@ -150,6 +150,40 @@ export class ManualFollowUpService {
     return { count: Number(row?.count ?? 0) };
   }
 
+  async getOpenSummary(organizationId: string): Promise<{
+    open: number;
+    duplicateRisk: number;
+    byFailureReason: Array<{ reason: string; count: number }>;
+  }> {
+    const db = getDb();
+    const rows = await db
+      .select({
+        reason: manualFollowUpTasks.failureReason,
+        count: sql<number>`count(*)::int`,
+        duplicateRisk: sql<number>`sum(case when ${manualFollowUpTasks.failureReason} = 'provider_outcome_unknown' then 1 else 0 end)::int`,
+      })
+      .from(manualFollowUpTasks)
+      .where(
+        and(
+          eq(manualFollowUpTasks.organizationId, organizationId),
+          eq(manualFollowUpTasks.status, "open"),
+        ),
+      )
+      .groupBy(manualFollowUpTasks.failureReason);
+
+    return {
+      open: rows.reduce((sum, row) => sum + Number(row.count ?? 0), 0),
+      duplicateRisk: rows.reduce(
+        (sum, row) => sum + Number(row.duplicateRisk ?? 0),
+        0,
+      ),
+      byFailureReason: rows.map((row) => ({
+        reason: row.reason || "unknown",
+        count: Number(row.count ?? 0),
+      })),
+    };
+  }
+
   async getOpenTask(
     organizationId: string,
     taskId: string,

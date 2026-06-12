@@ -542,4 +542,32 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     expect(await screen.findByText(/change applied/i)).toBeInTheDocument();
   });
+
+  it("renders the needs-attention action chip and immutable draft warning", async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'event: done\ndata: {"type":"done","response":{"plainAnswer":"Draft ready. Draft only. Nothing was saved or sent.","nextStep":"Review follow-ups.","actionChips":[{"label":"Needs attention","href":"/needs-attention","kind":"primary"}],"confidence":0.95}}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
+
+    render(<TyveraAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    fireEvent.change(input, { target: { value: "Draft a reminder" } });
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(
+      await screen.findByText(/draft only\. nothing was saved or sent\./i),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("link", { name: /needs attention/i }),
+    ).toHaveAttribute("href", "/needs-attention");
+  });
 });

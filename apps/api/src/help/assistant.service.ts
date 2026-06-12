@@ -12,6 +12,7 @@ import { AssistantOpenAiToolsService } from "./assistant-openai-tools.service";
 import { AssistantMutationService } from "./assistant-mutation.service";
 import { AssistantPlainAnswerStreamParser } from "./assistant-json-stream-parser";
 import { MAX_ASSISTANT_TOOL_ROUNDS } from "../ai/ai-execution.service";
+import { FeatureFlagsService } from "../common/feature-flags.service";
 
 const SAFE_ROUTE_WHITELIST = new Set([
   "/dashboard",
@@ -22,6 +23,7 @@ const SAFE_ROUTE_WHITELIST = new Set([
   "/settings",
   "/help",
   "/onboarding",
+  "/needs-attention",
 ]);
 
 const JARGON_REPLACEMENTS: Record<string, string> = {
@@ -135,6 +137,7 @@ export class AssistantService {
     private readonly threadMemory: AssistantThreadMemoryService,
     private readonly openAiTools?: AssistantOpenAiToolsService,
     private readonly mutations?: AssistantMutationService,
+    private readonly featureFlags?: FeatureFlagsService,
   ) {}
 
   async chat(input: {
@@ -238,12 +241,10 @@ export class AssistantService {
     },
     emit: (event: AssistantChatStreamEvent) => void | Promise<void>,
   ): Promise<void> {
-    const streamEnabled =
-      process.env.FF_openai_native_assistant_stream_enabled === "true";
-    const toolsEnabled =
-      process.env.FF_openai_native_assistant_tools_enabled === "true";
-    const mutationsEnabled =
-      process.env.FF_openai_native_assistant_mutations_enabled === "true";
+    const flags = this.featureFlags ?? new FeatureFlagsService();
+    const streamEnabled = flags.assistantNativeStreamEnabled();
+    const toolsEnabled = flags.assistantDynamicReadToolsEnabled();
+    const mutationsEnabled = flags.assistantMutationsEnabled();
 
     if (!streamEnabled) {
       if (toolsEnabled || mutationsEnabled) {
@@ -318,7 +319,7 @@ export class AssistantService {
           : [];
       const mutationDefinitions =
         toolsEnabled && mutationsEnabled && this.mutations
-          ? this.mutations.getToolDefinitions()
+          ? this.mutations.getMutationToolDefinitions()
           : [];
       const tools = [...readDefinitions, ...mutationDefinitions];
       const mutationToolNames = new Set(
@@ -507,10 +508,11 @@ export class AssistantService {
     businessId?: string;
     token: string;
   }) {
+    const flags = this.featureFlags ?? new FeatureFlagsService();
     const enabled =
-      process.env.FF_openai_native_assistant_stream_enabled === "true" &&
-      process.env.FF_openai_native_assistant_tools_enabled === "true" &&
-      process.env.FF_openai_native_assistant_mutations_enabled === "true";
+      flags.assistantNativeStreamEnabled() &&
+      flags.assistantDynamicReadToolsEnabled() &&
+      flags.assistantMutationsEnabled();
     if (!enabled || !this.mutations) {
       throw new Error("ASSISTANT_MUTATIONS_DISABLED");
     }
@@ -682,8 +684,20 @@ export class AssistantService {
       "get_billing_status",
       "get_ai_usage",
       "route_guidance",
+      "get_owner_daily_briefing",
+      "get_appointments_summary",
+      "get_needs_review_summary",
+      "get_manual_followup_summary",
+      "get_automation_health_summary",
+      "get_customer_audience_count",
+      "get_duplicate_customer_summary",
+      "get_business_performance_comparison",
+      "get_booking_availability",
+      "get_message_delivery_health",
       "find_customers",
       "list_appointments",
+      "draft_winback_message",
+      "draft_reminder_message",
       "update_customer",
       "reschedule_appointment",
     ].includes(tool);

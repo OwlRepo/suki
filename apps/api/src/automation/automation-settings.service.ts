@@ -58,17 +58,13 @@ export class AutomationSettingsService {
     organizationId: string,
   ): Promise<AutomationSettingsResponse> {
     await this.assertBusinessAccess(businessId, organizationId);
-    const db = getDb();
-    const [existing] = await db
-      .select()
-      .from(automationSettings)
-      .where(eq(automationSettings.businessId, businessId))
-      .limit(1);
+    const existing = await this.findExistingSettingsRow(businessId);
 
     if (existing) {
       return this.toResponse(existing);
     }
 
+    const db = getDb();
     const [created] = await db
       .insert(automationSettings)
       .values({
@@ -86,6 +82,17 @@ export class AutomationSettingsService {
       .returning();
 
     return this.toResponse(created!);
+  }
+
+  async getSnapshot(
+    businessId: string,
+    organizationId: string,
+  ): Promise<AutomationSettingsResponse> {
+    await this.assertBusinessAccess(businessId, organizationId);
+    const existing = await this.findExistingSettingsRow(businessId);
+    return existing
+      ? this.toResponse(existing)
+      : this.defaultSnapshot(businessId);
   }
 
   async update(
@@ -161,6 +168,34 @@ export class AutomationSettingsService {
   ): string {
     const templates = this.mergeTemplateDefaults(settings.messageTemplates);
     return templates[key]?.[channel] ?? templates[key]?.sms ?? "";
+  }
+
+  private async findExistingSettingsRow(businessId: string) {
+    const db = getDb();
+    const [existing] = await db
+      .select()
+      .from(automationSettings)
+      .where(eq(automationSettings.businessId, businessId))
+      .limit(1);
+    return existing;
+  }
+
+  private defaultSnapshot(
+    businessId: string,
+  ): AutomationSettingsResponse {
+    return {
+      id: `default:${businessId}`,
+      businessId,
+      appointmentRemindersEnabled: true,
+      appointmentReminder72hEnabled: false,
+      missedRecoveryEnabled: true,
+      postVisitFollowUpEnabled: true,
+      inactivityWinbackEnabled: true,
+      loyaltyUnlockEnabled: true,
+      inactivityDays: 60,
+      autoSendChannel: "sms",
+      messageTemplates: {},
+    };
   }
 
   private toResponse(row: {
