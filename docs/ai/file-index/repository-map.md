@@ -17,7 +17,7 @@ Use this first. One dense map. Update rows only.
 | `apps/api/src/common` | shared API guards/policies | guards, filters, helpers | NestJS, env, auth context | many API modules | access control, feature gating, shared exceptions | High |
 | `apps/api/src/help` | assistant support logic | help services, governance helpers | API internals | AI/help flows, governance scripts | assistant orchestration and context policy | High |
 | `apps/api/src/ai` | AI execution zone | AI services/controllers | OpenAI, quotas, policy helpers | messaging, help, admin flows | generation, orchestration, limits | High |
-| `apps/api/src/messaging` | outbound/inbound messaging | controllers, services, providers | Twilio, Resend, AI, DB | dashboard messaging flows, webhooks | compose, send, receive, webhook verify | High |
+| `apps/api/src/messaging` | outbound/inbound messaging | controllers, services, provider adapters, idempotent Semaphore reconciliation | Semaphore, Twilio, Resend, AI, DB | dashboard messaging flows, webhooks | compose, send, meter, normalize IDs, repair false rejections and sent markers, receive, webhook verify | High |
 | `apps/api/src/auth` | auth/session sync | controller, service, guards | Clerk backend, DB | web auth flows | user sync and auth checks | High |
 | `apps/api/src/imports` | import workflows | controller, services | csv/xlsx/OCR, DB | imports UI | upload, map, apply, repair | High |
 | `apps/api/src/appointments` | appointment domain | controllers/services | DB, policy helpers | dashboard appointments | schedule, check-in, review states | High |

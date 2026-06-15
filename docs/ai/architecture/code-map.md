@@ -16,6 +16,6 @@ Main flows:
 - onboarding: `apps/web/src/app/onboarding` <-> `apps/api/src/onboarding/*`
 - appointments: `apps/web/src/app/(dashboard)/appointments` <-> `apps/api/src/appointments/*`
 - customers/intake: `apps/web/src/app/intake/[businessId]` + dashboard customer UI <-> `apps/api/src/customers/*`, `apps/api/src/intake/*`
-- messaging + AI: `apps/api/src/messaging/*` <-> `apps/api/src/ai/*`
+- messaging + AI: `apps/api/src/messaging/*` owns provider response normalization, delivery events, metering, Semaphore false-rejection reconciliation, and manual fallback; `apps/api/src/ai/*` owns generation
 - billing/access: `apps/api/src/billing/*`, `apps/api/src/common/*`, `apps/api/src/platform-admin/*`; manual payment recording returns updated billing request detail
 - imports: `apps/web/src/app/(dashboard)/imports` <-> `apps/api/src/imports/*`
