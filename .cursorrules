@@ -1,0 +1,14 @@
+Load `docs/ai/entry-point.md` first.
+
+Use minimal context.
+For code change load:
+1. `docs/ai/architecture/code-map.md`
+2. `docs/ai/architecture/feature-boundaries.md`
+3. `docs/ai/file-index/repository-map.md`
+4. relevant workflow
+5. related tests
+6. target files
+
+TDD mandatory for behavior change.
+Write failing test before production code.
+Update `docs/ai/file-index/repository-map.md` and affected `docs/ai/architecture/*` after code change.

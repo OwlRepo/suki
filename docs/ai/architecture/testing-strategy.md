@@ -1,18 +1,17 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
 # Testing Strategy
 
-| Area | Framework | Location |
-|---|---|---|
-| API unit/integration | Vitest | `apps/api/src/**/*.spec.ts` |
-| Web unit/component | Vitest | `apps/web/src/**/*.test.ts(x)` |
-| Web e2e | Cypress | `apps/web/cypress/e2e/*.cy.ts` |
+Coverage map:
+- API unit/integration -> `apps/api/src/**/*.spec.ts`
+- Web unit/component -> `apps/web/src/**/*.test.ts(x)`
+- Web e2e -> `apps/web/cypress/e2e/*.cy.ts`
+- Shared package tests -> package-local `*.spec.ts`
 
-Commands:
-- `bun run test`
-- `bun run test:e2e`
-
-Minimum verification:
-- run related tests for changed area
-- run typecheck and lint for medium/high risk changes
+Rules:
+- run targeted test first
+- bug fix needs regression test
+- API change tests request and response behavior
+- auth change tests allow and deny paths
+- UI behavior change tests DOM or state when practical

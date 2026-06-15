@@ -1,22 +1,22 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
 # Schema Map
 
-Database ownership is centralized in `packages/database`.
+DB ownership stays in `packages/database`.
 
-| Area | Path | Notes | Risk |
-|---|---|---|---|
-| Drizzle config | `packages/database/drizzle.config.ts` | connection + output config | High |
-| DB client/bootstrap | `packages/database/src/database.ts` | runtime database URL resolution | High |
-| DB package exports | `packages/database/src/index.ts` | shared DB API surface | High |
-| setup script | `packages/database/scripts/setup.ts` | local DB preparation | High |
-| migrate script | `packages/database/scripts/migrate.ts` | migration execution | High |
-| seed script | `packages/database/scripts/seed.ts` | seed data operations | High |
-| reset script | `packages/database/scripts/reset.ts` | destructive reset path | High |
-| reconcile script | `packages/database/scripts/reconcile-orphans.ts` | data repair utility | High |
+Key paths:
+- `packages/database/drizzle.config.ts`
+- `packages/database/src/database.ts`
+- `packages/database/src/index.ts`
+- `packages/database/src/schema`
+- `packages/database/scripts/setup.ts`
+- `packages/database/scripts/migrate.ts`
+- `packages/database/scripts/seed.ts`
+- `packages/database/scripts/reset.ts`
+- `packages/database/scripts/reconcile-orphans.ts`
 
-## Database Safety Rules
-- Never run production migrations from local assistant workflows.
-- Review downstream API/web consumers before changing schema contracts.
-- Prefer additive changes and staged migrations.
+Rules:
+- never run production migration from assistant workflow
+- prefer additive schema change
+- inspect downstream API/web consumers before contract move

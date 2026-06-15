@@ -19,6 +19,6 @@
     { "label": "db:reset", "type": "shell", "command": "bun run db:reset", "group": "build" },
     { "label": "db:reconcile-orphans", "type": "shell", "command": "bun run db:reconcile-orphans", "group": "build" },
     { "label": "db:studio", "type": "shell", "command": "bun run db:studio", "group": "build" },
-    { "label": "update:cursor-indexes", "type": "shell", "command": "bun run update:cursor-indexes", "group": "none" }
+    { "label": "update:ai-indexes", "type": "shell", "command": "bun run update:ai-indexes", "group": "none" }
   ]
 }

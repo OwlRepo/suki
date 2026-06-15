@@ -44,10 +44,10 @@ export function evaluateAssistantContextGovernance(input: {
     missing.push("docs/assistant-context/* markdown updates");
   }
   if (input.aiIndexFiles.length === 0) {
-    missing.push(".ai/file-index/* updates");
+    missing.push("docs/ai/file-index/repository-map.md update");
   }
   if (input.aiArchitectureFiles.length === 0) {
-    missing.push(".ai/architecture/* updates");
+    missing.push("docs/ai/architecture/* updates");
   }
 
   return {

@@ -1,28 +1,30 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
 # Implementation Playbook
 
-## Plan Template
-- WHAT: Exact behavior or fix
-- WHY: Problem and impact
-- WHERE: Exact files expected to change
-- WHEN: Order of implementation
-- HOW: Code-level approach
-- BEFORE/AFTER: snippets when useful
-- DEPENDENCY IMPACT: modules/imports/consumers
-- RISK LEVEL: LOW/MEDIUM/HIGH
-- TEST PLAN: commands + specific tests
+Plan before edit.
+
+- WHAT: exact behavior or fix
+- WHY: problem and impact
+- WHERE: exact files
+- WHEN: edit order
+- HOW: code approach
+- BEFORE/AFTER: if useful
+- DEPENDENCY IMPACT: imports, modules, consumers
+- RISK: LOW / MEDIUM / HIGH
+- TEST PLAN: commands and target tests
+- BEHAVIOR TEST MATRIX: happy path, edge path, failure path
+- CODE FACTS: repo truths used for decision
 - ROLLBACK: safe undo path
 
-## Change Scope Limits
-- Small: 1-2 files, no architecture change
+Scope:
+- Small: 1-2 files, no contract move
 - Medium: up to 5 files, localized behavior
-- Large: >5 files or architecture impact, requires confirmation and phased execution
+- Large: more than 5 files or architecture impact
 
-## Staff-Engineer Guard (Medium/High Risk)
-Review before coding:
-- architecture consistency
+Medium or high risk review:
+- architecture fit
 - dependency direction
 - API compatibility
 - security

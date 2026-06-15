@@ -1,8 +1,10 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
 # Auth Flow
 
-- Frontend auth uses Clerk (`@clerk/nextjs`).
-- Backend auth guarding uses Clerk backend integrations.
-- Auth-sensitive changes are high risk and require explicit confirmation.
+- frontend auth uses Clerk
+- backend auth sync and guards use Clerk backend integration
+- auth-sensitive change is high risk
+- inspect allow and deny tests before edit
+- preserve session, org, and workspace access checks

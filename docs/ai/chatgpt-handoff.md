@@ -1,21 +1,21 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
 # ChatGPT Handoff
 
-Use ChatGPT for:
-- architecture planning
-- debugging strategy
-- explanation and tradeoff analysis
-- reviewing Codex plans
-- breaking down large work
-- reviewing risky changes
+Use for planning, reasoning, review framing, or explanation.
 
-Do not treat ChatGPT as source of truth for repo files unless context is provided.
+Send:
+- task goal
+- current branch/state
+- exact files
+- constraints
+- risk
+- open questions
+- exact error lines
 
-When asking ChatGPT:
-- paste relevant `docs/ai/*`
-- paste Codex plan
-- paste exact logs/errors
-- paste minimal file snippets
-- ask for decision support, not blind implementation
+Attach only needed docs:
+- `docs/ai/entry-point.md`
+- relevant workflow
+- relevant architecture docs
+- relevant test snippets

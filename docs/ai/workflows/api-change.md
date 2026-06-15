@@ -1,41 +1,13 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
-# Api Change Workflow
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
+# API Change Workflow
 
-## When To Use
-Use for Api Change tasks.
+Use for request, response, route, or controller contract change.
 
-## Required Context Files
-- `docs/ai/entry-point.md`
-- `docs/ai/context-loading.md`
-- relevant architecture docs
-- relevant file indexes
-
-## Required Inspection Steps
-- verify target files and symbols
-- inspect dependencies/consumers
-- inspect related tests
-- assess risk level
-
-## Planning Requirements
-- produce deterministic WHAT/WHY/WHERE/WHEN/HOW plan
-- include dependency impact, risk, test plan, rollback
-
-## Implementation Rules
-- keep diff scoped
-- preserve public contracts unless approved
-- follow risk matrix and safety rules
-
-## Verification Commands
-- `bun run typecheck`
-- `bun run lint`
-- related tests then broader tests as needed
-
-## Documentation Updates
-- update impacted `docs/ai/file-index/*.md`
-- update architecture docs for repeated patterns only
-
-## Rollback Steps
-- revert scoped commit or affected files
-- restore compatibility and rerun verification
+Do:
+- inspect controller, service, DTO, consumer
+- write failing contract test first
+- preserve backward compatibility unless approved
+- update `docs/ai/architecture/api-routes.md`
+- update repository map if ownership changed

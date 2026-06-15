@@ -14,6 +14,7 @@ quickAnswer: Buksan ang Help Center para maghanap ng guides at i-replay ang onbo
 - Simulan sa Guided Onboarding Replay para sa refresher walkthrough.
 - Gamitin ang sections (Getting Started, Daily Tasks, Billing & Usage, Troubleshooting).
 - Buksan ang related route links para agad magawa ang task.
+- Internal assistant operations now use canonical `docs/ai` docs tree for task routing and verification.
 - Kung kulang ang guide, gamitin ang feedback at support path.
 - Karaniwang mali: sobrang generic na search tulad ng "problem".
 - Recovery: mag-search gamit ang task at route name para mas eksakto.

@@ -1,8 +1,10 @@
 # Local Codex Workflow
 
 - Start in VS Code terminal at repo root.
-- Run Codex and provide scoped task + expected files.
-- Use plan-only prompts when you want architecture/implementation plan first.
-- Use implementation prompts when plan is approved.
-- Use review prompts for findings-first code review.
-- Keep context minimal: reference `docs/ai` docs instead of pasting many files.
+- Check branch before edit. Never commit on `main` or `master`.
+- Route task with `docs/ai/task-routing.md`.
+- Load only needed docs in bootstrap order.
+- For behavior change: RED -> GREEN -> REFACTOR.
+- Use prompt templates in `docs/ai/prompts/`.
+- Keep context minimal. Reference `docs/ai/*`, not giant paste dumps.
+- After code change run verification, then update `docs/ai/file-index/repository-map.md` and affected `docs/ai/architecture/*`.

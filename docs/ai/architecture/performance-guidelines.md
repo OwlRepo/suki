@@ -1,23 +1,16 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
 # Performance Guidelines
 
-## Frontend (Next.js/React)
-- avoid unnecessary rerenders
-- memoize only when useful
-- avoid oversized client components
-- avoid unnecessary global state
-- prefer server components where appropriate
-- paginate large datasets
-- cache expensive operations
-- optimize image usage
+Web:
 - avoid request waterfalls
+- keep client components small
+- avoid unnecessary rerender work
+- paginate large data sets
 
-## Backend (NestJS)
-- avoid N+1 queries
-- validate payloads
+API:
+- avoid N+1 DB queries
+- validate payloads early
 - paginate list endpoints
-- use indexes for common query paths
-- avoid blocking operations
-- centralize error handling
+- avoid blocking work on request path

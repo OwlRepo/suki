@@ -1,17 +1,10 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
-# Code Review Prompt Template
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
+# Code Review Prompt
 
-Review focus:
-- correctness
-- maintainability
-- security
-- performance
-- tests
-- edge cases
-
-Scope/files:
-Expected output:
-- findings ordered by severity
-- concrete fix suggestions
+Review scope:
+Diff or files:
+Focus areas:
+Known risks:
+Need findings first. Bugs, regressions, missing tests, contract risk.

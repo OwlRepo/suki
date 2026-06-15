@@ -1,15 +1,20 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
-# Dynamic Context Loading
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
+# Context Loading
 
-Load in this order only as needed:
+Load only what task needs.
+
+For code change:
 1. `docs/ai/architecture/code-map.md`
 2. `docs/ai/architecture/feature-boundaries.md`
-3. Relevant file index in `docs/ai/file-index`
-4. Relevant architecture doc
-5. Relevant workflow doc
-6. Related tests
-7. Target source files
+3. `docs/ai/file-index/repository-map.md`
+4. relevant workflow
+5. related tests
+6. target files
 
-Do not load all docs for every task.
+Rules:
+- Do not load whole tree by default.
+- Prefer architecture map before raw search.
+- Prefer tests before source edits.
+- Stop loading when answer clear.

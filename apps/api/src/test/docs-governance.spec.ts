@@ -9,7 +9,7 @@ function readRootFile(relativePath: string): string {
 
 describe("Codex governance docs", () => {
   it("requires post-implementation index/integration sync gate", () => {
-    const workflow = readRootFile(".ai/workflows/update-file-indexes.md");
+    const workflow = readRootFile("docs/ai/workflows/update-file-indexes.md");
     expect(workflow).toMatch(/fail task completion if drift remains/i);
     expect(workflow).toMatch(/verify stale integration docs are updated/i);
   });
@@ -17,8 +17,8 @@ describe("Codex governance docs", () => {
   it("requires AGENTS guidance for updating index and architecture docs after code changes", () => {
     const agents = readRootFile("AGENTS.md");
     expect(agents).toMatch(/after any code change/i);
-    expect(agents).toMatch(/\.ai\/file-index/i);
-    expect(agents).toMatch(/\.ai\/architecture/i);
+    expect(agents).toMatch(/docs\/ai\/file-index\/repository-map\.md/i);
+    expect(agents).toMatch(/docs\/ai\/architecture/i);
   });
 
   it("requires assistant markdown context governance script", () => {

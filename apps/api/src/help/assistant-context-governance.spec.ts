@@ -21,16 +21,16 @@ describe("assistant context governance", () => {
 
     expect(result.ok).toBe(false);
     expect(result.missing.some((item) => item.includes("docs/assistant-context"))).toBe(true);
-    expect(result.missing.some((item) => item.includes(".ai/file-index"))).toBe(true);
-    expect(result.missing.some((item) => item.includes(".ai/architecture"))).toBe(true);
+    expect(result.missing.some((item) => item.includes("docs/ai/file-index/repository-map.md"))).toBe(true);
+    expect(result.missing.some((item) => item.includes("docs/ai/architecture"))).toBe(true);
   });
 
   it("passes when behavior change includes context docs and index updates", () => {
     const result = evaluateAssistantContextGovernance({
       changedFiles: ["apps/api/src/help/assistant.service.ts"],
       assistantContextFiles: ["docs/assistant-context/en/customers.md"],
-      aiIndexFiles: [".ai/file-index/services-index.md"],
-      aiArchitectureFiles: [".ai/architecture/api-routes.md"],
+      aiIndexFiles: ["docs/ai/file-index/repository-map.md"],
+      aiArchitectureFiles: ["docs/ai/architecture/api-routes.md"],
     });
 
     expect(result.ok).toBe(true);

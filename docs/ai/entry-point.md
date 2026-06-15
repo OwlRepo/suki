@@ -1,23 +1,25 @@
-Last updated: 2026-05-09T12:07:06.828Z
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-15T02:49:13.102Z
 # AI Entry Point
 
-## Start Here
-1. Read `docs/ai/task-routing.md` and classify task type.
-2. Load context minimally using `docs/ai/context-loading.md`.
-3. Build deterministic plan using `docs/ai/implementation-playbook.md`.
-4. Apply safety checks from `docs/ai/risk-matrix.md` and `docs/ai/hallucination-prevention.md`.
+Start here.
+
+1. Read `docs/ai/task-routing.md`. Classify task.
+2. Load minimal context with `docs/ai/context-loading.md`.
+3. Build deterministic plan with `docs/ai/implementation-playbook.md`.
+4. Apply `docs/ai/risk-matrix.md` and `docs/ai/hallucination-prevention.md`.
 5. Verify with `docs/ai/verification.md`.
 
-## Semantic Search Protocol
-1. `docs/ai/file-index`
-2. `docs/ai/architecture/code-map.md`
-3. `docs/ai/architecture/feature-boundaries.md`
-4. semantic repo search
-5. direct file inspection
+For code change load in this order:
+1. `docs/ai/architecture/code-map.md`
+2. `docs/ai/architecture/feature-boundaries.md`
+3. `docs/ai/file-index/repository-map.md`
+4. relevant workflow
+5. related tests
+6. target files
 
-## Task Classes
+Task classes:
 - Bug Fix
 - Feature Implementation
 - Enhancement
@@ -29,36 +31,33 @@ Source-of-truth inputs: Repository manifests, module files, tests, and workflow 
 - Dependency Upgrade
 - Documentation Update
 
-See: `docs/ai/task-routing.md`.
-
-## Deterministic Plan Required Before Edits
-Document:
+Before edit write:
 - WHAT
 - WHY
 - WHERE
 - WHEN
 - HOW
-- BEFORE/AFTER (if useful)
+- BEFORE/AFTER
 - DEPENDENCY IMPACT
-- RISK LEVEL (LOW/MEDIUM/HIGH)
+- RISK
 - TEST PLAN
+- BEHAVIOR TEST MATRIX
+- CODE FACTS
 - ROLLBACK
 
-## File Anchor Verification
-Before editing any file:
-- confirm path exists
-- identify exact symbol to modify
+Before editing file:
+- confirm path
+- confirm symbol
 - inspect nearby code
-- verify imports/exports
-- check related tests
-- check consumers if public API is affected
+- inspect imports/exports
+- inspect related tests
+- inspect consumers if contract moves
 
-## High-Risk Gate
-Explicit user confirmation is required before implementation for changes affecting:
-- auth/authz (`apps/api/src/auth`, guards in `apps/api/src/common`)
-- billing/payments (`apps/api/src/billing`)
-- security/privacy/PII (`apps/api/src/security`)
-- schema/migrations (`packages/database`)
-- external-provider webhooks/contracts (messaging, billing, licensing)
-- AI policy/rate-limit/concurrency (`apps/api/src/ai`)
-- CI/CD and deploy config (`.github/workflows`, `docker-compose*.yml`)
+High-risk change needs human confirmation:
+- auth/authz
+- billing/payments
+- security/privacy/PII
+- schema/migrations
+- external-provider webhooks/contracts
+- AI policy/rate-limit/concurrency
+- CI/CD and deploy config
