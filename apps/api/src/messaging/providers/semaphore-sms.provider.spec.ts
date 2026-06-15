@@ -54,6 +54,29 @@ describe("SemaphoreSmsProvider", () => {
     expect(String(init.body)).toContain("sendername=TYVERA");
   });
 
+  it("accepts numeric message IDs returned by Semaphore", async () => {
+    process.env.SEMAPHORE_API_KEY = "sem-key";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => [{ message_id: 12345, status: "Queued" }],
+      }) as unknown as typeof fetch,
+    );
+
+    const provider = new SemaphoreSmsProvider();
+
+    await expect(
+      provider.send({ to: "639171234567", body: "hello", clientRef: "ref" }),
+    ).resolves.toEqual({
+      ok: true,
+      provider: "semaphore",
+      providerMessageId: "12345",
+      providerMetadata: { message_id: 12345, status: "Queued" },
+    });
+  });
+
   it("maps retryable and rejected Semaphore responses", async () => {
     process.env.SEMAPHORE_API_KEY = "sem-key";
     vi.stubGlobal(

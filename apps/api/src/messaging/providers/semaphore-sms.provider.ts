@@ -105,7 +105,11 @@ export class SemaphoreSmsProvider implements ISmsProvider {
     const record = Array.isArray(data) ? data[0] : data;
     if (!record || typeof record !== "object") return undefined;
     const messageId = (record as Record<string, unknown>).message_id;
-    return typeof messageId === "string" ? messageId : undefined;
+    if (typeof messageId === "string" && messageId) return messageId;
+    if (typeof messageId === "number" && Number.isFinite(messageId)) {
+      return String(messageId);
+    }
+    return undefined;
   }
 
   private extractMetadata(data: unknown): Record<string, unknown> | undefined {
