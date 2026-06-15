@@ -465,6 +465,7 @@ export class PlatformAdminBillingService {
 
       return this.serializeBillingRequest(tx, billingRequestId);
     });
+    return fulfilled;
   }
 
   async confirmAndFulfillManualPayment(

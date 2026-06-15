@@ -24,7 +24,7 @@ Use this first. One dense map. Update rows only.
 | `apps/api/src/customers` | customer domain | controller, services | DB | dashboard customers | retention records and CRUD | High |
 | `apps/api/src/intake` | public intake flow | controller, services | DB, validation | intake web route | public booking/intake | High |
 | `apps/api/src/billing` | billing compatibility layer | controller, webhook controller, services | provider HTTP, DB | settings/billing UI, callbacks | billing state, checkout/webhook compatibility | High |
-| `apps/api/src/platform-admin` | founder-led admin operations | services/controllers | DB, billing helpers | internal admin flows | manual subscription and lifecycle work | High |
+| `apps/api/src/platform-admin` | founder-led admin operations | services/controllers, serialized billing request details | DB, billing helpers | internal admin flows | manual billing payment recording, subscription, and lifecycle work | High |
 | `packages/database/src` | DB contracts/runtime | `db`, schema exports, helpers | PostgreSQL, Drizzle | API, scripts, shared consumers | shared persistence contract | High |
 | `packages/database/src/schema` | schema definitions | tables/enums/relations | Drizzle | DB package, API services | DB source of truth | High |
 | `packages/database/scripts` | DB lifecycle scripts | setup/migrate/seed/reset/reconcile | DB env, Drizzle | dev workflows, ops | schema/data lifecycle | High |

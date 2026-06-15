@@ -38,6 +38,7 @@ const financeAdmin: ActivePlatformAdmin = {
   permissions: new Set([
     "PLATFORM_ADMIN_ACCESS",
     "BILLING_REQUEST_CREATE",
+    "PAYMENT_RECORD",
     "PAYMENT_VERIFY",
     "BUSINESS_UPDATE",
     "SUBSCRIPTION_VIEW",
@@ -591,6 +592,56 @@ describe("PlatformAdminBillingService", () => {
         quantity: 2,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("records a manual payment and returns the updated billing request detail", async () => {
+    const state = createBillingHarness({
+      request: {
+        id: "billing-request-1",
+        organizationId: "org-1",
+        referenceNumber: "TYV-2026-000001",
+        status: "awaiting_payment",
+        totalAmountPhp: 599,
+      },
+    });
+    const service = createService();
+
+    const result = await service.recordManualPayment(
+      financeAdmin,
+      "billing-request-1",
+      {
+        method: "gcash",
+        amountPhp: 599,
+        externalReference: "TYV-2026-000003",
+        notes: "paid top-up",
+      },
+    );
+
+    expect(state.inserted.payments[0]).toMatchObject({
+      billingRequestId: "billing-request-1",
+      method: "gcash",
+      amountPhp: 599,
+      status: "pending",
+      externalReference: "TYV-2026-000003",
+      notes: "paid top-up",
+      recordedByPlatformAdminId: "platform-admin-finance",
+    });
+    expect(state.updated.requests[0]).toMatchObject({
+      status: "payment_reported",
+    });
+    expect(result).toMatchObject({
+      id: "billing-request-1",
+      status: "payment_reported",
+      totalAmountPhp: 599,
+      payments: [
+        expect.objectContaining({
+          id: "payment-1",
+          amountPhp: 599,
+          status: "pending",
+          method: "gcash",
+        }),
+      ],
+    });
   });
 
   it("fulfills an exact manual payment once and marks the request paid", async () => {
