@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@tyvera/database";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { MANUAL_FOLLOW_UP_AUTOMATION_KEYS } from "./manual-follow-ups/manual-follow-up.constants";
 import {
   SemaphoreMessageReconciliationService,
   extractSemaphoreMessageId,
@@ -77,6 +79,26 @@ describe("SemaphoreMessageReconciliationService", () => {
       "Hello",
     );
     expect(stripKnownAutomationFooter("Hello")).toBe("Hello");
+  });
+
+  it("builds reconciliation query with a valid parameterized automation key filter", async () => {
+    process.env.SEMAPHORE_API_KEY = "key";
+    const execute = vi.fn().mockResolvedValueOnce([]);
+    vi.mocked(getDb).mockReturnValue({ execute } as never);
+
+    await expect(makeService().service.reconcileRecentMessages()).resolves.toEqual({
+      checked: 0,
+      failed: 0,
+      repaired: 0,
+    });
+
+    const query = new PgDialect().sqlToQuery(execute.mock.calls[0][0] as never);
+    expect(query.sql).toContain("me.automation_key in (");
+    expect(query.sql).not.toContain("any(($");
+    expect(query.sql).not.toContain("::text[]");
+    expect(query.params).toEqual(
+      expect.arrayContaining([...MANUAL_FOLLOW_UP_AUTOMATION_KEYS]),
+    );
   });
 
   it("repairs an accepted false rejection atomically", async () => {

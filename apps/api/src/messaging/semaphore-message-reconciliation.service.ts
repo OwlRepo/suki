@@ -134,6 +134,10 @@ export class SemaphoreMessageReconciliationService {
     const lookback = new Date(
       Date.now() - SEMAPHORE_RECONCILIATION_LOOKBACK_HOURS * 60 * 60 * 1000,
     );
+    const automationKeyFilter = sql.join(
+      [...MANUAL_FOLLOW_UP_AUTOMATION_KEYS].map((key) => sql`${key}`),
+      sql`, `,
+    );
     const events = (await db.execute(sql`
       select
         me.id,
@@ -150,7 +154,7 @@ export class SemaphoreMessageReconciliationService {
         and (
           (
             me.created_at >= ${lookback}
-            and me.automation_key = any(${[...MANUAL_FOLLOW_UP_AUTOMATION_KEYS]}::text[])
+            and me.automation_key in (${automationKeyFilter})
             and me.provider_message_id is not null
             and me.delivery_status is distinct from 'failed'
           )

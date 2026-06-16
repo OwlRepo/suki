@@ -8,7 +8,7 @@ import {
   messageEvents,
 } from "@tyvera/database";
 import type { AutomationKey, MessagePurpose } from "@tyvera/types";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { MANUAL_FOLLOW_UP_AUTOMATION_KEY_SET } from "./manual-follow-up.constants";
 import type {
   AttachRetryMessageEventInput,
@@ -249,7 +249,7 @@ export class ManualFollowUpService {
         and(
           eq(manualFollowUpTasks.organizationId, organizationId),
           isNull(manualFollowUpTasks.notifiedAt),
-          sql`${manualFollowUpTasks.id} = any(${taskIds}::uuid[])`,
+          inArray(manualFollowUpTasks.id, taskIds),
         ),
       );
   }

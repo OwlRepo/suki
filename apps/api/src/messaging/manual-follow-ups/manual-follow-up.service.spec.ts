@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb } from "@tyvera/database";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { MANUAL_FOLLOW_UP_AUTOMATION_KEY_SET } from "./manual-follow-up.constants";
 import { ManualFollowUpService } from "./manual-follow-up.service";
 
@@ -65,6 +66,38 @@ describe("ManualFollowUpService aggregate reads", () => {
     ]);
     expect(JSON.stringify(result)).not.toMatch(
       /recipientMobile|messageBody|manualRetryRawMessage|customerName/,
+    );
+  });
+});
+
+describe("ManualFollowUpService writes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("marks notified with a valid parameterized task ID filter", async () => {
+    let capturedWhere: unknown;
+    const where = vi.fn(async (condition: unknown) => {
+      capturedWhere = condition;
+    });
+    const update = vi.fn(() => ({
+      set: () => ({ where }),
+    }));
+    vi.mocked(getDb).mockReturnValue({ update } as never);
+
+    await new ManualFollowUpService().markNotified("org-1", [
+      "00000000-0000-0000-0000-000000000001",
+      "00000000-0000-0000-0000-000000000002",
+    ]);
+
+    const query = new PgDialect().sqlToQuery(capturedWhere as never);
+    expect(query.sql).not.toContain("any(($");
+    expect(query.sql).not.toContain("::uuid[]");
+    expect(query.params).toEqual(
+      expect.arrayContaining([
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+      ]),
     );
   });
 });
