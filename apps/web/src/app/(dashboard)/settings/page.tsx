@@ -138,6 +138,8 @@ interface SmsUsage {
 }
 
 interface AutomationSettingsApi {
+  id?: string;
+  businessId?: string;
   appointmentRemindersEnabled: boolean;
   appointmentReminder72hEnabled: boolean;
   inactivityWinbackEnabled: boolean;
@@ -517,9 +519,10 @@ function SettingsPageContent() {
             ).catch(() => automationDefaults);
 
             return {
-              id: business.id,
               ...automationDefaults,
               ...settings,
+              id: settings?.id,
+              businessId: business.id,
               appointmentRemindersEnabled:
                 settings?.appointmentRemindersEnabled ??
                 automationDefaults.appointmentRemindersEnabled,
@@ -546,7 +549,7 @@ function SettingsPageContent() {
         const map: Record<string, AutomationSettingsApi> = {};
 
         for (const result of results) {
-          map[result.id] = result as AutomationSettingsApi;
+          map[result.businessId] = result as AutomationSettingsApi;
         }
 
         setAutomationSettingsByBiz(map);
@@ -1283,7 +1286,6 @@ function SettingsPageContent() {
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                                   {key.replaceAll("_", " ")}
                                 </p>
-
                                 <Input
                                   value={current}
                                   onChange={(event) => {

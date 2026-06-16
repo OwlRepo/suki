@@ -64,8 +64,10 @@ const featureFlags = {
 function installDefaultMocks(
   planType: "free" | "growth",
   automationMessageTemplates = {},
-  patchAutomationSettings: (body: { messageTemplates?: unknown }) => unknown =
+  patchAutomationSettings: (body: { businessId?: string; messageTemplates?: unknown }) => unknown =
     (body) => ({
+      id: "settings-row-1",
+      businessId: body.businessId ?? "biz-1",
       appointmentRemindersEnabled: true,
       appointmentReminder72hEnabled: false,
       inactivityWinbackEnabled: true,
@@ -155,6 +157,8 @@ function installDefaultMocks(
     }
     if (path.startsWith("/automation/settings?businessId=")) {
       return {
+        id: "settings-row-1",
+        businessId: "biz-1",
         appointmentRemindersEnabled: true,
         appointmentReminder72hEnabled: false,
         inactivityWinbackEnabled: true,
@@ -225,7 +229,7 @@ describe("SettingsPage message templates", () => {
     ).toBeInTheDocument();
   });
 
-  it("loads saved template text and confirms blur autosave", async () => {
+  it("loads saved template text when the API row id differs from the business id and confirms blur autosave", async () => {
     installDefaultMocks("free", {
       appointment_confirmation: {
         sms: "Saved confirmation for {customerName}",

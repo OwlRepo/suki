@@ -60,6 +60,7 @@ export class AutomationSendService {
     if (!settings.appointmentRemindersEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const businessName = await this.getBusinessName(businessId, organizationId);
     const template = this.settingsService.getDefaultTemplateFor(
       settings,
       "appointment_confirmation",
@@ -70,7 +71,7 @@ export class AutomationSendService {
       scheduledAt: appt.scheduledAt,
       staffName: appt.staffName ?? undefined,
       rescheduleLink: RESCHEDULE_LINK_PLACEHOLDER,
-      businessName: undefined,
+      businessName,
     }, template);
 
     const result = await this.dispatch.dispatch({
@@ -125,6 +126,7 @@ export class AutomationSendService {
     if (!settings.appointmentRemindersEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const businessName = await this.getBusinessName(businessId, organizationId);
     const template = this.settingsService.getDefaultTemplateFor(
       settings,
       "appointment_reminder_24h",
@@ -134,6 +136,7 @@ export class AutomationSendService {
       scheduledAt: appt.scheduledAt,
       staffName: appt.staffName ?? undefined,
       rescheduleLink: RESCHEDULE_LINK_PLACEHOLDER,
+      businessName,
     }, template);
 
     const result = await this.dispatch.dispatch({
@@ -189,6 +192,7 @@ export class AutomationSendService {
       return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const businessName = await this.getBusinessName(businessId, organizationId);
     const template = this.settingsService.getDefaultTemplateFor(
       settings,
       "appointment_reminder_72h",
@@ -198,6 +202,7 @@ export class AutomationSendService {
       scheduledAt: appt.scheduledAt,
       staffName: appt.staffName ?? undefined,
       rescheduleLink: RESCHEDULE_LINK_PLACEHOLDER,
+      businessName,
     }, template);
 
     const result = await this.dispatch.dispatch({
@@ -252,6 +257,7 @@ export class AutomationSendService {
     if (!settings.missedRecoveryEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const businessName = await this.getBusinessName(businessId, organizationId);
     const template = this.settingsService.getDefaultTemplateFor(
       settings,
       "missed_recovery",
@@ -259,6 +265,7 @@ export class AutomationSendService {
     );
     const rawMessage = this.composer.compose("missed_recovery", {
       rebookLink: REBOOK_LINK_PLACEHOLDER,
+      businessName,
     }, template);
 
     const result = await this.dispatch.dispatch({
@@ -309,6 +316,7 @@ export class AutomationSendService {
     if (!settings.postVisitFollowUpEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const businessName = await this.getBusinessName(businessId, organizationId);
     const template = this.settingsService.getDefaultTemplateFor(
       settings,
       "post_visit_followup",
@@ -316,6 +324,7 @@ export class AutomationSendService {
     );
     const rawMessage = this.composer.compose("post_visit_followup", {
       rebookLink: REBOOK_LINK_PLACEHOLDER,
+      businessName,
     }, template);
 
     const result = await this.dispatch.dispatch({
@@ -362,12 +371,13 @@ export class AutomationSendService {
     if (!settings.loyaltyUnlockEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const businessName = await this.getBusinessName(businessId, organizationId);
     const template = this.settingsService.getDefaultTemplateFor(
       settings,
       "loyalty_unlock",
       channel,
     );
-    const rawMessage = this.composer.compose("loyalty_unlock", {}, template);
+    const rawMessage = this.composer.compose("loyalty_unlock", { businessName }, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,
@@ -412,12 +422,13 @@ export class AutomationSendService {
     if (!settings.inactivityWinbackEnabled) return { status: "skipped", reason: "toggle_off" };
 
     const channel = settings.autoSendChannel as "sms" | "email";
+    const businessName = await this.getBusinessName(businessId, organizationId);
     const template = this.settingsService.getDefaultTemplateFor(
       settings,
       "inactivity_winback",
       channel,
     );
-    const rawMessage = this.composer.compose("inactivity_winback", {}, template);
+    const rawMessage = this.composer.compose("inactivity_winback", { businessName }, template);
 
     const result = await this.dispatch.dispatch({
       organizationId,
@@ -436,5 +447,23 @@ export class AutomationSendService {
         .where(eq(customers.id, customerId));
     }
     return { status: result.status, reason: result.reason };
+  }
+
+  private async getBusinessName(
+    businessId: string,
+    organizationId: string,
+  ): Promise<string | undefined> {
+    const db = getDb();
+    const [business] = await db
+      .select({ name: businesses.name })
+      .from(businesses)
+      .where(
+        and(
+          eq(businesses.id, businessId),
+          eq(businesses.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    return business?.name ?? undefined;
   }
 }

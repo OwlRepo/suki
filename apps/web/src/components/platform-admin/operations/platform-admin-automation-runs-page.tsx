@@ -230,7 +230,7 @@ export function PlatformAdminAutomationRunsPage() {
                       <p>Failed: {run.failureCount}</p>
                     </div>
                     {run.errorSummary ? (
-                      <pre className="mt-3 overflow-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
+                      <pre className="mt-3 whitespace-pre-wrap text-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
                         {JSON.stringify(run.errorSummary, null, 2)}
                       </pre>
                     ) : null}

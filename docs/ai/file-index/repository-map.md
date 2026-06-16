@@ -1,6 +1,6 @@
 Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
 Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
-Last updated: 2026-06-15T02:49:13.102Z
+Last updated: 2026-06-16T05:20:15.000Z
 # Repository Map
 
 Use this first. One dense map. Update rows only.
@@ -18,6 +18,7 @@ Use this first. One dense map. Update rows only.
 | `apps/api/src/help` | assistant support logic | help services, governance helpers | API internals | AI/help flows, governance scripts | assistant orchestration and context policy | High |
 | `apps/api/src/ai` | AI execution zone | AI services/controllers | OpenAI, quotas, policy helpers | messaging, help, admin flows | generation, orchestration, limits | High |
 | `apps/api/src/messaging` | outbound/inbound messaging | controllers, services, provider adapters, idempotent Semaphore reconciliation | Semaphore, Twilio, Resend, AI, DB | dashboard messaging flows, webhooks | compose, send, meter, normalize IDs, repair false rejections and sent markers, receive, webhook verify | High |
+| `apps/api/src/automation` | automation settings, scheduling, and send orchestration | controller, settings/send/composer/scheduler services | DB, messaging dispatch, feature flags | settings UI, appointments, intake, customers, scheduler | persist per-business templates/toggles and compose automated messages at send time | High |
 | `apps/api/src/auth` | auth/session sync | controller, service, guards | Clerk backend, DB | web auth flows | user sync and auth checks | High |
 | `apps/api/src/imports` | import workflows | controller, services | csv/xlsx/OCR, DB | imports UI | upload, map, apply, repair | High |
 | `apps/api/src/appointments` | appointment domain | controllers/services | DB, policy helpers | dashboard appointments | schedule, check-in, review states | High |
