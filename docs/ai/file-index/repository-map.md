@@ -1,6 +1,3 @@
-Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
-Last updated: 2026-06-16T05:33:01.000Z
 # Repository Map
 
 Use this first. One dense map. Update rows only.
@@ -15,7 +12,7 @@ Use this first. One dense map. Update rows only.
 | `apps/web/src/domains` | web domain modules | feature-specific helpers/types | app code | web features | keep feature logic near UI domain | Medium |
 | `apps/api/src` | NestJS backend modules | controllers, services, modules | NestJS, DB, shared types | web app, provider callbacks | business rules, validation, integrations, API contracts | High |
 | `apps/api/src/common` | shared API guards/policies | guards, filters, helpers | NestJS, env, auth context | many API modules | access control, feature gating, shared exceptions | High |
-| `apps/api/src/help` | assistant support logic | help services, governance helpers | API internals | AI/help flows, governance scripts | assistant orchestration and context policy | High |
+| `apps/api/src/help` | assistant support logic | help services, governance helpers | API internals | AI/help flows, governance scripts | assistant orchestration, context policy, compact AI manifest/index enforcement | High |
 | `apps/api/src/ai` | AI execution zone | AI services/controllers | OpenAI, quotas, policy helpers | messaging, help, admin flows | generation, orchestration, limits | High |
 | `apps/api/src/messaging` | outbound/inbound messaging | controllers, services, provider adapters, idempotent Semaphore reconciliation | Semaphore, Twilio, Resend, AI, DB | dashboard messaging flows, webhooks | compose, send, meter, normalize IDs, repair false rejections with parameterized filters and sent markers, receive, webhook verify | High |
 | `apps/api/src/automation` | automation settings, scheduling, and send orchestration | controller, settings/send/composer/scheduler services | DB, messaging dispatch, feature flags | settings UI, appointments, intake, customers, scheduler | persist per-business templates/toggles and compose automated messages at send time | High |
@@ -32,9 +29,16 @@ Use this first. One dense map. Update rows only.
 | `packages/ui/src` | shared UI package | buttons, inputs, cards, dialogs | React | web app | reusable visual primitives | Medium |
 | `packages/types/src` | shared TS contracts | type exports | TypeScript | web, API, DB | cross-package compile-time alignment | Medium |
 | `packages/config` | shared config package | config helpers | TS/runtime config | workspace packages | central config where needed | Medium |
-| `docs/ai` | canonical AI operating system | entry docs, workflows, prompts | markdown only | AGENTS, Codex, Cursor, humans | task routing, context loading, verification | Medium |
+| `CLAUDE.md` | Claude planner contract | role, routing, handoff format, gates | `AGENTS.md`, `docs/ai/*` | Claude Code | read-only planning; writes only approved scratchpad handoff | Medium |
+| `.claude/settings.json` | Claude enforcement | Plan default, Bash/subagent deny, scratchpad-only write hook | Claude Code settings | Claude Code | blocks implementation mutations from planner | High |
+| `.codex/instructions.md` | Codex executor contract | mechanical execution, TDD, safety, docs sync | `AGENTS.md`, `.ai-scratchpad.md` | OpenAI Codex | execute approved directives without redesign | High |
+| `.ai-scratchpad.md` | transient handoff truth | `CAVE PLAN`, directives, verification | Claude planner | Codex executor | overwrite per approved mutation task | High |
+| `docs/ai/entry-point.md` | universal AI root | load order, lanes, TDD, gates | architecture manifest, repository ledger | `AGENTS.md`, Claude, Codex, humans | first repository instruction hop | Medium |
+| `docs/ai/architecture-manifest.md` | dense architecture truth | code map, boundaries, routes, schema, services, tests, commands, risk | manifests, source, tests, workflow config | Claude, Codex, humans | first code-task context file | High |
+| `docs/ai/file-index/repository-map.md` | dense navigation ledger | path ownership, consumers, risk | current repository tree | Claude, Codex, humans | second code-task context file; affected rows only | Medium |
+| `docs/assistant-context` | user-facing assistant knowledge | localized markdown topics | product behavior, help routes | help assistant context loader | answer guidance; sync when assistant-facing behavior changes | Medium |
 | `scripts/update-ai-indexes.ts` | AI doc metadata stamper | script entry | Bun FS APIs | developers | refresh markdown headers in `docs/ai` | Low |
-| `scripts/check-assistant-context-governance.ts` | context governance check | script entry | git, governance helper | developers, CI/manual checks | require docs sync on behavior-impacting changes | Medium |
+| `scripts/check-assistant-context-governance.ts` | context governance check | script entry | git, governance helper | developers, CI/manual checks | require assistant context, repository ledger, architecture manifest sync on behavior-impacting changes | Medium |
 | `apps/api/src/**/*.spec.ts` | API test suites | vitest specs | vitest, Nest testing | dev/CI | unit and integration regression coverage | Medium |
 | `apps/web/src/**/*.test.ts(x)` | web test suites | vitest specs | vitest, RTL | dev/CI | component and hook regression coverage | Medium |
 | `apps/web/cypress/e2e` | browser e2e specs | Cypress tests | running web + API | dev/CI | end-to-end user journey checks | High |

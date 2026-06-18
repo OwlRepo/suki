@@ -32,7 +32,7 @@ export function evaluateAssistantContextGovernance(input: {
   changedFiles: string[];
   assistantContextFiles: string[];
   aiIndexFiles: string[];
-  aiArchitectureFiles: string[];
+  aiArchitectureManifestFiles: string[];
 }): AssistantDocCoverageReport {
   const needs = needsAssistantContextUpdate(input.changedFiles);
   if (!needs) {
@@ -46,8 +46,8 @@ export function evaluateAssistantContextGovernance(input: {
   if (input.aiIndexFiles.length === 0) {
     missing.push("docs/ai/file-index/repository-map.md update");
   }
-  if (input.aiArchitectureFiles.length === 0) {
-    missing.push("docs/ai/architecture/* updates");
+  if (input.aiArchitectureManifestFiles.length === 0) {
+    missing.push("docs/ai/architecture-manifest.md update");
   }
 
   return {

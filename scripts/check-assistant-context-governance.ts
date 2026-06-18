@@ -16,13 +16,15 @@ function main() {
   const changed = getChangedFiles();
   const assistantContextFiles = changed.filter((file) => file.startsWith("docs/assistant-context/"));
   const aiIndexFiles = changed.filter((file) => file === "docs/ai/file-index/repository-map.md");
-  const aiArchitectureFiles = changed.filter((file) => file.startsWith("docs/ai/architecture/"));
+  const aiArchitectureManifestFiles = changed.filter(
+    (file) => file === "docs/ai/architecture-manifest.md",
+  );
 
   const result = evaluateAssistantContextGovernance({
     changedFiles: changed,
     assistantContextFiles,
     aiIndexFiles,
-    aiArchitectureFiles,
+    aiArchitectureManifestFiles,
   });
 
   if (!result.ok) {

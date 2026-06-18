@@ -8,17 +8,60 @@ function readRootFile(relativePath: string): string {
 }
 
 describe("Codex governance docs", () => {
-  it("requires post-implementation index/integration sync gate", () => {
-    const workflow = readRootFile("docs/ai/workflows/update-file-indexes.md");
-    expect(workflow).toMatch(/fail task completion if drift remains/i);
-    expect(workflow).toMatch(/verify stale integration docs are updated/i);
+  it("routes agents through the compact AI entry point", () => {
+    const agents = readRootFile("AGENTS.md");
+    expect(agents.trim()).toBe(
+      "Read and follow `docs/ai/entry-point.md` before any repository task.",
+    );
+    expect(readRootFile("docs/ai/entry-point.md")).toMatch(
+      /docs\/ai\/architecture-manifest\.md/,
+    );
   });
 
-  it("requires AGENTS guidance for updating index and architecture docs after code changes", () => {
-    const agents = readRootFile("AGENTS.md");
-    expect(agents).toMatch(/after any code change/i);
-    expect(agents).toMatch(/docs\/ai\/file-index\/repository-map\.md/i);
-    expect(agents).toMatch(/docs\/ai\/architecture/i);
+  it("separates Claude planning from Codex execution", () => {
+    const claude = readRootFile("CLAUDE.md");
+    const codex = readRootFile(".codex/instructions.md");
+    const scratchpad = readRootFile(".ai-scratchpad.md");
+    const settings = JSON.parse(readRootFile(".claude/settings.json")) as {
+      permissions?: { defaultMode?: string; deny?: string[] };
+    };
+
+    expect(claude).toMatch(/Claude Code.*Planner/i);
+    expect(claude).toMatch(/do not write or edit source code/i);
+    expect(claude).toMatch(/\.ai-scratchpad\.md/);
+    expect(codex).toMatch(/OpenAI Codex.*Executor/i);
+    expect(codex).toMatch(/read `\.ai-scratchpad\.md`/i);
+    expect(codex).toMatch(/do not rethink, optimize, or alter architecture/i);
+    expect(scratchpad).toMatch(/^# CAVE PLAN/m);
+    expect(scratchpad).toMatch(/## DIRECTIVES/);
+    expect(scratchpad).toMatch(/## VERIFICATION/);
+    expect(settings.permissions?.defaultMode).toBe("plan");
+    expect(settings.permissions?.deny).toContain("Bash");
+  });
+
+  it("keeps one architecture manifest and one repository ledger", () => {
+    const aiRoot = path.resolve(__dirname, "../../../../docs/ai");
+    const files = fs
+      .readdirSync(aiRoot, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) =>
+        path
+          .relative(aiRoot, path.resolve(entry.parentPath, entry.name))
+          .replaceAll("\\", "/"),
+      )
+      .sort();
+
+    expect(files).toEqual([
+      "architecture-manifest.md",
+      "entry-point.md",
+      "file-index/repository-map.md",
+    ]);
+    expect(readRootFile("docs/ai/architecture-manifest.md")).toMatch(
+      /# Architecture Manifest/,
+    );
+    expect(readRootFile("docs/ai/file-index/repository-map.md")).toMatch(
+      /# Repository Map/,
+    );
   });
 
   it("requires assistant markdown context governance script", () => {

@@ -6,7 +6,7 @@ intents: ["help center", "documentation", "guided onboarding replay", "how to us
 relatedRoutes: ["/help", "/onboarding"]
 toolBindings: ["route_guidance"]
 priority: high
-lastUpdated: 2026-05-10
+lastUpdated: 2026-06-19
 quickAnswer: Open Help Center to search guides, replay onboarding, and resolve common issues.
 ---
 - Open Help Center when you need searchable documentation.
@@ -14,7 +14,7 @@ quickAnswer: Open Help Center to search guides, replay onboarding, and resolve c
 - Start with Guided Onboarding Replay for first-time or refresher walkthroughs.
 - Use section cards (Getting Started, Daily Tasks, Billing & Usage, Troubleshooting) to narrow answers.
 - Open related route links from articles to act immediately.
-- Internal assistant operations now use canonical `docs/ai` docs tree for task routing and verification.
+- Internal AI work uses Claude Code for approved planning, Codex for execution, and `.ai-scratchpad.md` for handoff.
 - If a guide is unclear, use article feedback and contact support path.
 - Common mistake: searching with very broad terms like "problem".
 - Recovery: search by task and route name for better results.

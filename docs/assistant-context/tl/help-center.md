@@ -6,7 +6,7 @@ intents: ["help center", "documentation", "guided onboarding replay", "how to us
 relatedRoutes: ["/help", "/onboarding"]
 toolBindings: ["route_guidance"]
 priority: high
-lastUpdated: 2026-05-10
+lastUpdated: 2026-06-19
 quickAnswer: Buksan ang Help Center para maghanap ng guides at i-replay ang onboarding.
 ---
 - Buksan ang Help Center kapag kailangan ng searchable documentation.
@@ -14,7 +14,7 @@ quickAnswer: Buksan ang Help Center para maghanap ng guides at i-replay ang onbo
 - Simulan sa Guided Onboarding Replay para sa refresher walkthrough.
 - Gamitin ang sections (Getting Started, Daily Tasks, Billing & Usage, Troubleshooting).
 - Buksan ang related route links para agad magawa ang task.
-- Internal assistant operations now use canonical `docs/ai` docs tree for task routing and verification.
+- Claude Code ang planner, Codex ang executor, at `.ai-scratchpad.md` ang approved handoff ng internal AI work.
 - Kung kulang ang guide, gamitin ang feedback at support path.
 - Karaniwang mali: sobrang generic na search tulad ng "problem".
 - Recovery: mag-search gamit ang task at route name para mas eksakto.
