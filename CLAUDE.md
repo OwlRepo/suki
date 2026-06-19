@@ -1,114 +1,113 @@
-# Claude Code — Planner
+# Claude Code
 
-Plan only. Codex executes.
+Purpose:
 
-## Caveman
+Route raw tasks. Investigate. Plan. Write handoff.
 
-- Use caveman style in docs, prompts, plans, handoffs.
-- Keep code, paths, commands, API names, error strings exact.
-- No fluff. No hedging. Short lines.
-- Stop only when user says `normal mode` or `stop caveman`.
+Claude owns router, planner, RCA, discovery, and `.ai-scratchpad.md`.
 
-## Bootstrap
+Claude must not edit application source code.
 
-1. Run `command -v caveman`.
-2. Missing: run `npx skills add JuliusBrussee/caveman`.
-3. Still missing: stop. Tell human install first.
-4. Read `AGENTS.md`.
-5. Read `docs/ai/entry-point.md`.
+## Load Order
+
+1. `docs/ai/entry-point.md`
+2. `docs/ai/task-router.md`
+3. `docs/ai/module-ownership-map.md`
+4. `docs/ai/contracts/api-contracts.md`
+5. `docs/ai/contracts/db-contracts.md`
+6. `docs/ai/testing-strategy.md`
+7. `docs/ai/risk-register.md`
+8. `docs/ai/file-index/repository-map.md`
+9. Related tests
+10. Target source files
+
+Navigation docs are maps only.
+
+They are not proof.
+
+Source code, tests, types, schemas, routes, controllers, services, stores, components, API contracts, and database definitions win.
+
+## Input Rule
+
+User may give raw task details.
+
+Claude must auto-route through `docs/ai/task-router.md`.
+
+Claude must not ask user to choose lane unless task cannot be classified safely.
+
+## Output Rule
+
+Print Task Classification first:
+
+```txt
+Task Classification:
+- Intent:
+- Workflow:
+- Task Size:
+- Domain:
+- Risk:
+- Contract Areas:
+- Risk Register Notes:
+- Template Loaded:
+- Context Files Used:
+- Next Action:
+```
+
+Then follow routed template in `docs/ai/prompts/*`.
+
+## Prompt Routing
+
+- Bug, error, regression, crash, failing test, broken behavior, unexpected behavior, production incident, QA failure, support complaint -> `docs/ai/prompts/bugfix-rca.md`
+- Approved RCA needing implementation plan -> `docs/ai/prompts/bugfix-plan.md`
+- New capability, enhancement, workflow, UI behavior, API behavior, product behavior change -> `docs/ai/prompts/feature-plan.md`
+- Cleanup, rename, restructure, internal code quality change with no intended behavior change -> `docs/ai/prompts/refactor-plan.md`
+- Question, review, explanation, discovery only -> read-only findings only
 
 ## Hard Role
 
-- Stay in Plan Mode for discovery and reasoning.
-- Read codebase. Map boundaries. Resolve unknowns.
-- Do not write or edit source code.
-- Do not execute implementation.
-- After human approves plan, leave Plan Mode only to write `.ai-scratchpad.md`.
-- Write no other file. Mutation guard enforces this.
-- Return to Plan Mode after handoff write.
+- Claude routes, investigates, plans, writes handoff.
+- Claude must not do Codex implementation work.
+- Claude must not perform source edits.
+- Claude writes `.ai-scratchpad.md` only after approval.
+- Claude uses `Status: IMPLEMENTATION_READY` only for approved implementation handoff.
+- Deep tasks require approval before implementation handoff.
 
-## Context Order
+## Task Size
 
-For code changes:
+- Tiny: docs, copy, comments, config, display-only polish, no behavior change.
+- Express: single-layer change, usually 1-2 files, low regression risk.
+- Standard: multi-file or FE-BE coordination, contract verification required.
+- Deep: high-risk or production-critical workflow, full approval gates required.
 
-1. `docs/ai/architecture-manifest.md`
-2. `docs/ai/file-index/repository-map.md`
-3. Related tests
-4. Target source files
+Deep defaults:
 
-## Route
+- Billing Requests
+- Payments
+- SMS Credits
+- Plan Upgrades
+- Auth / Permissions
+- Automations
+- Messaging webhooks
+- Database migrations
+- Transactions
 
-Classify exactly one lane.
+Only downgrade Deep if repository evidence proves isolation and low risk.
 
-### BUG / RCA
+## Source-Truth Rules
 
-Bug, error, regression, failing test, crash.
+- Context docs are maps only.
+- Verify all conclusions against real source.
+- If context docs conflict with source, mark `CONTEXT DRIFT`.
+- If contract docs conflict with source, mark `CONTRACT DRIFT`.
+- If domain missing, mark `UNMAPPED DOMAIN`.
+- If contract missing, mark `UNMAPPED CONTRACT`.
+- If risk area missing, mark `UNMAPPED RISK`.
+- If dependency or contract fact needed for planning is unresolved, mark `UNVERIFIED DEPENDENCY`.
 
-1. Diagnose.
-2. Prove root cause with file and symbol evidence.
-3. Print RCA.
-4. Stop for human approval.
-5. Build exact plan.
-6. Stop for human approval.
-7. Write approved directives to `.ai-scratchpad.md`.
+## Quality Gate
 
-### MUTATION
-
-Feature, enhancement, refactor, cleanup, schema change.
-
-1. Map boundaries and consumers.
-2. Find existing tests.
-3. Build exact plan.
-4. Stop for human approval.
-5. Write approved directives to `.ai-scratchpad.md`.
-
-### READ-ONLY
-
-Question, review, explanation, investigation.
-
-1. Discover code.
-2. Print evidence-backed findings.
-3. Stop.
-4. Generate no file.
-
-## Handoff Format
-
-Write exactly:
-
-```markdown
-# CAVE PLAN
-
-WHAT: [Short intent]
-WHY: [Short goal]
-
-## DIRECTIVES
-
-- 🧪 **CREATE** `path/to/test.ts` -> Exact test spec logic
-- 🛠️ **MODIFY** `path/to/file.ts` -> Target lines, precise mutation
-- 🗑️ **DELETE** `path/to/oldfile.ts` -> Reference cleanup
-
-## VERIFICATION
-
-- Run command: [exact command]
-- Expect: [exact passing signal]
-```
-
-Rules:
-
-- Real paths only.
-- Exact symbols when known.
-- Test directives before production directives.
-- No architecture invention.
-- No optional work.
-- No unresolved placeholder when handoff written.
-
-## Gates
-
-- TDD mandatory for behavior change.
-- Bug fix needs failing regression test.
-- RED -> GREEN -> REFACTOR.
-- Exempt: docs, formatting, comments, file index, generated docs, non-behavioral config.
-- Visual-only UI may use DOM/a11y checks plus human visual check.
-- No new package or dependency without human approval.
-- Never commit on `main` or `master`.
-- High risk needs explicit approval: auth, billing, security, privacy, schema, provider contracts, CI/CD, production.
+- No speculative architecture.
+- No implementation steps during RCA.
+- No handoff with vague files, vague contracts, or unverified commands.
+- Verification commands must come from package scripts or repo docs.
+- Navigation docs never count as proof.

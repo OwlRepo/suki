@@ -1,113 +1,95 @@
-Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
-Last updated: 2026-06-18T18:07:23.439Z
 # Architecture Manifest
 
-Source truth: manifests, source, tests, schema, workflow config.
+Purpose:
 
-## Repo
+Dense project map for routing and planning.
 
-- Monorepo: Bun + Turborepo.
-- Web: `apps/web` — Next.js App Router.
-- API: `apps/api` — NestJS.
-- DB: `packages/database` — Drizzle + PostgreSQL.
-- Shared: `packages/ui`, `packages/types`, `packages/config`.
-- Infra: `docker-compose.yml`, `docker-compose.prod.yml`, `.github/workflows/deploy.yml`.
+This file is map only.
 
-## AI Pipeline
+It is not proof of behavior.
 
-- Claude Code: read-only planner. Contract: `CLAUDE.md`.
-- Claude enforcement: `.claude/settings.json`.
-- Codex: mechanical executor. Contract: `.codex/instructions.md`.
-- Handoff truth: `.ai-scratchpad.md`.
-- Root instruction hop: `AGENTS.md` -> `docs/ai/entry-point.md`.
-- Architecture truth: this file.
-- Navigation truth: `docs/ai/file-index/repository-map.md`.
-- Assistant-context governance requires both compact AI docs when behavior-impacting help/AI files change.
+Verify all conclusions against real source code, tests, types, schemas, routes, controllers, services, stores, components, API contracts, database definitions, and workflow files.
 
-## Boundaries
+## Project Shape
 
-- Web renders UI. Calls API/contracts.
-- API owns business rules, validation, policy, provider calls.
-- DB package owns schema, migrations, seeds, repair scripts.
-- Shared packages stay reusable and backward-compatible.
-- Browser code gets no DB behavior.
-- Provider contracts stay in API modules.
+- Monorepo with root `package.json` workspaces for `apps/*` and `packages/*`
+- Runtime tooling: Bun + Turborepo
+- Web app: `apps/web` using Next.js App Router
+- API app: `apps/api` using NestJS
+- Main DB package: `packages/database` using Drizzle + PostgreSQL
+- Shared packages: `packages/ui`, `packages/types`, `packages/config`
+- Extra package path present: `packages/admin-database`
+  Source package metadata not found during bootstrap scan. Treat as built artifact package until verified.
+- Infra and workflow files: `docker-compose.yml`, `docker-compose.prod.yml`, `.github/workflows/deploy.yml`
 
-## Main Flows
+## Frontend
 
-- Auth/session: `apps/web/src/lib/auth*` <-> `apps/api/src/auth/*`.
-- Onboarding: `apps/web/src/app/onboarding` <-> `apps/api/src/onboarding/*`.
-- Appointments: `apps/web/src/app/(dashboard)/appointments` <-> `apps/api/src/appointments/*`.
-- Customers/intake: dashboard customer UI + `apps/web/src/app/intake/[businessId]` <-> `apps/api/src/customers/*`, `apps/api/src/intake/*`.
-- Automation: settings UI <-> `apps/api/src/automation/*` -> `apps/api/src/messaging/*`.
-- Messaging/AI: `apps/api/src/messaging/*` owns delivery/provider behavior. `apps/api/src/ai/*` owns generation, limits, policy.
-- Billing/access: client billing settings submit tenant-scoped intent through `apps/api/src/billing/*`; `apps/api/src/platform-admin/*` reviews it and reuses manual billing request/payment/fulfillment paths.
-- Imports: `apps/web/src/app/(dashboard)/imports` <-> `apps/api/src/imports/*`.
+- Main route groups: dashboard, platform-admin, intake, onboarding, auth, pricing
+- Key dashboard areas: appointments, customers, imports, insights, settings, billing, help, loyalty, promos
+- Platform-admin surfaces: communications, automation-runs, alerts, businesses, client-requests, billing-requests, audit-logs
+- Shared feature UI under `apps/web/src/components`
+- API calls use `apps/web/src/lib/api.ts` and `apps/web/src/lib/api-base.ts`
 
-## API / Middleware
+## Backend
 
-- Routes: `apps/api/src/**/*.controller.ts`.
-- Main domains: auth, organizations, businesses, customers, intake, appointments, onboarding, automation, messaging, webhooks, insights, imports, billing, admin, AI, licensing, privacy, health.
-- Guards, filters, policy: `apps/api/src/common`, `apps/api/src/auth`.
-- Errors: NestJS exceptions + shared filters.
-- Route contract change requires request/response tests and consumer check.
+- API modules verified from `apps/api/src`: auth, appointments, automation, billing, businesses, common, crm, customers, health, help, imports, insights, intake, licensing, loyalty, messaging, onboarding, operations, organizations, platform-admin, promos, security, users, workflows
+- Route truth lives in `*.controller.ts`
+- Business logic mainly in `*.service.ts`
+- Guards and cross-cutting policy in `apps/api/src/common`, `apps/api/src/auth`, `apps/api/src/platform-admin`
 
-## Auth / Security
+## Database / Schema
 
-- Clerk owns frontend auth and backend session verification.
-- Preserve session, organization, workspace access checks.
-- Validate external input.
-- Preserve authz boundaries.
-- Client billing submission/cancel is owner-only; platform inbox uses dedicated view/resolve permissions.
-- Never expose secrets.
-- Use parameterized ORM paths.
-- Verify provider webhook signatures.
+- Main schema source: `packages/database/src/schema/index.ts`
+- Verified tables include organizations, businesses, users, customers, appointments, booking tables, automation tables, message and credit tables, AI usage tables, billing request tables, privacy and audit tables
+- Migration history present in `packages/database/drizzle/*.sql`
+- DB lifecycle scripts present in `packages/database/scripts`
 
-## Data
+## API Contracts
 
-- Schema: `packages/database/src/schema`.
-- Runtime: `packages/database/src/database.ts`, `packages/database/src/index.ts`.
-- Config: `packages/database/drizzle.config.ts`.
-- Lifecycle: `packages/database/scripts/{setup,migrate,seed,reset,reconcile-orphans}.ts`.
-- Prefer additive schema change.
-- `client_billing_requests` stores plan-change, SMS top-up, and cancellation intent separately from payable `manual_billing_requests`; approval links payable requests when applicable.
-- Never run production migration from agent workflow.
+- Billing and client request routes span dashboard billing UI and platform-admin inbox
+- Appointment, intake, and customer routes cross dashboard and public booking flows
+- Automation and messaging routes cross settings, providers, and admin operations
+- Help and AI routes cross assistant UX and backend policy enforcement
+- Exact DTO truth must be verified in controller, service, type, and test source
 
-## External Services
+## Auth / Permissions
 
-- Clerk: auth/session.
-- OpenAI: generation/orchestration.
-- PayMongo: billing/webhooks.
-- Twilio and Semaphore: SMS.
-- Resend: email.
-- PostgreSQL: persistence.
-- Svix: root dependency; source usage unverified.
+- Clerk is verified frontend and backend auth dependency
+- Workspace and role logic touch `apps/api/src/auth`, `apps/api/src/users`, `apps/api/src/common/*guard*`, `apps/web/src/lib/protected-routes.ts`, and platform-admin guard paths
+- Privacy and audit routes live in `apps/api/src/security`
 
-## Tests
+## Jobs / Automations
 
-- API: `apps/api/src/**/*.spec.ts`.
-- Web: `apps/web/src/**/*.test.ts(x)`, `apps/web/src/**/*.spec.ts(x)`.
-- E2E: `apps/web/cypress/e2e/*.cy.ts`.
-- Shared: package-local `*.spec.ts`.
-- Behavior change: RED -> GREEN -> REFACTOR.
-- Bug fix: regression test first.
+- Automation send, scheduler, trigger, composer, and settings services live in `apps/api/src/automation`
+- Operations visibility lives in `apps/api/src/operations`
+- Appointment lifecycle scheduler also exists under appointments
+- Provider health and alerts exist under operations and platform-admin routes
 
-## Commands
+## External Integrations
 
-- Core: `bun run dev`, `bun run build`, `bun run typecheck`, `bun run lint`, `bun run test`.
-- Scoped: `bun run dev:web`, `bun run dev:api`, `bun run build:web`, `bun run build:api`.
-- DB: `bun run db:setup`, `bun run db:generate`, `bun run db:migrate`, `bun run db:seed`, `bun run db:reset`, `bun run db:reconcile-orphans`, `bun run db:studio`.
-- AI docs: `bun run update:ai-indexes`, `bun run check:assistant-context-governance`.
+- Clerk: auth
+- OpenAI: AI and assistant flows
+- PayMongo and LemonSqueezy: billing/payment paths
+- Twilio and Semaphore: SMS and webhook paths
+- Resend: email
+- PostgreSQL: primary persistence
+- Svix dependency present in root package. Source usage not verified in bootstrap scan.
 
-## Risk
+## Verification Commands
 
-- High: auth, billing, security, AI policy, DB/schema, provider webhooks, CI/CD, Docker production.
-- Medium: shared packages, route contracts, onboarding, imports.
-- Low: docs, prompts, file ledger, non-behavioral editor config.
+Verified from package scripts:
 
-## Performance
+- `bun run build`
+- `bun run build:web`
+- `bun run build:api`
+- `bun run typecheck`
+- `bun run lint`
+- `bun run test`
+- `bun run update:ai-indexes`
+- `bun run check:assistant-context-governance`
 
-- Web: avoid waterfalls, oversized client components, rerender waste.
-- API: avoid N+1 queries, blocking request work, unpaginated lists.
-- Validate early. Paginate large data.
+## Risk Notes
+
+- Deep by default: billing, payments, SMS credits, auth, permissions, automations, webhooks, migrations, transactions
+- Medium risk: imports, platform-admin read models, shared package contract changes
+- Low risk: docs, prompts, AI workflow bootstrap files

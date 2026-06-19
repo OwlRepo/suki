@@ -1,74 +1,89 @@
-Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
-Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
-Last updated: 2026-06-18T18:07:23.439Z
 # AI Entry Point
 
-Split brain:
+Purpose:
 
-- Claude Code plans.
-- Codex executes.
-- `.ai-scratchpad.md` is transient handoff truth.
+Start here for repository AI workflow.
+
+This file is map only.
+
+It is not proof of behavior.
+
+Verify final conclusions against real source code, tests, types, schemas, routes, controllers, services, stores, components, API contracts, and database definitions.
+
+## Developer Workflow
+
+Planner flow:
+
+```txt
+Handle this task:
+
+[paste details]
+```
+
+After Claude discovery or plan approval:
+
+```txt
+Approved. Create implementation handoff.
+```
+
+Executor flow:
+
+```txt
+Implement from `.ai-scratchpad.md`.
+```
+
+Validation flow:
+
+```txt
+Validate from `.ai-scratchpad.md`.
+```
+
+## Split Brain
+
+- Claude routes, investigates, plans, writes handoff.
+- Codex implements and validates only from `.ai-scratchpad.md`.
+- Human approval required before risky implementation handoff.
+
+## Context Engineering
+
+- `docs/ai/task-router.md` classifies raw requests.
+- `docs/ai/module-ownership-map.md` maps business domains.
+- `docs/ai/file-index/repository-map.md` maps paths.
+- `docs/ai/architecture-manifest.md` maps repo shape and boundaries.
+- Navigation docs are maps only. They are not proof.
+
+## Contract Engineering
+
+- `docs/ai/contracts/api-contracts.md` maps FE-BE contracts.
+- `docs/ai/contracts/db-contracts.md` maps DB models and invariants.
+- `docs/ai/testing-strategy.md` maps verification depth.
+- `docs/ai/risk-register.md` maps Deep-risk areas.
+- `docs/ai/context-refresh.md` defines stale-doc refresh flow.
 
 ## Load Order
 
-Code task:
+1. `docs/ai/task-router.md`
+2. `docs/ai/module-ownership-map.md`
+3. `docs/ai/contracts/api-contracts.md`
+4. `docs/ai/contracts/db-contracts.md`
+5. `docs/ai/testing-strategy.md`
+6. `docs/ai/risk-register.md`
+7. `docs/ai/file-index/repository-map.md`
+8. Related tests
+9. Target source files
 
-1. `docs/ai/architecture-manifest.md`
-2. `docs/ai/file-index/repository-map.md`
-3. Related tests
-4. Target source files
+Read least context needed.
 
-Read least context needed. Repo truth beats docs.
+## Prompt Routes
 
-## Route
+- Bug RCA -> `docs/ai/prompts/bugfix-rca.md`
+- Approved bug plan -> `docs/ai/prompts/bugfix-plan.md`
+- Feature discovery and plan -> `docs/ai/prompts/feature-plan.md`
+- Behavior-preserving refactor plan -> `docs/ai/prompts/refactor-plan.md`
 
-Choose exactly one lane.
+## Source Verification Rule
 
-- BUG / RCA: diagnose -> prove cause -> human approval -> exact plan -> human approval -> `.ai-scratchpad.md`.
-- MUTATION: map boundaries -> find tests -> exact plan -> human approval -> `.ai-scratchpad.md`.
-- READ-ONLY: discover -> evidence-backed answer -> stop. No file generation.
-
-## Planner Contract
-
-- Follow `CLAUDE.md`.
-- Plan Mode.
-- No source edits.
-- Only approved handoff may write `.ai-scratchpad.md`.
-- Real paths. Exact symbols. No optional work.
-
-## Executor Contract
-
-- Follow `.codex/instructions.md`.
-- Read `.ai-scratchpad.md`.
-- Execute directives in order.
-- No redesign, optimization, or scope growth.
-- Stop on ambiguity or unsafe instruction.
-
-## TDD
-
-- Mandatory for behavior change.
-- RED: smallest failing test first.
-- GREEN: minimum code.
-- REFACTOR: no new behavior.
-- Bug fix needs regression test.
-- Exempt: docs, formatting, comments, file index, generated docs, non-behavioral config.
-- Visual-only UI: DOM/a11y checks when possible. Human visual check if code cannot prove layout.
-
-## Gates
-
-- Deterministic plan before code.
-- No dependency without human approval.
-- Never commit on `main` or `master`.
-- Conventional Commits.
-- High risk needs explicit approval: auth, billing, security, privacy, schema, providers, AI policy, CI/CD, production.
-- Test, build, typecheck, or lint fails 3 times: stop. Print failure chain. Ask human review.
-- After code change: update affected repository ledger rows. Update architecture manifest only when truth changed.
-
-## File Index Maintenance
-
-1. Run `git status --short`.
-2. Run `git diff --name-only`.
-3. Map changed paths to ledger rows.
-4. Update affected rows only.
-5. Verify every changed path exists or was intentionally removed.
-6. Fail completion if AI integration docs stale.
+- Source code wins over docs.
+- Mark `CONTEXT DRIFT` when navigation docs conflict with code.
+- Mark `CONTRACT DRIFT` when contract docs conflict with code.
+- Mark `UNMAPPED DOMAIN`, `UNMAPPED CONTRACT`, or `UNMAPPED RISK` when coverage is missing.
