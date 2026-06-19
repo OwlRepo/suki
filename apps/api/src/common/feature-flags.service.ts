@@ -97,8 +97,6 @@ const FLAG_DEFAULTS: Partial<Record<FeatureFlag, boolean>> = {
   self_serve_billing_enabled: false,
   annual_billing_checkout_enabled: false,
   manual_billing_controls_enabled: true,
-  openai_native_assistant_stream_enabled: false,
-  openai_native_assistant_tools_enabled: false,
   openai_native_assistant_mutations_enabled: false,
 };
 

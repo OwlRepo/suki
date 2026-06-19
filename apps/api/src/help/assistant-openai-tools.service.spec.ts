@@ -9,6 +9,8 @@ const answerSource = {
 };
 
 const readModel = {
+  getOnboardingStatus: vi.fn(),
+  getSubscriptionAndLimits: vi.fn(),
   getOwnerDailyBriefing: vi.fn(),
   getAppointmentsSummary: vi.fn(),
   getNeedsReviewSummary: vi.fn(),
@@ -19,7 +21,16 @@ const readModel = {
   getBusinessPerformanceComparison: vi.fn(),
   getBookingAvailability: vi.fn(),
   getMessageDeliveryHealth: vi.fn(),
+  getAutomationRuns: vi.fn(),
+  diagnoseReminderIssue: vi.fn(),
+  diagnoseBookingIssue: vi.fn(),
+  explainMessageStatus: vi.fn(),
+  explainSmsUsage: vi.fn(),
+  getRecommendedNextActions: vi.fn(),
   findCustomers: vi.fn(),
+  getCustomerTimeline: vi.fn(),
+  getAppointmentDetails: vi.fn(),
+  getBillingRequests: vi.fn(),
   listAppointments: vi.fn(),
   draftWinbackMessage: vi.fn(),
   draftReminderMessage: vi.fn(),
@@ -61,6 +72,8 @@ describe("AssistantOpenAiToolsService", () => {
       "get_billing_status",
       "get_ai_usage",
       "route_guidance",
+      "get_onboarding_status",
+      "get_subscription_and_limits",
       "get_owner_daily_briefing",
       "get_appointments_summary",
       "get_needs_review_summary",
@@ -71,7 +84,16 @@ describe("AssistantOpenAiToolsService", () => {
       "get_business_performance_comparison",
       "get_booking_availability",
       "get_message_delivery_health",
+      "get_automation_runs",
+      "diagnose_reminder_issue",
+      "diagnose_booking_issue",
+      "explain_message_status",
+      "explain_sms_usage",
+      "get_recommended_next_actions",
       "find_customers",
+      "get_customer_timeline",
+      "get_appointment_details",
+      "get_billing_requests",
       "list_appointments",
       "draft_winback_message",
       "draft_reminder_message",
@@ -286,5 +308,25 @@ describe("AssistantOpenAiToolsService", () => {
         warning: "Draft only. Nothing was saved or sent.",
       }),
     );
+  });
+
+  it("dispatches organization-scoped billing request reads with authenticated tenant scope", async () => {
+    readModel.getBillingRequests.mockResolvedValue({
+      openCount: 0,
+      items: [],
+    });
+    const service = createService();
+
+    await service.execute({
+      organizationId: "org-authenticated",
+      businessId: "biz-authenticated",
+      name: "get_billing_requests",
+      argumentsJson: '{"organizationId":"org-attacker","limit":3}',
+    });
+
+    expect(readModel.getBillingRequests).toHaveBeenCalledWith({
+      organizationId: "org-authenticated",
+      limit: 3,
+    });
   });
 });

@@ -10,6 +10,8 @@ const EXPECTED_TOOLS = [
   "get_billing_status",
   "get_ai_usage",
   "route_guidance",
+  "get_onboarding_status",
+  "get_subscription_and_limits",
   "get_owner_daily_briefing",
   "get_appointments_summary",
   "get_needs_review_summary",
@@ -20,7 +22,16 @@ const EXPECTED_TOOLS = [
   "get_business_performance_comparison",
   "get_booking_availability",
   "get_message_delivery_health",
+  "get_automation_runs",
+  "diagnose_reminder_issue",
+  "diagnose_booking_issue",
+  "explain_message_status",
+  "explain_sms_usage",
+  "get_recommended_next_actions",
   "find_customers",
+  "get_customer_timeline",
+  "get_appointment_details",
+  "get_billing_requests",
   "list_appointments",
   "draft_winback_message",
   "draft_reminder_message",
@@ -59,6 +70,21 @@ describe("assistant tool policy", () => {
       risk: "scoped_record_read",
       maximumRows: 5,
       piiMode: "masked",
+    });
+    expect(getAssistantToolPolicy("get_customer_timeline")).toMatchObject({
+      risk: "scoped_record_read",
+      maximumRows: 1,
+      piiMode: "masked",
+    });
+    expect(getAssistantToolPolicy("get_appointment_details")).toMatchObject({
+      risk: "scoped_record_read",
+      maximumRows: 1,
+      piiMode: "minimal",
+    });
+    expect(getAssistantToolPolicy("get_billing_requests")).toMatchObject({
+      risk: "scoped_record_read",
+      maximumRows: 10,
+      piiMode: "minimal",
     });
     expect(getAssistantToolPolicy("list_appointments")).toMatchObject({
       risk: "scoped_record_read",

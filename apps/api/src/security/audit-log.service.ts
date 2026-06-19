@@ -8,7 +8,11 @@ export type AuditAction =
   | "billing_addon_purchase"
   | "export"
   | "delete"
-  | "webhook_verification_failed";
+  | "webhook_verification_failed"
+  | "assistant_customer_update"
+  | "assistant_appointment_reschedule"
+  | "assistant_automation_settings_update"
+  | "assistant_sms_topup_request";
 
 @Injectable()
 export class AuditLogService {

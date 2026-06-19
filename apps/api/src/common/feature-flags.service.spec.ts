@@ -58,8 +58,8 @@ describe("FeatureFlagsService", () => {
   it("centralizes assistant flags with rollback-safe defaults", () => {
     process.env.NODE_ENV = "development";
 
-    expect(service.assistantNativeStreamEnabled()).toBe(false);
-    expect(service.assistantDynamicReadToolsEnabled()).toBe(false);
+    expect(service.assistantNativeStreamEnabled()).toBe(true);
+    expect(service.assistantDynamicReadToolsEnabled()).toBe(true);
     expect(service.assistantMutationsEnabled()).toBe(false);
 
     process.env.FF_openai_native_assistant_stream_enabled = "true";
@@ -69,5 +69,13 @@ describe("FeatureFlagsService", () => {
     expect(service.assistantNativeStreamEnabled()).toBe(true);
     expect(service.assistantDynamicReadToolsEnabled()).toBe(true);
     expect(service.assistantMutationsEnabled()).toBe(true);
+  });
+
+  it("keeps native assistant disabled by default in production", () => {
+    process.env.NODE_ENV = "production";
+
+    expect(service.assistantNativeStreamEnabled()).toBe(false);
+    expect(service.assistantDynamicReadToolsEnabled()).toBe(false);
+    expect(service.assistantMutationsEnabled()).toBe(false);
   });
 });

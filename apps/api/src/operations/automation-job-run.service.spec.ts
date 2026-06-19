@@ -98,4 +98,67 @@ describe("AutomationJobRunService", () => {
       message: "provider secret token should not be stored",
     });
   });
+
+  it("lists recent runs with explicit scope limitation metadata", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: "run-1",
+          jobKey: "appointment_reminders",
+          status: "completed",
+          processedCount: 12,
+          successCount: 12,
+          failureCount: 0,
+          errorSummary: null,
+          startedAt: new Date("2026-06-07T09:00:00.000Z"),
+          finishedAt: new Date("2026-06-07T09:01:00.000Z"),
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          lastAppointmentReminderRun: new Date("2026-06-07T09:00:00.000Z"),
+          lastInactivityWinbackRun: null,
+          lastSemaphoreReconciliationRun: null,
+          failedRuns: 0,
+        },
+      ]);
+    vi.mocked(getDb).mockReturnValue({ execute } as never);
+
+    const result = await new AutomationJobRunService().listRecentRuns(
+      "org-1",
+      "biz-1",
+      7,
+    );
+
+    expect(result).toEqual({
+      dataScope: "platform_global",
+      requestedScope: {
+        organizationId: "org-1",
+        businessId: "biz-1",
+      },
+      limitation:
+        "automation_job_runs are not stored per organization or business in current schema.",
+      days: 7,
+      items: [
+        {
+          id: "run-1",
+          jobKey: "appointment_reminders",
+          status: "completed",
+          processedCount: 12,
+          successCount: 12,
+          failureCount: 0,
+          errorSummary: null,
+          startedAt: "2026-06-07T09:00:00.000Z",
+          finishedAt: "2026-06-07T09:01:00.000Z",
+        },
+      ],
+      summary: {
+        lastAppointmentReminderRun: "2026-06-07T09:00:00.000Z",
+        lastInactivityWinbackRun: null,
+        lastSemaphoreReconciliationRun: null,
+        failedRuns: 0,
+      },
+    });
+  });
 });

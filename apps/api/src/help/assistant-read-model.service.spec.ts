@@ -8,8 +8,10 @@ const appointments = {
 };
 const customers = {
   list: vi.fn(),
+  getMessageHistory: vi.fn(),
   countByFilter: vi.fn(),
   findDuplicateCandidates: vi.fn(),
+  findById: vi.fn(),
 };
 const insights = {
   getMonthlyMetrics: vi.fn(),
@@ -23,7 +25,25 @@ const automationSettings = {
 };
 const answerSource = {
   getSmsUsage: vi.fn(),
+  getBillingStatus: vi.fn(),
   getAiUsageSummary: vi.fn(),
+};
+const onboarding = {
+  getProgress: vi.fn(),
+};
+const billingRequests = {
+  listForOrganization: vi.fn(),
+};
+const businesses = {
+  countByOrganization: vi.fn(),
+  findById: vi.fn(),
+};
+const jobRuns = {
+  listRecentRuns: vi.fn(),
+};
+const planCapacity = {
+  getActivePlan: vi.fn(),
+  getBusinessLimitByOrg: vi.fn(),
 };
 
 function createService() {
@@ -34,6 +54,11 @@ function createService() {
     manualFollowUps as never,
     automationSettings as never,
     answerSource as never,
+    onboarding as never,
+    billingRequests as never,
+    businesses as never,
+    jobRuns as never,
+    planCapacity as never,
   );
 }
 
@@ -44,6 +69,16 @@ describe("AssistantReadModelService", () => {
     appointments.listNeedsReview.mockResolvedValue([]);
     customers.countByFilter.mockResolvedValue(0);
     customers.findDuplicateCandidates.mockResolvedValue({ candidates: [] });
+    customers.getMessageHistory.mockResolvedValue([]);
+    customers.findById.mockResolvedValue({
+      id: "customer-1",
+      businessId: "business-1",
+      name: "Ana",
+      mobile: "+639171234567",
+      tags: "vip,returning",
+      visitCount: 3,
+      lastVisitAt: new Date("2026-06-01T00:00:00.000Z"),
+    });
     manualFollowUps.getOpenSummary.mockResolvedValue({
       open: 0,
       duplicateRisk: 0,
@@ -60,9 +95,43 @@ describe("AssistantReadModelService", () => {
     answerSource.getSmsUsage.mockResolvedValue({
       canonical: { remaining: 80 },
     });
-    answerSource.getAiUsageSummary.mockResolvedValue({
-      canonical: { tokensUsed: 20, tokensLimit: 100 },
+    answerSource.getBillingStatus.mockResolvedValue({
+      canonical: {
+        planType: "growth",
+        status: "active",
+        currentPeriodEnd: "2026-06-30T00:00:00.000Z",
+      },
     });
+    answerSource.getAiUsageSummary.mockResolvedValue({
+      canonical: {
+        tokensUsed: 20,
+        tokensLimit: 100,
+        requestsUsed: 4,
+        requestsLimit: 10,
+        dailyTokensRemaining: 30,
+        dailyRequestsRemaining: 6,
+        dailyResetDateTime: "2026-06-20T16:00:00.000Z",
+      },
+    });
+    onboarding.getProgress.mockResolvedValue({
+      currentStep: 2,
+      completedSteps: ["workspace", "business_profile"],
+      timeToFirstValueAt: null,
+    });
+    billingRequests.listForOrganization.mockResolvedValue([]);
+    businesses.countByOrganization.mockResolvedValue(1);
+    businesses.findById.mockResolvedValue({
+      id: "business-1",
+      organizationId: "org-1",
+      name: "Tyvera Spa",
+      businessType: "salon",
+    });
+    jobRuns.listRecentRuns.mockResolvedValue({
+      items: [],
+      summary: { failedRuns: 0 },
+    });
+    planCapacity.getActivePlan.mockResolvedValue("growth");
+    planCapacity.getBusinessLimitByOrg.mockResolvedValue(3);
   });
 
   it("returns masked, capped customer lookup results without sensitive fields", async () => {
@@ -173,6 +242,152 @@ describe("AssistantReadModelService", () => {
       automationWarnings: ["Appointment reminders are disabled."],
       suggestedRoutes: ["/appointments", "/needs-attention", "/settings"],
     });
+  });
+
+  it("returns subscription, limit, and active business metadata without mutating source values", async () => {
+    const result = await createService().getSubscriptionAndLimits({
+      organizationId: "org-1",
+      businessId: "business-1",
+    });
+
+    expect(result).toEqual({
+      plan: "growth",
+      billingStatus: "active",
+      currentPeriodEnd: "2026-06-30T00:00:00.000Z",
+      branchUsage: {
+        used: 1,
+        limit: 3,
+        remaining: 2,
+      },
+      sms: {
+        remaining: 80,
+        total: 0,
+        pausedReason: "none",
+      },
+      ai: {
+        dailyRequestsRemaining: 6,
+        dailyTokensRemaining: 30,
+        monthlyRequestsRemaining: 6,
+        monthlyTokensRemaining: 80,
+        dailyResetDateTime: "2026-06-20T16:00:00.000Z",
+      },
+      activeBusiness: {
+        id: "business-1",
+        name: "Tyvera Spa",
+        businessType: "salon",
+      },
+    });
+  });
+
+  it("returns privacy-safe customer timeline without raw contact or failure details", async () => {
+    appointments.list.mockResolvedValue({
+      items: [
+        {
+          id: "appointment-1",
+          customerId: "customer-1",
+          scheduledAt: new Date("2026-06-20T02:00:00.000Z"),
+          status: "scheduled",
+          visitRecordedAt: null,
+        },
+        {
+          id: "appointment-2",
+          customerId: "customer-2",
+          scheduledAt: new Date("2026-06-19T02:00:00.000Z"),
+          status: "completed",
+          visitRecordedAt: null,
+        },
+      ],
+    });
+    customers.getMessageHistory.mockResolvedValue([
+      {
+        id: "message-1",
+        channel: "sms",
+        purpose: "transactional",
+        status: "sent",
+        deliveryStatus: "delivered",
+        failureReason: "provider secret detail",
+        sentAt: "2026-06-19T01:00:00.000Z",
+        createdAt: "2026-06-19T00:59:00.000Z",
+      },
+    ]);
+
+    const result = await createService().getCustomerTimeline({
+      organizationId: "org-1",
+      businessId: "business-1",
+      customerId: "customer-1",
+    });
+
+    expect(result).toEqual({
+      customer: {
+        id: "customer-1",
+        displayName: "Ana",
+        maskedMobile: "••••••4567",
+        visitCount: 3,
+        lastVisitAt: "2026-06-01T00:00:00.000Z",
+        tags: ["vip", "returning"],
+      },
+      recentAppointments: [
+        {
+          id: "appointment-1",
+          scheduledAt: "2026-06-20T02:00:00.000Z",
+          status: "scheduled",
+          visitRecordedAt: null,
+        },
+      ],
+      recentMessages: [
+        {
+          id: "message-1",
+          channel: "sms",
+          purpose: "transactional",
+          status: "sent",
+          deliveryStatus: "delivered",
+          sentAt: "2026-06-19T01:00:00.000Z",
+          createdAt: "2026-06-19T00:59:00.000Z",
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain("provider secret detail");
+    expect(JSON.stringify(result)).not.toContain("+639");
+  });
+
+  it("prioritizes recommended next actions from review, follow-up, automation, and onboarding signals", async () => {
+    appointments.list.mockResolvedValue([{ status: "scheduled" }]);
+    appointments.listNeedsReview.mockResolvedValue([{ id: "needs-review-1" }]);
+    manualFollowUps.getOpenSummary.mockResolvedValue({
+      open: 2,
+      duplicateRisk: 0,
+      byFailureReason: [],
+    });
+    automationSettings.getSnapshot.mockResolvedValue({
+      appointmentRemindersEnabled: false,
+      appointmentReminder72hEnabled: false,
+      missedRecoveryEnabled: true,
+      postVisitFollowUpEnabled: true,
+      inactivityWinbackEnabled: true,
+      loyaltyUnlockEnabled: true,
+    });
+    billingRequests.listForOrganization.mockResolvedValue([
+      {
+        id: "request-1",
+        status: "submitted",
+        createdAt: new Date("2026-06-18T00:00:00.000Z"),
+        updatedAt: new Date("2026-06-18T00:00:00.000Z"),
+      },
+    ]);
+
+    const result = await createService().getRecommendedNextActions({
+      organizationId: "org-1",
+      businessId: "business-1",
+    });
+
+    expect(result.summary).toBe("1 appointments need review.");
+    expect(result.items.map((item) => item.href)).toEqual([
+      "/needs-attention",
+      "/customers",
+      "/settings",
+      "/onboarding",
+      "/settings",
+    ]);
   });
 
   it("provides bounded aggregate reads without exposing source records", async () => {

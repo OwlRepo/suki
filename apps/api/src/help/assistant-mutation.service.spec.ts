@@ -17,11 +17,16 @@ const planCapacity = {
   isReadOnly: vi.fn(),
 };
 
+const auditLog = {
+  log: vi.fn(),
+};
+
 function createService() {
   return new AssistantMutationService(
     customers as never,
     appointments as never,
     planCapacity as never,
+    auditLog as never,
   );
 }
 
@@ -30,6 +35,7 @@ describe("AssistantMutationService", () => {
     vi.clearAllMocks();
     vi.stubEnv("AUTH_SESSION_SECRET", "test-assistant-confirmation-secret");
     planCapacity.isReadOnly.mockResolvedValue(false);
+    auditLog.log.mockResolvedValue(undefined);
     customers.findById.mockResolvedValue({
       id: "customer-1",
       businessId: "business-1",
@@ -127,6 +133,17 @@ describe("AssistantMutationService", () => {
     expect(customers.update).toHaveBeenCalledWith("customer-1", "org-1", {
       name: "Ana Reyes",
     });
+    expect(auditLog.log).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: "assistant_customer_update",
+      entity: "customer",
+      entityId: "customer-1",
+      details: {
+        alreadyApplied: false,
+        changedFields: ["name"],
+      },
+    });
     expect(result).toEqual({
       status: "ok",
       action: "update_customer",
@@ -160,6 +177,7 @@ describe("AssistantMutationService", () => {
       }),
     ).rejects.toThrow("ASSISTANT_CONFIRMATION_SCOPE_MISMATCH");
     expect(customers.update).not.toHaveBeenCalled();
+    expect(auditLog.log).not.toHaveBeenCalled();
   });
 
   it("rejects tampered confirmation tokens", async () => {

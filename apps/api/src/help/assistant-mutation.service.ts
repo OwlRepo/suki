@@ -5,6 +5,11 @@ import { normalizePhilippineMobileE164 } from "@tyvera/types";
 import { CustomersService } from "../customers/customers.service";
 import { AppointmentsService } from "../appointments/appointments.service";
 import { PlanCapacityService } from "../common/plan-capacity.service";
+import { getAssistantToolPolicy } from "./assistant-tool-policy";
+import {
+  AuditLogService,
+  type AuditAction,
+} from "../security/audit-log.service";
 
 type AssistantMutationToolName =
   | "find_customers"
@@ -21,6 +26,11 @@ type CustomerChanges = {
   notes?: string;
   preferences?: string;
   tags?: string;
+};
+
+type MutationAuditDescriptor = {
+  action: AuditAction;
+  entity: string;
 };
 
 type ConfirmationPayload = {
@@ -45,6 +55,16 @@ type ExecuteMutationToolInput = {
 };
 
 const CONFIRMATION_TTL_MS = 5 * 60 * 1000;
+const MUTATION_AUDIT: Record<MutationAction, MutationAuditDescriptor> = {
+  update_customer: {
+    action: "assistant_customer_update",
+    entity: "customer",
+  },
+  reschedule_appointment: {
+    action: "assistant_appointment_reschedule",
+    entity: "appointment",
+  },
+};
 
 function parseObject(value: string): Record<string, unknown> | null {
   try {
@@ -100,6 +120,7 @@ export class AssistantMutationService {
     private readonly customers: CustomersService,
     private readonly appointments: AppointmentsService,
     private readonly planCapacity: PlanCapacityService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   getToolDefinitions(): OpenAI.Responses.Tool[] {
@@ -339,6 +360,16 @@ export class AssistantMutationService {
       const snapshot = customerSnapshot(current as Record<string, unknown>);
       const changes = payload.changes as CustomerChanges;
       if (this.customerChangesApplied(snapshot, changes)) {
+        await this.auditConfirmedMutation({
+          payload,
+          targetId: payload.targetId,
+          details: {
+            alreadyApplied: true,
+            changedFields: Object.keys(changes),
+          },
+          organizationId: input.organizationId,
+          userId: input.userId,
+        });
         return {
           status: "ok",
           action: payload.action,
@@ -354,6 +385,16 @@ export class AssistantMutationService {
         input.organizationId,
         changes,
       );
+      await this.auditConfirmedMutation({
+        payload,
+        targetId: payload.targetId,
+        details: {
+          alreadyApplied: false,
+          changedFields: Object.keys(changes),
+        },
+        organizationId: input.organizationId,
+        userId: input.userId,
+      });
       return { status: "ok", action: payload.action, result };
     }
 
@@ -378,6 +419,17 @@ export class AssistantMutationService {
       snapshot.scheduledAt === scheduledAt.toISOString() &&
       (notes === undefined || snapshot.notes === notes)
     ) {
+      await this.auditConfirmedMutation({
+        payload,
+        targetId: payload.targetId,
+        details: {
+          alreadyApplied: true,
+          scheduledAt: scheduledAt.toISOString(),
+          notesChanged: notes !== undefined,
+        },
+        organizationId: input.organizationId,
+        userId: input.userId,
+      });
       return {
         status: "ok",
         action: payload.action,
@@ -393,6 +445,17 @@ export class AssistantMutationService {
       input.organizationId,
       { scheduledAt, ...(notes !== undefined && { notes }) },
     );
+    await this.auditConfirmedMutation({
+      payload,
+      targetId: payload.targetId,
+      details: {
+        alreadyApplied: false,
+        scheduledAt: scheduledAt.toISOString(),
+        notesChanged: notes !== undefined,
+      },
+      organizationId: input.organizationId,
+      userId: input.userId,
+    });
     return { status: "ok", action: payload.action, result };
   }
 
@@ -615,6 +678,28 @@ export class AssistantMutationService {
   private secret(): string | null {
     const value = process.env.AUTH_SESSION_SECRET;
     return value && !value.includes("placeholder") ? value : null;
+  }
+
+  private async auditConfirmedMutation(input: {
+    payload: ConfirmationPayload;
+    targetId: string;
+    details: Record<string, unknown>;
+    organizationId: string;
+    userId: string;
+  }) {
+    const policy = getAssistantToolPolicy(input.payload.action);
+    if (!policy.auditRequired) {
+      throw new Error("ASSISTANT_MUTATION_AUDIT_POLICY_MISSING");
+    }
+    const descriptor = MUTATION_AUDIT[input.payload.action];
+    await this.auditLog.log({
+      organizationId: input.organizationId,
+      actorUserId: input.userId,
+      action: descriptor.action,
+      entity: descriptor.entity,
+      entityId: input.targetId,
+      details: input.details,
+    });
   }
 
   private isSupportedTool(name: string): name is AssistantMutationToolName {

@@ -7,6 +7,10 @@ import { AiModule } from "../ai/ai.module";
 import { AppointmentsModule } from "../appointments/appointments.module";
 import { CustomersModule } from "../customers/customers.module";
 import { AutomationModule } from "../automation/automation.module";
+import { OperationsModule } from "../operations/operations.module";
+import { SecurityModule } from "../security/security.module";
+import { OnboardingService } from "../onboarding/onboarding.service";
+import { BusinessesService } from "../businesses/businesses.service";
 import { AnswerSourceController } from "./answer-source.controller";
 import { AnswerSourceService } from "./answer-source.service";
 import { AssistantController } from "./assistant.controller";
@@ -26,9 +30,13 @@ import { AssistantThreadMemoryService } from "./assistant-thread-memory.service"
     AppointmentsModule,
     CustomersModule,
     AutomationModule,
+    OperationsModule,
+    SecurityModule,
   ],
   controllers: [AnswerSourceController, AssistantController],
   providers: [
+    OnboardingService,
+    BusinessesService,
     AnswerSourceService,
     AssistantService,
     AssistantThreadMemoryService,

@@ -43,7 +43,7 @@ type AssistantMessage = {
   actionChips?: Array<{ label: string; href: string; kind: "primary" | "secondary" }>;
   confirmation?: {
     token: string;
-    action: "update_customer" | "reschedule_appointment";
+    action: string;
     summary: string;
     expiresAt: string;
     state?: "pending" | "submitting" | "applied" | "error";
@@ -443,8 +443,7 @@ export function TyveraAssistant() {
         const value = payload.confirmation as Record<string, unknown>;
         if (
           typeof value.token === "string" &&
-          (value.action === "update_customer" ||
-            value.action === "reschedule_appointment") &&
+          typeof value.action === "string" &&
           typeof value.summary === "string" &&
           typeof value.expiresAt === "string"
         ) {
@@ -843,21 +842,26 @@ export function TyveraAssistant() {
                   </p>
                 )}
                 {!!message.actionChips?.length && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {message.actionChips.map((chip) => (
-                      <Link
-                        key={`${message.id}-${chip.label}-${chip.href}`}
-                        href={chip.href}
-                        className={cn(
-                          "min-h-[44px] rounded-full border px-3 py-2 text-xs font-semibold transition-colors",
-                          chip.kind === "primary"
-                            ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-                            : "border-border/80 bg-background/80 hover:bg-muted",
-                        )}
-                      >
-                        {chip.label}
-                      </Link>
-                    ))}
+                  <div className="mt-2.5 rounded-xl border border-border/70 bg-background/60 p-2.5">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Recommended Next Actions
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.actionChips.map((chip) => (
+                        <Link
+                          key={`${message.id}-${chip.label}-${chip.href}`}
+                          href={chip.href}
+                          className={cn(
+                            "min-h-[44px] rounded-full border px-3 py-2 text-xs font-semibold transition-colors",
+                            chip.kind === "primary"
+                              ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+                              : "border-border/80 bg-background/80 hover:bg-muted",
+                          )}
+                        >
+                          {chip.label}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {message.details && (
@@ -876,7 +880,10 @@ export function TyveraAssistant() {
                       Show details
                     </Button>
                     {expandedDetails[message.id] && (
-                      <div className="mt-1 text-xs text-muted-foreground">
+                      <div className="mt-1 rounded-xl border border-border/70 bg-background/60 p-2.5 text-xs text-muted-foreground">
+                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Diagnostic Details
+                        </p>
                         <AssistantMarkdown text={message.details} />
                       </div>
                     )}

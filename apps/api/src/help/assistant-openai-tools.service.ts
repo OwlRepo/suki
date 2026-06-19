@@ -13,6 +13,8 @@ export type AssistantNativeReadToolName =
   | "get_billing_status"
   | "get_ai_usage"
   | "route_guidance"
+  | "get_onboarding_status"
+  | "get_subscription_and_limits"
   | "get_owner_daily_briefing"
   | "get_appointments_summary"
   | "get_needs_review_summary"
@@ -23,7 +25,16 @@ export type AssistantNativeReadToolName =
   | "get_business_performance_comparison"
   | "get_booking_availability"
   | "get_message_delivery_health"
+  | "get_automation_runs"
+  | "diagnose_reminder_issue"
+  | "diagnose_booking_issue"
+  | "explain_message_status"
+  | "explain_sms_usage"
+  | "get_recommended_next_actions"
   | "find_customers"
+  | "get_customer_timeline"
+  | "get_appointment_details"
+  | "get_billing_requests"
   | "list_appointments"
   | "draft_winback_message"
   | "draft_reminder_message";
@@ -143,6 +154,14 @@ export class AssistantOpenAiToolsService {
         "Read the fixed safe Tyvera application routes.",
       ),
       functionTool(
+        "get_onboarding_status",
+        "Read onboarding progress for the authenticated organization.",
+      ),
+      functionTool(
+        "get_subscription_and_limits",
+        "Read current subscription status and safe product limits for the authenticated organization.",
+      ),
+      functionTool(
         "get_owner_daily_briefing",
         "Read a privacy-safe daily operational briefing for the authenticated business.",
         {
@@ -226,10 +245,83 @@ export class AssistantOpenAiToolsService {
         },
       ),
       functionTool(
+        "get_automation_runs",
+        "Read recent automation scheduler run health with current schema scope limitations.",
+        {
+          days: { type: "integer", enum: [1, 7, 30] },
+        },
+      ),
+      functionTool(
+        "diagnose_reminder_issue",
+        "Diagnose likely reminder-delivery issues using settings, scheduler health, and aggregate delivery data.",
+        {
+          days: { type: "integer", enum: [7, 30, 90] },
+        },
+      ),
+      functionTool(
+        "diagnose_booking_issue",
+        "Diagnose booking availability issues using current and next-month availability data only.",
+      ),
+      functionTool(
+        "explain_message_status",
+        "Explain a safe human-readable meaning for a message status without exposing provider internals.",
+        {
+          status: { type: "string", minLength: 1, maxLength: 64 },
+          deliveryStatus: {
+            type: ["string", "null"],
+            minLength: 1,
+            maxLength: 64,
+          },
+          channel: {
+            type: ["string", "null"],
+            minLength: 1,
+            maxLength: 32,
+          },
+          failureReason: {
+            type: ["string", "null"],
+            minLength: 1,
+            maxLength: 120,
+          },
+        },
+      ),
+      functionTool(
+        "explain_sms_usage",
+        "Explain SMS usage and pause state for the authenticated organization.",
+      ),
+      functionTool(
+        "get_recommended_next_actions",
+        "Read prioritized next actions for the authenticated business using onboarding, review, automation, and billing signals.",
+      ),
+      functionTool(
         "find_customers",
         "Find up to five authenticated-business customers with masked mobile numbers and no private profile fields.",
         {
           query: { type: "string", minLength: 1, maxLength: 120 },
+        },
+      ),
+      functionTool(
+        "get_customer_timeline",
+        "Read a privacy-safe recent customer timeline with masked contact details.",
+        {
+          customerId: { type: "string", minLength: 1, maxLength: 100 },
+        },
+      ),
+      functionTool(
+        "get_appointment_details",
+        "Read privacy-safe appointment details without exposing notes or contact details.",
+        {
+          appointmentId: { type: "string", minLength: 1, maxLength: 100 },
+        },
+      ),
+      functionTool(
+        "get_billing_requests",
+        "Read recent billing requests for the authenticated organization.",
+        {
+          limit: {
+            type: ["integer", "null"],
+            minimum: 1,
+            maximum: 10,
+          },
         },
       ),
       functionTool(
@@ -344,6 +436,21 @@ export class AssistantOpenAiToolsService {
           );
         case "route_guidance":
           return this.ok(input.name, { routes: [...SAFE_ROUTES] });
+        case "get_onboarding_status":
+          return this.ok(
+            input.name,
+            await this.readModel.getOnboardingStatus({
+              organizationId: input.organizationId,
+            }),
+          );
+        case "get_subscription_and_limits":
+          return this.ok(
+            input.name,
+            await this.readModel.getSubscriptionAndLimits({
+              organizationId: input.organizationId,
+              businessId: input.businessId,
+            }),
+          );
         case "get_owner_daily_briefing":
           return this.ok(
             input.name,
@@ -432,6 +539,57 @@ export class AssistantOpenAiToolsService {
               days: this.deliveryDays(args.days),
             }),
           );
+        case "get_automation_runs":
+          return this.ok(
+            input.name,
+            await this.readModel.getAutomationRuns({
+              organizationId: input.organizationId,
+              businessId: input.businessId,
+              days: this.automationRunDays(args.days),
+            }),
+          );
+        case "diagnose_reminder_issue":
+          return this.ok(
+            input.name,
+            await this.readModel.diagnoseReminderIssue({
+              organizationId: input.organizationId,
+              businessId: input.businessId!,
+              days: this.deliveryDays(args.days),
+            }),
+          );
+        case "diagnose_booking_issue":
+          return this.ok(
+            input.name,
+            await this.readModel.diagnoseBookingIssue({
+              organizationId: input.organizationId,
+              businessId: input.businessId!,
+            }),
+          );
+        case "explain_message_status":
+          return this.ok(
+            input.name,
+            this.readModel.explainMessageStatus({
+              status: optionalString(args, "status") ?? "",
+              deliveryStatus: optionalString(args, "deliveryStatus"),
+              channel: optionalString(args, "channel"),
+              failureReason: optionalString(args, "failureReason"),
+            }),
+          );
+        case "explain_sms_usage":
+          return this.ok(
+            input.name,
+            await this.readModel.explainSmsUsage({
+              organizationId: input.organizationId,
+            }),
+          );
+        case "get_recommended_next_actions":
+          return this.ok(
+            input.name,
+            await this.readModel.getRecommendedNextActions({
+              organizationId: input.organizationId,
+              businessId: input.businessId!,
+            }),
+          );
         case "find_customers":
           return this.ok(
             input.name,
@@ -439,6 +597,32 @@ export class AssistantOpenAiToolsService {
               organizationId: input.organizationId,
               businessId: input.businessId!,
               query: optionalString(args, "query") ?? "",
+            }),
+          );
+        case "get_customer_timeline":
+          return this.ok(
+            input.name,
+            await this.readModel.getCustomerTimeline({
+              organizationId: input.organizationId,
+              businessId: input.businessId!,
+              customerId: optionalString(args, "customerId") ?? "",
+            }),
+          );
+        case "get_appointment_details":
+          return this.ok(
+            input.name,
+            await this.readModel.getAppointmentDetails({
+              organizationId: input.organizationId,
+              businessId: input.businessId!,
+              appointmentId: optionalString(args, "appointmentId") ?? "",
+            }),
+          );
+        case "get_billing_requests":
+          return this.ok(
+            input.name,
+            await this.readModel.getBillingRequests({
+              organizationId: input.organizationId,
+              limit: optionalInteger(args, "limit"),
             }),
           );
         case "list_appointments":
@@ -492,6 +676,10 @@ export class AssistantOpenAiToolsService {
 
   private deliveryDays(value: unknown): 7 | 30 | 90 {
     return value === 7 || value === 90 ? value : 30;
+  }
+
+  private automationRunDays(value: unknown): 1 | 7 | 30 {
+    return value === 1 || value === 30 ? value : 7;
   }
 
   private isSupportedTool(
