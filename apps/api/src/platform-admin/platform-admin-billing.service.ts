@@ -7,6 +7,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
+  clientBillingRequests,
   creditReconciliationEvents,
   getDb,
   manualBillingEmailDeliveries,
@@ -26,6 +27,7 @@ import {
 } from "@tyvera/database";
 import type {
   BillingAddonSku,
+  ClientBillingRequestStatus,
   ManualBillingSku,
   ManualBillingRequestStatus,
   ManualPaymentMethod,
@@ -56,6 +58,7 @@ import {
 } from "./manual-subscription-policy";
 import type { ActivePlatformAdmin } from "./platform-admin.service";
 import { PlatformAdminBillingEmailService } from "./platform-admin-billing-email.service";
+import { ClientBillingRequestService } from "../billing/client-billing-request.service";
 
 type BillingTx = {
   select: ReturnType<typeof getDb>["select"];
@@ -106,7 +109,125 @@ export class PlatformAdminBillingService {
     private readonly verifiedBookingAddonGrant: VerifiedBookingAddonGrantService,
     private readonly featureFlags: FeatureFlagsService,
     private readonly billingEmails: PlatformAdminBillingEmailService,
+    private readonly clientBillingRequestService: ClientBillingRequestService,
   ) {}
+
+  async listClientBillingRequests(
+    actor: ActivePlatformAdmin,
+    input: { status?: ClientBillingRequestStatus | "all" | null } = {},
+  ) {
+    this.ensurePermission(actor, "CLIENT_BILLING_REQUEST_VIEW");
+    const requests =
+      await this.clientBillingRequestService.listByStatus(input.status);
+    return {
+      clientBillingRequests: await Promise.all(
+        requests.map((request) => this.serializeClientBillingRequest(request)),
+      ),
+    };
+  }
+
+  async getClientBillingRequest(
+    actor: ActivePlatformAdmin,
+    requestId: string,
+  ) {
+    this.ensurePermission(actor, "CLIENT_BILLING_REQUEST_VIEW");
+    return this.serializeClientBillingRequest(
+      await this.clientBillingRequestService.getByIdOrThrow(requestId),
+    );
+  }
+
+  async startClientBillingRequestReview(
+    actor: ActivePlatformAdmin,
+    requestId: string,
+  ) {
+    this.ensurePermission(actor, "CLIENT_BILLING_REQUEST_RESOLVE");
+    const updated = await this.clientBillingRequestService.markUnderReview(
+      requestId,
+      actor.id,
+    );
+    await this.writeClientBillingRequestAudit(actor, updated, "review_started");
+    return this.serializeClientBillingRequest(updated);
+  }
+
+  async declineClientBillingRequest(
+    actor: ActivePlatformAdmin,
+    requestId: string,
+    input: { decisionNote?: string | null },
+  ) {
+    this.ensurePermission(actor, "CLIENT_BILLING_REQUEST_RESOLVE");
+    const updated = await this.clientBillingRequestService.markDeclined(
+      requestId,
+      actor.id,
+      input.decisionNote ?? "",
+    );
+    await this.writeClientBillingRequestAudit(actor, updated, "declined");
+    return this.serializeClientBillingRequest(updated);
+  }
+
+  async approveClientBillingRequest(
+    actor: ActivePlatformAdmin,
+    requestId: string,
+    input: { decisionNote?: string | null },
+  ) {
+    this.ensurePermission(actor, "CLIENT_BILLING_REQUEST_RESOLVE");
+    const request =
+      await this.clientBillingRequestService.getByIdOrThrow(requestId);
+    if (
+      request.status !== "submitted" &&
+      request.status !== "under_review"
+    ) {
+      throw new ConflictException({
+        code: "INVALID_CLIENT_BILLING_REQUEST_STATUS",
+        status: request.status,
+      });
+    }
+    let linkedBillingRequestId: string | null = null;
+
+    if (request.kind === "cancellation") {
+      if (!input.decisionNote?.trim()) {
+        throw new BadRequestException(
+          "Decision note is required for cancellation approval.",
+        );
+      }
+    } else if (request.kind === "plan_change") {
+      if (
+        !request.requestedPlanType ||
+        request.requestedPlanType === "free"
+      ) {
+        throw new BadRequestException("Client plan request is invalid.");
+      }
+      const created = await this.createBillingRequest(actor, {
+        organizationId: request.organizationId,
+        sku: `${request.requestedPlanType}-monthly`,
+        quantity: 1,
+        notes: input.decisionNote?.trim() || null,
+      });
+      linkedBillingRequestId = created.billingRequest.id;
+    } else if (request.kind === "sms_topup") {
+      if (!request.requestedSku || !request.requestedQuantity) {
+        throw new BadRequestException("Client SMS request is invalid.");
+      }
+      const created = await this.createBillingRequest(actor, {
+        organizationId: request.organizationId,
+        sku: request.requestedSku as ManualBillingSku,
+        quantity: request.requestedQuantity,
+        notes: input.decisionNote?.trim() || null,
+      });
+      linkedBillingRequestId = created.billingRequest.id;
+    } else {
+      throw new BadRequestException("Unsupported client billing request.");
+    }
+
+    const updated =
+      await this.clientBillingRequestService.markApprovedLinked(
+        requestId,
+        actor.id,
+        linkedBillingRequestId,
+        input.decisionNote,
+      );
+    await this.writeClientBillingRequestAudit(actor, updated, "approved");
+    return this.serializeClientBillingRequest(updated);
+  }
 
   async listOrganizations(input: { search?: string | null } = {}) {
     const db = getDb();
@@ -1312,6 +1433,42 @@ export class PlatformAdminBillingService {
     if (!actor.permissions.has(permission)) {
       throw new ForbiddenException("Insufficient permission");
     }
+  }
+
+  private async serializeClientBillingRequest(
+    request: typeof clientBillingRequests.$inferSelect,
+  ) {
+    const [organization] = await getDb()
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, request.organizationId))
+      .limit(1);
+    return {
+      ...request,
+      organizationName: organization?.name ?? "Unknown organization",
+      createdAt: request.createdAt?.toISOString?.() ?? request.createdAt,
+      reviewedAt:
+        request.reviewedAt?.toISOString?.() ?? request.reviewedAt ?? null,
+    };
+  }
+
+  private async writeClientBillingRequestAudit(
+    actor: ActivePlatformAdmin,
+    request: typeof clientBillingRequests.$inferSelect,
+    action: "review_started" | "approved" | "declined",
+  ) {
+    await this.writeAudit(getDb(), actor, {
+      organizationId: request.organizationId,
+      action: `client_billing_request.${action}`,
+      entity: "client_billing_request",
+      entityId: request.id,
+      details: {
+        kind: request.kind,
+        status: request.status,
+        linkedBillingRequestId: request.linkedBillingRequestId,
+        decisionNote: request.decisionNote,
+      },
+    });
   }
 
   private async getOrganizationOrThrow(tx: BillingTx, organizationId: string) {

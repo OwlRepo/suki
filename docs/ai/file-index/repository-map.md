@@ -1,11 +1,14 @@
+Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-18T18:07:23.439Z
 # Repository Map
 
 Use this first. One dense map. Update rows only.
 
 | Path | Purpose | Main Exports / Shapes | Main Dependencies | Main Consumers | Usage Pattern | Risk |
 |---|---|---|---|---|---|---|
-| `apps/web/src/app` | Next.js route tree | layouts, pages, route segments | Next.js, auth, hooks, UI | browser users | app-router surfaces for dashboard, onboarding, intake, auth | High |
-| `apps/web/src/components` | feature UI and reusable view pieces | React components | hooks, lib, shared UI | pages, layouts | dashboard widgets, onboarding, customer UI, assistant UI | Medium |
+| `apps/web/src/app` | Next.js route tree | layouts, pages, route segments | Next.js, auth, hooks, UI | browser users | app-router surfaces for dashboard, onboarding, intake, auth, client billing requests, platform-admin inbox | High |
+| `apps/web/src/components` | feature UI and reusable view pieces | React components | hooks, lib, shared UI | pages, layouts | dashboard widgets, onboarding, customer UI, assistant UI, billing request forms and admin review views | Medium |
 | `apps/web/src/hooks` | reusable client logic | custom hooks | React, lib/api | components, pages | auth sync, onboarding progress, billing, flags | Medium |
 | `apps/web/src/lib` | frontend helpers | API helpers, auth helpers, utils | env, fetch, Clerk | hooks, routes, components | request plumbing, route protection, domain helpers | High |
 | `apps/web/src/contexts` | React context providers | provider components | React | app tree | cross-route client state where local state not enough | Medium |
@@ -14,18 +17,18 @@ Use this first. One dense map. Update rows only.
 | `apps/api/src/common` | shared API guards/policies | guards, filters, helpers | NestJS, env, auth context | many API modules | access control, feature gating, shared exceptions | High |
 | `apps/api/src/help` | assistant support logic | help services, governance helpers | API internals | AI/help flows, governance scripts | assistant orchestration, context policy, compact AI manifest/index enforcement | High |
 | `apps/api/src/ai` | AI execution zone | AI services/controllers | OpenAI, quotas, policy helpers | messaging, help, admin flows | generation, orchestration, limits | High |
-| `apps/api/src/messaging` | outbound/inbound messaging | controllers, services, provider adapters, idempotent Semaphore reconciliation | Semaphore, Twilio, Resend, AI, DB | dashboard messaging flows, webhooks | compose, send, meter, normalize IDs, repair false rejections with parameterized filters and sent markers, receive, webhook verify | High |
+| `apps/api/src/messaging` | outbound/inbound messaging | controllers, services, provider adapters, idempotent Semaphore reconciliation | Semaphore, Twilio, Resend, AI, DB | dashboard messaging flows, webhooks | compose, send, meter, normalize IDs, repair false rejections with parameterized filters, `jsonb_exists`, and sent markers, receive, webhook verify | High |
 | `apps/api/src/automation` | automation settings, scheduling, and send orchestration | controller, settings/send/composer/scheduler services | DB, messaging dispatch, feature flags | settings UI, appointments, intake, customers, scheduler | persist per-business templates/toggles and compose automated messages at send time | High |
 | `apps/api/src/auth` | auth/session sync | controller, service, guards | Clerk backend, DB | web auth flows | user sync and auth checks | High |
 | `apps/api/src/imports` | import workflows | controller, services | csv/xlsx/OCR, DB | imports UI | upload, map, apply, repair | High |
 | `apps/api/src/appointments` | appointment domain | controllers/services | DB, policy helpers | dashboard appointments | schedule, check-in, review states | High |
 | `apps/api/src/customers` | customer domain | controller, services | DB | dashboard customers | retention records and CRUD | High |
 | `apps/api/src/intake` | public intake flow | controller, services | DB, validation | intake web route | public booking/intake | High |
-| `apps/api/src/billing` | billing compatibility layer | controller, webhook controller, services | provider HTTP, DB | settings/billing UI, callbacks | billing state, checkout/webhook compatibility | High |
-| `apps/api/src/platform-admin` | founder-led admin operations | services/controllers, serialized billing request details | DB, billing helpers | internal admin flows | manual billing payment recording, subscription, and lifecycle work | High |
+| `apps/api/src/billing` | billing compatibility and client-intent layer | controllers, webhook controller, billing and client-request services | provider HTTP, DB, feature flags | settings/billing UI, callbacks, platform admin | billing state, checkout/webhook compatibility, tenant-scoped manual billing intent | High |
+| `apps/api/src/platform-admin` | founder-led admin operations | services/controllers, serialized billing and client-request details | DB, billing helpers | internal admin flows | client request inbox, approval into manual billing, payment recording, subscription, and lifecycle work | High |
 | `packages/database/src` | DB contracts/runtime | `db`, schema exports, helpers | PostgreSQL, Drizzle | API, scripts, shared consumers | shared persistence contract | High |
-| `packages/database/src/schema` | schema definitions | tables/enums/relations | Drizzle | DB package, API services | DB source of truth | High |
-| `packages/database/scripts` | DB lifecycle scripts | setup/migrate/seed/reset/reconcile | DB env, Drizzle | dev workflows, ops | schema/data lifecycle | High |
+| `packages/database/src/schema` | schema definitions | tables/enums/relations, client billing request entity | Drizzle | DB package, API services | DB source of truth | High |
+| `packages/database/scripts` | DB lifecycle scripts | setup/migrate/seed/reset/reconcile, platform-admin RBAC seed | DB env, Drizzle | dev workflows, ops | schema/data lifecycle and client billing inbox permissions | High |
 | `packages/ui/src` | shared UI package | buttons, inputs, cards, dialogs | React | web app | reusable visual primitives | Medium |
 | `packages/types/src` | shared TS contracts | type exports | TypeScript | web, API, DB | cross-package compile-time alignment | Medium |
 | `packages/config` | shared config package | config helpers | TS/runtime config | workspace packages | central config where needed | Medium |

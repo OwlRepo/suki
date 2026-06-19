@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type {
+  ClientBillingRequestStatus,
   ManualBillingSku,
   ManualBillingRequestStatus,
   ManualPaymentMethod,
@@ -188,6 +189,70 @@ export class PlatformAdminController {
     @Query("status") status?: ManualBillingRequestStatus | "all",
   ) {
     return this.platformAdminBillingService.listBillingRequests({ status });
+  }
+
+  @Get("client-billing-requests")
+  @RequirePlatformAdminPermissions("CLIENT_BILLING_REQUEST_VIEW")
+  listClientBillingRequests(
+    @Req() request: PlatformAdminRequest,
+    @Query("status") status?: ClientBillingRequestStatus | "all",
+  ) {
+    return this.platformAdminBillingService.listClientBillingRequests(
+      this.requirePlatformAdmin(request),
+      { status },
+    );
+  }
+
+  @Get("client-billing-requests/:clientRequestId")
+  @RequirePlatformAdminPermissions("CLIENT_BILLING_REQUEST_VIEW")
+  getClientBillingRequest(
+    @Req() request: PlatformAdminRequest,
+    @Param("clientRequestId") clientRequestId: string,
+  ) {
+    return this.platformAdminBillingService.getClientBillingRequest(
+      this.requirePlatformAdmin(request),
+      clientRequestId,
+    );
+  }
+
+  @Post("client-billing-requests/:clientRequestId/start-review")
+  @RequirePlatformAdminPermissions("CLIENT_BILLING_REQUEST_RESOLVE")
+  startClientBillingRequestReview(
+    @Req() request: PlatformAdminRequest,
+    @Param("clientRequestId") clientRequestId: string,
+  ) {
+    return this.platformAdminBillingService.startClientBillingRequestReview(
+      this.requirePlatformAdmin(request),
+      clientRequestId,
+    );
+  }
+
+  @Post("client-billing-requests/:clientRequestId/approve")
+  @RequirePlatformAdminPermissions("CLIENT_BILLING_REQUEST_RESOLVE")
+  approveClientBillingRequest(
+    @Req() request: PlatformAdminRequest,
+    @Param("clientRequestId") clientRequestId: string,
+    @Body() body: { decisionNote?: string | null },
+  ) {
+    return this.platformAdminBillingService.approveClientBillingRequest(
+      this.requirePlatformAdmin(request),
+      clientRequestId,
+      body,
+    );
+  }
+
+  @Post("client-billing-requests/:clientRequestId/decline")
+  @RequirePlatformAdminPermissions("CLIENT_BILLING_REQUEST_RESOLVE")
+  declineClientBillingRequest(
+    @Req() request: PlatformAdminRequest,
+    @Param("clientRequestId") clientRequestId: string,
+    @Body() body: { decisionNote?: string | null },
+  ) {
+    return this.platformAdminBillingService.declineClientBillingRequest(
+      this.requirePlatformAdmin(request),
+      clientRequestId,
+      body,
+    );
   }
 
   @Post("billing-requests")

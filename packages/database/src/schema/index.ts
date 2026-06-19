@@ -102,6 +102,14 @@ export const manualBillingRequestStatusEnum = pgEnum(
     "void",
   ],
 );
+export const clientBillingRequestKindEnum = pgEnum(
+  "client_billing_request_kind",
+  ["plan_change", "sms_topup", "cancellation"],
+);
+export const clientBillingRequestStatusEnum = pgEnum(
+  "client_billing_request_status",
+  ["submitted", "under_review", "approved", "declined", "cancelled"],
+);
 export const manualPaymentStatusEnum = pgEnum("manual_payment_status", [
   "pending",
   "verified",
@@ -1228,6 +1236,43 @@ export const manualBillingRequests = pgTable(
     index("manual_billing_requests_organization_idx").on(t.organizationId),
     index("manual_billing_requests_status_idx").on(t.status),
     index("manual_billing_requests_created_at_idx").on(t.createdAt),
+  ],
+);
+
+export const clientBillingRequests = pgTable(
+  "client_billing_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    requestedByUserId: uuid("requested_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    kind: clientBillingRequestKindEnum("kind").notNull(),
+    requestedPlanType: planTypeEnum("requested_plan_type"),
+    requestedSku: text("requested_sku"),
+    requestedQuantity: integer("requested_quantity"),
+    note: text("note"),
+    status: clientBillingRequestStatusEnum("status")
+      .notNull()
+      .default("submitted"),
+    linkedBillingRequestId: uuid("linked_billing_request_id").references(
+      () => manualBillingRequests.id,
+      { onDelete: "set null" },
+    ),
+    reviewedByPlatformAdminId: uuid(
+      "reviewed_by_platform_admin_id",
+    ).references(() => platformAdmins.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at"),
+    decisionNote: text("decision_note"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("client_billing_requests_organization_idx").on(t.organizationId),
+    index("client_billing_requests_status_idx").on(t.status),
+    index("client_billing_requests_created_at_idx").on(t.createdAt),
   ],
 );
 

@@ -1,3 +1,6 @@
+Source-of-truth inputs: Repository manifests, module files, tests, and workflow configs
+Validated against: package.json, apps/web/package.json, apps/api/package.json, packages/database/package.json, turbo.json, .github/workflows/deploy.yml
+Last updated: 2026-06-18T18:07:23.439Z
 # Architecture Manifest
 
 Source truth: manifests, source, tests, schema, workflow config.
@@ -39,7 +42,7 @@ Source truth: manifests, source, tests, schema, workflow config.
 - Customers/intake: dashboard customer UI + `apps/web/src/app/intake/[businessId]` <-> `apps/api/src/customers/*`, `apps/api/src/intake/*`.
 - Automation: settings UI <-> `apps/api/src/automation/*` -> `apps/api/src/messaging/*`.
 - Messaging/AI: `apps/api/src/messaging/*` owns delivery/provider behavior. `apps/api/src/ai/*` owns generation, limits, policy.
-- Billing/access: `apps/api/src/billing/*`, `apps/api/src/common/*`, `apps/api/src/platform-admin/*`.
+- Billing/access: client billing settings submit tenant-scoped intent through `apps/api/src/billing/*`; `apps/api/src/platform-admin/*` reviews it and reuses manual billing request/payment/fulfillment paths.
 - Imports: `apps/web/src/app/(dashboard)/imports` <-> `apps/api/src/imports/*`.
 
 ## API / Middleware
@@ -56,6 +59,7 @@ Source truth: manifests, source, tests, schema, workflow config.
 - Preserve session, organization, workspace access checks.
 - Validate external input.
 - Preserve authz boundaries.
+- Client billing submission/cancel is owner-only; platform inbox uses dedicated view/resolve permissions.
 - Never expose secrets.
 - Use parameterized ORM paths.
 - Verify provider webhook signatures.
@@ -67,6 +71,7 @@ Source truth: manifests, source, tests, schema, workflow config.
 - Config: `packages/database/drizzle.config.ts`.
 - Lifecycle: `packages/database/scripts/{setup,migrate,seed,reset,reconcile-orphans}.ts`.
 - Prefer additive schema change.
+- `client_billing_requests` stores plan-change, SMS top-up, and cancellation intent separately from payable `manual_billing_requests`; approval links payable requests when applicable.
 - Never run production migration from agent workflow.
 
 ## External Services

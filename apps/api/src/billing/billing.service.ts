@@ -88,10 +88,12 @@ export class BillingService {
 
   getPlansResponse(input: {
     checkoutEnabled: boolean;
+    manualRequestEnabled?: boolean;
     annualCheckoutEnabled?: boolean;
   }) {
     return {
       checkoutEnabled: input.checkoutEnabled,
+      manualRequestEnabled: input.manualRequestEnabled ?? false,
       annualCheckoutEnabled: input.annualCheckoutEnabled ?? false,
       plans: ["free", "starter", "growth", "pro"].map((planType) => {
         const entry = getPlanCatalogEntry(planType as PlanType);

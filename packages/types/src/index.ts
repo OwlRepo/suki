@@ -38,6 +38,16 @@ export type ManualBillingRequestStatus =
   | "paid_and_fulfilled"
   | "rejected"
   | "void";
+export type ClientBillingRequestKind =
+  | "plan_change"
+  | "sms_topup"
+  | "cancellation";
+export type ClientBillingRequestStatus =
+  | "submitted"
+  | "under_review"
+  | "approved"
+  | "declined"
+  | "cancelled";
 export type ManualPaymentMethod = "gcash" | "bank_transfer" | "other";
 export type ManualPaymentStatus = "pending" | "verified" | "rejected";
 export type ManualBillingEmailKind =
@@ -62,6 +72,8 @@ export type PlatformAdminPermission =
   | "BILLING_REQUEST_VIEW"
   | "BILLING_REQUEST_CREATE"
   | "BILLING_REQUEST_VOID"
+  | "CLIENT_BILLING_REQUEST_VIEW"
+  | "CLIENT_BILLING_REQUEST_RESOLVE"
   | "PAYMENT_VIEW"
   | "PAYMENT_RECORD"
   | "PAYMENT_VERIFY"

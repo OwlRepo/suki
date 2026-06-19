@@ -431,4 +431,61 @@ describe("BillingSettingsPage", () => {
     expect(screen.getByText(/verified online bookings/i)).toBeInTheDocument();
     expect(screen.getByText(/email messages/i)).toBeInTheDocument();
   });
+
+  it("renders manual request controls and posts client billing intent", async () => {
+    apiRequestMock.mockImplementation(
+      async (path: string, options?: { method?: string }) => {
+        if (path === "/billing/status") {
+          return {
+            planType: "free",
+            billingStatus: "free_active",
+            billingInterval: null,
+            readOnly: false,
+            renewsAt: null,
+            endsAt: null,
+            ownerWarnings: [],
+            subscription: null,
+          };
+        }
+        if (path === "/billing/plans") {
+          return {
+            checkoutEnabled: false,
+            manualRequestEnabled: true,
+            annualCheckoutEnabled: false,
+            plans: [],
+          };
+        }
+        if (path === "/billing/requests" && !options?.method) {
+          return { clientBillingRequests: [] };
+        }
+        if (path === "/billing/requests" && options?.method === "POST") {
+          return {
+            id: "client-request-1",
+            kind: "plan_change",
+            status: "submitted",
+          };
+        }
+        throw new Error(`Unexpected path: ${path}`);
+      },
+    );
+
+    render(<BillingSettingsPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: /request billing help/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /request billing help/i }),
+    ).toHaveAttribute("href", "#billing-request-section");
+    fireEvent.click(
+      screen.getByRole("button", { name: /send billing request/i }),
+    );
+    await waitFor(() =>
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/billing/requests",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(screen.queryByText(/upgrade or change plan/i)).not.toBeInTheDocument();
+  });
 });

@@ -38,6 +38,7 @@ describe("BillingController", () => {
     founderLedModeEnabled: vi.fn().mockReturnValue(false),
     selfServeBillingEnabled: vi.fn().mockReturnValue(false),
     annualBillingCheckoutEnabled: vi.fn().mockReturnValue(false),
+    manualBillingControlsEnabled: vi.fn().mockReturnValue(true),
   };
 
   const controller = new BillingController(
@@ -61,6 +62,20 @@ describe("BillingController", () => {
       checkoutEnabled: false,
       annualCheckoutEnabled: false,
     });
+  });
+
+  it("exposes manual request mode only when checkout is off and manual controls are on", async () => {
+    featureFlags.selfServeBillingEnabled.mockReturnValue(false);
+    featureFlags.manualBillingControlsEnabled.mockReturnValue(true);
+
+    await controller.getPlans();
+
+    expect(billingService.getPlansResponse).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        checkoutEnabled: false,
+        manualRequestEnabled: true,
+      }),
+    );
   });
 
   it("returns billing status for the current org", async () => {

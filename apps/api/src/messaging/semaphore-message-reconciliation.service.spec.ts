@@ -96,6 +96,8 @@ describe("SemaphoreMessageReconciliationService", () => {
     expect(query.sql).toContain("me.automation_key in (");
     expect(query.sql).not.toContain("any(($");
     expect(query.sql).not.toContain("::text[]");
+    expect(query.sql).not.toContain("provider_metadata ?");
+    expect(query.sql).toContain("jsonb_exists");
     expect(query.params).toEqual(
       expect.arrayContaining([...MANUAL_FOLLOW_UP_AUTOMATION_KEYS]),
     );

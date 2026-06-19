@@ -15,6 +15,7 @@ import { AddonPackGrid } from "@/components/billing/addon-pack-grid";
 import { PlanComparisonGrid } from "@/components/billing/plan-comparison-grid";
 import { BillingIntervalToggle } from "@/components/billing/billing-interval-toggle";
 import type { BillingInterval, BillingPlan } from "@/components/billing/types";
+import { RequestChangeSection } from "@/components/billing/request-change-section";
 
 type BillingStatusResponse = {
   planType: string;
@@ -69,6 +70,7 @@ export default function BillingSettingsPage() {
   const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [checkoutEnabled, setCheckoutEnabled] = useState(false);
+  const [manualRequestEnabled, setManualRequestEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [interval, setBillingInterval] = useState<BillingInterval>("monthly");
@@ -100,12 +102,17 @@ export default function BillingSettingsPage() {
         if (!token) return;
         const [billingData, plansData] = await Promise.all([
           apiRequest<BillingStatusResponse>("/billing/status", { token }),
-          apiRequest<{ checkoutEnabled: boolean; plans: BillingPlan[] }>("/billing/plans"),
+          apiRequest<{
+            checkoutEnabled: boolean;
+            manualRequestEnabled: boolean;
+            plans: BillingPlan[];
+          }>("/billing/plans"),
         ]);
         if (cancelled) return;
         setBilling(billingData);
         setPlans(plansData.plans);
         setCheckoutEnabled(plansData.checkoutEnabled ?? false);
+        setManualRequestEnabled(plansData.manualRequestEnabled ?? false);
         setBillingInterval(billingData.billingInterval ?? "monthly");
       } catch (err) {
         if (!cancelled) {
@@ -304,7 +311,11 @@ export default function BillingSettingsPage() {
       ) : (
         <StatusBanner
           variant="info"
-          message="Self-serve billing is disabled in this environment. You can keep using the free plan with caps and usage meters."
+          message={
+            manualRequestEnabled
+              ? "Self-serve checkout is disabled. Workspace owners can send billing requests to Tyvera below."
+              : "Self-serve billing is disabled in this environment. You can keep using the free plan with caps and usage meters."
+          }
         />
       )}
       {billing ? (
@@ -352,6 +363,13 @@ export default function BillingSettingsPage() {
               : "No active paid subscription yet."
         }
       />
+      {billing && !billing.readOnly && manualRequestEnabled ? (
+        <div className="flex flex-wrap gap-3">
+          <Button asChild>
+            <a href="#billing-request-section">Request billing help</a>
+          </Button>
+        </div>
+      ) : null}
       {billing && !billing.readOnly && checkoutEnabled ? (
         <div className="flex flex-wrap gap-3">
           {billing.subscription ? (
@@ -425,6 +443,13 @@ export default function BillingSettingsPage() {
           helper="AI-assisted writing is only included on Growth and Pro."
         />
       </div>
+
+      {manualRequestEnabled && billing ? (
+        <RequestChangeSection
+          currentPlan={billing.planType as "free" | "starter" | "growth" | "pro"}
+          readOnly={Boolean(billing.readOnly)}
+        />
+      ) : null}
 
       {checkoutEnabled ? (
         <section className="flex flex-col gap-4">

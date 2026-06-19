@@ -5,6 +5,7 @@ import {
   Building2,
   ClipboardList,
   FileClock,
+  Inbox,
   MessageSquareWarning,
   ShieldCheck,
 } from "lucide-react";
@@ -52,6 +53,11 @@ export function getPlatformAdminNavGroups(): PlatformAdminNavGroup[] {
       key: "billing",
       label: "Billing",
       items: [
+        {
+          href: "/platform-admin/client-requests",
+          label: "Client Requests",
+          icon: Inbox,
+        },
         {
           href: "/platform-admin/billing-requests",
           label: "Billing Requests",

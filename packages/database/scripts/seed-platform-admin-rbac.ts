@@ -54,6 +54,8 @@ const PERMISSION_DEFINITIONS: Array<{
   { code: "BILLING_REQUEST_VIEW", description: "View manual billing requests." },
   { code: "BILLING_REQUEST_CREATE", description: "Create manual billing requests." },
   { code: "BILLING_REQUEST_VOID", description: "Void manual billing requests." },
+  { code: "CLIENT_BILLING_REQUEST_VIEW", description: "View client-submitted billing requests." },
+  { code: "CLIENT_BILLING_REQUEST_RESOLVE", description: "Review and resolve client-submitted billing requests." },
   { code: "PAYMENT_VIEW", description: "View manual payment records." },
   { code: "PAYMENT_RECORD", description: "Record reported manual payments." },
   { code: "PAYMENT_VERIFY", description: "Verify manual payments." },
@@ -90,6 +92,7 @@ const ROLE_PERMISSIONS: Record<PlatformAdminRoleCode, PlatformAdminPermission[]>
     "ALERT_ACKNOWLEDGE",
     "AUDIT_LOG_VIEW",
     "SUBSCRIPTION_VIEW",
+    "CLIENT_BILLING_REQUEST_VIEW",
   ],
   FINANCE: [
     "PLATFORM_ADMIN_ACCESS",
@@ -98,6 +101,8 @@ const ROLE_PERMISSIONS: Record<PlatformAdminRoleCode, PlatformAdminPermission[]>
     "BILLING_REQUEST_VIEW",
     "BILLING_REQUEST_CREATE",
     "BILLING_REQUEST_VOID",
+    "CLIENT_BILLING_REQUEST_VIEW",
+    "CLIENT_BILLING_REQUEST_RESOLVE",
     "PAYMENT_VIEW",
     "PAYMENT_RECORD",
     "PAYMENT_VERIFY",
@@ -123,6 +128,7 @@ const ROLE_PERMISSIONS: Record<PlatformAdminRoleCode, PlatformAdminPermission[]>
     "SMS_CREDIT_VIEW",
     "COMMUNICATION_VIEW",
     "SUBSCRIPTION_VIEW",
+    "CLIENT_BILLING_REQUEST_VIEW",
   ],
 };
 

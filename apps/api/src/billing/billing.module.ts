@@ -8,16 +8,28 @@ import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant
 import { AuthModule } from "../auth/auth.module";
 import { SecurityModule } from "../security/security.module";
 import { PlanCapacityModule } from "../common/plan-capacity.module";
+import { ClientBillingRequestController } from "./client-billing-request.controller";
+import { ClientBillingRequestService } from "./client-billing-request.service";
 
 @Module({
   imports: [AuthModule, SecurityModule, PlanCapacityModule],
-  controllers: [BillingController, BillingWebhookController],
+  controllers: [
+    BillingController,
+    BillingWebhookController,
+    ClientBillingRequestController,
+  ],
   providers: [
     BillingService,
     LemonsqueezyService,
     SmsAddonGrantService,
     VerifiedBookingAddonGrantService,
+    ClientBillingRequestService,
   ],
-  exports: [BillingService, SmsAddonGrantService, VerifiedBookingAddonGrantService],
+  exports: [
+    BillingService,
+    SmsAddonGrantService,
+    VerifiedBookingAddonGrantService,
+    ClientBillingRequestService,
+  ],
 })
 export class BillingModule {}

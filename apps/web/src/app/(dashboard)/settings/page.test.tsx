@@ -205,6 +205,17 @@ describe("SettingsPage AI visibility", () => {
     expect(await screen.findByText(/AI Usage & Quotas/i)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Refine with AI/i }).length).toBeGreaterThan(0);
   });
+
+  it("links to billing settings from the page header", async () => {
+    installDefaultMocks("free");
+
+    render(<SettingsPage />);
+
+    const billingLink = await screen.findByRole("link", {
+      name: /open billing/i,
+    });
+    expect(billingLink).toHaveAttribute("href", "/settings/billing");
+  });
 });
 
 describe("SettingsPage message templates", () => {

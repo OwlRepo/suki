@@ -162,7 +162,7 @@ export class SemaphoreMessageReconciliationService {
             me.status = 'failed'
             and me.failure_reason = 'provider_rejected'
             and me.provider_message_id is null
-            and me.provider_metadata ? 'message_id'
+            and jsonb_exists(me.provider_metadata, 'message_id')
           )
         )
       order by me.created_at asc

@@ -1,11 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Bot,
   BriefcaseBusiness,
   Building2,
+  CreditCard,
   FileText,
   Mail,
   PlusCircle,
@@ -970,6 +972,14 @@ function SettingsPageContent() {
         plainLanguageDescription="Manage your organization, businesses, automations, messaging, and AI limits."
         whatThisPageIsFor="Change your workspace name, business details, reminders, messaging, and AI settings."
         whatToDoNext="Use the search below to find a setting, or open any section to edit."
+        actions={
+          <Button asChild className="w-full gap-2 sm:w-auto">
+            <Link href="/settings/billing" aria-label="Open billing">
+              <CreditCard className="size-4" aria-hidden />
+              Billing
+            </Link>
+          </Button>
+        }
       />
 
       <div className="relative">
