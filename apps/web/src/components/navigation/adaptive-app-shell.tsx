@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Menu } from "lucide-react";
 import { AuthButton } from "@/components/auth-button";
 import { WorkspaceDropdown } from "@/components/workspace-dropdown";
+import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { DashboardOnboardingWrapper } from "@/components/onboarding";
 import { TrialBanner } from "@/components/trial-banner";
@@ -20,7 +21,9 @@ import { cn } from "@/lib/utils";
 import { TyveraAssistant } from "@/components/tyvera-assistant";
 import { getOpenManualFollowUpCount } from "@/components/needs-attention/manual-follow-up.api";
 
-const SIDEBAR_WIDTH = 240;
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "tyvera-sidebar-collapsed-v1";
+const SIDEBAR_COLLAPSED_WIDTH = 72;
+const SIDEBAR_EXPANDED_WIDTH = 240;
 
 export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
   const workspace = useWorkspace();
@@ -62,6 +65,24 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
   );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [sidebarPreferenceReady, setSidebarPreferenceReady] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    if (raw === "0") setSidebarCollapsed(false);
+    if (raw === "1") setSidebarCollapsed(true);
+    setSidebarPreferenceReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarPreferenceReady || typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SIDEBAR_COLLAPSED_STORAGE_KEY,
+      sidebarCollapsed ? "1" : "0",
+    );
+  }, [sidebarCollapsed, sidebarPreferenceReady]);
 
   return (
     <DashboardOnboardingWrapper>
@@ -70,22 +91,70 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
         <div className="flex min-h-screen">
           <aside
             className={cn(
-              "hidden border-r border-border bg-card lg:flex lg:flex-col lg:shrink-0"
+              "hidden border-r border-border bg-card transition-[width] duration-200 ease-out lg:flex lg:flex-col lg:shrink-0"
             )}
-            style={{ width: SIDEBAR_WIDTH }}
+            style={{
+              width: sidebarCollapsed
+                ? SIDEBAR_COLLAPSED_WIDTH
+                : SIDEBAR_EXPANDED_WIDTH,
+            }}
             aria-label="Sidebar"
           >
-            <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+            <div
+              className={cn(
+                "flex h-14 shrink-0 items-center border-b border-border",
+                sidebarCollapsed ? "justify-between gap-1 px-1" : "relative px-4"
+              )}
+            >
               <Link
                 href="/dashboard"
-                className="text-lg font-semibold text-foreground"
+                className={cn(
+                  "transition-[padding,opacity] duration-150",
+                  sidebarCollapsed
+                    ? "inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-background text-xs font-semibold text-foreground shadow-sm"
+                    : "pr-12 text-lg font-semibold text-foreground"
+                )}
+                aria-label="Tyvera dashboard home"
+                title="Tyvera"
               >
-                Tyvera
+                {sidebarCollapsed ? "T" : "Tyvera"}
               </Link>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className={cn(
+                  "rounded-xl text-muted-foreground",
+                  sidebarCollapsed
+                    ? "size-7 min-h-7 min-w-7 shrink-0 rounded-lg p-0"
+                    : "absolute right-2 top-1/2 -translate-y-1/2"
+                )}
+                onClick={() => setSidebarCollapsed((current) => !current)}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-pressed={!sidebarCollapsed}
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {sidebarCollapsed ? (
+                  <ChevronsRight className="size-3.5" aria-hidden />
+                ) : (
+                  <ChevronsLeft className="size-4" aria-hidden />
+                )}
+              </Button>
             </div>
-            <DesktopSidebarNav groups={navGroups} className="flex-1" />
+            <DesktopSidebarNav
+              groups={navGroups}
+              className="flex-1"
+              collapsed={sidebarCollapsed}
+            />
             <div className="w-full border-t border-border p-3">
-              <div className="w-full [&_button]:w-full [&_button]:max-w-full [&_button]:justify-start">
+              <div
+                className={cn(
+                  "w-full",
+                  sidebarCollapsed
+                    ? "[&_button]:px-0 [&_button]:justify-center [&_button>span:last-child]:hidden"
+                    : "[&_button]:w-full [&_button]:max-w-full [&_button]:justify-start"
+                )}
+              >
                 <WorkspaceDropdown />
               </div>
             </div>

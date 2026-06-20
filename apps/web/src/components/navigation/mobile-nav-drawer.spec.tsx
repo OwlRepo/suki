@@ -25,12 +25,22 @@ describe("MobileNavDrawer badges", () => {
                 icon: AlertCircle,
                 badgeCount: 3,
               },
+              {
+                href: "/dashboard",
+                label: "Dashboard",
+                icon: AlertCircle,
+              },
             ],
           },
         ]}
       />,
     );
 
+    expect(screen.getByText("Daily tasks")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Needs Attention/ }),
+    ).toHaveClass("flex-col");
+    expect(screen.getByRole("list")).toHaveClass("grid");
   });
 });
