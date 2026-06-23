@@ -34,8 +34,33 @@ export class IntakeController {
       throw new BadRequestException("businessId required");
     }
     try {
+      const db = getDb();
+      const [business] = await db
+        .select({
+          name: businesses.name,
+          businessType: businesses.businessType,
+          brandColor: businesses.brandColor,
+          logoUrl: businesses.logoUrl,
+          tagline: businesses.tagline,
+        })
+        .from(businesses)
+        .where(eq(businesses.id, businessId))
+        .limit(1);
       const { template } = await this.templatesService.getDefaultTemplateForIntake(businessId);
-      return { template: template ? { id: template.id, name: template.name, fieldsConfig: template.fieldsConfig } : null };
+      return {
+        template: template
+          ? { id: template.id, name: template.name, fieldsConfig: template.fieldsConfig }
+          : null,
+        business: business
+          ? {
+              name: business.name,
+              businessType: business.businessType,
+              brandColor: business.brandColor,
+              logoUrl: business.logoUrl,
+              tagline: business.tagline,
+            }
+          : null,
+      };
     } catch (e) {
       if (e instanceof NotFoundException) throw e;
       throw new BadRequestException("Failed to load config");

@@ -16,11 +16,20 @@ vi.mock("@tyvera/database", () => ({
     insert: insertMock,
   }),
   customers: {},
-  businesses: { id: "id" },
+  businesses: {
+    id: "id",
+    name: "name",
+    businessType: "business_type",
+    brandColor: "brand_color",
+    logoUrl: "logo_url",
+    tagline: "tagline",
+  },
 }));
 
 describe("IntakeController mobile validation", () => {
-  const templatesService = {};
+  const templatesService = {
+    getDefaultTemplateForIntake: vi.fn(),
+  };
   const bookingService = {
     createHold: vi.fn(),
     sendOtp: vi.fn(),
@@ -38,6 +47,9 @@ describe("IntakeController mobile validation", () => {
       bookingService as never,
       customersService as never,
     );
+    templatesService.getDefaultTemplateForIntake.mockResolvedValue({
+      template: null,
+    });
     selectMock.mockReturnValue({ from: fromMock });
     fromMock.mockReturnValue({ where: whereMock });
     whereMock.mockReturnValue({ limit: limitMock });
@@ -123,5 +135,47 @@ describe("IntakeController mobile validation", () => {
     expect(bookingService.createHold).toHaveBeenCalledWith(
       expect.objectContaining({ mobile: "+639171234567" }),
     );
+  });
+
+  it("returns whitelisted public branding fields from intake config", async () => {
+    templatesService.getDefaultTemplateForIntake.mockResolvedValue({
+      template: {
+        id: "tmpl-1",
+        name: "Default",
+        fieldsConfig: [{ key: "notes", label: "Notes" }],
+      },
+    });
+    limitMock.mockResolvedValue([
+      {
+        name: "North Star Studio",
+        businessType: "salon",
+        brandColor: "#EEFF00",
+        logoUrl: "data:image/png;base64,AAA",
+        tagline: "Sharp cuts, zero drift.",
+      },
+    ]);
+
+    await expect(controller.getConfig("biz1")).resolves.toEqual({
+      template: {
+        id: "tmpl-1",
+        name: "Default",
+        fieldsConfig: [{ key: "notes", label: "Notes" }],
+      },
+      business: {
+        name: "North Star Studio",
+        businessType: "salon",
+        brandColor: "#EEFF00",
+        logoUrl: "data:image/png;base64,AAA",
+        tagline: "Sharp cuts, zero drift.",
+      },
+    });
+
+    expect(selectMock).toHaveBeenCalledWith({
+      name: "name",
+      businessType: "business_type",
+      brandColor: "brand_color",
+      logoUrl: "logo_url",
+      tagline: "tagline",
+    });
   });
 });

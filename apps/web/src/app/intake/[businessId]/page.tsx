@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, use, useEffect, useMemo } from "react";
+import {
+  useState,
+  use,
+  useEffect,
+  useMemo,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,11 +20,13 @@ import { normalizeApiError } from "./error-utils";
 import { buildWizardSteps, type ScheduleSubStep } from "./wizard-progress";
 import { filterDayKeysByMonth } from "./schedule-utils";
 import { buildApiUrl } from "@/lib/api-base";
+import { cn } from "@/lib/utils";
 import {
   PH_MOBILE_E164_ERROR,
   PH_MOBILE_E164_PLACEHOLDER,
   normalizePhilippineMobileE164,
 } from "@tyvera/types";
+import { deriveBrandTheme } from "@/lib/brand-theme";
 
 const OTP_LENGTH = 6;
 
@@ -29,6 +40,14 @@ interface IntakeTemplate {
   id: string;
   name: string;
   fieldsConfig: TemplateField[];
+}
+
+interface IntakeBusiness {
+  name: string;
+  businessType: string;
+  brandColor?: string | null;
+  logoUrl?: string | null;
+  tagline?: string | null;
 }
 
 interface Availability {
@@ -51,6 +70,11 @@ type ApiErrorBody = {
   code?: string;
   message?: string | string[];
   error?: string | string[];
+};
+
+type IntakeConfigResponse = {
+  template: IntakeTemplate | null;
+  business: IntakeBusiness | null;
 };
 
 function composeDescription(fields: TemplateField[], values: Record<string, string>): string {
@@ -122,6 +146,154 @@ function mapPublicOtpError(code: string | null, fallback: string): string {
   }
 }
 
+function buildBusinessMonogram(name: string) {
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (words.length === 0) return "B";
+
+  return words.map((word) => word[0]?.toUpperCase() ?? "").join("");
+}
+
+function formatBusinessTypeLabel(value: string) {
+  return value
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function BrandHeader({
+  business,
+}: {
+  business: IntakeBusiness;
+}) {
+  const monogram = buildBusinessMonogram(business.name);
+
+  return (
+    <Card className="relative overflow-hidden rounded-[32px] border-border/70 bg-white/92 px-4 py-4 shadow-[0_18px_55px_rgba(15,23,42,0.09)] sm:px-5 sm:py-5">
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 h-1.5 bg-[linear-gradient(90deg,var(--brand-raw,var(--primary)),color-mix(in_oklch,var(--brand-raw,var(--primary))_70%,white),var(--primary))]"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,color-mix(in_oklch,var(--brand-raw,var(--primary))_14%,white),transparent_34%),radial-gradient(circle_at_bottom_left,color-mix(in_oklch,var(--brand-raw,var(--primary))_9%,white),transparent_28%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute right-[-44px] top-[-44px] h-32 w-32 rounded-full border border-white/70 bg-white/35 blur-2xl"
+      />
+
+      <div className="relative grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6">
+        <div className="order-2 flex min-w-0 flex-col items-center text-center sm:order-1 sm:items-start sm:text-left">
+          <div
+            className="brand-stagger flex flex-wrap items-center justify-center gap-2 sm:justify-start"
+            style={{ animationDelay: "0ms" }}
+          >
+            <span className="rounded-full border border-black/5 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 shadow-sm backdrop-blur">
+              Online intake
+            </span>
+            <Badge className="w-fit rounded-full bg-primary px-3 py-1 text-primary-foreground shadow-sm">
+              {formatBusinessTypeLabel(business.businessType)}
+            </Badge>
+          </div>
+
+          <div
+            className="brand-stagger mt-3 flex flex-col items-center gap-3 sm:items-start"
+            style={{ animationDelay: "60ms" }}
+          >
+            <h1 className="max-w-[12ch] text-4xl leading-none font-semibold tracking-[-0.04em] text-balance text-slate-950 sm:max-w-none sm:text-[3.4rem]">
+              {business.name}
+            </h1>
+
+            {business.tagline ? (
+              <p className="max-w-[28ch] text-pretty text-base leading-7 text-slate-600 sm:max-w-[38ch]">
+                {business.tagline}
+              </p>
+            ) : (
+              <p className="max-w-[28ch] text-pretty text-sm leading-6 text-slate-500 sm:max-w-[36ch] sm:text-base">
+                Book in minutes with a polished, brand-first intake flow.
+              </p>
+            )}
+          </div>
+
+          <div
+            className="brand-stagger mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start"
+            style={{ animationDelay: "120ms" }}
+          >
+            <div className="rounded-full border border-black/5 bg-white/80 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm">
+              Fast booking
+            </div>
+            <div className="rounded-full border border-black/5 bg-white/80 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm">
+              Mobile ready
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="brand-stagger order-1 flex justify-center sm:order-2 sm:justify-end"
+          style={{ animationDelay: "30ms" }}
+        >
+          <div
+            className="relative flex h-[128px] w-[128px] items-center justify-center overflow-hidden rounded-[28px] border border-white/75 shadow-[0_20px_40px_rgba(15,23,42,0.12)] outline outline-1 outline-black/[0.05] outline-offset-[-1px] sm:h-[150px] sm:w-[150px]"
+            style={{
+              background:
+                "linear-gradient(180deg,color-mix(in oklch, var(--brand-raw, var(--primary)) 24%, white),color-mix(in oklch, var(--brand-raw, var(--primary)) 10%, white))",
+            }}
+          >
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-4 top-3 h-5 rounded-full bg-white/40 blur-xl"
+            />
+            {business.logoUrl ? (
+              <img
+                src={business.logoUrl}
+                alt={`${business.name} logo`}
+                width={150}
+                height={150}
+                decoding="async"
+                className="relative z-10 size-full object-cover"
+                style={{
+                  outline: "1px solid rgba(0, 0, 0, 0.06)",
+                  outlineOffset: "-1px",
+                }}
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="relative z-10 text-4xl font-semibold tracking-[0.18em] sm:text-5xl"
+                style={{ color: "var(--brand-on-light, var(--primary))" }}
+              >
+                {monogram}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function BrandHeaderSkeleton() {
+  return (
+    <Card className="overflow-hidden rounded-[32px] border-border/70 bg-white/92 px-4 py-4 shadow-[0_18px_55px_rgba(15,23,42,0.09)]">
+      <div className="h-1.5 animate-pulse rounded-full bg-primary/20" />
+      <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="order-2 min-w-0 space-y-3 text-center sm:order-1 sm:text-left">
+          <div className="mx-auto h-6 w-36 animate-pulse rounded-full bg-muted/70 sm:mx-0" />
+          <div className="mx-auto h-12 w-52 animate-pulse rounded-[20px] bg-muted sm:mx-0" />
+          <div className="mx-auto h-4 w-44 animate-pulse rounded-full bg-muted/80 sm:mx-0" />
+        </div>
+        <div className="order-1 mx-auto h-32 w-32 animate-pulse rounded-[28px] bg-muted sm:order-2 sm:mx-0 sm:h-[150px] sm:w-[150px]" />
+      </div>
+    </Card>
+  );
+}
+
 export default function IntakePage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = use(params);
   const localStorageKey = useMemo(() => `tyvera:intake:${businessId}`, [businessId]);
@@ -133,6 +305,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [customNotes, setCustomNotes] = useState("");
   const [template, setTemplate] = useState<IntakeTemplate | null>(null);
+  const [business, setBusiness] = useState<IntakeBusiness | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -165,10 +338,13 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         if (!res.ok) {
           throw new Error((data as { message?: string }).message || "Failed to load form");
         }
-        return data as { template: IntakeTemplate | null };
+        return data as IntakeConfigResponse;
       })
       .then((data) => {
-        if (!cancelled) setTemplate(data.template);
+        if (!cancelled) {
+          setTemplate(data.template);
+          setBusiness(data.business);
+        }
       })
       .catch((e) => {
         if (!cancelled) setConfigError(e instanceof Error ? e.message : "Failed to load form");
@@ -253,6 +429,20 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   }, [step, businessId, month, availabilityReloadNonce]);
 
   const fields = template?.fieldsConfig ?? [];
+  const brandTheme = useMemo(
+    () => deriveBrandTheme(business?.brandColor ?? null),
+    [business?.brandColor],
+  );
+  const brandVars = useMemo<CSSProperties | undefined>(() => {
+    if (!brandTheme) return undefined;
+    return {
+      "--primary": brandTheme.primary,
+      "--primary-foreground": brandTheme.primaryForeground,
+      "--ring": brandTheme.ring,
+      "--brand-raw": business?.brandColor ?? brandTheme.ring,
+      "--brand-on-light": brandTheme.onLight,
+    } as CSSProperties;
+  }, [brandTheme, business?.brandColor]);
   const dayKeys = filterDayKeysByMonth(Object.keys(availability?.byDay ?? {}).sort(), month);
   const slotsForDay = selectedDay ? availability?.byDay[selectedDay] ?? [] : [];
   const wizardSteps = buildWizardSteps(step, scheduleSubStep);
@@ -287,25 +477,47 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
   };
 
   const renderWizardProgress = () => (
-    <ol className="mb-8 grid grid-cols-5 items-start gap-2" aria-label="Booking progress">
+    <ol
+      className="mb-6 flex snap-x gap-2 overflow-x-auto pb-2 [scrollbar-width:none] sm:mb-8 sm:grid sm:grid-cols-5 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden"
+      aria-label="Booking progress"
+    >
       {wizardSteps.map((wizardStep, index) => (
-        <li key={wizardStep.id} className="relative">
-          {index < wizardSteps.length - 1 && (
+        <li
+          key={wizardStep.id}
+          className="relative min-w-[92px] flex-1 snap-start sm:min-w-0"
+        >
+          {index < wizardSteps.length - 1 ? (
             <span
               aria-hidden="true"
-              className="absolute left-[calc(50%+18px)] top-[15px] h-[2px] w-[calc(100%-12px)] bg-border"
+              className="absolute left-[calc(50%+18px)] top-[15px] hidden h-[2px] w-[calc(100%-12px)] bg-border sm:block"
             />
-          )}
+          ) : null}
           <div
             data-testid="intake-progress-step"
-            data-state={wizardStep.state}
             aria-current={wizardStep.ariaCurrent}
-            className="space-y-1 text-center"
+            className={cn(
+              "space-y-1 rounded-2xl border border-border/70 bg-background/85 px-2 py-2 text-center shadow-sm sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none",
+              wizardStep.state === "active" && "border-primary/40 bg-primary/5",
+              wizardStep.state === "done" && "border-primary/25 bg-primary/4",
+            )}
           >
-            <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted/20 text-xs font-semibold text-foreground data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=done]:border-primary/60 data-[state=done]:bg-primary/20">
+            <div
+              className={cn(
+                "mx-auto flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted/20 text-xs font-semibold text-foreground",
+                wizardStep.state === "active" &&
+                  "border-primary bg-primary text-primary-foreground",
+                wizardStep.state === "done" &&
+                  "border-primary/60 bg-primary/12 text-foreground",
+              )}
+            >
               {index + 1}
             </div>
-            <p className="text-xs font-medium text-muted-foreground data-[state=active]:text-foreground">
+            <p
+              className={cn(
+                "text-[11px] leading-tight font-medium text-muted-foreground sm:text-xs",
+                wizardStep.state === "active" && "text-foreground",
+              )}
+            >
               {wizardStep.label.replace(/^\d+\s/, "")}
             </p>
           </div>
@@ -490,51 +702,57 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     }
   };
 
-  if (step === "done") {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-2xl font-semibold text-foreground">Booking confirmed</h1>
+  let content: ReactNode;
+
+  if (configLoading) {
+    content = (
+      <div className="mx-auto max-w-md px-4 py-6 text-center sm:py-8">
+        <p className="text-base text-muted-foreground" aria-live="polite">
+          Loading form…
+        </p>
+      </div>
+    );
+  } else if (configError) {
+    content = (
+      <div className="mx-auto max-w-md rounded-[28px] border border-border/70 bg-background/90 px-4 py-6 text-center shadow-sm sm:py-8">
+        <h2 className="text-2xl font-semibold text-foreground">
+          Unable to load form
+        </h2>
+        <p className="mt-4 text-base text-muted-foreground">{configError}</p>
+      </div>
+    );
+  } else if (step === "done") {
+    content = (
+      <div className="mx-auto max-w-md rounded-[28px] border border-border/70 bg-background/90 px-4 py-6 text-center shadow-sm sm:py-8">
+        <h2 className="text-2xl font-semibold text-foreground">
+          Booking confirmed
+        </h2>
         <p className="mt-4 text-base text-muted-foreground">
           Your appointment has been reserved. See you soon.
         </p>
       </div>
     );
-  }
-
-  if (configLoading) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <p className="text-muted-foreground">Loading form…</p>
-      </div>
-    );
-  }
-
-  if (configError) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-2xl font-semibold text-foreground">Unable to load form</h1>
-        <p className="mt-4 text-base text-muted-foreground">{configError}</p>
-      </div>
-    );
-  }
-
-  if (step === "otp") {
-    return (
-      <div className="mx-auto max-w-md px-4 py-16">
+  } else if (step === "otp") {
+    content = (
+      <div className="mx-auto max-w-md rounded-[28px] border border-border/70 bg-background/92 px-4 py-5 shadow-sm sm:px-6 sm:py-8">
         {renderWizardProgress()}
-        <h1 className="text-center text-2xl font-semibold text-foreground">Verify your booking</h1>
+        <h2 className="text-center text-2xl font-semibold text-foreground">
+          Verify your booking
+        </h2>
         <p className="mt-2 text-center text-base text-muted-foreground">
-          Enter the 6-digit OTP sent to {mobile || "your mobile"}.
+          Enter 6-digit OTP sent to {mobile || "your mobile"}.
         </p>
-        {selectedSlot && (
+        {selectedSlot ? (
           <p className="mt-2 text-center text-sm text-muted-foreground">
             Selected slot: {new Date(selectedSlot).toLocaleString()}
           </p>
-        )}
-        <div className="mt-3 space-y-1 text-center text-sm text-muted-foreground">
+        ) : null}
+        <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 px-3 py-3 text-center text-sm text-muted-foreground">
           <p>Hold expires in {getCountdownLabel(holdExpiresAt, "0s")}</p>
           <p>Resend available in {getCountdownLabel(resendAvailableAt, "0s")}</p>
-          {typeof sendsRemaining === "number" ? <p>{sendsRemaining} sends remaining</p> : null}
+          {typeof sendsRemaining === "number" ? (
+            <p>{sendsRemaining} sends remaining</p>
+          ) : null}
         </div>
         <div className="mt-8 space-y-4">
           <div>
@@ -552,12 +770,14 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
               className="w-full"
             />
           </div>
-          {otpSubmitting && <p className="text-sm text-muted-foreground">Verifying code…</p>}
-          {error && (
+          {otpSubmitting ? (
+            <p className="text-sm text-muted-foreground">Verifying code…</p>
+          ) : null}
+          {error ? (
             <p className="text-base text-destructive" role="alert">
               {error}
             </p>
-          )}
+          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -584,7 +804,9 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                 }
                 const otpResponse = data as OtpSendResponse;
                 setHoldExpiresAt(otpResponse.holdExpiresAt ?? holdExpiresAt);
-                setResendAvailableAt(otpResponse.resendAvailableAt ?? resendAvailableAt);
+                setResendAvailableAt(
+                  otpResponse.resendAvailableAt ?? resendAvailableAt,
+                );
                 setSendsRemaining(
                   typeof otpResponse.sendsRemaining === "number"
                     ? otpResponse.sendsRemaining
@@ -592,48 +814,62 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                 );
                 setNowTick(Date.now());
               } catch (e) {
-                setError(e instanceof Error ? e.message : "Failed to resend OTP");
+                setError(
+                  e instanceof Error ? e.message : "Failed to resend OTP",
+                );
               } finally {
                 setSubmitting(false);
               }
             }}
           >
-            {resendCooldownActive ? "Resend OTP (cooldown active)" : "Resend OTP"}
+            {resendCooldownActive
+              ? "Resend OTP (cooldown active)"
+              : "Resend OTP"}
           </Button>
         </div>
       </div>
     );
-  }
-
-  if (step === "review") {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16">
+  } else if (step === "review") {
+    content = (
+      <div className="mx-auto max-w-2xl rounded-[28px] border border-border/70 bg-background/92 px-4 py-5 shadow-sm sm:px-6 sm:py-8">
         {renderWizardProgress()}
-        <h1 className="text-center text-2xl font-semibold text-foreground">Review your booking</h1>
+        <h2 className="text-center text-2xl font-semibold text-foreground">
+          Review your booking
+        </h2>
         <p className="mt-2 text-center text-base text-muted-foreground">
-          Please confirm your details before we send an OTP to verify this booking.
+          Please confirm details before we send OTP to verify booking.
         </p>
 
-        <div className="mt-8 space-y-4 rounded-lg border border-border bg-card p-4">
+        <div className="mt-8 space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
           <div className="grid gap-1">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Appointment</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Appointment
+            </p>
             <p className="text-sm font-medium text-foreground">
               {selectedDateLabel} at {selectedTimeLabel}
             </p>
           </div>
           <div className="grid gap-1">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
-            <p className="text-sm text-foreground">{name || "No name provided"}</p>
-            <p className="text-sm text-muted-foreground">{mobile || "No mobile provided"}</p>
-            {email && <p className="text-sm text-muted-foreground">{email}</p>}
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Customer
+            </p>
+            <p className="text-sm text-foreground">
+              {name || "No name provided"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {mobile || "No mobile provided"}
+            </p>
+            {email ? (
+              <p className="text-sm text-muted-foreground">{email}</p>
+            ) : null}
           </div>
         </div>
 
-        {error && (
+        {error ? (
           <p className="mt-4 text-base text-destructive" role="alert">
             {error}
           </p>
-        )}
+        ) : null}
 
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
           <Button
@@ -658,20 +894,24 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
         </div>
       </div>
     );
-  }
-
-  if (step === "schedule") {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16">
+  } else if (step === "schedule") {
+    content = (
+      <div className="mx-auto max-w-2xl rounded-[28px] border border-border/70 bg-background/92 px-4 py-5 shadow-sm sm:px-6 sm:py-8">
         {renderWizardProgress()}
-        <h1 className="text-center text-2xl font-semibold text-foreground">Choose your appointment</h1>
+        <h2 className="text-center text-2xl font-semibold text-foreground">
+          Choose your appointment
+        </h2>
         <p className="mt-2 text-center text-base text-muted-foreground">
-          Pick your date first, then choose a time slot.
+          Pick date first, then choose time slot.
         </p>
 
         <div className="mt-6">
           <Label className="mb-1 block">Month</Label>
-          <MonthPicker value={month} onChange={setMonth} className="w-full sm:w-60 justify-start" />
+          <MonthPicker
+            value={month}
+            onChange={setMonth}
+            className="w-full justify-start sm:w-60"
+          />
         </div>
 
         {availabilityLoading ? (
@@ -679,7 +919,10 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
             <p className="text-muted-foreground">Loading available slots…</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {Array.from({ length: 8 }).map((_, idx) => (
-                <div key={idx} className="h-11 animate-pulse rounded-md border border-border bg-muted/30" />
+                <div
+                  key={idx}
+                  className="h-11 animate-pulse rounded-md border border-border bg-muted/30"
+                />
               ))}
             </div>
           </div>
@@ -687,27 +930,35 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
           <>
             <div
               data-testid="intake-selected-summary"
-              className="sticky top-3 z-10 mt-6 rounded-md border border-border bg-background/95 p-3 backdrop-blur"
+              className="sticky top-2 z-10 mt-6 rounded-2xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur sm:top-3"
             >
-              <p className="text-sm text-muted-foreground">Selected appointment</p>
+              <p className="text-sm text-muted-foreground">
+                Selected appointment
+              </p>
               <p className="text-sm font-medium text-foreground">
                 {selectedDateLabel} at {selectedTimeLabel}
               </p>
             </div>
 
-            {scheduleSubStep === "date" && (
+            {scheduleSubStep === "date" ? (
               <div className="mt-6">
-                <h2 className="mb-2 text-sm font-medium text-foreground">Available days</h2>
+                <h3 className="mb-2 text-sm font-medium text-foreground">
+                  Available days
+                </h3>
                 <div>
-                  {dayKeys.length === 0 && (
+                  {dayKeys.length === 0 ? (
                     <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground">No slots available in this month.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No slots available in this month.
+                      </p>
                       <Button
                         type="button"
                         variant="outline"
                         className="min-h-[44px]"
                         onClick={() => {
-                          const [year, monthValue] = month.split("-").map((item) => Number(item));
+                          const [year, monthValue] = month
+                            .split("-")
+                            .map((item) => Number(item));
                           if (!year || !monthValue) return;
                           const next = new Date(year, monthValue, 1);
                           setMonth(toLocalMonthValue(next));
@@ -716,7 +967,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                         Try another month
                       </Button>
                     </div>
-                  )}
+                  ) : null}
                   <AvailabilityCalendar
                     month={month}
                     selectedDay={selectedDay}
@@ -744,7 +995,8 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                     onClick={() => {
                       if (!selectedDay) return;
                       if (!selectedSlot) {
-                        const first = availability?.byDay[selectedDay]?.[0] ?? null;
+                        const first =
+                          availability?.byDay[selectedDay]?.[0] ?? null;
                         setSelectedSlot(first);
                       }
                       setScheduleSubStep("time");
@@ -754,11 +1006,13 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                   </Button>
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {scheduleSubStep === "time" && selectedDay && (
+            {scheduleSubStep === "time" && selectedDay ? (
               <div className="mt-6">
-                <h2 className="mb-2 text-sm font-medium text-foreground">Available time slots</h2>
+                <h3 className="mb-2 text-sm font-medium text-foreground">
+                  Available time slots
+                </h3>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {slotsForDay.map((slot) => (
                     <Button
@@ -772,9 +1026,9 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {scheduleSubStep === "time" && selectedDay && (
+            {scheduleSubStep === "time" && selectedDay ? (
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
                 <Button
                   type="button"
@@ -793,16 +1047,16 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
                   Continue to review
                 </Button>
               </div>
-            )}
+            ) : null}
           </>
         )}
 
-        {error && (
+        {error ? (
           <p className="mt-4 text-base text-destructive" role="alert">
             {error}
           </p>
-        )}
-        {availabilityError && (
+        ) : null}
+        {availabilityError ? (
           <div className="mt-4 space-y-3" role="alert" aria-live="polite">
             <p className="text-base text-destructive">{availabilityError}</p>
             <Button
@@ -815,124 +1069,174 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
               {availabilityLoading ? "Retrying..." : "Retry"}
             </Button>
           </div>
-        )}
+        ) : null}
       </div>
     );
-  }
+  } else {
+    content = (
+      <div className="mx-auto max-w-md rounded-[28px] border border-border/70 bg-background/92 px-4 py-5 shadow-sm sm:px-6 sm:py-8">
+        {renderWizardProgress()}
+        <h2 className="text-center text-2xl font-semibold text-foreground">
+          Share your details
+        </h2>
+        <p className="mt-2 text-center text-base text-muted-foreground">
+          Fill out once. We will remember details on this device.
+        </p>
+        <form onSubmit={handleSubmitForm} className="mt-8 space-y-4">
+          <div>
+            <Label htmlFor="intake-name" className="mb-1 block">
+              Name <span className="text-destructive">(Required)</span>
+            </Label>
+            <Input
+              id="intake-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Juan Dela Cruz"
+              required
+              className="w-full"
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label htmlFor="intake-mobile" className="mb-1 block">
+              Mobile{" "}
+              <span className="text-destructive">(Required for booking OTP)</span>
+            </Label>
+            <Input
+              id="intake-mobile"
+              type="tel"
+              value={mobile}
+              onChange={(e) => {
+                setMobile(e.target.value);
+                if (error === PH_MOBILE_E164_ERROR) setError(null);
+              }}
+              placeholder={PH_MOBILE_E164_PLACEHOLDER}
+              className="w-full"
+              required
+            />
+            <p className="mt-1 text-sm text-muted-foreground">
+              {PH_MOBILE_E164_ERROR}
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="intake-email" className="mb-1 block">
+              Email <span className="text-muted-foreground">(Optional)</span>
+            </Label>
+            <Input
+              id="intake-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. customer@example.com"
+              className="w-full"
+            />
+          </div>
 
-  return (
-    <div className="mx-auto max-w-md px-4 py-16">
-      {renderWizardProgress()}
-      <h1 className="text-center text-2xl font-semibold text-foreground">Customer intake</h1>
-      <p className="mt-2 text-center text-base text-muted-foreground">
-        Fill out once and we will remember your details on this device.
-      </p>
-      <form onSubmit={handleSubmitForm} className="mt-8 space-y-4">
-        <div>
-          <Label htmlFor="intake-name" className="mb-1 block">
-            Name <span className="text-destructive">(Required)</span>
-          </Label>
-          <Input
-            id="intake-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Juan Dela Cruz"
-            required
-            className="w-full"
-            autoFocus
-          />
-        </div>
-        <div>
-          <Label htmlFor="intake-mobile" className="mb-1 block">
-            Mobile <span className="text-destructive">(Required for booking OTP)</span>
-          </Label>
-          <Input
-            id="intake-mobile"
-            type="tel"
-            value={mobile}
-            onChange={(e) => {
-              setMobile(e.target.value);
-              if (error === PH_MOBILE_E164_ERROR) setError(null);
-            }}
-            placeholder={PH_MOBILE_E164_PLACEHOLDER}
-            className="w-full"
-            required
-          />
-          <p className="mt-1 text-sm text-muted-foreground">
-            {PH_MOBILE_E164_ERROR}
-          </p>
-        </div>
-        <div>
-          <Label htmlFor="intake-email" className="mb-1 block">
-            Email <span className="text-muted-foreground">(Optional)</span>
-          </Label>
-          <Input
-            id="intake-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="e.g. customer@example.com"
-            className="w-full"
-          />
-        </div>
-
-        {fields.length > 0 && (
-          <div className="space-y-2">
-            {fields.map((f) => (
-              <div key={f.key}>
-                <Label htmlFor={`intake-field-${f.key}`} className="mb-0.5 block text-xs text-muted-foreground">
-                  {f.label}
+          {fields.length > 0 ? (
+            <div className="space-y-2">
+              {fields.map((f) => (
+                <div key={f.key}>
+                  <Label
+                    htmlFor={`intake-field-${f.key}`}
+                    className="mb-0.5 block text-xs text-muted-foreground"
+                  >
+                    {f.label}
+                  </Label>
+                  <Input
+                    id={`intake-field-${f.key}`}
+                    value={fieldValues[f.key] ?? ""}
+                    onChange={(e) => handleFieldChange(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                    className="w-full"
+                  />
+                </div>
+              ))}
+              <div>
+                <Label
+                  htmlFor="intake-notes"
+                  className="mb-0.5 block text-xs text-muted-foreground"
+                >
+                  Additional notes (Optional)
                 </Label>
-                <Input
-                  id={`intake-field-${f.key}`}
-                  value={fieldValues[f.key] ?? ""}
-                  onChange={(e) => handleFieldChange(f.key, e.target.value)}
-                  placeholder={f.placeholder}
+                <Textarea
+                  id="intake-notes"
+                  value={customNotes}
+                  onChange={(e) => setCustomNotes(e.target.value)}
+                  placeholder="Additional notes (optional)"
+                  rows={2}
                   className="w-full"
                 />
               </div>
-            ))}
+            </div>
+          ) : (
             <div>
-              <Label htmlFor="intake-notes" className="mb-0.5 block text-xs text-muted-foreground">
-                Additional notes (Optional)
+              <Label htmlFor="intake-notes" className="mb-1 block">
+                Additional notes{" "}
+                <span className="text-muted-foreground">(Optional)</span>
               </Label>
               <Textarea
                 id="intake-notes"
                 value={customNotes}
                 onChange={(e) => setCustomNotes(e.target.value)}
-                placeholder="Additional notes (optional)"
-                rows={2}
+                placeholder="Add notes or description…"
+                rows={3}
                 className="w-full"
               />
             </div>
-          </div>
-        )}
+          )}
 
-        {fields.length === 0 && (
-          <div>
-            <Label htmlFor="intake-notes" className="mb-1 block">
-              Additional notes <span className="text-muted-foreground">(Optional)</span>
-            </Label>
-            <Textarea
-              id="intake-notes"
-              value={customNotes}
-              onChange={(e) => setCustomNotes(e.target.value)}
-              placeholder="Add notes or description…"
-              rows={3}
-              className="w-full"
-            />
-          </div>
-        )}
+          {error ? (
+            <p className="text-base text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <Button
+            type="submit"
+            className="min-h-[44px] w-full"
+            disabled={submitting}
+          >
+            {submitting ? "Saving…" : "Continue to booking"}
+          </Button>
+        </form>
+      </div>
+    );
+  }
 
-        {error && (
-          <p className="text-base text-destructive" role="alert">
-            {error}
-          </p>
-        )}
-        <Button type="submit" className="min-h-[44px] w-full" disabled={submitting}>
-          {submitting ? "Saving…" : "Continue to booking"}
-        </Button>
-      </form>
+  return (
+    <div
+      style={brandVars}
+      className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(15,118,110,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))]"
+    >
+      <style>{`
+        @keyframes brand-fade-slide-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .brand-stagger {
+          animation: brand-fade-slide-in 280ms cubic-bezier(0.23, 1, 0.32, 1)
+            both;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .brand-stagger {
+            animation: none !important;
+            transform: none !important;
+          }
+        }
+      `}</style>
+
+      <div className="mx-auto max-w-4xl px-3 py-6 sm:px-4 sm:py-16">
+        {configLoading ? <BrandHeaderSkeleton /> : null}
+        {!configLoading && business ? <BrandHeader business={business} /> : null}
+        <div className="mt-4 sm:mt-6">{content}</div>
+      </div>
     </div>
   );
 }

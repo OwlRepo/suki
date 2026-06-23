@@ -167,6 +167,9 @@ export const businesses = pgTable("businesses", {
   paymongoCustomerId: text("paymongo_customer_id"),
   crmMode: text("crm_mode").notNull().default("lite"),
   workflowProfile: text("workflow_profile").notNull().default("general"),
+  brandColor: text("brand_color"),
+  logoUrl: text("logo_url"),
+  tagline: text("tagline"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

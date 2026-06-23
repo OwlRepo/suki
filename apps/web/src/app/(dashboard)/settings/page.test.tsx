@@ -94,8 +94,31 @@ function installDefaultMocks(
     if (path === "/businesses") {
       return {
         businesses: [
-          { id: "biz-1", name: "Main", businessType: "salon", crmMode: "lite" },
+          {
+            id: "biz-1",
+            name: "Main",
+            businessType: "salon",
+            crmMode: "lite",
+            brandColor: null,
+            logoUrl: null,
+            tagline: null,
+          },
         ],
+      };
+    }
+    if (path === "/businesses/biz-1") {
+      const body =
+        typeof options?.body === "string" ? JSON.parse(options.body) : {};
+      return {
+        business: {
+          id: "biz-1",
+          name: body.name ?? "Main",
+          businessType: "salon",
+          crmMode: "lite",
+          brandColor: body.brandColor ?? null,
+          logoUrl: body.logoUrl ?? null,
+          tagline: body.tagline ?? null,
+        },
       };
     }
     if (path === "/billing/status") {
@@ -304,5 +327,45 @@ describe("SettingsPage message templates", () => {
     rejectSave(new Error("Save failed"));
 
     expect(await screen.findByText("Save failed")).toBeInTheDocument();
+  });
+});
+
+describe("SettingsPage business branding", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+  });
+
+  it("sends branded business settings through PATCH", async () => {
+    installDefaultMocks("free");
+
+    render(<SettingsPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+    fireEvent.change(screen.getByLabelText("Tagline"), {
+      target: { value: "Sharp cuts, zero drift." },
+    });
+    fireEvent.change(screen.getByLabelText("Hex value"), {
+      target: { value: "#EEFF00" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Save" })[1]);
+
+    await waitFor(() => {
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/businesses/biz-1",
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining('"brandColor":"#EEFF00"'),
+        }),
+      );
+    });
+
+    expect(apiRequestMock).toHaveBeenCalledWith(
+      "/businesses/biz-1",
+      expect.objectContaining({
+        body: expect.stringContaining('"tagline":"Sharp cuts, zero drift."'),
+      }),
+    );
+    expect(await screen.findByText("Business settings saved.")).toBeInTheDocument();
   });
 });

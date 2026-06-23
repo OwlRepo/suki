@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -46,6 +47,7 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { fromError } from "@/lib/ui-feedback";
 import { getPlanCapabilities } from "@/lib/plan-capabilities";
 import { isDevMode } from "@/lib/dev-mode";
+import { deriveBrandTheme } from "@/lib/brand-theme";
 import {
   clearDevOverrides,
   getDevApiUrl,
@@ -55,6 +57,7 @@ import {
   setDevMockFailure,
   setDevMockLatencyMs,
 } from "@/lib/dev-store";
+import { resizeImageToDataUrl } from "@/lib/image-resize";
 
 const SETTINGS_SECTION_IDS = [
   "organization",
@@ -71,7 +74,17 @@ const SETTINGS_SEARCH_INDEX: Record<
   string[]
 > = {
   organization: ["organization", "workspace", "name", "email", "receipt"],
-  businesses: ["businesses", "business", "crm", "customers", "appointments"],
+  businesses: [
+    "businesses",
+    "business",
+    "crm",
+    "customers",
+    "appointments",
+    "brand",
+    "logo",
+    "tagline",
+    "color",
+  ],
   automation: [
     "automation",
     "reminders",
@@ -106,6 +119,9 @@ interface Business {
   name: string;
   businessType: string;
   crmMode?: "lite" | "full";
+  brandColor?: string | null;
+  logoUrl?: string | null;
+  tagline?: string | null;
 }
 
 interface BillingStatus {
@@ -180,6 +196,15 @@ type MessageTemplateMap = Partial<
   Record<AutomationTemplateKey, { sms?: string; email?: string }>
 >;
 
+const BRAND_SWATCHES = [
+  "#0F766E",
+  "#0F4C81",
+  "#B45309",
+  "#BE185D",
+  "#5B21B6",
+  "#1F2937",
+] as const;
+
 const DEFAULT_MESSAGE_TEMPLATES: Record<
   AutomationTemplateKey,
   { sms: string; email: string }
@@ -236,6 +261,26 @@ function mergeMessageTemplateDefaults(
   ) as MessageTemplateMap;
 }
 
+function buildBusinessMonogram(name: string) {
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (words.length === 0) return "B";
+
+  return words.map((word) => word[0]?.toUpperCase() ?? "").join("");
+}
+
+function isHexColor(value: string) {
+  return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+function normalizeHexInput(value: string) {
+  return value.trim().toUpperCase();
+}
+
 function SettingGroupHeader({
   icon: Icon,
   title,
@@ -278,11 +323,18 @@ function SettingsPageContent() {
   const [savingOrg, setSavingOrg] = useState(false);
   const [editingBiz, setEditingBiz] = useState<string | null>(null);
   const [editBizName, setEditBizName] = useState("");
+  const [editBizBrandColor, setEditBizBrandColor] = useState("");
+  const [editBizLogoUrl, setEditBizLogoUrl] = useState("");
+  const [editBizTagline, setEditBizTagline] = useState("");
+  const [editBizBrandError, setEditBizBrandError] = useState<string | null>(null);
+  const [editBizLogoError, setEditBizLogoError] = useState<string | null>(null);
+  const [uploadingBizLogo, setUploadingBizLogo] = useState(false);
   const [devApiUrl, setDevApiUrlState] = useState("");
   const [devMockLatencyMs, setDevMockLatencyMsState] = useState(0);
   const [devMockFailure, setDevMockFailureState] = useState(false);
   const [settingsSearch, setSettingsSearch] = useState("");
   const [aiPoliciesLoading, setAiPoliciesLoading] = useState(false);
+  const bizLogoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
@@ -380,6 +432,20 @@ function SettingsPageContent() {
     () => getPlanCapabilities(billing?.planType ?? null),
     [billing?.planType],
   );
+
+  const editBizTheme = useMemo(
+    () => deriveBrandTheme(editBizBrandColor || null),
+    [editBizBrandColor],
+  );
+
+  const editBizPreviewVars = useMemo<CSSProperties | undefined>(() => {
+    if (!editBizTheme) return undefined;
+    return {
+      "--primary": editBizTheme.primary,
+      "--primary-foreground": editBizTheme.primaryForeground,
+      "--ring": editBizTheme.ring,
+    } as CSSProperties;
+  }, [editBizTheme]);
 
   const visibleSections = useMemo(() => {
     const query = settingsSearch.trim().toLowerCase();
@@ -818,32 +884,96 @@ function SettingsPageContent() {
     }
   };
 
+  const startEditingBusiness = (business: Business) => {
+    setEditingBiz(business.id);
+    setEditBizName(business.name);
+    setEditBizBrandColor(business.brandColor ?? "");
+    setEditBizLogoUrl(business.logoUrl ?? "");
+    setEditBizTagline(business.tagline ?? "");
+    setEditBizBrandError(null);
+    setEditBizLogoError(null);
+  };
+
+  const stopEditingBusiness = () => {
+    setEditingBiz(null);
+    setEditBizBrandError(null);
+    setEditBizLogoError(null);
+    setUploadingBizLogo(false);
+  };
+
+  const handleBrandColorInput = (value: string) => {
+    const next = normalizeHexInput(value);
+    setEditBizBrandColor(next);
+    if (!next) {
+      setEditBizBrandError(null);
+      return;
+    }
+    setEditBizBrandError(
+      isHexColor(next) ? null : "Use full hex format like #0F766E.",
+    );
+  };
+
+  const handleBusinessLogoUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setUploadingBizLogo(true);
+    setEditBizLogoError(null);
+
+    try {
+      const dataUrl = await resizeImageToDataUrl(file);
+      setEditBizLogoUrl(dataUrl);
+    } catch (error) {
+      setEditBizLogoError(
+        error instanceof Error ? error.message : "Failed to process logo.",
+      );
+    } finally {
+      setUploadingBizLogo(false);
+    }
+  };
+
   const handleSaveBiz = async (id: string) => {
     if (!editBizName.trim()) return;
+    if (editBizBrandColor && !isHexColor(editBizBrandColor)) {
+      setEditBizBrandError("Use full hex format like #0F766E.");
+      return;
+    }
 
     try {
       const token = await getToken();
       if (!token) return;
 
-      await apiRequest(`/businesses/${id}`, {
+      const response = await apiRequest<{ business: Business }>(`/businesses/${id}`, {
         method: "PATCH",
         token,
-        body: JSON.stringify({ name: editBizName.trim() }),
+        body: JSON.stringify({
+          name: editBizName.trim(),
+          brandColor: editBizBrandColor || null,
+          logoUrl: editBizLogoUrl || null,
+          tagline: editBizTagline.trim() || null,
+        }),
       });
 
       setBusinesses((previous) =>
         previous.map((business) =>
           business.id === id
-            ? { ...business, name: editBizName.trim() }
+            ? {
+                ...business,
+                ...response.business,
+              }
             : business,
         ),
       );
 
-      setEditingBiz(null);
+      workspace?.refetch();
+      stopEditingBusiness();
 
       setFeedback({
         type: "success",
-        message: "Business name saved.",
+        message: "Business settings saved.",
       });
 
       setTimeout(() => setFeedback(null), 4000);
@@ -1121,30 +1251,257 @@ function SettingsPageContent() {
                     className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
                   >
                     {editingBiz === business.id ? (
-                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
-                        <Input
-                          value={editBizName}
-                          onChange={(event) =>
-                            setEditBizName(event.target.value)
-                          }
-                          placeholder="Business name"
-                          className="min-h-12"
-                        />
+                      <div className="space-y-4">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor={`${business.id}-name`}>
+                              Business name
+                            </Label>
+                            <Input
+                              id={`${business.id}-name`}
+                              value={editBizName}
+                              onChange={(event) =>
+                                setEditBizName(event.target.value)
+                              }
+                              placeholder="Business name"
+                              className="min-h-12"
+                            />
+                          </div>
 
-                        <Button
-                          size="lg"
-                          onClick={() => handleSaveBiz(business.id)}
-                        >
-                          Save
-                        </Button>
+                          <div className="space-y-2">
+                            <Label htmlFor={`${business.id}-tagline`}>
+                              Tagline
+                            </Label>
+                            <Input
+                              id={`${business.id}-tagline`}
+                              value={editBizTagline}
+                              onChange={(event) =>
+                                setEditBizTagline(event.target.value)
+                              }
+                              maxLength={80}
+                              placeholder="Optional one-line promise"
+                              className="min-h-12"
+                            />
+                            <p className="text-xs text-slate-500">
+                              {editBizTagline.trim().length}/80 characters
+                            </p>
+                          </div>
+                        </div>
 
-                        <Button
-                          size="lg"
-                          variant="outline"
-                          onClick={() => setEditingBiz(null)}
-                        >
-                          Cancel
-                        </Button>
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-950">
+                                Intake logo
+                              </p>
+                              <p className="mt-1 text-sm text-slate-600">
+                                Upload PNG, JPEG, or WebP. Stored as resized
+                                data URL for public intake only.
+                              </p>
+                            </div>
+
+                            <input
+                              ref={bizLogoInputRef}
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              className="sr-only"
+                              onChange={handleBusinessLogoUpload}
+                            />
+
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                              <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+                                {editBizLogoUrl ? (
+                                  <img
+                                    src={editBizLogoUrl}
+                                    alt={`${editBizName || business.name} logo preview`}
+                                    width={72}
+                                    height={72}
+                                    className="size-full object-contain"
+                                  />
+                                ) : (
+                                  <span
+                                    aria-hidden="true"
+                                    className="text-lg font-semibold tracking-[0.2em] text-slate-700"
+                                  >
+                                    {buildBusinessMonogram(
+                                      editBizName || business.name,
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-1 flex-wrap gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() =>
+                                    bizLogoInputRef.current?.click()
+                                  }
+                                >
+                                  {uploadingBizLogo
+                                    ? "Processing..."
+                                    : editBizLogoUrl
+                                      ? "Replace logo"
+                                      : "Upload logo"}
+                                </Button>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  disabled={!editBizLogoUrl}
+                                  aria-label="Remove business logo"
+                                  onClick={() => {
+                                    setEditBizLogoUrl("");
+                                    setEditBizLogoError(null);
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
+
+                            <p
+                              className={`text-sm ${
+                                editBizLogoError
+                                  ? "text-rose-600"
+                                  : "text-slate-500"
+                              }`}
+                              aria-live="polite"
+                            >
+                              {editBizLogoError ??
+                                "Keep logo compact. Public intake uses fixed 72px preview."}
+                            </p>
+                          </div>
+
+                          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-950">
+                                Brand color
+                              </p>
+                              <p className="mt-1 text-sm text-slate-600">
+                                We auto-adjust contrast for buttons and focus
+                                rings on public intake.
+                              </p>
+                            </div>
+
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                              <div className="space-y-2">
+                                <Label htmlFor={`${business.id}-brand-picker`}>
+                                  Pick color
+                                </Label>
+                                <Input
+                                  id={`${business.id}-brand-picker`}
+                                  type="color"
+                                  value={
+                                    isHexColor(editBizBrandColor)
+                                      ? editBizBrandColor
+                                      : "#0F766E"
+                                  }
+                                  onChange={(event) =>
+                                    handleBrandColorInput(
+                                      event.target.value.toUpperCase(),
+                                    )
+                                  }
+                                  className="h-12 min-h-12 w-20 cursor-pointer p-1"
+                                />
+                              </div>
+
+                              <div className="min-w-0 flex-1 space-y-2">
+                                <Label htmlFor={`${business.id}-brand-hex`}>
+                                  Hex value
+                                </Label>
+                                <Input
+                                  id={`${business.id}-brand-hex`}
+                                  value={editBizBrandColor}
+                                  onChange={(event) =>
+                                    handleBrandColorInput(event.target.value)
+                                  }
+                                  maxLength={7}
+                                  pattern="^#[0-9a-fA-F]{6}$"
+                                  placeholder="#0F766E"
+                                  aria-describedby={`${business.id}-brand-help ${business.id}-brand-error`}
+                                  aria-invalid={!!editBizBrandError}
+                                  className="min-h-12 font-mono uppercase"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {BRAND_SWATCHES.map((swatch) => (
+                                <button
+                                  key={swatch}
+                                  type="button"
+                                  aria-label={`Use ${swatch} brand color`}
+                                  aria-pressed={
+                                    editBizBrandColor.toUpperCase() === swatch
+                                  }
+                                  className={`size-11 rounded-full border-2 transition-[transform,box-shadow] ${
+                                    editBizBrandColor.toUpperCase() === swatch
+                                      ? "scale-105 border-slate-950 shadow-sm"
+                                      : "border-white shadow-sm"
+                                  }`}
+                                  style={{ backgroundColor: swatch }}
+                                  onClick={() => handleBrandColorInput(swatch)}
+                                />
+                              ))}
+                            </div>
+
+                            <p
+                              id={`${business.id}-brand-help`}
+                              className="text-sm text-slate-500"
+                            >
+                              Leave blank to keep default intake theme.
+                            </p>
+                            <p
+                              id={`${business.id}-brand-error`}
+                              className={`text-sm ${
+                                editBizBrandError
+                                  ? "text-rose-600"
+                                  : "text-slate-500"
+                              }`}
+                              aria-live="polite"
+                            >
+                              {editBizBrandError ??
+                                "Preview shows final readable button contrast."}
+                            </p>
+
+                            <div
+                              style={editBizPreviewVars}
+                              className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                            >
+                              <p className="text-sm font-medium text-slate-950">
+                                Live contrast preview
+                              </p>
+                              <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <Badge className="bg-primary px-3 py-1 text-primary-foreground">
+                                  Preview Aa
+                                </Badge>
+                                <span className="text-sm text-slate-600">
+                                  Buttons and badges inherit this tone.
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                          <Button
+                            size="lg"
+                            onClick={() => handleSaveBiz(business.id)}
+                            className="w-full sm:w-auto"
+                          >
+                            Save
+                          </Button>
+
+                          <Button
+                            size="lg"
+                            variant="outline"
+                            onClick={stopEditingBusiness}
+                            className="w-full sm:w-auto"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1156,6 +1513,11 @@ function SettingsPageContent() {
                             <p className="mt-1 text-sm capitalize text-slate-500">
                               {business.businessType}
                             </p>
+                            {business.tagline ? (
+                              <p className="mt-1 max-w-[65ch] text-sm text-slate-500">
+                                {business.tagline}
+                              </p>
+                            ) : null}
                           </div>
 
                           {flags.crm_mode_toggle_enabled ? (
@@ -1182,10 +1544,7 @@ function SettingsPageContent() {
 
                         <Button
                           variant="outline"
-                          onClick={() => {
-                            setEditingBiz(business.id);
-                            setEditBizName(business.name);
-                          }}
+                          onClick={() => startEditingBusiness(business)}
                           className="w-full sm:w-auto"
                         >
                           Edit

@@ -75,7 +75,16 @@ export class BusinessesService {
     return biz ?? null;
   }
 
-  async update(id: string, data: { name?: string; businessType?: string }) {
+  async update(
+    id: string,
+    data: {
+      name?: string;
+      businessType?: string;
+      brandColor?: string | null;
+      logoUrl?: string | null;
+      tagline?: string | null;
+    },
+  ) {
     const db = getDb();
     const [updated] = await db
       .update(businesses)

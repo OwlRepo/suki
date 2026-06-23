@@ -179,4 +179,50 @@ describe("IntakePage OTP flow", () => {
     );
     expect(screen.getByText(/choose your appointment/i)).toBeInTheDocument();
   });
+
+  it("renders business branding from public intake config", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      const href = String(url);
+      if (href.includes("/intake/config")) {
+        return new Response(
+          JSON.stringify({
+            template: null,
+            business: {
+              name: "North Star Studio",
+              businessType: "creative_agency",
+              logoUrl:
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2Xh1EAAAAASUVORK5CYII=",
+              tagline: "Appointments for bold ideas.",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await act(async () => {
+      render(
+        <Suspense fallback={<div>Loading</div>}>
+          <IntakePage params={Promise.resolve({ businessId: "biz-brand" })} />
+        </Suspense>,
+      );
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "North Star Studio" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Appointments for bold ideas.")).toBeInTheDocument();
+    expect(screen.getByText("Creative Agency")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "North Star Studio logo" }),
+    ).toBeInTheDocument();
+  });
 });
