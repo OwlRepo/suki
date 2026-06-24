@@ -104,6 +104,30 @@ Only downgrade Deep if repository evidence proves isolation and low risk.
 - If risk area missing, mark `UNMAPPED RISK`.
 - If dependency or contract fact needed for planning is unresolved, mark `UNVERIFIED DEPENDENCY`.
 
+## Backwards Compatibility Rule
+
+Every code change — planned by Claude or implemented by Codex — must not introduce a backwards compatibility breaking change.
+
+Breaking changes include but are not limited to:
+- Removing or renaming a public API endpoint, route param, or query param
+- Changing the shape of a request/response contract (field removal, type change, required → optional or vice versa)
+- Dropping or renaming a database column, table, or enum value without a migration that preserves reads
+- Removing an exported function, class, type, or constant consumed by another module
+- Changing auth or permission logic in a way that silently denies access to existing users
+- Altering automation or messaging behavior that currently-active tenants depend on
+
+Required behavior:
+
+1. **Claude (planner):** During investigation and plan writing, explicitly check for breaking changes. If a proposed change is breaking, label it `BREAKING CHANGE` in the scratchpad and explain:
+   - What is being broken
+   - Who or what is affected (tenants, clients, integrations)
+   - Why it is necessary
+   - What the migration or rollback path is
+2. **Claude must not write `Status: IMPLEMENTATION_READY`** for any plan that contains an unlabeled or unapproved breaking change.
+3. **Claude must ask for explicit user permission** before marking a breaking-change plan as `IMPLEMENTATION_READY`. State clearly: "This plan includes a breaking change. Proceeding will [impact]. Do you approve?"
+4. **Codex (implementer):** If implementation reveals a breaking change not flagged in the scratchpad, Codex must halt, add a `BREAKING CHANGE` note to the scratchpad, and return control to Claude for re-approval.
+5. **Non-breaking alternatives must be considered first:** additive changes (new field alongside old, feature flags, versioned endpoints, deprecation warnings) are always preferred over removal or rename.
+
 ## Quality Gate
 
 - No speculative architecture.
@@ -111,3 +135,4 @@ Only downgrade Deep if repository evidence proves isolation and low risk.
 - No handoff with vague files, vague contracts, or unverified commands.
 - Verification commands must come from package scripts or repo docs.
 - Navigation docs never count as proof.
+- No `Status: IMPLEMENTATION_READY` on plans with unapproved breaking changes.

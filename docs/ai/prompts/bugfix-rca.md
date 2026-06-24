@@ -51,6 +51,7 @@ Always include for FE-BE bugs:
 - Frontend expects:
 - Mismatch:
 - Evidence:
+- Backwards compatibility risk: (would fixing this break existing callers or change the public contract?)
 
 ## Task Size
 
@@ -70,6 +71,7 @@ Include:
 - Files / Causes Ruled Out
 - Required Verification Commands
 - Planning Constraints
+- Backwards Compatibility Assessment: state whether the fix can be applied without breaking existing callers, consumers, or deployed state. If breaking, label `BREAKING CHANGE` and explain what breaks and why it is unavoidable.
 
 ## Evidence Rule
 

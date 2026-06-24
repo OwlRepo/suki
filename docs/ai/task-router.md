@@ -71,10 +71,15 @@ Task Classification:
 - Risk:
 - Contract Areas:
 - Risk Register Notes:
+- Backwards Compatibility Risk:
 - Template Loaded:
 - Context Files Used:
 - Next Action:
 ```
+
+`Backwards Compatibility Risk` values: `None` | `Low` | `Breaking — requires approval`
+
+Set to `Breaking — requires approval` if the change removes, renames, or alters the shape of any public API endpoint, route param, DB column, exported symbol, auth guard, or automation behavior that existing callers depend on.
 
 ## Approval Rules
 
@@ -82,4 +87,5 @@ Task Classification:
 - Deep discovery stops for approval before implementation handoff.
 - `.ai-scratchpad.md` write allowed only after approval.
 - `Status: IMPLEMENTATION_READY` allowed only for approved handoff.
+- `Status: IMPLEMENTATION_READY` is blocked when `Backwards Compatibility Risk: Breaking — requires approval` and user has not granted explicit permission.
 

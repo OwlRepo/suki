@@ -52,6 +52,7 @@ Include when feature crosses FE-BE boundary:
 - Backend should return:
 - Frontend should consume:
 - Compatibility risk:
+- Backwards compatibility risk: (does this add to, or change/remove the existing contract? If change/remove: is an additive alternative viable?)
 
 ## Migration Danger Gate
 
@@ -67,15 +68,27 @@ If schema may change, answer:
 
 Unknown answer -> `UNVERIFIED DEPENDENCY`
 
+## Backwards Compatibility Gate
+
+Run for every feature plan regardless of schema changes:
+
+- Does this feature remove or rename an existing public API endpoint, route param, response field, DB column, exported symbol, auth guard, or automation behavior?
+- Who are the existing callers or consumers of the affected contract?
+- Can the feature be delivered additively (new endpoint alongside old, new optional field, feature flag, versioned route, deprecation warning)?
+- If a breaking change is unavoidable: label `BREAKING CHANGE`, state what breaks, who is affected, why additive alternatives are not viable, then stop and request explicit user approval before writing scratchpad.
+
 ## Codex Scratchpad Output
 
 Must include:
 
 - Contract Areas
 - Risk Register Notes
+- Backwards Compatibility: `None` | `Additive` | `BREAKING CHANGE — approved by user on [date]`
 - exact files
 - exact changes
 - verified commands
 
 Write `.ai-scratchpad.md` with `Status: IMPLEMENTATION_READY` only after approval.
+
+Do not write `Status: IMPLEMENTATION_READY` if plan contains an unapproved `BREAKING CHANGE`.
 
