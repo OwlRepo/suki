@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessageCircle, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageCircle, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { buildApiUrl } from "@/lib/api-base";
@@ -79,7 +79,7 @@ function AssistantMessageText({
         </div>
       ))}
       {displayedState && (
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-85">
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-85">
           {displayedState}
         </p>
       )}
@@ -240,6 +240,28 @@ export function TyveraAssistant() {
   useEffect(() => {
     scrollMessagesToBottom();
   }, [messages, scrollMessagesToBottom]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (typeof window === "undefined") return;
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(max-width: 639px)");
+    if (!mq.matches) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
 
   const usageModel = useMemo(
     () =>
@@ -667,7 +689,7 @@ export function TyveraAssistant() {
     <>
       <div className="fixed right-4 bottom-24 z-40 lg:bottom-6">
         {showCoachmark && (
-          <Card className="mb-3 w-80 border-primary/30 bg-card/95 shadow-xl backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-200 motion-reduce:animate-none">
+          <Card className="mb-3 w-[min(20rem,calc(100vw-2rem))] border-primary/30 bg-card/95 shadow-xl backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-200 motion-reduce:animate-none">
             <CardContent className="space-y-3 p-5">
               <p className="text-base font-semibold tracking-tight">Try Tyvera Assistant</p>
               <p className="text-sm leading-relaxed text-muted-foreground">Step {coachmarkStep + 1} of {COACHMARK_STEPS.length}: {COACHMARK_STEPS[coachmarkStep]}</p>
@@ -682,27 +704,54 @@ export function TyveraAssistant() {
         )}
         <Button
           aria-label="Open Tyvera Assistant"
-          className="min-h-[54px] rounded-full border border-primary/20 bg-primary px-6 text-base font-medium shadow-xl shadow-primary/20 transition-transform duration-200 motion-safe:hover:scale-[1.02] motion-safe:active:scale-[0.98] motion-reduce:transform-none"
+          className="h-14 w-14 min-h-[56px] rounded-full border border-primary/20 bg-primary p-0 text-base font-medium shadow-xl shadow-primary/20 transition-transform duration-200 motion-safe:hover:scale-[1.02] motion-safe:active:scale-[0.98] motion-reduce:transform-none sm:h-auto sm:w-auto sm:min-h-[54px] sm:px-6"
           onClick={() => setOpen(true)}
         >
-          <MessageCircle className="mr-2 size-5" aria-hidden />
-          Tyvera Assistant
+          <MessageCircle className="size-6 sm:mr-2 sm:size-5" aria-hidden />
+          <span className="sr-only sm:not-sr-only">Tyvera Assistant</span>
         </Button>
       </div>
 
       {open && (
-        <section
-          aria-label="Tyvera Assistant Panel"
-          className="fixed right-0 bottom-0 z-50 flex h-[84vh] w-full max-w-[26rem] flex-col border-l border-border/80 bg-background shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-right motion-safe:duration-200 motion-reduce:animate-none"
-        >
-          <div className="border-b border-border/80 p-3.5">
+        <>
+          <button
+            type="button"
+            aria-label="Close Tyvera Assistant"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 bg-foreground/40 backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 motion-reduce:animate-none sm:hidden"
+          />
+          <section
+            aria-label="Tyvera Assistant Panel"
+            className="fixed bottom-0 left-0 right-0 z-50 flex h-[90dvh] w-full flex-col rounded-t-2xl border-t border-border/80 bg-background shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:duration-200 motion-reduce:animate-none sm:left-auto sm:h-[84vh] sm:max-w-[26rem] sm:rounded-none sm:border-l sm:border-t-0"
+          >
+            <button
+              type="button"
+              aria-label="Close Tyvera Assistant"
+              onClick={() => setOpen(false)}
+              className="flex w-full justify-center pt-2.5 pb-1 sm:hidden"
+            >
+              <span aria-hidden className="h-1 w-10 rounded-full bg-border" />
+            </button>
+          <div className="border-b border-border/80 px-3.5 pt-2 pb-3 sm:p-3.5">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-lg font-semibold tracking-tight">Tyvera Assistant</p>
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    displayedAssistantState === "error"
+                      ? "bg-red-500"
+                      : displayedAssistantState === "streaming" || displayedAssistantState === "sending"
+                        ? "bg-amber-500"
+                        : "bg-emerald-500",
+                  )}
+                />
+                <p className="truncate text-base font-semibold tracking-tight sm:text-lg">Tyvera Assistant</p>
+              </div>
+              <div className="flex items-center gap-1">
                 <Button
-                  size="sm"
+                  size="icon-sm"
                   variant="ghost"
-                  className="min-h-[40px] px-3"
                   aria-label={headerCollapsed ? "Expand assistant header" : "Collapse assistant header"}
                   onClick={() => {
                     const next = !headerCollapsed;
@@ -712,12 +761,14 @@ export function TyveraAssistant() {
                     }
                   }}
                 >
-                  {headerCollapsed ? "Expand" : "Collapse"}
+                  {headerCollapsed ? <ChevronDown className="size-4" aria-hidden /> : <ChevronUp className="size-4" aria-hidden />}
                 </Button>
-                <Button size="sm" variant="outline" className="min-h-[40px] px-3" onClick={() => setOpen(false)}>Close</Button>
+                <Button size="icon-sm" variant="ghost" aria-label="Close Tyvera Assistant" onClick={() => setOpen(false)}>
+                  <X className="size-4" aria-hidden />
+                </Button>
               </div>
             </div>
-            <p className="mt-2 text-xs font-medium text-muted-foreground">
+            <p className="mt-1.5 text-[11px] font-medium text-muted-foreground">
               Status: {displayedAssistantState === "read" ? "Read" : displayedAssistantState === "sent" ? "Sent" : displayedAssistantState === "streaming" ? "Streaming" : displayedAssistantState === "sending" ? "Sending" : "Error"}
             </p>
 
@@ -726,59 +777,59 @@ export function TyveraAssistant() {
                 Daily AI limit: {usageModel.daily.messages.used}/{usageModel.daily.messages.limit} messages, {usageModel.daily.tokens.used}/{usageModel.daily.tokens.limit} credits. {usageModel.dailyResetLabel}.
               </div>
             ) : (
-              <div className="mt-3 space-y-2.5 rounded-xl border border-border/80 bg-muted/35 p-3">
+              <div className="mt-2.5 space-y-2 rounded-xl border border-border/80 bg-muted/35 p-2.5 sm:mt-3 sm:space-y-2.5 sm:p-3">
                 <p className="text-sm font-semibold tracking-tight">AI Usage Snapshot</p>
-                <p className="text-xs leading-relaxed text-muted-foreground">Daily reset: {usageModel.dailyResetLabel}</p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground sm:text-xs">Daily reset: {usageModel.dailyResetLabel}</p>
 
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-[11px] sm:text-xs">
                     <span>Daily AI message limit</span>
-                    <span>{usageModel.daily.messages.used}/{usageModel.daily.messages.limit}</span>
+                    <span className="tabular-nums">{usageModel.daily.messages.used}/{usageModel.daily.messages.limit}</span>
                   </div>
-                  <div className="h-2.5 rounded-full bg-muted">
+                  <div className="h-2 rounded-full bg-muted">
                     <div
-                      className={cn("h-2.5 rounded-full transition-all duration-300", usageBarClass(usageModel.daily.messages.state))}
+                      className={cn("h-2 rounded-full transition-all duration-300", usageBarClass(usageModel.daily.messages.state))}
                       style={{ width: `${Math.min(100, Math.round(usageModel.daily.messages.pct * 100))}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">Daily remaining: {usageModel.daily.messages.remaining}</p>
+                  <p className="text-[11px] text-muted-foreground sm:text-xs">Daily remaining: <span className="tabular-nums">{usageModel.daily.messages.remaining}</span></p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-[11px] sm:text-xs">
                     <span>Daily AI credits limit</span>
-                    <span>{usageModel.daily.tokens.used}/{usageModel.daily.tokens.limit}</span>
+                    <span className="tabular-nums">{usageModel.daily.tokens.used}/{usageModel.daily.tokens.limit}</span>
                   </div>
-                  <div className="h-2.5 rounded-full bg-muted">
+                  <div className="h-2 rounded-full bg-muted">
                     <div
-                      className={cn("h-2.5 rounded-full transition-all duration-300", usageBarClass(usageModel.daily.tokens.state))}
+                      className={cn("h-2 rounded-full transition-all duration-300", usageBarClass(usageModel.daily.tokens.state))}
                       style={{ width: `${Math.min(100, Math.round(usageModel.daily.tokens.pct * 100))}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">Daily remaining: {usageModel.daily.tokens.remaining}</p>
+                  <p className="text-[11px] text-muted-foreground sm:text-xs">Daily remaining: <span className="tabular-nums">{usageModel.daily.tokens.remaining}</span></p>
                 </div>
 
-                <div className="space-y-1.5 border-t border-border/70 pt-2">
-                  <p className="text-xs font-semibold text-muted-foreground">This month</p>
-                  <p className="text-xs text-muted-foreground">
-                    Messages: {usageModel.messages.used}/{usageModel.messages.limit} • AI credits: {usageModel.tokens.used}/{usageModel.tokens.limit}
+                <div className="space-y-1 border-t border-border/70 pt-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground sm:text-xs">This month</p>
+                  <p className="text-[11px] text-muted-foreground sm:text-xs">
+                    Messages: <span className="tabular-nums">{usageModel.messages.used}/{usageModel.messages.limit}</span> • AI credits: <span className="tabular-nums">{usageModel.tokens.used}/{usageModel.tokens.limit}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">{usageModel.resetLabel}</p>
+                  <p className="text-[11px] text-muted-foreground sm:text-xs">{usageModel.resetLabel}</p>
                 </div>
               </div>
             )}
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/help" className="rounded-md border border-border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted">Open Help Center</Link>
-              <Link href="/settings" className="rounded-md border border-border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted">View AI Usage</Link>
-              <Button size="sm" variant="ghost" className="min-h-[40px] px-3 text-xs font-medium" onClick={() => setShowAskGuide((v) => !v)}>What can I ask?</Button>
+            <div className="-mx-3.5 mt-3 flex flex-nowrap gap-2 overflow-x-auto px-3.5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+              <Link href="/help" className="shrink-0 rounded-full border border-border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted">Open Help Center</Link>
+              <Link href="/settings" className="shrink-0 rounded-full border border-border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted">View AI Usage</Link>
+              <Button size="sm" variant="ghost" className="min-h-[40px] shrink-0 rounded-full px-3 text-xs font-medium" onClick={() => setShowAskGuide((v) => !v)}>What can I ask?</Button>
             </div>
 
             {showAskGuide && (
-              <div className="mt-2 rounded-lg border border-border/80 bg-background p-3 text-xs leading-relaxed motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150 motion-reduce:animate-none">
-                <p className="font-semibold">Daily tasks</p>
+              <div className="mt-2 rounded-lg border border-border/80 bg-background p-3 text-[11px] leading-relaxed sm:text-xs motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-150 motion-reduce:animate-none">
+                <p className="text-xs font-semibold sm:text-sm">Daily tasks</p>
                 <p className="text-muted-foreground">Ask how to add customers, record visits, and schedule appointments.</p>
-                <p className="mt-2 font-semibold">Billing and usage</p>
+                <p className="mt-2 text-xs font-semibold sm:text-sm">Billing and usage</p>
                 <p className="text-muted-foreground">Ask about AI usage, SMS remaining, and monthly summary.</p>
               </div>
             )}
@@ -885,7 +936,7 @@ export function TyveraAssistant() {
                 {!!message.sources?.length && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {message.sources.map((src) => (
-                      <span key={src} className="rounded-full border border-border/60 bg-background/80 px-2 py-0.5 text-[10px] font-medium">{src}</span>
+                      <span key={src} className="rounded-full border border-border/60 bg-background/80 px-2 py-0.5 text-[11px] font-medium">{src}</span>
                     ))}
                   </div>
                 )}
@@ -893,7 +944,7 @@ export function TyveraAssistant() {
             ))}
           </div>
 
-          <div className="border-t border-border/80 p-3.5">
+          <div className="border-t border-border/80 p-3.5" style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}>
             <div data-testid="assistant-prompt-row" className="mb-2.5 flex flex-nowrap gap-2 overflow-x-auto pb-1">
               {PROMPTS.map((prompt) => (
                 <Button key={prompt} type="button" size="sm" variant="outline" onClick={() => submit(prompt)} className="min-h-[40px] shrink-0 rounded-full border-border/80 bg-background text-xs font-medium transition-colors hover:bg-muted">
@@ -919,10 +970,14 @@ export function TyveraAssistant() {
             </form>
           </div>
         </section>
+        </>
       )}
 
       <Dialog open={showCapDialog} onOpenChange={setShowCapDialog}>
-        <DialogContent>
+        <DialogContent
+          className="bottom-0 left-0 right-0 top-auto w-full max-w-[calc(100%)] translate-x-0 translate-y-0 rounded-b-none rounded-t-2xl sm:bottom-auto sm:left-[50%] sm:right-auto sm:top-[50%] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg"
+          style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        >
           <DialogHeader>
             <DialogTitle className="tracking-tight">AI limit reached</DialogTitle>
             <DialogDescription>
@@ -934,8 +989,8 @@ export function TyveraAssistant() {
             <p>Next steps: review daily usage, continue with Help Center guides, or upgrade for higher limits.</p>
           </div>
           <DialogFooter showCloseButton>
-            <Link href="/settings" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">View usage</Link>
-            <Link href="/help" className="rounded-md border px-4 py-2 text-sm">Open Help Center</Link>
+            <Link href="/settings" className="min-h-[44px] inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">View usage</Link>
+            <Link href="/help" className="min-h-[44px] inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium">Open Help Center</Link>
           </DialogFooter>
         </DialogContent>
       </Dialog>
