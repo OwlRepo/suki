@@ -17,8 +17,11 @@ export function useOnboardingProgress() {
   const { getToken } = useAuth();
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchProgress = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const token = await getToken();
       if (!token) {
@@ -33,8 +36,11 @@ export function useOnboardingProgress() {
         completedSteps: data.completedSteps ?? [],
         timeToFirstValueAt: data.timeToFirstValueAt ?? null,
       });
-    } catch {
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error("Failed to load onboarding progress");
+      console.error("[onboarding] failed to load progress", e);
       setProgress(null);
+      setError(e);
     } finally {
       setLoading(false);
     }
@@ -69,7 +75,9 @@ export function useOnboardingProgress() {
 
   const advanceStep = useCallback(
     async (toStep?: number) => {
-      if (!progress) return;
+      if (!progress) {
+        throw new Error("Onboarding progress not loaded; cannot advance step");
+      }
       const next = toStep ?? Math.min(progress.currentStep + 1, ONBOARDING_COMPLETE_STEP);
       const stepId = `step_${next}`;
       const completedSteps = [...new Set([...progress.completedSteps, stepId])];
@@ -135,6 +143,7 @@ export function useOnboardingProgress() {
   return {
     progress,
     loading,
+    error,
     isComplete,
     currentStep,
     fetchProgress,

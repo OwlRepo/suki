@@ -38,11 +38,13 @@ export function OnboardingWizard() {
   const {
     progress,
     loading: progressLoading,
+    error: progressError,
     isComplete,
     currentStep,
     advanceStep,
     markComplete,
     goBackStep,
+    fetchProgress,
   } = useOnboardingProgress();
   const businesses = workspace?.businesses ?? [];
   const loading = progressLoading;
@@ -102,7 +104,11 @@ export function OnboardingWizard() {
   );
 
   const handleBusinessCreated = useCallback(async () => {
-    await advanceStep(2);
+    try {
+      await advanceStep(2);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to advance onboarding step.");
+    }
   }, [advanceStep]);
 
   const handleContinue = async () => {
@@ -221,6 +227,22 @@ export function OnboardingWizard() {
     );
   }
 
+  if (progressError || !progress) {
+    return (
+      <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 px-4 text-center">
+        <p className="text-base text-foreground">
+          We couldn&apos;t load your onboarding progress.
+        </p>
+        {progressError?.message && (
+          <p className="text-sm text-muted-foreground">{progressError.message}</p>
+        )}
+        <Button size="lg" className="min-h-[44px] text-base" onClick={() => fetchProgress()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <OnboardingJourneyProgress currentStep={step} />
@@ -232,6 +254,11 @@ export function OnboardingWizard() {
             onComplete={handleContinue}
             onBusinessCreated={handleBusinessCreated}
           />
+          {error && (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
         </>
       )}
 

@@ -1,12 +1,11 @@
 import { Controller, Get, Patch, Body, UseGuards } from "@nestjs/common";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
-import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
 import type { TenantContext } from "../common/tenant.decorator";
 import { OnboardingService } from "./onboarding.service";
 
 @Controller("onboarding")
-@UseGuards(ClerkAuthGuard, BillingWriteGuard)
+@UseGuards(ClerkAuthGuard)
 export class OnboardingController {
   constructor(private readonly onboarding: OnboardingService) {}
 
