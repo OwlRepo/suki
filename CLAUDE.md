@@ -136,3 +136,11 @@ Required behavior:
 - Verification commands must come from package scripts or repo docs.
 - Navigation docs never count as proof.
 - No `Status: IMPLEMENTATION_READY` on plans with unapproved breaking changes.
+
+## Git Remote
+
+- `origin` must use SSH alias `git@github.com-owlrepo:OwlRepo/suki.git` (key: `~/.ssh/id_owlrepo`).
+- Default `git@github.com:...` authenticates as `romeo-tarraula` and is denied write access to `OwlRepo/suki`.
+- If a push fails with permission denied, run:
+  `git remote set-url origin git@github.com-owlrepo:OwlRepo/suki.git`
+- SSH config aliases live in `~/.ssh/config` (`Host github.com-owlrepo`).
