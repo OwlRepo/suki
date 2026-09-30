@@ -2,69 +2,89 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 
+const repoRoot = path.resolve(__dirname, "../../../../");
+
 function readRootFile(relativePath: string): string {
-  const file = path.resolve(__dirname, "../../../../", relativePath);
-  return fs.readFileSync(file, "utf8");
+  return fs.readFileSync(path.resolve(repoRoot, relativePath), "utf8");
 }
 
-describe("Codex governance docs", () => {
-  it("routes agents through the compact AI entry point", () => {
-    const agents = readRootFile("AGENTS.md");
-    expect(agents.trim()).toBe(
-      "Read and follow `docs/ai/entry-point.md` before any repository task.",
-    );
-    expect(readRootFile("docs/ai/entry-point.md")).toMatch(
-      /docs\/ai\/architecture-manifest\.md/,
-    );
-  });
+const REQUIRED_AI_DOCS = [
+  "agent-orchestration.md",
+  "architecture-manifest.md",
+  "autonomous-engineering.md",
+  "context-refresh.md",
+  "contracts/api-contracts.md",
+  "contracts/db-contracts.md",
+  "dev-environment.md",
+  "entry-point.md",
+  "execution.md",
+  "file-index/repository-map.md",
+  "handoff.md",
+  "module-ownership-map.md",
+  "operating-contract.md",
+  "plan-template.md",
+  "planning.md",
+  "pr-evidence.md",
+  "prompts/bugfix-plan.md",
+  "prompts/bugfix-rca.md",
+  "prompts/feature-plan.md",
+  "prompts/refactor-plan.md",
+  "risk-register.md",
+  "task-router.md",
+  "testing-strategy.md",
+];
 
-  it("separates Claude planning from Codex execution", () => {
-    const claude = readRootFile("CLAUDE.md");
-    const codex = readRootFile(".codex/instructions.md");
-    const scratchpad = readRootFile(".ai-scratchpad.md");
+describe("AI workflow governance", () => {
+  it("error: .claude/settings.json is valid JSON and wires the TDD guard, not the retired scratchpad-only guard", () => {
     const settings = JSON.parse(readRootFile(".claude/settings.json")) as {
-      permissions?: { defaultMode?: string; deny?: string[] };
+      permissions?: { deny?: string[] };
+      hooks?: { PreToolUse?: { matcher: string; hooks: { command: string }[] }[] };
     };
-
-    expect(claude).toMatch(/Claude Code.*Planner/i);
-    expect(claude).toMatch(/do not write or edit source code/i);
-    expect(claude).toMatch(/\.ai-scratchpad\.md/);
-    expect(codex).toMatch(/OpenAI Codex.*Executor/i);
-    expect(codex).toMatch(/read `\.ai-scratchpad\.md`/i);
-    expect(codex).toMatch(/do not rethink, optimize, or alter architecture/i);
-    expect(scratchpad).toMatch(/^# CAVE PLAN/m);
-    expect(scratchpad).toMatch(/## DIRECTIVES/);
-    expect(scratchpad).toMatch(/## VERIFICATION/);
-    expect(settings.permissions?.defaultMode).toBe("plan");
-    expect(settings.permissions?.deny).toContain("Bash");
+    const commands = (settings.hooks?.PreToolUse ?? []).flatMap((entry) => entry.hooks.map((h) => h.command));
+    expect(commands.some((c) => c.includes("scripts/hooks/tdd-red-guard.mjs"))).toBe(true);
+    expect(commands.some((c) => c.includes(".ai-scratchpad.md"))).toBe(false);
+    expect(settings.permissions?.deny ?? []).not.toContain("Bash");
   });
 
-  it("keeps one architecture manifest and one repository ledger", () => {
-    const aiRoot = path.resolve(__dirname, "../../../../docs/ai");
-    const files = fs
-      .readdirSync(aiRoot, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile())
-      .map((entry) =>
-        path
-          .relative(aiRoot, path.resolve(entry.parentPath, entry.name))
-          .replaceAll("\\", "/"),
-      )
-      .sort();
-
-    expect(files).toEqual([
-      "architecture-manifest.md",
-      "entry-point.md",
-      "file-index/repository-map.md",
-    ]);
-    expect(readRootFile("docs/ai/architecture-manifest.md")).toMatch(
-      /# Architecture Manifest/,
-    );
-    expect(readRootFile("docs/ai/file-index/repository-map.md")).toMatch(
-      /# Repository Map/,
-    );
+  it("error: the retired Codex handoff file .ai-scratchpad.md is gone", () => {
+    expect(fs.existsSync(path.resolve(repoRoot, ".ai-scratchpad.md"))).toBe(false);
   });
 
-  it("requires assistant markdown context governance script", () => {
+  it("edge: CLAUDE.md imports AGENTS.md on its first line", () => {
+    expect(readRootFile("CLAUDE.md").split("\n")[0]).toBe("@AGENTS.md");
+  });
+
+  it("edge: .codex/instructions.md is kept as a pointer to AGENTS.md", () => {
+    expect(readRootFile(".codex/instructions.md")).toMatch(/AGENTS\.md/);
+  });
+
+  it("happy: AGENTS.md carries the canonical task flow and routes through the task router", () => {
+    const agents = readRootFile("AGENTS.md");
+    expect(agents).toMatch(/# Canonical Task Flow/);
+    expect(agents).toMatch(/flowchart TD/);
+    expect(agents).toMatch(/docs\/ai\/task-router\.md/);
+    expect(agents).toMatch(/docs\/ai\/planning\.md/);
+    expect(agents).toMatch(/docs\/ai\/execution\.md/);
+    expect(agents).toMatch(/docs\/ai\/handoff\.md/);
+  });
+
+  it("happy: every phase-loaded docs/ai file exists", () => {
+    for (const doc of REQUIRED_AI_DOCS) {
+      expect(fs.existsSync(path.resolve(repoRoot, "docs/ai", doc)), doc).toBe(true);
+    }
+    expect(readRootFile("docs/ai/architecture-manifest.md")).toMatch(/# Architecture Manifest/);
+    expect(readRootFile("docs/ai/file-index/repository-map.md")).toMatch(/# Repository Map/);
+    expect(readRootFile("docs/ai/entry-point.md")).toMatch(/docs\/ai\/architecture-manifest\.md/);
+  });
+
+  it("happy: the workflow scripts are wired in the root package.json", () => {
+    const scripts = (JSON.parse(readRootFile("package.json")) as { scripts: Record<string, string> }).scripts;
+    for (const name of ["agents:generate", "agents:lint", "tdd:red", "tdd:gate", "test:scripts"]) {
+      expect(scripts[name], name).toBeTruthy();
+    }
+  });
+
+  it("happy: requires the assistant markdown context governance script", () => {
     const pkg = readRootFile("package.json");
     expect(pkg).toMatch(/check:assistant-context-governance/);
     const script = readRootFile("scripts/check-assistant-context-governance.ts");
