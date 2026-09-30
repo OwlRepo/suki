@@ -20,7 +20,6 @@ Verify behavior against source.
 | `apps/web/src/components` | feature UI and reusable view pieces | React components | hooks, lib, shared UI | pages, layouts | billing, customers, assistant, platform-admin, share-slots, landing | Medium |
 | `apps/web/src/hooks` | reusable client logic | hooks | React, API helpers | components, pages | billing status, workspace sync, other feature hooks | Medium |
 | `apps/web/src/lib` | frontend helpers and API plumbing | `apiRequest`, auth helpers, route helpers | env, fetch, Clerk | app, hooks, components | API base URL, auth client, protected route logic, onboarding rules | High |
-| `apps/web/src/domains` | feature-specific web modules | helpers and types | app code | web features | domain-local logic, platform helpers | Medium |
 | `apps/web/src/test` | web test helpers | fixtures and helpers | vitest, RTL | web tests | shared test setup | Medium |
 | `apps/api/src` | NestJS backend modules | controllers, services, modules | NestJS, DB, shared types | web app, provider callbacks | business rules, validation, integration boundaries | High |
 | `apps/api/src/common` | shared guards and policies | guards, services, filters | auth context, env | many API modules | cross-cutting access and billing state checks | High |
@@ -51,21 +50,37 @@ Verify behavior against source.
 | `packages/ui/src` | shared UI primitives | reusable components | React | web app | shared visual building blocks | Medium |
 | `packages/types/src` | shared TS contracts | type exports | TypeScript | web, API, DB | compile-time shared types | Medium |
 | `packages/config` | shared config | config helpers | runtime config | workspace packages | central config | Medium |
-| `packages/admin-database` | extra DB artifact package | built JS and d.ts files | TypeScript build output | unknown | source not verified during bootstrap | Medium |
-| `CLAUDE.md` | Claude router and planner contract | workflow rules | `docs/ai/*` | Claude Code | routing, RCA, planning, handoff | High |
-| `AGENTS.md` | root loader pointer | load order | `CLAUDE.md`, `docs/ai/*` | agents | first repo hop | Medium |
-| `.claude/settings.json` | Claude Code project policy | permissions and hooks | Claude Code settings schema | Claude Code | plan-only, scratchpad-only write | High |
-| `.codex/instructions.md` | Codex executor contract | execution rules | `.ai-scratchpad.md` | Codex | implement and validate only | High |
-| `.ai-scratchpad.md` | transient handoff shell | status-gated task template | Claude planner | Codex executor | temporary mechanical handoff truth | High |
+| `AGENTS.md` | always-on workflow core | Canonical Task Flow, core principles, routing default | `docs/ai/*`, `.ai-engineering/` | Claude Code, Codex, subagents | first repo hop | High |
+| `CLAUDE.md` | project facts | stack, conventions, DB rules, git remote | `AGENTS.md` (imported on line 1) | Claude Code | read before any code work | High |
+| `AI_WORKFLOW.md`, `PLANNING_STANDARDS.md` | moved-doc pointers | links to `docs/ai/*` | — | humans | legacy entry points | Low |
+| `.claude/settings.json` | Claude Code project policy | plan default mode, TDD PreToolUse hook | `scripts/hooks/tdd-red-guard.mjs` | Claude Code | blocks src logic edits until RED | High |
+| `.claude/agents/*.md` | generated personas | subagent definitions | `agents/src/*` | Claude Code Agent tool | never hand-edit | Medium |
+| `agents/src` | persona source of truth | `*.agent.mjs` + `prompts/*.md` | `scripts/generate-agent-defs.mjs` | `bun run agents:generate` | edit here, regenerate | Medium |
+| `.codex/instructions.md` | Codex pointer | points to `AGENTS.md` | `AGENTS.md` | Codex | same flow as Claude | Low |
+| `.ai-engineering` | autonomous workflow layer | agents, core rules, workflows, templates, config | `AGENTS.md` | Claude Code, Codex | lifecycle, safety, evidence | Medium |
+| `graphify-out` | knowledge graph for discovery | `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `cost.json` | graphify CLI + skill | agents (flow node K) | `graphify query`, `path`, `explain`; refresh with `/graphify . --update` | Low |
+| `docs/plans` | approved plans | one markdown plan per task branch | `docs/ai/plan-template.md` | reviewers | first commit on each task branch | Low |
+| `scripts/ci` | TDD tooling | `tdd-lib.mjs`, `tdd-runner.mjs`, `tdd-red.mjs`, `tdd-gate.mjs`, `test-repo.mjs` | git, vitest, node:test | `bun run tdd:red`, CI `tdd:gate`, hook | RED proof locally and in CI | High |
+| `scripts/hooks/tdd-red-guard.mjs` | Claude PreToolUse guard | exit 2 blocks, 0 allows | `scripts/ci/tdd-lib.mjs` | `.claude/settings.json` | blocks guarded src writes without RED | High |
+| `scripts/generate-agent-defs.mjs` | persona generator | `GLOBAL_POLICY`, `renderClaudeMarkdown`, `--check` | `agents/src/*` | `bun run agents:generate`, `agents:lint`, husky pre-commit, CI | keeps generated personas in sync | Medium |
+| `scripts/new-task-worktree.sh` | task worktree helper | `<type> <short-name>` | git | agents | fetch + branch from `origin/main` into `.claude/worktrees/` | Low |
+| `.github/workflows/ci.yml` | PR workflow gates | tdd:gate, test:scripts, agents:lint | bun, node | pull requests | fails a PR that breaks TDD or persona sync | High |
+| `.husky/pre-commit` | local commit hook | agents:lint on staged persona files | husky | git commit | persona drift never committed | Low |
 | `docs/ai/entry-point.md` | workflow summary | developer flow and load order | router and maps | humans, Claude, Codex | repo AI entry | Medium |
 | `docs/ai/task-router.md` | raw task classifier | workflow table | module, contract, risk maps | Claude | route raw requests | High |
 | `docs/ai/module-ownership-map.md` | business-domain map | domain table | verified repo scan | Claude | find likely areas by domain | High |
 | `docs/ai/contracts` | contract maps | API and DB tables | source verification | Claude | find contract boundaries | High |
-| `docs/ai/testing-strategy.md` | verification map | task-size matrix | package scripts | Claude, Codex | choose safe checks | Medium |
+| `docs/ai/testing-strategy.md` | verification map | Strict TDD, test layers, task-size matrix | package scripts | Claude, Codex | choose safe checks | Medium |
+| `docs/ai/{planning,plan-template,execution,handoff,pr-evidence}.md` | phase rules | plan, execute, integrate, PR evidence | `AGENTS.md` flow nodes L, S, W | Claude, Codex | mandatory reads at their flow node | High |
+| `docs/ai/{agent-orchestration,dev-environment,autonomous-engineering,operating-contract}.md` | orchestration, environment, autonomy, pointer | persona rounds and ownership, local stack, autonomy level | `agents/src/*`, compose files, `deploy.yml` | Claude, Codex | multi-agent dispatch and environment facts | Medium |
 | `docs/ai/risk-register.md` | risk map | risk table | repo scan | Claude | classify Deep work | Medium |
 | `docs/ai/context-refresh.md` | stale-doc refresh workflow | refresh steps | source verification | Claude | refresh docs without source edits | Medium |
-| `docs/ai/prompts` | detailed planner templates | prompt docs | router contract | Claude | RCA, bug plan, feature plan, refactor plan | Medium |
+| `docs/ai/prompts` | detailed planner templates | prompt docs | router contract | Claude | RCA, bug plan, feature plan, refactor plan (plan output → `docs/plans/`) | Medium |
 | `docs/assistant-context` | user-facing assistant knowledge | localized markdown topics | product behavior, help routes | help assistant loader | answer guidance for in-product assistant | Medium |
 | `scripts/update-ai-indexes.ts` | AI doc metadata stamper | script entry | Bun FS APIs | developers | refresh markdown index headers | Low |
 | `scripts/check-assistant-context-governance.ts` | governance check | script entry | git, governance helper | developers, CI | ensure assistant context and AI maps stay in sync | Medium |
 | `.github/workflows/deploy.yml` | deploy workflow | GitHub Actions YAML | Docker and env | CI/CD | production deployment path | High |
+
+## Drift Log
+
+- `CONTEXT DRIFT` (2026-10-01): the former apps/web/src/domains row was removed — that directory does not exist on `origin/main` (`bdf6e70`).

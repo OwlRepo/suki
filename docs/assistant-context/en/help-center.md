@@ -14,7 +14,7 @@ quickAnswer: Open Help Center to search guides, replay onboarding, and resolve c
 - Start with Guided Onboarding Replay for first-time or refresher walkthroughs.
 - Use section cards (Getting Started, Daily Tasks, Billing & Usage, Troubleshooting) to narrow answers.
 - Open related route links from articles to act immediately.
-- Internal AI work uses Claude Code for approved planning, Codex for execution, and `.ai-scratchpad.md` for handoff.
+- Internal AI work follows the canonical task flow in `AGENTS.md`: Claude Code plans, waits for approval, then implements in an isolated worktree with tests written first.
 - If a guide is unclear, use article feedback and contact support path.
 - Common mistake: searching with very broad terms like "problem".
 - Recovery: search by task and route name for better results.

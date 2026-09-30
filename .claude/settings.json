@@ -3,20 +3,16 @@
   "permissions": {
     "defaultMode": "plan",
     "disableBypassPermissionsMode": "disable",
-    "disableAutoMode": "disable",
-    "allow": [
-      "Edit(/.ai-scratchpad.md)",
-      "Write(/.ai-scratchpad.md)"
-    ],
+    "disableAutoMode": "disable"
   },
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c 'import json, os, sys; data=json.load(sys.stdin); path=data.get(\"tool_input\", {}).get(\"file_path\", \"\"); root=os.environ.get(\"CLAUDE_PROJECT_DIR\", os.getcwd()); allowed=os.path.realpath(os.path.join(root, \".ai-scratchpad.md\")); actual=os.path.realpath(path) if path else \"\"; ok=actual == allowed; print(\"\" if ok else \"Claude Code may write only .ai-scratchpad.md.\", file=sys.stderr); raise SystemExit(0 if ok else 2)'"
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/tdd-red-guard.mjs\""
           }
         ]
       }

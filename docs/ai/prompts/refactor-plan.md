@@ -4,7 +4,7 @@ Purpose:
 
 Plan behavior-preserving refactor.
 
-No source edits.
+No source edits while planning; implementation starts only after approval, in a task worktree.
 
 Forbid broad cleanup.
 
@@ -27,7 +27,7 @@ Forbid opportunistic changes.
 5. Implementation Steps
 6. Verification & Testing Plan
 7. Rollback / Risk Mitigation Plan
-8. Codex Scratchpad Output
+8. Plan Output
 
 ## Rules
 
@@ -35,7 +35,7 @@ Forbid opportunistic changes.
 - Verify behavior ownership from source code.
 - Do not allow behavior-changing contract drift.
 - If public API or invariant risk is unclear, stop and mark `UNVERIFIED DEPENDENCY`.
-- Every refactor must pass the Backwards Compatibility Gate before handoff.
+- Every refactor must pass the Backwards Compatibility Gate before implementation.
 
 ## Backwards Compatibility Gate
 
@@ -44,7 +44,7 @@ Run for every refactor plan:
 - Does this refactor rename, move, or remove a public API endpoint, route param, response field, DB column, exported function/class/type/constant, auth guard, or automation behavior?
 - Are there existing callers inside or outside this repo that depend on the current symbol or contract shape?
 - Can the rename/move be done with a re-export shim, alias, or deprecation wrapper so existing callers keep working?
-- If a breaking change is unavoidable: label `BREAKING CHANGE`, state what breaks, who is affected, why a shim or alias is not viable, then stop and request explicit user approval before writing scratchpad.
+- If a breaking change is unavoidable: label `BREAKING CHANGE`, state what breaks, who is affected, why a shim or alias is not viable, then stop and request explicit user approval before the plan is approved.
 
 Note: a refactor that changes only internal implementation without touching any public surface is non-breaking by definition — confirm this in the Public API Surface Check section.
 
@@ -53,15 +53,12 @@ Note: a refactor that changes only internal implementation without touching any 
 If refactor touches billing, payments, SMS credits, auth, permissions, automations, jobs, webhooks, migrations, or transactions:
 
 - keep task Deep
-- require approval before handoff
+- require approval before implementation
 
-## Codex Scratchpad Output
+## Plan Output
 
-Include Contract Areas when relevant.
+Write the plan with `docs/ai/plan-template.md`. Include Contract Areas when relevant and `Backwards Compatibility: None | Shim/alias added | BREAKING CHANGE — approved by user on [date]`.
 
-Include: `Backwards Compatibility: None | Shim/alias added | BREAKING CHANGE — approved by user on [date]`
+Refactors run characterization tests first: they must PASS on the current code, and the PR carries `TDD-Waiver: refactor <reason>` so the CI `tdd:gate` proves they still pass against the base (`docs/ai/testing-strategy.md` "Strict TDD").
 
-Write `.ai-scratchpad.md` with `Status: IMPLEMENTATION_READY` only after approval.
-
-Do not write `Status: IMPLEMENTATION_READY` if plan contains an unapproved `BREAKING CHANGE`.
-
+The plan stops for user approval; after approval it is committed to `docs/plans/<branch-short-name>.md`. A plan containing an unapproved `BREAKING CHANGE` cannot be approved.

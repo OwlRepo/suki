@@ -1,26 +1,23 @@
 # GitHub Copilot Instructions for Tyvera
 
-For all development tasks, use `.ai/` as the canonical AI knowledge system.
+`AGENTS.md` is the canonical AI workflow for this repository, and `CLAUDE.md`
+holds the verified project facts. The `docs/ai/` maps route every task.
 
 ## Required Context Loading Order
-1. Load `.ai/architecture/code-map.md` first.
-2. Load `.ai/architecture/feature-boundaries.md`.
-3. Load relevant `.ai/file-index/*.md` shards to locate exact files.
-4. Discover existing tests before editing implementation files.
-5. Load additional architecture/workflow docs only as required by task scope.
+1. `AGENTS.md` (Canonical Task Flow, core principles, backwards-compatibility rule).
+2. `CLAUDE.md` (stack, conventions, database rules).
+3. `docs/ai/task-router.md`, then `docs/ai/architecture-manifest.md` and `docs/ai/module-ownership-map.md`.
+4. `docs/ai/file-index/repository-map.md` to locate exact files.
+5. Discover existing tests before editing implementation files.
 
 ## Mandatory Engineering Rules
-- Respect feature boundaries and avoid editing unrelated modules.
-- Produce a deterministic implementation plan before modifying code.
-- Strictly follow TDD: Red -> Green -> Refactor.
-- Write or update tests before production code.
-- Do not implement production code before the failing test exists.
+- Respect module boundaries and avoid editing unrelated modules.
+- Produce a deterministic implementation plan before modifying code (`docs/ai/planning.md`).
+- Strict TDD: failing tests first, ordered `error:` > `edge:` > `regression:` > `happy:`, proven with `bun run tdd:red` (`docs/ai/testing-strategy.md`).
 - For bug fixes, add a regression test that fails before fixing the bug.
-- Follow `.ai/workflows/` for feature, bug, refactor, API, and database changes.
-- When updating file indexes, follow `.ai/workflows/update-file-indexes.md`:
-  inspect git changes, then patch only stale index shards.
+- No backwards-incompatible change without a labelled `BREAKING CHANGE` and explicit approval.
+- After a code change, refresh only the affected rows of `docs/ai/file-index/repository-map.md` and the matching `docs/ai/*` maps.
 
 ## Safety and Accuracy
 - Verify file paths, symbols, and dependencies before edits.
-- Verify related tests and risk level before implementation.
 - Do not invent files, APIs, modules, routes, schemas, commands, or tests.

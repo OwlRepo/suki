@@ -1,0 +1,28 @@
+# Autonomy Level 2 = implement and open PRs; never approve, merge, close, or deploy.
+# This is the pilot default (docs/ai/autonomous-engineering.md). Raising it needs an
+# explicit user instruction recorded in memory/architecture-decisions.md.
+autonomy_level: 2
+
+agents:
+  - coordinator
+  - product-manager
+  - architect
+  - implementer
+  - reviewer
+  - qa
+  - reporter
+
+# No scheduler or task source is configured; runs are manual (chat-driven).
+# workflows/daily-cycle.md describes the cycle to use once one is approved.
+schedule:
+  mode: manual
+  planning: "NOT_CONFIGURED"
+  engineering: "NOT_CONFIGURED"
+  reporting: "NOT_CONFIGURED"
+
+approval:
+  plan: required
+  merge: required
+  production: required
+  destructive_actions: required
+  breaking_changes: required
