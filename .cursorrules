@@ -1,14 +1,12 @@
-Load `docs/ai/entry-point.md` first.
+Load `AGENTS.md` first (Canonical Task Flow, core principles, backwards-compatibility rule), then `CLAUDE.md` for project facts.
 
-Use minimal context.
-For code change load:
-1. `docs/ai/architecture/code-map.md`
-2. `docs/ai/architecture/feature-boundaries.md`
-3. `docs/ai/file-index/repository-map.md`
-4. relevant workflow
+Use minimal context. For a code change load:
+1. `docs/ai/task-router.md`
+2. `docs/ai/architecture-manifest.md`
+3. `docs/ai/module-ownership-map.md`
+4. `docs/ai/file-index/repository-map.md`
 5. related tests
 6. target files
 
-TDD mandatory for behavior change.
-Write failing test before production code.
-Update `docs/ai/file-index/repository-map.md` and affected `docs/ai/architecture/*` after code change.
+Strict TDD for behaviour changes: write failing tests first (`error:` > `edge:` > `regression:` > `happy:`) and run `bun run tdd:red` before touching workspace `src/` logic (`docs/ai/testing-strategy.md` "Strict TDD").
+Update `docs/ai/file-index/repository-map.md` and the matching `docs/ai/*` maps after a code change (`docs/ai/handoff.md`).

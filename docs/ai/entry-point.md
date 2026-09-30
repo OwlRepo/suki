@@ -12,7 +12,7 @@ Verify final conclusions against real source code, tests, types, schemas, routes
 
 ## Developer Workflow
 
-Planner flow:
+One agent owns a task end to end, following the Canonical Task Flow in `AGENTS.md`:
 
 ```txt
 Handle this task:
@@ -20,29 +20,22 @@ Handle this task:
 [paste details]
 ```
 
-After Claude discovery or plan approval:
+1. Route (`docs/ai/task-router.md`) and print the Task Classification block.
+2. Bug → RCA first (`docs/ai/prompts/bugfix-rca.md`), stop for approval.
+3. Plan (`docs/ai/planning.md` + `docs/ai/plan-template.md`), stop for approval.
+4. Execute in a fresh worktree (`docs/ai/execution.md`): approved plan committed to `docs/plans/<branch>.md`, RED tests (`bun run tdd:red`), implementation, validation.
+5. Hand off (`docs/ai/handoff.md`): PR into `main`, CI green, final report. Merging is the user's call.
 
-```txt
-Approved. Create implementation handoff.
-```
+Human approval is required before implementation and before any `BREAKING CHANGE`. The retired planner/executor handoff file (`.ai-scratchpad.md`) is gone.
 
-Executor flow:
+## Phase Docs
 
-```txt
-Implement from `.ai-scratchpad.md`.
-```
-
-Validation flow:
-
-```txt
-Validate from `.ai-scratchpad.md`.
-```
-
-## Split Brain
-
-- Claude routes, investigates, plans, writes handoff.
-- Codex implements and validates only from `.ai-scratchpad.md`.
-- Human approval required before risky implementation handoff.
+- `docs/ai/planning.md`, `docs/ai/plan-template.md` — flow node L.
+- `docs/ai/execution.md` — flow node S.
+- `docs/ai/handoff.md`, `docs/ai/pr-evidence.md` — flow node W.
+- `docs/ai/agent-orchestration.md` — multi-agent FE/BE dispatch.
+- `docs/ai/dev-environment.md` — local stack, DB lifecycle, production deploy.
+- `docs/ai/autonomous-engineering.md` + `.ai-engineering/` — autonomy level and lifecycle.
 
 ## Context Engineering
 

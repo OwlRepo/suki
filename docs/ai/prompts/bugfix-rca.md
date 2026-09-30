@@ -8,7 +8,7 @@ No implementation.
 
 No source edits.
 
-Do not write `Status: IMPLEMENTATION_READY`.
+Stop for approval after the RCA; no fix plan or code until the user approves it (`AGENTS.md` node E).
 
 ## Router Compatibility
 
@@ -78,5 +78,5 @@ Include:
 - Quote file paths and symbols.
 - Use tested or code-proven facts only.
 - Do not include implementation steps.
-- Do not write `.ai-scratchpad.md` unless user explicitly asks to store RCA state.
+- Do not create files; the RCA lives in the conversation (and in the plan file once a fix plan is approved).
 

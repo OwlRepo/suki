@@ -21,6 +21,12 @@ Refresh AI navigation and contract docs without changing source code.
 - `docs/ai/testing-strategy.md`
 - `docs/ai/risk-register.md`
 - `docs/ai/file-index/repository-map.md`
+- `docs/ai/entry-point.md`, `docs/ai/task-router.md`, `docs/ai/context-refresh.md`, `docs/ai/prompts/*`
+- `docs/ai/planning.md`, `docs/ai/plan-template.md`, `docs/ai/execution.md`, `docs/ai/handoff.md`, `docs/ai/pr-evidence.md`
+- `docs/ai/agent-orchestration.md` (must list every persona `ownedGlobs` entry), `docs/ai/dev-environment.md`, `docs/ai/autonomous-engineering.md`, `docs/ai/operating-contract.md` (pointer only)
+- `AGENTS.md`, `CLAUDE.md`, `.ai-engineering/memory/project-memory.md`
+
+`bun run update:ai-indexes` restamps the metadata header of every `docs/ai` file; run it at the end of a refresh.
 
 ## Source Verification Rules
 

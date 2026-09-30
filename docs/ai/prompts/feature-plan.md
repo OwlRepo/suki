@@ -8,7 +8,7 @@ Use Feature Discovery.
 
 Do not use RCA.
 
-No source edits.
+No source edits while planning; implementation starts only after approval, in a task worktree.
 
 ## Router Compatibility
 
@@ -32,7 +32,7 @@ No source edits.
 10. Implementation Sequence
 11. Verification & Testing Plan
 12. Rollback / Risk Mitigation Plan
-13. Codex Scratchpad Output
+13. Plan Output
 
 ## Discovery Rules
 
@@ -75,20 +75,20 @@ Run for every feature plan regardless of schema changes:
 - Does this feature remove or rename an existing public API endpoint, route param, response field, DB column, exported symbol, auth guard, or automation behavior?
 - Who are the existing callers or consumers of the affected contract?
 - Can the feature be delivered additively (new endpoint alongside old, new optional field, feature flag, versioned route, deprecation warning)?
-- If a breaking change is unavoidable: label `BREAKING CHANGE`, state what breaks, who is affected, why additive alternatives are not viable, then stop and request explicit user approval before writing scratchpad.
+- If a breaking change is unavoidable: label `BREAKING CHANGE`, state what breaks, who is affected, why additive alternatives are not viable, then stop and request explicit user approval before the plan is approved.
 
-## Codex Scratchpad Output
+## Plan Output
 
-Must include:
+Write the plan with `docs/ai/plan-template.md` (flow node L). It must include:
 
 - Contract Areas
 - Risk Register Notes
 - Backwards Compatibility: `None` | `Additive` | `BREAKING CHANGE — approved by user on [date]`
 - exact files
-- exact changes
-- verified commands
+- literal old/new changes (or full new-file content)
+- verified commands (from `package.json`)
+- the RED Test Matrix (`docs/ai/testing-strategy.md` "Strict TDD")
 
-Write `.ai-scratchpad.md` with `Status: IMPLEMENTATION_READY` only after approval.
+The plan stops for user approval. After approval it is committed to `docs/plans/<branch-short-name>.md` in the task worktree (`docs/ai/execution.md`).
 
-Do not write `Status: IMPLEMENTATION_READY` if plan contains an unapproved `BREAKING CHANGE`.
-
+A plan containing an unapproved `BREAKING CHANGE` cannot be approved.

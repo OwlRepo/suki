@@ -18,8 +18,7 @@ Verify all conclusions against real source code, tests, types, schemas, routes, 
 - API app: `apps/api` using NestJS
 - Main DB package: `packages/database` using Drizzle + PostgreSQL
 - Shared packages: `packages/ui`, `packages/types`, `packages/config`
-- Extra package path present: `packages/admin-database`
-  Source package metadata not found during bootstrap scan. Treat as built artifact package until verified.
+- `packages/admin-database` (and `packages/ai-agent`): `CONTEXT DRIFT` — not tracked in git; they exist only as untracked `dist/` build output in some local checkouts. Not a workspace package.
 - Infra and workflow files: `docker-compose.yml`, `docker-compose.prod.yml`, `.github/workflows/deploy.yml`
 
 ## Frontend
@@ -87,9 +86,22 @@ Verified from package scripts:
 - `bun run test`
 - `bun run update:ai-indexes`
 - `bun run check:assistant-context-governance`
+- `bun run tdd:red`, `bun run tdd:gate`, `bun run test:scripts`, `bun run agents:generate`, `bun run agents:lint`
+
+## AI Workflow Layer
+
+- Always-on core: `AGENTS.md` (Canonical Task Flow A–Z, core principles incl. backwards compatibility, routing default); project facts: `CLAUDE.md` (`@AGENTS.md` first line).
+- Phase docs: `docs/ai/{task-router,planning,plan-template,execution,handoff,pr-evidence,agent-orchestration,dev-environment,autonomous-engineering}.md`; approved plans committed to `docs/plans/<branch>.md`.
+- Personas: `agents/src/*.agent.mjs` + `agents/src/prompts/*.md` → `scripts/generate-agent-defs.mjs` → `.claude/agents/*.md` (Claude only). `bun run agents:generate` / `agents:lint`.
+- Strict TDD: `.claude/settings.json` PreToolUse → `scripts/hooks/tdd-red-guard.mjs`; `bun run tdd:red` writes `<git-dir>/tdd-red.json`; CI `bun run tdd:gate` (`scripts/ci/tdd-gate.mjs`) re-proves RED against the merge-base. Shared rules in `scripts/ci/tdd-lib.mjs`; vitest/node:test runner in `scripts/ci/tdd-runner.mjs`.
+- CI: `.github/workflows/ci.yml` on pull requests (tdd:gate, test:scripts, agents:lint). Deploy stays `.github/workflows/deploy.yml` (push to `main`).
+- Worktrees: `scripts/new-task-worktree.sh` → `.claude/worktrees/<type>-<name>` (gitignored).
+- Autonomous layer: `.ai-engineering/` at autonomy Level 2 (implement + open PR, never merge).
+- Discovery: graphify (`graphify-out/graph.json`), node K of the flow.
 
 ## Risk Notes
 
 - Deep by default: billing, payments, SMS credits, auth, permissions, automations, webhooks, migrations, transactions
 - Medium risk: imports, platform-admin read models, shared package contract changes
-- Low risk: docs, prompts, AI workflow bootstrap files
+- Low risk: docs and prompts
+- Standard risk: AI workflow hooks and CI gates (a broken hook blocks every agent session; a broken gate blocks every PR)
