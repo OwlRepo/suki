@@ -226,12 +226,13 @@ test("edge: isGuardedSource only guards workspace src logic", () => {
     "apps/web/src/lib/a.ts",
     "apps/web/src/components/b.tsx",
     "apps/api/src/billing/billing.service.ts",
-    "packages/database/src/schema/index.ts",
     "packages/types/src/index.ts",
   ]) {
     assert.equal(isGuardedSource(p), true, p);
   }
   for (const p of [
+    "packages/database/src/schema/index.ts",
+    "packages/ui/src/Button.tsx",
     "apps/web/src/lib/a.test.ts",
     "apps/web/src/lib/a.test.tsx",
     "apps/api/src/billing/billing.service.spec.ts",

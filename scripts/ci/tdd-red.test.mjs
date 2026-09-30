@@ -125,4 +125,5 @@ test("happy: failing error/edge tests write the marker with branch and titles", 
   assert.deepEqual(marker.testFiles, [IVA_TEST_PATH]);
   assert.ok(marker.failedTitles.includes("error: rejects negative amounts"));
   assert.match(marker.at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(marker.head, git(repo.root, "rev-parse", "HEAD"));
 });

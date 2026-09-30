@@ -126,6 +126,18 @@ test("edge: a waiver marker with a reason allows the edit", (t) => {
   assert.equal(guard(edit(repo.root, SRC)).status, 0);
 });
 
+test("edge: on a detached HEAD a marker recorded at another commit is not valid", (t) => {
+  const repo = makeRepo();
+  t.after(() => repo.cleanup());
+  const first = git(repo.root, "rev-parse", "HEAD");
+  repo.commit({ "docs/a.md": "x\n" });
+  git(repo.root, "checkout", "-q", "--detach", "HEAD");
+  writeMarker(repo.root, { ...VALID("HEAD"), head: first });
+  assert.equal(guard(edit(repo.root, SRC)).status, 2);
+  writeMarker(repo.root, { ...VALID("HEAD"), head: git(repo.root, "rev-parse", "HEAD") });
+  assert.equal(guard(edit(repo.root, SRC)).status, 0);
+});
+
 // ----------------------------------------------------------- regression cases
 
 test("regression: a marker where only happy cases failed does not allow editing", (t) => {

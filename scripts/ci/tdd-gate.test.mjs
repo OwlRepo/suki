@@ -87,13 +87,13 @@ test("edge: a tests-only PR needs no RED but does need prefixes", (t) => {
   assert.equal(gate(repo.root).status, 1);
 });
 
-test("edge: a PR whose head is main skips the gate", (t) => {
+test("regression: a PR whose head branch is named main (e.g. from a fork) is still gated", (t) => {
   const repo = makeRepo({ [IVA_SRC]: IVA_BUGGY });
   t.after(() => repo.cleanup());
   repo.commit({ [IVA_SRC]: IVA_FIXED });
   const res = gate(repo.root, { TDD_GATE_HEAD_REF: "main" });
-  assert.equal(res.status, 0);
-  assert.match(res.stdout, /skip/i);
+  assert.equal(res.status, 1);
+  assert.doesNotMatch(res.stdout, /skip/i);
 });
 
 test("edge: a missing PR_BODY means no waiver", (t) => {
