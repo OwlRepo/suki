@@ -58,6 +58,7 @@ Verify behavior against source.
 | `agents/src` | persona source of truth | `*.agent.mjs` + `prompts/*.md` | `scripts/generate-agent-defs.mjs` | `bun run agents:generate` | edit here, regenerate | Medium |
 | `.codex/instructions.md` | Codex pointer | points to `AGENTS.md` | `AGENTS.md` | Codex | same flow as Claude | Low |
 | `.ai-engineering` | autonomous workflow layer | agents, core rules, workflows, templates, config | `AGENTS.md` | Claude Code, Codex | lifecycle, safety, evidence | Medium |
+| `graphify-out` | knowledge graph for discovery | `graph.json`, `GRAPH_REPORT.md`, `manifest.json`, `cost.json` | graphify CLI + skill | agents (flow node K) | `graphify query|path|explain`; refresh with `/graphify . --update` | Low |
 | `docs/plans` | approved plans | one markdown plan per task branch | `docs/ai/plan-template.md` | reviewers | first commit on each task branch | Low |
 | `scripts/ci` | TDD tooling | `tdd-lib.mjs`, `tdd-runner.mjs`, `tdd-red.mjs`, `tdd-gate.mjs`, `test-repo.mjs` | git, vitest, node:test | `bun run tdd:red`, CI `tdd:gate`, hook | RED proof locally and in CI | High |
 | `scripts/hooks/tdd-red-guard.mjs` | Claude PreToolUse guard | exit 2 blocks, 0 allows | `scripts/ci/tdd-lib.mjs` | `.claude/settings.json` | blocks guarded src writes without RED | High |
