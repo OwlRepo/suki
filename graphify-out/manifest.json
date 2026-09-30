@@ -3920,9 +3920,9 @@
     "semantic_hash": "934fb84e49627e904dec90950be038d2"
   },
   "docs/ai/file-index/repository-map.md": {
-    "mtime": 1790790649.3514748,
-    "ast_hash": "577f4720a0d452126cb6d4c61fee229f",
-    "semantic_hash": "577f4720a0d452126cb6d4c61fee229f"
+    "mtime": 1790791170.7254486,
+    "ast_hash": "29aa65a770b32da2e04d88150dd77067",
+    "semantic_hash": "29aa65a770b32da2e04d88150dd77067"
   },
   "docs/ai/handoff.md": {
     "mtime": 1790790263.7599525,
@@ -4213,5 +4213,15 @@
     "mtime": 1790789508.6158814,
     "ast_hash": "a2760511c65806022ad20adf74370ff3",
     "semantic_hash": "a2760511c65806022ad20adf74370ff3"
+  },
+  "docs/ai/testing-strategy.md": {
+    "mtime": 1790790905.735817,
+    "ast_hash": "428560ccf2a053ecf35e52209ad28817",
+    "semantic_hash": "428560ccf2a053ecf35e52209ad28817"
+  },
+  "docs/plans/infra-workflow-port-v2.md": {
+    "mtime": 1790790905.7359934,
+    "ast_hash": "e3d0c02d499f760340e29939643b0eb0",
+    "semantic_hash": "e3d0c02d499f760340e29939643b0eb0"
   }
 }
