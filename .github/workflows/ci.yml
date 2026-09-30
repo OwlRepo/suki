@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflow-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Pinned to the version developers run locally; package.json's
+      # packageManager (bun@1.0.0) predates the text bun.lock format.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      # The workflow scripts run under Node (node:test for scripts/**/*.test.mjs).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: bun install --frozen-lockfile
+
+      # Fails fast: RED proof against the base, tests present for changed logic,
+      # case prefixes and order. Rules: docs/ai/testing-strategy.md "Strict TDD".
+      - name: TDD gate
+        env:
+          TDD_GATE_BASE: origin/${{ github.base_ref }}
+          TDD_GATE_HEAD_REF: ${{ github.head_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bun run tdd:gate
+
+      - name: Workflow script tests
+        run: bun run test:scripts
+
+      - name: Agent definitions lint (only if persona files changed)
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qE '^(agents/src/|scripts/generate-agent-defs\.mjs|\.claude/agents/)'; then
+            bun run agents:lint
+          else
+            echo "No persona files changed - skipping agents:lint."
+          fi
