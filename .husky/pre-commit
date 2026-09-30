@@ -1,0 +1,4 @@
+# Persona sources and generated agent files must stay in sync (docs/ai/agent-orchestration.md).
+if git diff --cached --name-only | grep -qE '^(agents/src/|scripts/generate-agent-defs\.mjs|\.claude/agents/)'; then
+  bun run agents:lint
+fi

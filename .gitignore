@@ -42,3 +42,6 @@ yarn-error.log*
 # Drizzle
 drizzle/meta
 .cursor/
+
+# Claude Code task worktrees (scripts/new-task-worktree.sh)
+.claude/worktrees/
