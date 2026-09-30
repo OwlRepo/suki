@@ -8,12 +8,6 @@
       "Edit(/.ai-scratchpad.md)",
       "Write(/.ai-scratchpad.md)"
     ],
-    "deny": [
-      "Bash",
-      "NotebookEdit",
-      "Agent",
-      "mcp__*"
-    ]
   },
   "hooks": {
     "PreToolUse": [
