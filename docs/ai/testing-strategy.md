@@ -13,10 +13,10 @@ Commands must be verified from package scripts or repo docs before being listed 
 Enforced, not advisory: the local guard blocks the agent and the CI gate blocks the PR.
 
 1. **RED before any implementation.** Write every test the task's Test Matrix requires, run `bun run tdd:red`, and see it fail. Commit the tests on their own as `test(<scope>): ...` before any workspace `src/` logic changes. `tdd:red` records the RED in `<git-dir>/tdd-red.json` (per worktree, never committed).
-2. **Case order: `error:` > `edge:` > `regression:` > `happy:`.** Every new test title (`it(`/`test(`) starts with one of those prefixes and is declared in that order. A valid RED has at least one `error:`, `edge:` or `regression:` case failing, or a test file that cannot load yet because its module does not exist. Only `happy:` failing is not a RED.
+2. **Case order: `error:` > `edge:` > `regression:` > `happy:`.** Every new test title (`it(`/`test(`) starts with one of those prefixes and is declared in that order. The RED marker records the branch and commit; on a detached HEAD it is only valid at the commit it was recorded on. A valid RED has at least one `error:`, `edge:` or `regression:` case failing, or a test file that cannot load yet because its module does not exist. Only `happy:` failing is not a RED.
 3. **Then implement until green.** Implementers may add tests. They never weaken or delete a RED test without saying why in the PR.
 
-What counts as guarded logic: `apps/web/src/**`, `apps/api/src/**`, `packages/*/src/**` `.ts`/`.tsx` files, excluding `*.test.*`, `*.spec.*`, `*.d.ts`, and `src/test/` setup folders (`scripts/ci/tdd-lib.mjs` `isGuardedSource`).
+What counts as guarded logic: `apps/web/src/**`, `apps/api/src/**`, `packages/types/src/**` `.ts`/`.tsx` files, excluding `*.test.*`, `*.spec.*`, `*.d.ts`, and `src/test/` setup folders (`scripts/ci/tdd-lib.mjs` `isGuardedSource`). `packages/database` and `packages/ui` have no test runner yet, so they are not guarded; cover their behaviour through API or web tests, and add them to the guard together with a vitest config when they get one.
 
 Enforcement:
 

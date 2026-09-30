@@ -213,3 +213,11 @@ There is no app/API/DB/tenant change. Governance changes on purpose (Claude impl
 - `apps/api` vitest: 9 failed / 591 passed / 3 skipped — `assistant-mutation.service.spec.ts`, `assistant-read-model.service.spec.ts`, `deploy-workflow-governance.spec.ts` (3), `docs-governance.spec.ts` (3, rewritten by this task), `rebrand-governance.spec.ts` (1: legacy brand string in `deploy.yml` and `CLAUDE.md`).
 - `packages/types` vitest: 11 passed.
 - Consequence: new docs must not contain the legacy brand string (`rebrand-governance.spec.ts`).
+
+## Execution amendments (from the Phase 6 review)
+
+- `tdd-gate` no longer skips PRs whose head branch is named `main` (the planned `PROMOTION_REFS = ["main"]`): this repo has no promotion PRs, and a fork's `main` could have bypassed the gate. `TDD_GATE_HEAD_REF` is no longer passed by CI.
+- `isGuardedSource` covers `apps/web`, `apps/api`, `packages/types` only: `packages/database` and `packages/ui` have no vitest runner, so guarding them would block edits no test can unblock.
+- The base-run worktree also symlinks per-workspace `node_modules`, so a missing non-hoisted dependency cannot fake a RED.
+- `tdd:red` records the HEAD SHA; on a detached HEAD the hook accepts the marker only at that commit.
+- CI passes `github.base_ref` to the agents-lint step through `env:`.

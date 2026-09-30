@@ -8,10 +8,13 @@ const RED_PREFIXES = new Set(["error", "edge", "regression"]);
 
 const TEST_SUFFIX = /\.(test|spec)\.tsx?$/;
 
-// Workspace source logic: apps/web, apps/api and every packages/* src tree.
+// Workspace source logic, limited to the workspaces that have a vitest runner
+// (apps/web, apps/api, packages/types). packages/database and packages/ui have no
+// runner yet, so guarding them would block edits no test can unblock; add them
+// here together with a WORKSPACE_OF entry once they get one.
 // Test files, type declarations and test setup folders (src/test/) are not logic.
 export function isGuardedSource(rel) {
-  if (!/^(apps\/(web|api)|packages\/[^/]+)\/src\/.+\.tsx?$/.test(rel)) return false;
+  if (!/^(apps\/(web|api)|packages\/types)\/src\/.+\.tsx?$/.test(rel)) return false;
   if (TEST_SUFFIX.test(rel) || rel.endsWith(".d.ts")) return false;
   return !/^[^/]+\/[^/]+\/src\/test\//.test(rel);
 }

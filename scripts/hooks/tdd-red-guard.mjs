@@ -51,6 +51,10 @@ function markerProblem(toplevel) {
     return `The marker ${file} is corrupt; run bun run tdd:red again.`;
   }
   if (marker.branch !== branch) return `RED first: the marker belongs to branch ${marker.branch}, not ${branch}.`;
+  // A detached HEAD has no branch identity, so pin the marker to the exact commit.
+  if (branch === "HEAD" && marker.head !== git(toplevel, "rev-parse", "HEAD")) {
+    return "RED first: the marker was recorded at another commit of this detached HEAD.";
+  }
   if (typeof marker.waiver === "string" && marker.waiver.trim()) return null;
   const verdict = judgeRed({ testLevel: marker.failedTitles ?? [], fileLevel: marker.loadFailures ?? [] });
   return verdict.red ? null : `RED first: the marker is not a valid RED (${verdict.reason}).`;

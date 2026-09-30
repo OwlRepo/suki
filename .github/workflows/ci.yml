@@ -34,7 +34,6 @@ jobs:
       - name: TDD gate
         env:
           TDD_GATE_BASE: origin/${{ github.base_ref }}
-          TDD_GATE_HEAD_REF: ${{ github.head_ref }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: bun run tdd:gate
 
@@ -42,8 +41,10 @@ jobs:
         run: bun run test:scripts
 
       - name: Agent definitions lint (only if persona files changed)
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qE '^(agents/src/|scripts/generate-agent-defs\.mjs|\.claude/agents/)'; then
+          if git diff --name-only "origin/${BASE_REF}...HEAD" | grep -qE '^(agents/src/|scripts/generate-agent-defs\.mjs|\.claude/agents/)'; then
             bun run agents:lint
           else
             echo "No persona files changed - skipping agents:lint."

@@ -9,8 +9,7 @@ import path from "node:path";
 import { RUNNABLE_KINDS, checkTitles, classifyChanges, extractTestTitles, judgeRed, parseWaivers } from "./tdd-lib.mjs";
 import { TestRunTimeout, runTestGroups } from "./tdd-runner.mjs";
 
-// A PR whose head is the default branch carries code that already passed the gate.
-const PROMOTION_REFS = new Set(["main"]);
+const WORKSPACE_DIRS = ["apps/web", "apps/api", "packages/types", "packages/database", "packages/ui", "packages/config"];
 
 class GateError extends Error {}
 
@@ -59,8 +58,12 @@ function runAgainstBase(mergeBase, head, groups, timeoutMs) {
   const dir = mkdtempSync(path.join(tmpdir(), "tdd-gate-base-"));
   try {
     git("worktree", "add", "--detach", "--quiet", dir, mergeBase);
-    const nodeModules = path.join(repoRoot, "node_modules");
-    if (existsSync(nodeModules)) symlinkSync(nodeModules, path.join(dir, "node_modules"));
+    // Root and per-workspace node_modules, so a spec that loads fine at HEAD cannot
+    // fail to load at the base merely because a non-hoisted dependency is missing.
+    for (const rel of ["", ...WORKSPACE_DIRS]) {
+      const nodeModules = path.join(repoRoot, rel, "node_modules");
+      if (existsSync(nodeModules) && existsSync(path.join(dir, rel))) symlinkSync(nodeModules, path.join(dir, rel, "node_modules"));
+    }
     for (const file of RUNNABLE_KINDS.flatMap((k) => groups[k])) {
       mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
       writeFileSync(path.join(dir, file), git("show", `${head}:${file}`));
@@ -85,11 +88,6 @@ function runAgainstBase(mergeBase, head, groups, timeoutMs) {
 function main() {
   const base = process.env.TDD_GATE_BASE;
   if (!base) throw new GateError("TDD_GATE_BASE is missing (e.g. origin/main)");
-  const headRef = process.env.TDD_GATE_HEAD_REF ?? "";
-  if (PROMOTION_REFS.has(headRef)) {
-    console.log(`skip: PR from ${headRef}; its code already passed the gate`);
-    return 0;
-  }
   const head = process.env.TDD_GATE_HEAD || "HEAD";
   const timeoutMs = Number(process.env.TDD_GATE_TIMEOUT_MS) || 5 * 60 * 1000;
 

@@ -52,11 +52,12 @@ function main() {
   const root = git("rev-parse", "--show-toplevel");
   const gitDir = git("rev-parse", "--absolute-git-dir");
   const branch = git("rev-parse", "--abbrev-ref", "HEAD");
+  const head = git("rev-parse", "HEAD");
   const marker = path.join(gitDir, MARKER_FILE);
   const at = new Date().toISOString();
 
   if (waiver) {
-    writeFileSync(marker, `${JSON.stringify({ branch, waiver, at }, null, 2)}\n`);
+    writeFileSync(marker, `${JSON.stringify({ branch, head, waiver, at }, null, 2)}\n`);
     console.log(`tdd:red: waiver recorded for ${branch}: ${waiver}. Copy it into the PR body as "TDD-Waiver: ${waiver}".`);
     return 0;
   }
@@ -76,7 +77,7 @@ function main() {
     console.error(`tdd:red: no RED. ${verdict.reason}`);
     return 1;
   }
-  const record = { branch, testFiles, failedTitles: run.testLevel, loadFailures: run.fileLevel, at };
+  const record = { branch, head, testFiles, failedTitles: run.testLevel, loadFailures: run.fileLevel, at };
   writeFileSync(marker, `${JSON.stringify(record, null, 2)}\n`);
   console.log(`tdd:red: RED recorded for ${branch} (${verdict.reason}). You may implement now.`);
   return 0;
