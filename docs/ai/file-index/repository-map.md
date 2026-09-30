@@ -20,7 +20,6 @@ Verify behavior against source.
 | `apps/web/src/components` | feature UI and reusable view pieces | React components | hooks, lib, shared UI | pages, layouts | billing, customers, assistant, platform-admin, share-slots, landing | Medium |
 | `apps/web/src/hooks` | reusable client logic | hooks | React, API helpers | components, pages | billing status, workspace sync, other feature hooks | Medium |
 | `apps/web/src/lib` | frontend helpers and API plumbing | `apiRequest`, auth helpers, route helpers | env, fetch, Clerk | app, hooks, components | API base URL, auth client, protected route logic, onboarding rules | High |
-| `apps/web/src/domains` | feature-specific web modules | helpers and types | app code | web features | domain-local logic, platform helpers | Medium |
 | `apps/web/src/test` | web test helpers | fixtures and helpers | vitest, RTL | web tests | shared test setup | Medium |
 | `apps/api/src` | NestJS backend modules | controllers, services, modules | NestJS, DB, shared types | web app, provider callbacks | business rules, validation, integration boundaries | High |
 | `apps/api/src/common` | shared guards and policies | guards, services, filters | auth context, env | many API modules | cross-cutting access and billing state checks | High |
@@ -80,3 +79,7 @@ Verify behavior against source.
 | `scripts/update-ai-indexes.ts` | AI doc metadata stamper | script entry | Bun FS APIs | developers | refresh markdown index headers | Low |
 | `scripts/check-assistant-context-governance.ts` | governance check | script entry | git, governance helper | developers, CI | ensure assistant context and AI maps stay in sync | Medium |
 | `.github/workflows/deploy.yml` | deploy workflow | GitHub Actions YAML | Docker and env | CI/CD | production deployment path | High |
+
+## Drift Log
+
+- `CONTEXT DRIFT` (2026-10-01): the former apps/web/src/domains row was removed — that directory does not exist on `origin/main` (`bdf6e70`).
