@@ -14,7 +14,7 @@ quickAnswer: Buksan ang Help Center para maghanap ng guides at i-replay ang onbo
 - Simulan sa Guided Onboarding Replay para sa refresher walkthrough.
 - Gamitin ang sections (Getting Started, Daily Tasks, Billing & Usage, Troubleshooting).
 - Buksan ang related route links para agad magawa ang task.
-- Claude Code ang planner, Codex ang executor, at `.ai-scratchpad.md` ang approved handoff ng internal AI work.
+- Sinusunod ng internal AI work ang canonical task flow sa `AGENTS.md`: nagpaplano ang Claude Code, naghihintay ng approval, saka nag-iimplement sa hiwalay na worktree na tests muna ang isinusulat.
 - Kung kulang ang guide, gamitin ang feedback at support path.
 - Karaniwang mali: sobrang generic na search tulad ng "problem".
 - Recovery: mag-search gamit ang task at route name para mas eksakto.
