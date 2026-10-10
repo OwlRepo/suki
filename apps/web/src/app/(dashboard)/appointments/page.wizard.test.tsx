@@ -99,7 +99,7 @@ describe("Appointments wizard component", () => {
     expect(await screen.findByRole("button", { name: /6\/12\/2026 unavailable/i })).toBeDisabled();
     fireEvent.click(await screen.findByRole("button", { name: /6\/10\/2026/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM|11:00 AM/i }));
+    fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
 
@@ -135,7 +135,7 @@ describe("Appointments wizard component", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(await screen.findByRole("button", { name: /6\/10\/2026/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM|11:00 AM/i }));
+    fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
 
