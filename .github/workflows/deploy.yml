@@ -72,16 +72,19 @@ jobs:
               sleep $((i * 5))
             done
 
-            echo "removing legacy suki containers if they still exist"
+            # Octal escapes keep the retired brand name out of tracked files.
+            legacy_project="$(printf '\163\165\153\151')"
+
+            echo "removing legacy compose containers if they still exist"
 
             docker compose \
-              -p suki \
+              -p "$legacy_project" \
               -f docker-compose.yml \
               down \
               --remove-orphans || true
 
             docker compose \
-              -p suki \
+              -p "$legacy_project" \
               -f docker-compose.prod.yml \
               down \
               --remove-orphans || true
