@@ -50,19 +50,16 @@ Which workflow or config changed, what it now enforces, the local proof (command
 
 ## Required PR structure
 
-Title and summary are written in plain language for a non-technical reviewer, in Spanish AND English. No `Co-Authored-By` Claude trailer.
+Title and summary are written in plain English for a non-technical reviewer. No `Co-Authored-By` Claude trailer. `.github/PULL_REQUEST_TEMPLATE.md` pre-fills this structure.
 
 ```
-## Resumen (Español)
-<qué cambia y por qué, en lenguaje sencillo>
-
-## Summary (English)
+## Summary
 <what changes and why, in plain language>
 
-## Qué cambia / What changes
+## What changes
 - <bullets a non-technical reviewer can follow>
 
-## Cómo probar / How to test
+## How to test
 - <steps>
 
 ## Change Type

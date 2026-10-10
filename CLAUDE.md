@@ -19,7 +19,7 @@ flow (`README.md`, `apps/web/src/app`, `apps/api/src`). Production runs at
 - **API:** `apps/api` — NestJS 10 on Express, global `ValidationPipe` + class-validator DTOs (`apps/api/src/main.ts`), `@nestjs/schedule` for schedulers (`apps/api/package.json`).
 - **Database:** PostgreSQL 16 (`docker-compose.yml`, `docker-compose.prod.yml`) via Drizzle ORM in `packages/database` — schema `packages/database/src/schema/index.ts`, migrations `packages/database/drizzle/*.sql` (`packages/database/drizzle.config.ts`). No RLS; tenant scoping is enforced in API services and guards.
 - **Shared packages:** `packages/types` (contract types), `packages/ui` (shared React components), `packages/config`.
-- **Tests:** vitest 3 per workspace (`apps/web` jsdom, `apps/api` node, `packages/types`) through `turbo run test`; workflow scripts use `node:test` (`bun run test:scripts`).
+- **Tests:** vitest 3 per workspace (`apps/web` jsdom, `apps/api` node, `packages/types`) through `turbo run test`; workflow scripts use `node:test` (`bun run test:scripts`). PR CI (`.github/workflows/ci.yml`) runs `tdd:gate`, `typecheck`, changed-file lint, `test:scripts`, and `agents:lint` when persona files change; the full `bun run test` is not a CI step yet because `main` carries pre-existing API test failures.
 - **Integrations:** Clerk + local auth tables, OpenAI, Twilio, Semaphore, Resend, PayMongo, LemonSqueezy (`docs/ai/architecture-manifest.md` "External Integrations"; verify in source before relying on one).
 - **Deploy:** push to `main` → `.github/workflows/deploy.yml` SSHes to the VPS, takes a `pg_dump` backup, builds `api` then `web` with `docker-compose.prod.yml`, and health-checks `:3001/health`, `:3000`, and the public site. Pending Drizzle migrations apply when the API container starts (`apps/api/Dockerfile` CMD runs `packages/database/scripts/migrate.ts`).
 
@@ -35,6 +35,7 @@ flow (`README.md`, `apps/web/src/app`, `apps/api/src`). Production runs at
 - API: thin controllers, logic in services, DTO validation at every boundary, guards on every private route, transactions around multi-step writes.
 - Web: Server Components by default; loading/empty/error states for every data view; mobile-first at 375px.
 - Comments explain "why", never "what".
+- English only: code, comments, docs, commit messages, and PR titles/bodies are written in English.
 
 ## Database rules
 

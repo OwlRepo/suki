@@ -37,6 +37,26 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: bun run tdd:gate
 
+      - name: Typecheck
+        run: bun run typecheck
+
+      # Changed files only, so pre-existing findings elsewhere do not block a PR.
+      # apps/web carries its own eslint.config.mjs (Next rules) and must lint from
+      # its own directory; every other workspace uses the root config.
+      - name: Lint changed files
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          files="$(git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD" -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs')"
+          if [ -z "$files" ]; then
+            echo "No lintable files changed - skipping lint."
+            exit 0
+          fi
+          web="$(printf '%s\n' "$files" | sed -n 's#^apps/web/##p')"
+          rest="$(printf '%s\n' "$files" | grep -v '^apps/web/' || true)"
+          if [ -n "$web" ]; then (cd apps/web && bunx eslint --no-warn-ignored $web); fi
+          if [ -n "$rest" ]; then bunx eslint --no-warn-ignored $rest; fi
+
       - name: Workflow script tests
         run: bun run test:scripts
 

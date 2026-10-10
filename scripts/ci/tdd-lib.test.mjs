@@ -263,9 +263,20 @@ test("edge: findBashWriteTargets detects sed -i, perl -i, tee, redirection and c
   assert.deepEqual(findBashWriteTargets("cp /tmp/x.ts src/a.ts && mv a b"), ["src/a.ts", "b"]);
 });
 
-test("edge: globSafe leaves a path without brackets untouched and escapes each bracket", () => {
-  assert.equal(globSafe("scripts/ci/tdd-lib.test.mjs"), "scripts/ci/tdd-lib.test.mjs");
+test("edge: globSafe leaves a path without brackets untouched", () => {
+  for (const p of [
+    "scripts/ci/tdd-lib.test.mjs",
+    "apps/web/src/app/(app)/dashboard/page.test.tsx",
+    "apps/api/src/help/assistant-read-model.service.spec.ts",
+  ]) {
+    assert.equal(globSafe(p), p);
+  }
+});
+
+test("edge: globSafe escapes every bracket of a dynamic folder", () => {
   assert.equal(globSafe("scripts/[id]/a.test.mjs"), "scripts/[[]id]/a.test.mjs");
+  assert.equal(globSafe("scripts/[[...slug]]/a.test.mjs"), "scripts/[[][[]...slug]]/a.test.mjs");
+  assert.equal(globSafe("scripts/[assetId]/[callId]/a.test.mjs"), "scripts/[[]assetId]/[[]callId]/a.test.mjs");
 });
 
 // ----------------------------------------------------------- regression cases

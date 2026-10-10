@@ -13,8 +13,20 @@
       "output_tokens": 0,
       "files": 3,
       "note": "--update: 3 changed docs; subagent total (input+output combined)"
+    },
+    {
+      "date": "2026-10-10T15:11:46.843569+00:00",
+      "input_tokens": 121841,
+      "output_tokens": 0,
+      "files": 14
+    },
+    {
+      "date": "2026-10-10T15:14:22.758517+00:00",
+      "input_tokens": 96476,
+      "output_tokens": 0,
+      "files": 1
     }
   ],
-  "total_input_tokens": 965030,
+  "total_input_tokens": 1183347,
   "total_output_tokens": 0
 }

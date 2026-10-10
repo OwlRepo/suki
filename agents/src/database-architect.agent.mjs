@@ -13,7 +13,7 @@ const persona = {
     tools: ["Read", "Grep", "Glob", "Edit", "Write", "Bash"],
     model: "sonnet",
   },
-  ownedGlobs: ["packages/database/src/schema/**", "packages/database/drizzle/**", "packages/database/scripts/**", "packages/database/drizzle.config.ts"],
+  ownedGlobs: ["packages/database/src/*.ts", "packages/database/src/schema/**", "packages/database/drizzle/**", "packages/database/scripts/**", "packages/database/drizzle.config.ts"],
   systemPrompt: readFileSync(join(dir, "prompts", "database-architect.md"), "utf8").trimEnd() + "\n",
 };
 
