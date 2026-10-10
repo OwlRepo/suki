@@ -64,7 +64,8 @@ Verify behavior against source.
 | `scripts/hooks/tdd-red-guard.mjs` | Claude PreToolUse guard | exit 2 blocks, 0 allows | `scripts/ci/tdd-lib.mjs` | `.claude/settings.json` | blocks guarded src writes without RED | High |
 | `scripts/generate-agent-defs.mjs` | persona generator | `GLOBAL_POLICY`, `renderClaudeMarkdown`, `--check` | `agents/src/*` | `bun run agents:generate`, `agents:lint`, husky pre-commit, CI | keeps generated personas in sync | Medium |
 | `scripts/new-task-worktree.sh` | task worktree helper | `<type> <short-name>` | git | agents | fetch + branch from `origin/main` into `.claude/worktrees/` | Low |
-| `.github/workflows/ci.yml` | PR workflow gates | tdd:gate, test:scripts, agents:lint | bun, node | pull requests | fails a PR that breaks TDD or persona sync | High |
+| `.github/workflows/ci.yml` | PR workflow gates | tdd:gate, typecheck, changed-file lint, test:scripts, agents:lint | bun, node | pull requests | fails a PR that breaks TDD, types, lint on changed files, or persona sync | High |
+| `.github/PULL_REQUEST_TEMPLATE.md` | PR body template | English-only structure from `docs/ai/pr-evidence.md` | none | new pull requests | waiver lines it carries are read by `tdd:gate` | Low |
 | `.husky/pre-commit` | local commit hook | agents:lint on staged persona files | husky | git commit | persona drift never committed | Low |
 | `docs/ai/entry-point.md` | workflow summary | developer flow and load order | router and maps | humans, Claude, Codex | repo AI entry | Medium |
 | `docs/ai/task-router.md` | raw task classifier | workflow table | module, contract, risk maps | Claude | route raw requests | High |
