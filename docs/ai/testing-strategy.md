@@ -28,6 +28,8 @@ Enforcement:
 
 How the runner works (`scripts/ci/tdd-runner.mjs`): web tests run in `apps/web`, API specs in `apps/api`, types specs in `packages/types` — each with `node_modules/.bin/vitest run --reporter=json` so the workspace's own `vitest.config.ts` applies; `scripts/**/*.test.mjs` run under `node --test`.
 
+Other CI steps on every PR (`.github/workflows/ci.yml`): `bun run typecheck`, eslint on changed files only (`apps/web` files lint from `apps/web` so its Next config applies; everything else uses the root config), `bun run test:scripts`, and `bun run agents:lint` when persona files change. The full `bun run test` is not a CI step yet: `main` carries pre-existing API test failures, and the step is added once they are fixed.
+
 Known limits: the Bash guard is a heuristic; a human editing by hand bypasses the local guard (never the CI gate). There is no migration-test harness yet: a migration needs a test under `packages/database/tests/` or a `Migration-Waiver:` naming the manual verification. There is no Playwright suite: a `.tsx` change needs a vitest component test. Existing test files are grandfathered: only titles a diff adds are checked. Waivers are self-declared by the PR author and shown in the CI job summary, so review is where they get challenged.
 
 ## Mandatory Test Layers
