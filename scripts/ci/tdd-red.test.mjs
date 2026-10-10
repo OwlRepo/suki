@@ -89,6 +89,14 @@ test("edge: an api spec failing in apps/api is found and run in its workspace", 
   assert.deepEqual(marker.testFiles, [spec]);
 });
 
+test("edge: an optional route folder [[...slug]] is found too", (t) => {
+  const repo = makeRepo({ "apps/web/src/app/[[...slug]]/iva.ts": IVA_BUGGY });
+  t.after(() => repo.cleanup());
+  write(repo.root, "apps/web/src/app/[[...slug]]/iva.test.ts", IVA_TEST);
+  const res = red(repo.root);
+  assert.equal(res.status, 0, res.stdout + res.stderr);
+});
+
 // ----------------------------------------------------------- regression cases
 
 test("regression: when only happy tests fail there is no valid RED", (t) => {
