@@ -1,12 +1,23 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
 
 const STORAGE_KEY = "tyvera-sidebar-collapsed-v1";
 
 describe("useSidebarCollapsed", () => {
+  // Node 25 exposes its own method-less `localStorage` global, which shadows jsdom's.
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn((key: string) => store.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => store.set(key, value)),
+      removeItem: vi.fn((key: string) => store.delete(key)),
+      clear: vi.fn(() => store.clear()),
+    });
+  });
+
   afterEach(() => {
-    window.localStorage.clear();
+    vi.unstubAllGlobals();
   });
 
   it("edge: stays collapsed when no preference is stored", () => {
