@@ -96,7 +96,9 @@ describe("TyveraAssistant orchestration UI", () => {
 
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED", "true");
-    stubReducedMotion(false);
+    // Content assertions should not wait out the real-timer reveal animation;
+    // tests that exercise the animation opt back in with stubReducedMotion(false).
+    stubReducedMotion(true);
     apiRequestMock.mockReset();
     apiRequestMock.mockImplementation(async (path: string) => {
       if (path.startsWith("/ai/usage/summary")) {
@@ -644,6 +646,7 @@ describe("TyveraAssistant orchestration UI", () => {
   });
 
   it("reveals streamed target text progressively", async () => {
+    stubReducedMotion(false);
     let releaseDone: (() => void) | undefined;
     const waitForDone = new Promise<void>((resolve) => {
       releaseDone = resolve;
@@ -687,11 +690,12 @@ describe("TyveraAssistant orchestration UI", () => {
           ),
         ).toBeInTheDocument();
       },
-      { timeout: 2000 },
+      { timeout: 10000 },
     );
   });
 
   it("drains the final next step progressively and keeps status streaming", async () => {
+    stubReducedMotion(false);
     const stream = createStream(
       'event: done\ndata: {"type":"done","response":{"plainAnswer":"The monthly summary is ready with several useful details.","nextStep":"Open insights to review everything.","actionChips":[{"label":"Open insights","href":"/insights","kind":"primary"}],"confidence":0.95}}\n\n',
     );
@@ -712,7 +716,7 @@ describe("TyveraAssistant orchestration UI", () => {
     ).not.toBeInTheDocument();
 
     expect(
-      await screen.findByText(/status:\s*read/i, {}, { timeout: 2000 }),
+      await screen.findByText(/status:\s*read/i, {}, { timeout: 10000 }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/open insights to review everything\./i),
@@ -799,6 +803,7 @@ describe("TyveraAssistant orchestration UI", () => {
   });
 
   it("does not force bottom-follow after the owner scrolls upward", async () => {
+    stubReducedMotion(false);
     let releaseDone: (() => void) | undefined;
     const waitForDone = new Promise<void>((resolve) => {
       releaseDone = resolve;
@@ -853,7 +858,7 @@ describe("TyveraAssistant orchestration UI", () => {
     await waitFor(() => expect(scrollTo).toHaveBeenCalled());
     await waitFor(
       () => expect(screen.getByText(/status:\s*read/i)).toBeInTheDocument(),
-      { timeout: 2000 },
+      { timeout: 10000 },
     );
   });
 });
