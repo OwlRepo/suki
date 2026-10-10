@@ -13,7 +13,7 @@ const persona = {
     tools: ["Read", "Grep", "Glob", "Edit", "Write", "Bash"],
     model: "sonnet",
   },
-  ownedGlobs: ["apps/web/src/app/**", "apps/web/src/components/**", "apps/web/src/hooks/**", "apps/web/src/contexts/**", "apps/web/src/lib/**", "packages/ui/src/**"],
+  ownedGlobs: ["apps/web/src/app/**", "apps/web/src/components/**", "apps/web/src/hooks/**", "apps/web/src/contexts/**", "apps/web/src/lib/**", "packages/ui/src/**", "apps/web/src/proxy.ts"],
   systemPrompt: readFileSync(join(dir, "prompts", "nextjs-frontend-dev.md"), "utf8").trimEnd() + "\n",
 };
 
