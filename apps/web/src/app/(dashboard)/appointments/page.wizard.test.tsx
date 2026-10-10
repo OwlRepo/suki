@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import AppointmentsPage from "./page";
 
@@ -61,14 +61,22 @@ function setupApi(options?: { createError?: Error }) {
 }
 
 describe("Appointments wizard component", () => {
+  // The page opens on the current month; fixtures live in June 2026. Only Date is
+  // faked so Testing Library's waitFor keeps real timers.
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-07T10:00:00.000Z"));
     mockWorkspace = {
       loading: false,
       activeBusinessId: "biz1",
       businesses: [{ id: "biz1", name: "Biz" }],
     };
     setupApi();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("does not show OTP or manager override guidance in booking section", async () => {

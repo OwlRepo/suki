@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantReadModelService } from "./assistant-read-model.service";
 
 const appointments = {
@@ -38,8 +38,11 @@ function createService() {
 }
 
 describe("AssistantReadModelService", () => {
+  // Fixtures use June 2026 dates and validateMonthHorizon reads the clock.
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-07T10:00:00.000Z"));
     appointments.list.mockResolvedValue([]);
     appointments.listNeedsReview.mockResolvedValue([]);
     customers.countByFilter.mockResolvedValue(0);
@@ -63,6 +66,10 @@ describe("AssistantReadModelService", () => {
     answerSource.getAiUsageSummary.mockResolvedValue({
       canonical: { tokensUsed: 20, tokensLimit: 100 },
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns masked, capped customer lookup results without sensitive fields", async () => {

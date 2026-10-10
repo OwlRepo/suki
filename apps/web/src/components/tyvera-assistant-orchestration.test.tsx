@@ -679,13 +679,16 @@ describe("TyveraAssistant orchestration UI", () => {
     ).not.toBeInTheDocument();
 
     act(() => releaseDone?.());
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          /a deliberately long streamed answer finish now\./i,
-        ),
-      ).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText(
+            /a deliberately long streamed answer finish now\./i,
+          ),
+        ).toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
   });
 
   it("drains the final next step progressively and keeps status streaming", async () => {

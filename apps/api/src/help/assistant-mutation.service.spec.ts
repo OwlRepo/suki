@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AssistantMutationService } from "./assistant-mutation.service";
 
 const customers = {
@@ -26,8 +26,11 @@ function createService() {
 }
 
 describe("AssistantMutationService", () => {
+  // Reschedule fixtures use June 2026 dates and the service rejects past times.
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-07T10:00:00.000Z"));
     vi.stubEnv("AUTH_SESSION_SECRET", "test-assistant-confirmation-secret");
     planCapacity.isReadOnly.mockResolvedValue(false);
     customers.findById.mockResolvedValue({
@@ -47,6 +50,10 @@ describe("AssistantMutationService", () => {
       notes: "Original",
       visitRecordedAt: null,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("exposes only bounded lookup and reversible mutation tools", () => {
