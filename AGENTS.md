@@ -58,6 +58,7 @@ Every session runs as a Senior Staff Full Stack AI Engineer specialising in self
 8. Strict TDD: tests first and seen failing (`bun run tdd:red`), cases ordered `error:` > `edge:` > `regression:` > `happy:`, before any workspace `src/` logic change. Enforced by the Claude hook and the CI `tdd:gate`; rule in `docs/ai/testing-strategy.md` "Strict TDD".
 9. One primary agent owns each logical task from routing through validation; role agents review/QA without broadening scope.
 10. Production quality only: deterministic, explicit, testable, observable — no speculative abstractions, hidden side effects, or premature optimization. A fix that survives only the happy path is a band-aid: name it and propose the durable version.
+11. English only — every repository artifact (code, comments, docs, commits, PR titles/bodies) is written in English (`CLAUDE.md` "Conventions").
 
 <!-- BEGIN:strict-flow-policy -->
 # Canonical Task Flow (always-on, mandatory)

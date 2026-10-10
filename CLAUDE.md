@@ -35,6 +35,7 @@ flow (`README.md`, `apps/web/src/app`, `apps/api/src`). Production runs at
 - API: thin controllers, logic in services, DTO validation at every boundary, guards on every private route, transactions around multi-step writes.
 - Web: Server Components by default; loading/empty/error states for every data view; mobile-first at 375px.
 - Comments explain "why", never "what".
+- English only: code, comments, docs, commit messages, and PR titles/bodies are written in English.
 
 ## Database rules
 
