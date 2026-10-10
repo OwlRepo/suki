@@ -105,7 +105,7 @@ Finding things — where a symbol is used, what calls what, which module owns a 
 
 ### Closeout
 
-Every implementation plan ends with a Graphify maintenance step: after the last change to any indexed source or document and before review, commit, and handoff, load the `graphify` skill and run `/graphify . --update` from the repository root. Direct `graphify update .` is acceptable only for code-only changes because the CLI shortcut performs AST extraction; docs changes follow the skill's incremental semantic flow. Re-run after any later indexed edit or rebase that changes indexed files. Changes produced solely by that update do not trigger a second update.
+Every implementation plan ends with a Graphify maintenance step: after the last change to any indexed source or document and before review, commit, and handoff, load the `graphify` skill and run `/graphify . --update` from the repository root. Direct `graphify update .` is acceptable only for code-only changes because the CLI shortcut performs AST extraction; docs changes follow the skill's incremental semantic flow. Re-run after any later indexed edit or rebase that changes indexed files. Changes produced solely by that update do not trigger a second update. `graphify hook install` supplements this gate but never replaces it.
 
 Check `graphify --help` before selecting commands; report unsupported commands instead of emulating them. Token efficiency is mandatory:
 
