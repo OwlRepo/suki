@@ -18,7 +18,7 @@ Verify behavior against source.
 |---|---|---|---|---|---|---|
 | `apps/web/src/app` | Next.js route tree | layouts, pages, route segments | Next.js, auth, hooks, UI | browser users | dashboard, platform-admin, onboarding, intake, auth, pricing | High |
 | `apps/web/src/components` | feature UI and reusable view pieces | React components | hooks, lib, shared UI | pages, layouts | billing, customers, assistant, platform-admin, share-slots, landing | Medium |
-| `apps/web/src/hooks` | reusable client logic | hooks | React, API helpers | components, pages | billing status, workspace sync, other feature hooks | Medium |
+| `apps/web/src/hooks` | reusable client logic | hooks | React, API helpers | components, pages | billing status, workspace sync, sidebar collapse preference, other feature hooks | Medium |
 | `apps/web/src/lib` | frontend helpers and API plumbing | `apiRequest`, auth helpers, route helpers | env, fetch, Clerk | app, hooks, components | API base URL, auth client, protected route logic, onboarding rules | High |
 | `apps/web/src/test` | web test helpers | fixtures and helpers | vitest, RTL | web tests | shared test setup | Medium |
 | `apps/api/src` | NestJS backend modules | controllers, services, modules | NestJS, DB, shared types | web app, provider callbacks | business rules, validation, integration boundaries | High |

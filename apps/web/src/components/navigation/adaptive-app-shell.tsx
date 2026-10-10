@@ -20,8 +20,8 @@ import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { cn } from "@/lib/utils";
 import { TyveraAssistant } from "@/components/tyvera-assistant";
 import { getOpenManualFollowUpCount } from "@/components/needs-attention/manual-follow-up.api";
+import { useSidebarCollapsed } from "@/hooks/use-sidebar-collapsed";
 
-const SIDEBAR_COLLAPSED_STORAGE_KEY = "tyvera-sidebar-collapsed-v1";
 const SIDEBAR_COLLAPSED_WIDTH = 72;
 const SIDEBAR_EXPANDED_WIDTH = 240;
 
@@ -65,24 +65,8 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
   );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const [sidebarPreferenceReady, setSidebarPreferenceReady] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
-    if (raw === "0") setSidebarCollapsed(false);
-    if (raw === "1") setSidebarCollapsed(true);
-    setSidebarPreferenceReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!sidebarPreferenceReady || typeof window === "undefined") return;
-    window.localStorage.setItem(
-      SIDEBAR_COLLAPSED_STORAGE_KEY,
-      sidebarCollapsed ? "1" : "0",
-    );
-  }, [sidebarCollapsed, sidebarPreferenceReady]);
+  const { collapsed: sidebarCollapsed, toggle: toggleSidebarCollapsed } =
+    useSidebarCollapsed();
 
   return (
     <DashboardOnboardingWrapper>
@@ -129,7 +113,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
                     ? "size-7 min-h-7 min-w-7 shrink-0 rounded-lg p-0"
                     : "absolute right-2 top-1/2 -translate-y-1/2"
                 )}
-                onClick={() => setSidebarCollapsed((current) => !current)}
+                onClick={toggleSidebarCollapsed}
                 aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 aria-pressed={!sidebarCollapsed}
                 title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}

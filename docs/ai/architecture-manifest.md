@@ -27,6 +27,7 @@ Verify all conclusions against real source code, tests, types, schemas, routes, 
 - Key dashboard areas: appointments, customers, imports, insights, settings, billing, help, loyalty, promos
 - Platform-admin surfaces: communications, automation-runs, alerts, businesses, client-requests, billing-requests, audit-logs
 - Shared feature UI under `apps/web/src/components`
+- Dashboard shell `apps/web/src/components/navigation/adaptive-app-shell.tsx` reads the desktop sidebar preference through `apps/web/src/hooks/use-sidebar-collapsed.ts` (localStorage key `tyvera-sidebar-collapsed-v1`)
 - API calls use `apps/web/src/lib/api.ts` and `apps/web/src/lib/api-base.ts`
 
 ## Backend
