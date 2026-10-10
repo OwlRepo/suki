@@ -57,6 +57,11 @@ jobs:
           if [ -n "$web" ]; then (cd apps/web && bunx eslint --no-warn-ignored $web); fi
           if [ -n "$rest" ]; then bunx eslint --no-warn-ignored $rest; fi
 
+      - name: Unit tests
+        env:
+          CI: "true"
+        run: bun run test
+
       - name: Workflow script tests
         run: bun run test:scripts
 
