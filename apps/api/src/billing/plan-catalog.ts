@@ -10,8 +10,8 @@ import type {
 export interface PlanCatalogEntry {
   planType: PlanType;
   displayName: string;
-  monthlyPricePhp: number;
-  annualPricePhp: number | null;
+  monthlyPriceUsd: number;
+  annualPriceUsd: number | null;
   mostPopular?: boolean;
   limits: {
     branches: number;
@@ -29,9 +29,14 @@ export interface BillingAddonCatalogEntry {
   sku: BillingAddonSku;
   purchaseKind: Exclude<BillingPurchaseKind, "subscription">;
   units: number;
-  pricePhp: number;
+  priceUsd: number;
   variantEnvKey: string;
 }
+
+// Manual (platform-admin) add-on billing is invoiced in PHP; self-serve add-ons are charged in USD by Lemon Squeezy.
+export type ManualAddonCatalogEntry = Omit<BillingAddonCatalogEntry, "priceUsd"> & {
+  pricePhp: number;
+};
 
 export interface ManualSubscriptionCatalogEntry {
   sku: ManualSubscriptionSku;
@@ -58,8 +63,8 @@ export const BILLING_PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     planType: "free",
     displayName: "Free",
-    monthlyPricePhp: 0,
-    annualPricePhp: null,
+    monthlyPriceUsd: 0,
+    annualPriceUsd: null,
     limits: {
       branches: 1,
       staffAccounts: 1,
@@ -81,8 +86,8 @@ export const BILLING_PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     planType: "starter",
     displayName: "Starter",
-    monthlyPricePhp: 999,
-    annualPricePhp: 9_990,
+    monthlyPriceUsd: 19,
+    annualPriceUsd: 190,
     limits: {
       branches: 1,
       staffAccounts: 3,
@@ -108,8 +113,8 @@ export const BILLING_PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     planType: "growth",
     displayName: "Growth",
-    monthlyPricePhp: 2_499,
-    annualPricePhp: 24_990,
+    monthlyPriceUsd: 45,
+    annualPriceUsd: 450,
     mostPopular: true,
     limits: {
       branches: 3,
@@ -140,8 +145,8 @@ export const BILLING_PLAN_CATALOG: PlanCatalogEntry[] = [
   {
     planType: "pro",
     displayName: "Pro",
-    monthlyPricePhp: 5_999,
-    annualPricePhp: 59_990,
+    monthlyPriceUsd: 99,
+    annualPriceUsd: 990,
     limits: {
       branches: 10,
       staffAccounts: 30,
@@ -179,63 +184,63 @@ export const BILLING_ADDON_CATALOG: BillingAddonCatalogEntry[] = [
     sku: "online-booking-topup-10",
     purchaseKind: "online_booking_topup",
     units: 10,
-    pricePhp: 299,
+    priceUsd: 5,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_ONLINE_BOOKING_TOPUP_10",
   },
   {
     sku: "online-booking-topup-25",
     purchaseKind: "online_booking_topup",
     units: 25,
-    pricePhp: 699,
+    priceUsd: 11,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_ONLINE_BOOKING_TOPUP_25",
   },
   {
     sku: "online-booking-topup-50",
     purchaseKind: "online_booking_topup",
     units: 50,
-    pricePhp: 1_299,
+    priceUsd: 20,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_ONLINE_BOOKING_TOPUP_50",
   },
   {
     sku: "online-booking-topup-100",
     purchaseKind: "online_booking_topup",
     units: 100,
-    pricePhp: 2_399,
+    priceUsd: 38,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_ONLINE_BOOKING_TOPUP_100",
   },
   {
     sku: "online-booking-topup-250",
     purchaseKind: "online_booking_topup",
     units: 250,
-    pricePhp: 5_499,
+    priceUsd: 89,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_ONLINE_BOOKING_TOPUP_250",
   },
   {
     sku: "sms-segment-topup-25",
     purchaseKind: "sms_segment_topup",
     units: 25,
-    pricePhp: 599,
+    priceUsd: 3,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_SMS_SEGMENT_TOPUP_25",
   },
   {
     sku: "sms-segment-topup-50",
     purchaseKind: "sms_segment_topup",
     units: 50,
-    pricePhp: 1_099,
+    priceUsd: 5,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_SMS_SEGMENT_TOPUP_50",
   },
   {
     sku: "sms-segment-topup-100",
     purchaseKind: "sms_segment_topup",
     units: 100,
-    pricePhp: 2_099,
+    priceUsd: 9,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_SMS_SEGMENT_TOPUP_100",
   },
   {
     sku: "sms-segment-topup-250",
     purchaseKind: "sms_segment_topup",
     units: 250,
-    pricePhp: 4_999,
+    priceUsd: 19,
     variantEnvKey: "LEMONSQUEEZY_VARIANT_SMS_SEGMENT_TOPUP_250",
   },
 ];
@@ -264,9 +269,28 @@ export const MANUAL_SUBSCRIPTION_CATALOG: ManualSubscriptionCatalogEntry[] = [
   },
 ];
 
+const MANUAL_ADDON_PRICE_PHP: Record<BillingAddonSku, number> = {
+  "online-booking-topup-10": 299,
+  "online-booking-topup-25": 699,
+  "online-booking-topup-50": 1_299,
+  "online-booking-topup-100": 2_399,
+  "online-booking-topup-250": 5_499,
+  "sms-segment-topup-25": 599,
+  "sms-segment-topup-50": 1_099,
+  "sms-segment-topup-100": 2_099,
+  "sms-segment-topup-250": 4_999,
+};
+
+export const MANUAL_ADDON_CATALOG: ManualAddonCatalogEntry[] = BILLING_ADDON_CATALOG.map(
+  ({ priceUsd: _priceUsd, ...entry }) => ({
+    ...entry,
+    pricePhp: MANUAL_ADDON_PRICE_PHP[entry.sku],
+  }),
+);
+
 export const MANUAL_BILLING_CATALOG = [
   ...MANUAL_SUBSCRIPTION_CATALOG,
-  ...BILLING_ADDON_CATALOG,
+  ...MANUAL_ADDON_CATALOG,
 ];
 
 export function getPlanCatalogEntry(planType: PlanType): PlanCatalogEntry {
@@ -294,7 +318,7 @@ export function resolveAddonSku(sku: BillingAddonCatalogEntry["sku"]): BillingAd
 
 export function resolveManualBillingSku(
   sku: ManualBillingSku,
-): ManualSubscriptionCatalogEntry | BillingAddonCatalogEntry {
+): ManualSubscriptionCatalogEntry | ManualAddonCatalogEntry {
   const entry = MANUAL_BILLING_CATALOG.find((item) => item.sku === sku);
   if (!entry) {
     throw new Error(`Unknown manual billing sku: ${sku}`);

@@ -89,7 +89,7 @@ You don’t pay for “software”—you pay for:
 
 ---
 
-### Starter — ₱999/month
+### Starter — $19/month
 
 - Appointment-first booking workspace
 - Automatic visit tracking from completed appointments
@@ -103,7 +103,7 @@ You don’t pay for “software”—you pay for:
 
 ---
 
-### Growth — ₱2,499/month
+### Growth — $45/month
 
 Everything in Starter +
 
@@ -116,7 +116,7 @@ Everything in Starter +
 
 ---
 
-### Pro — ₱5,999/month
+### Pro — $99/month
 
 Everything in Growth +
 

@@ -16,6 +16,7 @@ quickAnswer: Buksan ang Settings para sa usage at billing. Sa manual billing mod
 - Sa Settings > Billing mag-upgrade, magpalit ng plan, bumili ng top-up, mag-cancel, o mag-resume ang owner; sa Lemon Squeezy checkout ang bayad.
 - Gamitin ang Manage billing para palitan ang card o i-download ang invoices sa Lemon Squeezy customer portal.
 - Nagiging active ang bagong plan pagkatapos kumpirmahin ng Lemon Squeezy ang bayad.
+- Sa USD ipinapakita at sinisingil ang self-serve plan at top-up prices.
 - Kapag walang self-serve checkout, Request billing help ang makikita sa Settings > Billing.
 - Makikita ng staff ang status at decision note, pero workspace owner lang ang puwedeng magsumite o magkansela ng request.
 - Kung hindi sumasagot ang AI, i-check muna kung capped ang usage.

@@ -648,10 +648,6 @@ export class BillingService {
       ? existingSubscription?.planType
       : planType;
     const nextOrgPlan = status === "expired" ? "free" : appliedPlanType;
-    const planPricePhp = this.priceForPlan(
-      status === "expired" ? "free" : planType,
-      billingInterval,
-    );
 
     const subscriptionValues = {
       organizationId,
@@ -678,7 +674,8 @@ export class BillingService {
       updatePaymentMethodUrl: this.readString(urls.update_payment_method),
       customerPortalUrl: this.readString(urls.customer_portal),
       lastProviderEventId: eventId,
-      planPricePhp,
+      // plan_price_php is NOT NULL and PHP-denominated; Lemon Squeezy charges USD, so no PHP amount applies.
+      planPricePhp: 0,
       scheduledPlanType: scheduledDowngrade ? planType : null,
       scheduledBillingInterval: scheduledDowngrade ? billingInterval : null,
       scheduledChangeEffectiveAt: scheduledDowngrade
@@ -742,11 +739,13 @@ export class BillingService {
       await this.verifiedBookingAddonGrant.grant({
         organizationId,
         units: addon.units,
-        pricePhp: addon.pricePhp,
+        // price_php is NOT NULL and PHP-denominated; the USD charge is kept in reconciliation metadata.
+        pricePhp: 0,
         sku: addon.sku,
         source: "lemonsqueezy",
         sourceReference: eventId ?? `order_created:${organizationId}:${sku}`,
         purchasedByUserId: userId,
+        metadata: { priceUsd: addon.priceUsd },
       }, tx);
       return;
     }
@@ -755,10 +754,12 @@ export class BillingService {
       await this.smsAddonGrant.grant({
         organizationId,
         units: addon.units,
-        pricePhp: addon.pricePhp,
+        // pack_price_php is NOT NULL and PHP-denominated; the USD charge is kept in reconciliation metadata.
+        pricePhp: 0,
         source: "lemonsqueezy",
         sourceReference: eventId ?? `order_created:${organizationId}:${sku}`,
         purchasedByUserId: userId,
+        metadata: { priceUsd: addon.priceUsd },
       }, tx);
     }
   }
@@ -1367,8 +1368,8 @@ export class BillingService {
     if (planType === "free") return 0;
     const plan = getPlanCatalogEntry(planType);
     if (interval === "annual") {
-      return plan.annualPricePhp ?? plan.monthlyPricePhp;
+      return plan.annualPriceUsd ?? plan.monthlyPriceUsd;
     }
-    return plan.monthlyPricePhp;
+    return plan.monthlyPriceUsd;
   }
 }

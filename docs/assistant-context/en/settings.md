@@ -16,6 +16,7 @@ quickAnswer: Open Settings to check usage and billing. In manual billing mode, w
 - Owners upgrade, change plan, buy top-ups, cancel, or resume in Settings > Billing; payment runs on Lemon Squeezy checkout.
 - Use Manage billing to update the card or download invoices in the Lemon Squeezy customer portal.
 - A new plan becomes active after Lemon Squeezy confirms the payment.
+- Self-serve plan and top-up prices are shown and charged in USD.
 - When self-serve checkout is unavailable, Settings > Billing shows Request billing help instead.
 - Staff can view request status and decision notes, but only workspace owners can submit or cancel requests.
 - If AI stops responding, verify cap state first before troubleshooting.

@@ -10,7 +10,7 @@ export function AddonPackGrid({
   onCheckout,
 }: {
   title: string;
-  items: Array<{ sku: string; label: string; pricePhp: number }>;
+  items: Array<{ sku: string; label: string; priceUsd: number }>;
   loadingKey: string | null;
   onCheckout: (sku: string) => void;
 }) {
@@ -23,7 +23,7 @@ export function AddonPackGrid({
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="font-medium">{item.label}</p>
-                <p className="text-sm text-muted-foreground">PHP {item.pricePhp.toLocaleString("en-PH")}</p>
+                <p className="text-sm text-muted-foreground">${item.priceUsd.toLocaleString("en-US")}</p>
               </div>
               <Button
                 type="button"

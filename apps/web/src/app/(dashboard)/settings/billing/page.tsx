@@ -83,12 +83,12 @@ export default function BillingSettingsPage() {
   const addonGroups = useMemo(
     () => ({
       otp: [
-        { sku: "online-booking-topup-10", label: "10 verified bookings", pricePhp: 299 },
-        { sku: "online-booking-topup-25", label: "25 verified bookings", pricePhp: 699 },
+        { sku: "online-booking-topup-10", label: "10 verified bookings", priceUsd: 5 },
+        { sku: "online-booking-topup-25", label: "25 verified bookings", priceUsd: 11 },
       ],
       sms: [
-        { sku: "sms-segment-topup-25", label: "25 SMS segments", pricePhp: 599 },
-        { sku: "sms-segment-topup-50", label: "50 SMS segments", pricePhp: 1099 },
+        { sku: "sms-segment-topup-25", label: "25 SMS segments", priceUsd: 3 },
+        { sku: "sms-segment-topup-50", label: "50 SMS segments", priceUsd: 5 },
       ],
     }),
     [],
