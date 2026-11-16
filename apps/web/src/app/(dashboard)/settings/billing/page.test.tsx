@@ -231,7 +231,52 @@ describe("BillingSettingsPage", () => {
     expect(apiRequestMock).not.toHaveBeenCalledWith("/billing/change-plan", expect.anything());
   });
 
-  it("uses change-plan for paid plan changes instead of starting a new checkout", async () => {
+  async function expectCheckoutForEndedSubscription(subscription: Record<string, unknown>) {
+    const baseImpl = apiRequestMock.getMockImplementation();
+    apiRequestMock.mockImplementation(async (path: string, init?: unknown) => {
+      if (path === "/billing/status") {
+        const base = (await baseImpl?.(path, init)) as Record<string, unknown>;
+        return { ...base, renewsAt: null, subscription };
+      }
+      if (path === "/billing/checkout") {
+        return { checkoutUrl: "https://checkout.example/growth" };
+      }
+      return baseImpl?.(path, init);
+    });
+
+    render(<BillingSettingsPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /upgrade to growth/i }));
+
+    await waitFor(() =>
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/billing/checkout",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(apiRequestMock).not.toHaveBeenCalledWith("/billing/change-plan", expect.anything());
+  }
+
+  it("error: an expired Lemon Squeezy subscription starts checkout rather than change-plan", async () => {
+    await expectCheckoutForEndedSubscription({
+      id: "sub-local",
+      provider: "lemonsqueezy",
+      planType: "starter",
+      status: "expired",
+    });
+  });
+
+  it("edge: a cancelled Lemon Squeezy subscription past ends_at starts checkout", async () => {
+    await expectCheckoutForEndedSubscription({
+      id: "sub-local",
+      provider: "lemonsqueezy",
+      planType: "starter",
+      status: "cancelled",
+      endsAt: "2020-01-01T00:00:00.000Z",
+    });
+  });
+
+  it("regression: uses change-plan for paid plan changes instead of starting a new checkout", async () => {
     render(<BillingSettingsPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: /switch to growth/i }));

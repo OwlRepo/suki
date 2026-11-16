@@ -106,4 +106,71 @@ describe("OrgBillingStateService", () => {
     expect(state.isReadOnly).toBe(false);
     expect(state.canSendAutomations).toBe(true);
   });
+
+  describe("Lemon Squeezy payment grace", () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const lemonOrg = (overrides: Record<string, unknown>) => ({
+      trialStartsAt: null,
+      trialEndsAt: null,
+      billingStatus: "subscription_past_due",
+      currentPlan: "growth",
+      accessEndsAt: null,
+      nextBillingDueAt: null,
+      manualBillingNotes: null,
+      subscriptionEndsAt: null,
+      subscriptionRenewsAt: null,
+      subscriptionCancelled: false,
+      subscriptionProvider: "lemonsqueezy",
+      ...overrides,
+    });
+
+    it("edge: LS past_due inside grace keeps the paid currentPlan and gives includedCreditsPlan free", () => {
+      const state = service.deriveState(
+        lemonOrg({ subscriptionStatus: "past_due", subscriptionGraceUntil: new Date(Date.now() + 3 * DAY_MS) }),
+      );
+
+      expect(state.currentPlan).toBe("growth");
+      expect(state.includedCreditsPlan).toBe("free");
+      expect(state.billingStatus).toBe("subscription_past_due");
+    });
+
+    it("edge: LS unpaid after graceUntil gives free", () => {
+      const state = service.deriveState(
+        lemonOrg({ subscriptionStatus: "unpaid", subscriptionGraceUntil: new Date(Date.now() - DAY_MS) }),
+      );
+
+      expect(state.currentPlan).toBe("free");
+      expect(state.includedCreditsPlan).toBe("free");
+    });
+
+    it("regression: null graceUntil keeps the paid plan (legacy rows)", () => {
+      const state = service.deriveState(lemonOrg({ subscriptionStatus: "past_due", subscriptionGraceUntil: null }));
+
+      expect(state.currentPlan).toBe("growth");
+    });
+
+    it("regression: manual grace unchanged", () => {
+      const state = service.deriveState(
+        lemonOrg({
+          billingStatus: "past_due_manual",
+          currentPlan: "starter",
+          subscriptionStatus: "past_due",
+          subscriptionGraceUntil: new Date(Date.now() - DAY_MS),
+          subscriptionProvider: "manual",
+        }),
+      );
+
+      expect(state.currentPlan).toBe("starter");
+      expect(state.includedCreditsPlan).toBe("starter");
+      expect(state.billingStatus).toBe("past_due_manual");
+    });
+
+    it("regression: an active LS subscription keeps includedCreditsPlan equal to currentPlan", () => {
+      const state = service.deriveState(
+        lemonOrg({ billingStatus: "subscription_active", subscriptionStatus: "active", subscriptionGraceUntil: null }),
+      );
+
+      expect(state.includedCreditsPlan).toBe("growth");
+    });
+  });
 });

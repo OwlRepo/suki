@@ -1,4 +1,4 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { BillingWebhookController } from "./billing-webhook.controller";
 
@@ -158,7 +158,7 @@ describe("BillingWebhookController", () => {
     });
   });
 
-  it("returns 200 and skips Lemon validation when self-serve billing is disabled", async () => {
+  it("error: returns 503 when self-serve billing is disabled", async () => {
     const verifyWebhookSignature = vi.fn();
     const reconcileWebhookEvent = vi.fn();
 
@@ -180,10 +180,7 @@ describe("BillingWebhookController", () => {
         rawBody: Buffer.from("{}"),
         headers: {},
       } as never),
-    ).resolves.toEqual({
-      received: true,
-      duplicate: false,
-    });
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
 
     expect(verifyWebhookSignature).not.toHaveBeenCalled();
     expect(reconcileWebhookEvent).not.toHaveBeenCalled();
