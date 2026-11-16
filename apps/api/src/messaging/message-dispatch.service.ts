@@ -160,17 +160,19 @@ export class MessageDispatchService {
       input.channel === "sms" ? calculateSmsSegments(body) : null;
     const meteringUnits = smsSegmentEstimate?.segments ?? 1;
 
+    let smsReservedMonth: string | null = null;
     if (input.channel === "sms") {
-      const canConsume = await this.smsMetering.canConsume(
+      const reservation = await this.smsMetering.reserve(
         input.organizationId,
         meteringUnits,
       );
-      if (!canConsume.allowed) {
+      if (!reservation.allowed) {
         return this.recordSkipped(
           { ...input, rawMessage: body },
-          canConsume.reason ?? "sms_cap_reached",
+          reservation.reason,
         );
       }
+      smsReservedMonth = reservation.month;
     } else {
       const canConsume = await this.emailMetering.canConsume(input.organizationId, 1);
       if (!canConsume.allowed) {
@@ -226,7 +228,7 @@ export class MessageDispatchService {
             providerMetadata,
           })
           .where(eq(messageEvents.id, messageEventId));
-        await this.smsMetering.consume(
+        await this.smsMetering.recordUsage(
           input.organizationId,
           input.businessId,
           messageEventId,
@@ -256,7 +258,7 @@ export class MessageDispatchService {
               providerMetadata,
             })
             .where(eq(messageEvents.id, messageEventId));
-          await this.smsMetering.consume(
+          await this.smsMetering.recordUsage(
             input.organizationId,
             input.businessId,
             messageEventId,
@@ -282,6 +284,9 @@ export class MessageDispatchService {
               ),
             })
             .where(eq(messageEvents.id, messageEventId));
+          if (smsReservedMonth) {
+            await this.smsMetering.release(input.organizationId, smsReservedMonth, meteringUnits);
+          }
           await this.manualFollowUps.createFromMessageEvent({
             organizationId: input.organizationId,
             businessId: input.businessId,
@@ -309,6 +314,9 @@ export class MessageDispatchService {
             ),
           })
           .where(eq(messageEvents.id, messageEventId));
+        if (smsReservedMonth) {
+          await this.smsMetering.release(input.organizationId, smsReservedMonth, meteringUnits);
+        }
         await this.manualFollowUps.createFromMessageEvent({
           organizationId: input.organizationId,
           businessId: input.businessId,

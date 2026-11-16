@@ -96,7 +96,7 @@ function createGrantHarness(input?: {
           const addonGranted =
             typeof value.addonGranted === "number"
               ? value.addonGranted
-              : state.ledger.addonGranted + (input?.grantUnits ?? 10);
+              : state.ledger.addonGranted + (input?.grantUnits ?? 25);
           state.ledger = { ...state.ledger, addonGranted };
         }
         const row = state.ledger

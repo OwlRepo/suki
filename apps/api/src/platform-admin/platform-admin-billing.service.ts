@@ -59,6 +59,8 @@ import {
 import type { ActivePlatformAdmin } from "./platform-admin.service";
 import { PlatformAdminBillingEmailService } from "./platform-admin-billing-email.service";
 import { ClientBillingRequestService } from "../billing/client-billing-request.service";
+import { verifiedBookingAddonCarryover } from "../billing/addon-carryover";
+import { billingMonthKey } from "../common/billing-month";
 
 type BillingTx = {
   select: ReturnType<typeof getDb>["select"];
@@ -1283,7 +1285,7 @@ export class PlatformAdminBillingService {
         organizationId: input.organizationId,
         month,
         includedGranted: nextIncluded,
-        addonGranted: 0,
+        addonGranted: await verifiedBookingAddonCarryover(tx, input.organizationId, month),
         used: 0,
         sourcePlan: input.planType,
         lastReconciledAt: new Date(),
@@ -1856,6 +1858,6 @@ export class PlatformAdminBillingService {
   }
 
   private currentMonthKey(date = new Date()) {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+    return billingMonthKey(date);
   }
 }

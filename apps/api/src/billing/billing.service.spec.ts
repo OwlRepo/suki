@@ -15,6 +15,7 @@ import {
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
 } from "@suki/database";
+import { SQL } from "drizzle-orm";
 import { BillingService } from "./billing.service";
 
 vi.mock("@suki/database", async () => {
@@ -364,9 +365,31 @@ function createDbHarness(input?: {
     },
   }));
 
+  // Grant services increment counters in SQL (`col + n`); resolve those against the stored row.
+  const applySet = <T extends Record<string, unknown>>(row: T, value: Record<string, unknown>): T => {
+    const next: Record<string, unknown> = { ...row };
+    for (const [key, raw] of Object.entries(value)) {
+      next[key] =
+        raw instanceof SQL
+          ? Number(row[key] ?? 0) + Number(raw.queryChunks.find((chunk) => typeof chunk === "number") ?? 0)
+          : raw;
+    }
+    return next as T;
+  };
+
   const update = vi.fn((table: unknown) => ({
     set: (value: Record<string, unknown>) => ({
-      where: async (condition: unknown) => {
+      where: (condition: unknown) => {
+        const applied = applyUpdate(table, value, condition);
+        return {
+          returning: async () => applied,
+          then: (resolve: (v: unknown) => void) => resolve(undefined),
+        };
+      },
+    }),
+  }));
+
+  const applyUpdate = (table: unknown, value: Record<string, unknown>, condition: unknown): unknown[] => {
         if (table === subscriptions) {
           state.updated.subscriptions.push(value);
           const matched = matchSubscriptions(condition);
@@ -378,19 +401,26 @@ function createDbHarness(input?: {
             state.subscriptions[0] = { ...state.subscriptions[0], ...value };
           }
         } else if (table === verifiedOnlineBookingCredits) {
-          state.updated.credits.push(value);
           if (input?.creditsByMonth) {
             const values = sqlValues(condition);
             state.verifiedCredits = state.verifiedCredits.map((row) =>
-              values.includes(row.month) ? ({ ...row, ...value } as CreditRow) : row,
+              values.includes(row.month) ? applySet(row, value) : row,
             );
           } else if (state.verifiedCredits[0]) {
-            state.verifiedCredits[0] = { ...state.verifiedCredits[0], ...value } as CreditRow;
+            state.verifiedCredits[0] = applySet(state.verifiedCredits[0], value);
           }
+          const changed = input?.creditsByMonth
+            ? state.verifiedCredits.filter((row) => sqlValues(condition).includes(row.month))
+            : state.verifiedCredits.slice(0, 1);
+          state.updated.credits.push(
+            Object.values(value).some((v) => v instanceof SQL) ? { ...value, ...changed[0] } : value,
+          );
+          return changed;
         } else if (table === smsCredits) {
           if (state.smsCredits[0]) {
-            state.smsCredits[0] = { ...state.smsCredits[0], ...value } as never;
+            state.smsCredits[0] = applySet(state.smsCredits[0] as Record<string, unknown>, value) as never;
           }
+          return state.smsCredits.slice(0, 1);
         } else if (table === emailCredits) {
           if (state.emailCredits[0]) {
             state.emailCredits[0] = { ...state.emailCredits[0], ...value } as never;
@@ -412,9 +442,8 @@ function createDbHarness(input?: {
           state.updated[key].push(value);
           state[key] = state[key].map((row) => (ids.includes(row.id as string) ? { ...row, ...value } : row));
         }
-      },
-    }),
-  }));
+        return [];
+  };
 
   const tx = { select, insert, update };
   const db = {

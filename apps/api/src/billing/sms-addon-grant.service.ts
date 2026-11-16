@@ -7,7 +7,9 @@ import {
   smsCredits,
 } from "@suki/database";
 import type { AddonFulfillmentSource } from "@suki/types";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { billingMonthKey } from "../common/billing-month";
+import { smsAddonCarryover } from "./addon-carryover";
 import { SMS_INCLUDED_BY_PLAN } from "./plan-catalog";
 
 type BillingTx = {
@@ -68,16 +70,10 @@ export class SmsAddonGrantService {
       };
     }
 
-    const ledgerAfter = {
-      ...ledger,
-      addon: ledger.addon + input.units,
-    };
-
-    await tx
+    const [updated] = await tx
       .update(smsCredits)
       .set({
-        addon: ledgerAfter.addon,
-        used: ledger.used,
+        addon: sql`${smsCredits.addon} + ${input.units}`,
         updatedAt: new Date(),
       })
       .where(
@@ -85,7 +81,13 @@ export class SmsAddonGrantService {
           eq(smsCredits.organizationId, input.organizationId),
           eq(smsCredits.month, ledger.month),
         ),
-      );
+      )
+      .returning({
+        included: smsCredits.included,
+        addon: smsCredits.addon,
+        used: smsCredits.used,
+      });
+    const ledgerAfter = { ...ledger, ...updated };
 
     await tx.insert(smsAddons).values({
       organizationId: input.organizationId,
@@ -102,11 +104,11 @@ export class SmsAddonGrantService {
       month: ledger.month,
       eventType: input.source,
       includedBefore: ledger.included,
-      includedAfter: ledger.included,
+      includedAfter: ledgerAfter.included,
       addonBefore: ledger.addon,
       addonAfter: ledgerAfter.addon,
       usedBefore: ledger.used,
-      usedAfter: ledger.used,
+      usedAfter: ledgerAfter.used,
       providerEventId:
         input.source === "lemonsqueezy" ? input.sourceReference : null,
       metadata: {
@@ -129,7 +131,7 @@ export class SmsAddonGrantService {
     tx: BillingTx,
     organizationId: string,
   ): Promise<SmsLedger> {
-    const month = this.currentMonthKey();
+    const month = billingMonthKey();
     const [existingLedger] = await tx
       .select()
       .from(smsCredits)
@@ -161,15 +163,11 @@ export class SmsAddonGrantService {
       organizationId,
       month,
       included: SMS_INCLUDED_BY_PLAN[org?.currentPlan ?? "free"],
-      addon: 0,
+      addon: await smsAddonCarryover(tx, organizationId, month),
       used: 0,
       pausedReason: "none" as const,
     };
     await tx.insert(smsCredits).values(ledger);
     return ledger;
-  }
-
-  private currentMonthKey(date = new Date()): string {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   }
 }
