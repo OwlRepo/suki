@@ -374,3 +374,20 @@ Done: spec 7 green.
 - Decision 2: `billing/billing.service.ts` is not touched. Month-row creators at :957, :995, :1208, :1244 and the UTC month at :1346 go to the follow-up refund session.
 - Decision 3: option (b). Item 4 seeds from `organizations.currentPlan` (PR #12 pattern). Residual: the refund session switches it to the grace-aware plan when it changes `billing.service.ts:66`. Intake already blocks during past_due (`intake-booking.service.ts:379`).
 - Residuals kept as-is: plan sizing in `ensureVerifiedBookingCredits`, `sms-addon-grant.service.ts:155-163`, `platform-admin-billing.service.ts:1265`; a release landing on the closed month across Manila midnight.
+
+### Phase 8 addition — grace-aware seeding in grant services (parent request, 2026-11-17)
+
+- Reachable without changing the BillingService constructor. Facts from `origin/fix/no-ticket-ls-subscription-sync-v2`:
+  - `PlanCapacityService.getIncludedCreditsPlan` (`common/plan-capacity.service.ts:78-81`) returns `OrgBillingStateService.getOrgBillingState(orgId)?.includedCreditsPlan ?? "free"`.
+  - `includedCreditsPlan: lemonPaymentFailing ? "free" : plan` (`common/org-billing-state.service.ts:156`).
+  - `OrgBillingStateService` has no constructor dependencies (`org-billing-state.service.ts:45-47`). It is global-exported by `PlanCapacityModule` (`common/plan-capacity.module.ts:7-21`).
+- Change: `SmsAddonGrantService` and `VerifiedBookingAddonGrantService` each get `constructor(private readonly orgBillingState: OrgBillingStateService = new OrgBillingStateService()) {}`. This is the same default-instance pattern as `IntakeBookingService` (`intake-booking.service.ts:75-79`).
+  - Nest injects the global provider.
+  - `billing.service.ts:65-66` (`new SmsAddonGrantService()` / `new VerifiedBookingAddonGrantService()`) keeps compiling and gets the default instance. No edit to billing.service.ts.
+- In each `getOrCreateLedger` insert path, the `organizations.currentPlan` select is replaced by `(await this.orgBillingState.getOrgBillingState(organizationId))?.includedCreditsPlan ?? "free"`. That drives SMS `included` (`SMS_INCLUDED_BY_PLAN`) and booking `includedGranted` / `sourcePlan`. Carry-over stays plan-independent.
+- Caveat: `getOrgBillingState` reads through `getDb()`, outside the grant transaction. It only reads plan state, never ledger counters, so there is no double-count risk.
+- Tests (RED first):
+  - `sms-addon-grant.service.spec.ts`: `regression: a grant during payment grace seeds the free included allowance but keeps the pack units`.
+  - `verified-booking-addon-grant.service.spec.ts`: `regression: a booking pack bought during payment grace seeds free included bookings`.
+  - Both spec harnesses pass a stub `orgBillingState` instead of the `organizations` select.
+- Still hand-off (refund session, billing.service.ts): `getOrCreateSmsLedger` / `getOrCreateVerifiedBookingLedger` (:1180-1244) seed from the paid plan during grace.
