@@ -74,7 +74,8 @@ describe("SemaphoreMessageReconciliationService", () => {
     });
   });
 
-  it("strips only the known automation footer", () => {
+  it("regression: reconciles both current Suki and legacy Tyvera automation footers", () => {
+    expect(stripKnownAutomationFooter("Hello Sent automatically by Suki")).toBe("Hello");
     expect(stripKnownAutomationFooter("Hello Sent automatically by Tyvera")).toBe(
       "Hello",
     );
