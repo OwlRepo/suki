@@ -321,7 +321,7 @@ describe("MessageDispatchService SMS hardening", () => {
     );
   });
 
-  it("sent SMS creates no manual task", async () => {
+  it("happy: sent SMS creates no manual task", async () => {
     seedDb();
     const { service, manualFollowUps } = makeService({
       ok: true,
