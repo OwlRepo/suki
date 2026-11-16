@@ -7,12 +7,7 @@ import { startPasswordReset, verifyPasswordReset } from "@/lib/auth-client";
 import { invalidateSessionCache } from "@/hooks/use-session";
 
 function SukiMark() {
-  return (
-    <span className="relative flex h-10 w-10 items-center justify-center" aria-hidden="true">
-      <span className="absolute top-1 h-3 w-9 rounded-full bg-linear-to-r from-blue-700 via-blue-500 to-sky-300" />
-      <span className="absolute top-2 h-8 w-4 rounded-b-xl rounded-t-md bg-linear-to-b from-blue-600 to-blue-500" />
-    </span>
-  );
+  return <span className="inline-flex size-10 items-center justify-center rounded-xl bg-primary text-xl font-bold text-primary-foreground" aria-hidden="true">S</span>;
 }
 
 function MailIcon({ className = "h-5 w-5" }: { className?: string }) {

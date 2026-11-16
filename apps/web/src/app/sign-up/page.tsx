@@ -11,26 +11,7 @@ type SukiMarkProps = {
 };
 
 function SukiMark({ className = "h-8 w-8" }: SukiMarkProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="5" y="6" width="38" height="10" rx="5" fill="currentColor" />
-      <rect
-        x="19"
-        y="14"
-        width="10"
-        height="28"
-        rx="5"
-        fill="currentColor"
-        opacity="0.72"
-      />
-    </svg>
-  );
+  return <span aria-hidden="true" className={`${className} inline-flex shrink-0 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground`}>S</span>;
 }
 
 type IconProps = {

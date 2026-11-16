@@ -106,7 +106,7 @@ describe("TwilioWebhookValidationService", () => {
         params,
         signature: spoofed,
         configuredUrlEnv: "TWILIO_INBOUND_SMS_WEBHOOK_URL",
-        request: req("/messaging/inbound/sms", "tyvera.app"),
+        request: req("/messaging/inbound/sms", "suki.tyvera.app"),
       }),
     ).toThrow(UnauthorizedException);
   });

@@ -9,8 +9,7 @@
 
 Suki: appointment, customer, messaging, and automation software for small
 service businesses, with a platform-admin console and a public intake/booking
-flow (`README.md`, `apps/web/src/app`, `apps/api/src`). Production runs at
-`https://suki.tyvera.app` (`.github/workflows/deploy.yml` smoke check).
+flow (`README.md`, `apps/web/src/app`, `apps/api/src`). Configured application hostname: `https://suki.tyvera.app` (`.github/workflows/deploy.yml` smoke check). Production hostname cutover remains unverified.
 
 ## Tech stack (verified)
 

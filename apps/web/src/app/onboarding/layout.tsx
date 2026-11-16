@@ -58,7 +58,7 @@ function OnboardingLayoutContent({ children }: { children: ReactNode }) {
                 Suki
               </Link>
               <p className="text-xs text-muted-foreground">
-                Your progress is saved. You can finish anytime.
+                Your business details are all you need to get started.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -66,7 +66,7 @@ function OnboardingLayoutContent({ children }: { children: ReactNode }) {
                 href="/dashboard"
                 className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
               >
-                Finish later
+                Back to workspace
               </Link>
               <AuthButton />
             </div>
