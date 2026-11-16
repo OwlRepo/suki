@@ -185,6 +185,9 @@ export default function BillingSettingsPage() {
     };
   }, [getToken, searchParams]);
 
+  // Sign-up creates a trial subscription row with no provider; only a Lemon Squeezy row can be changed, cancelled, or managed.
+  const hasLemonSubscription = billing?.subscription?.provider === "lemonsqueezy";
+
   async function startPlanCheckout(planType: "starter" | "growth" | "pro") {
     setActionLoading(planType);
     setError(null);
@@ -192,7 +195,7 @@ export default function BillingSettingsPage() {
     try {
       const token = await getToken();
       if (!token) return;
-      const isPaid = !!billing?.subscription && billing.planType !== "free";
+      const isPaid = hasLemonSubscription && billing?.planType !== "free";
 
       if (isPaid) {
         await apiRequest("/billing/change-plan", {
@@ -382,7 +385,7 @@ export default function BillingSettingsPage() {
       ) : null}
       {billing && !billing.readOnly && checkoutEnabled ? (
         <div className="flex flex-wrap gap-3">
-          {billing.subscription ? (
+          {hasLemonSubscription ? (
             <>
               <Button
                 type="button"
@@ -492,9 +495,9 @@ export default function BillingSettingsPage() {
               <Button
                 key={planType}
                 type="button"
-                disabled={actionLoading === planType || billing?.planType === planType}
+                disabled={actionLoading === planType || (hasLemonSubscription && billing?.planType === planType)}
                 aria-label={
-                  billing?.subscription
+                  hasLemonSubscription
                     ? billing?.planType === planType
                       ? `${planType} current plan`
                       : `Switch to ${planType}`
@@ -503,12 +506,12 @@ export default function BillingSettingsPage() {
                 onClick={() => startPlanCheckout(planType)}
               >
                 {actionLoading === planType
-                  ? billing?.subscription
+                  ? hasLemonSubscription
                     ? "Submitting..."
                     : "Preparing checkout..."
-                  : billing?.planType === planType
+                  : hasLemonSubscription && billing?.planType === planType
                     ? `${planType} current`
-                    : billing?.subscription
+                    : hasLemonSubscription
                       ? `Switch to ${planType}`
                       : `Upgrade to ${planType}`}
               </Button>
