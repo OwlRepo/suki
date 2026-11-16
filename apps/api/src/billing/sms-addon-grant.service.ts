@@ -2,13 +2,13 @@ import { Injectable } from "@nestjs/common";
 import {
   creditReconciliationEvents,
   getDb,
-  organizations,
   smsAddons,
   smsCredits,
 } from "@suki/database";
 import type { AddonFulfillmentSource } from "@suki/types";
 import { and, eq, sql } from "drizzle-orm";
 import { billingMonthKey } from "../common/billing-month";
+import { OrgBillingStateService } from "../common/org-billing-state.service";
 import { smsAddonCarryover } from "./addon-carryover";
 import { SMS_INCLUDED_BY_PLAN } from "./plan-catalog";
 
@@ -45,6 +45,10 @@ export interface SmsAddonGrantResult {
 
 @Injectable()
 export class SmsAddonGrantService {
+  constructor(
+    private readonly orgBillingState: OrgBillingStateService = new OrgBillingStateService(),
+  ) {}
+
   async grant(
     input: SmsAddonGrantInput,
     tx: BillingTx = getDb(),
@@ -154,15 +158,13 @@ export class SmsAddonGrantService {
       };
     }
 
-    const [org] = await tx
-      .select({ currentPlan: organizations.currentPlan })
-      .from(organizations)
-      .where(eq(organizations.id, organizationId))
-      .limit(1);
+    // Grace-aware: an org whose payment is failing gets the free included allowance.
+    const includedPlan =
+      (await this.orgBillingState.getOrgBillingState(organizationId))?.includedCreditsPlan ?? "free";
     const ledger = {
       organizationId,
       month,
-      included: SMS_INCLUDED_BY_PLAN[org?.currentPlan ?? "free"],
+      included: SMS_INCLUDED_BY_PLAN[includedPlan],
       addon: await smsAddonCarryover(tx, organizationId, month),
       used: 0,
       pausedReason: "none" as const,

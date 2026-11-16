@@ -2,13 +2,13 @@ import { Injectable } from "@nestjs/common";
 import {
   creditReconciliationEvents,
   getDb,
-  organizations,
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
 } from "@suki/database";
 import type { AddonFulfillmentSource, BillingAddonSku } from "@suki/types";
 import { and, eq, sql } from "drizzle-orm";
 import { billingMonthKey } from "../common/billing-month";
+import { OrgBillingStateService } from "../common/org-billing-state.service";
 import { verifiedBookingAddonCarryover } from "./addon-carryover";
 import { getPlanCatalogEntry } from "./plan-catalog";
 
@@ -46,6 +46,10 @@ export interface VerifiedBookingAddonGrantResult {
 
 @Injectable()
 export class VerifiedBookingAddonGrantService {
+  constructor(
+    private readonly orgBillingState: OrgBillingStateService = new OrgBillingStateService(),
+  ) {}
+
   async grant(
     input: VerifiedBookingAddonGrantInput,
     tx: BillingTx = getDb(),
@@ -159,12 +163,10 @@ export class VerifiedBookingAddonGrantService {
       };
     }
 
-    const [org] = await tx
-      .select({ currentPlan: organizations.currentPlan })
-      .from(organizations)
-      .where(eq(organizations.id, organizationId))
-      .limit(1);
-    const sourcePlan = org?.currentPlan ?? "free";
+    // Grace-aware: an org whose payment is failing gets the free included allowance.
+    const includedPlan =
+      (await this.orgBillingState.getOrgBillingState(organizationId))?.includedCreditsPlan ?? "free";
+    const sourcePlan = includedPlan;
     const ledger: VerifiedBookingLedger = {
       organizationId,
       month,

@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { ConflictException, ServiceUnavailableException } from "@nestjs/common";
-import type { SQL } from "drizzle-orm";
+import { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
   aiUsageEvents,
@@ -15,7 +15,6 @@ import {
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
 } from "@suki/database";
-import { SQL } from "drizzle-orm";
 import { BillingService } from "./billing.service";
 
 vi.mock("@suki/database", async () => {

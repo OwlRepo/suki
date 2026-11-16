@@ -26,7 +26,7 @@ export class SmsMeteringService {
     at100Pct: boolean;
   }> {
     const m = month ?? billingMonthKey();
-    const plan = await this.planCapacity.getActivePlan(organizationId);
+    const plan = await this.planCapacity.getIncludedCreditsPlan(organizationId);
     const included = SMS_INCLUDED_BY_PLAN[plan] ?? 0;
 
     const db = getDb();

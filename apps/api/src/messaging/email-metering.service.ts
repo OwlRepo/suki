@@ -28,7 +28,7 @@ export class EmailMeteringService {
     at100Pct: boolean;
   }> {
     const m = month ?? this.currentMonth();
-    const plan = await this.planCapacity.getActivePlan(organizationId);
+    const plan = await this.planCapacity.getIncludedCreditsPlan(organizationId);
     const includedForPlan = getPlanCatalogEntry(plan).limits.emailMessagesPerMonth;
     const db = getDb();
     const [existing] = await db
