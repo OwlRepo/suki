@@ -122,4 +122,17 @@ describe("Suki single-screen booking", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
     expect(mocks.replace).toHaveBeenCalledWith("/appointments?source=today", expect.anything());
   });
+  it("regression: groups offered timestamps under their displayed local day instead of a shifted server key", async () => {
+    mocks.query = "new=1";
+    mocks.api.mockImplementation((path: string) => {
+      if (path.startsWith("/customers?")) return Promise.resolve({ customers: [{ id: "c1", name: "Alice" }] });
+      if (path.startsWith("/appointments/booking/availability")) return Promise.resolve({ month: "2026-11", slotDurationMins: 30, byDay: { "2026-11-16": ["2026-11-17T10:00:00.000Z"] } });
+      return Promise.resolve({ appointments: [] });
+    });
+    render(<AppointmentsPage />);
+    const day = await screen.findByRole("button", { name: "11/17/2026 available" });
+    expect(day).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "11/16/2026 unavailable" })).toBeDisabled();
+  });
+
 });
