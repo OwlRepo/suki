@@ -20,7 +20,7 @@ describe("plan-catalog", () => {
     ]);
   });
 
-  it("uses the approved USD pricing and launch limits", () => {
+  it("happy: uses the approved USD pricing and launch limits", () => {
     expect(getPlanCatalogEntry("free")).toMatchObject({
       monthlyPriceUsd: 0,
       annualPriceUsd: null,
