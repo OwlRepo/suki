@@ -7,11 +7,11 @@ import {
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
-import type { BillingInterval, PlanType } from "@suki/types";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { OwnerGuard } from "../common/owner.guard";
 import { Tenant } from "../common/tenant.decorator";
 import { BillingService } from "./billing.service";
+import { ChangePlanDto, CreateAddonCheckoutDto, CreateCheckoutDto } from "./billing.dto";
 import { FeatureFlagsService } from "../common/feature-flags.service";
 
 @Controller("billing")
@@ -51,11 +51,7 @@ export class BillingController {
   @Post("checkout")
   @UseGuards(ClerkAuthGuard, OwnerGuard)
   async createCheckout(
-    @Body()
-    body: {
-      planType: Exclude<PlanType, "free">;
-      billingInterval: BillingInterval;
-    },
+    @Body() body: CreateCheckoutDto,
     @Tenant("organizationId") orgId?: string,
     @Tenant("userId") userId?: string,
   ) {
@@ -74,19 +70,7 @@ export class BillingController {
   @Post("addons/checkout")
   @UseGuards(ClerkAuthGuard, OwnerGuard)
   async createAddonCheckout(
-    @Body()
-    body: {
-      sku:
-        | "online-booking-topup-10"
-        | "online-booking-topup-25"
-        | "online-booking-topup-50"
-        | "online-booking-topup-100"
-        | "online-booking-topup-250"
-        | "sms-segment-topup-25"
-        | "sms-segment-topup-50"
-        | "sms-segment-topup-100"
-        | "sms-segment-topup-250";
-    },
+    @Body() body: CreateAddonCheckoutDto,
     @Tenant("organizationId") orgId?: string,
     @Tenant("userId") userId?: string,
   ) {
@@ -110,11 +94,7 @@ export class BillingController {
   @Post("change-plan")
   @UseGuards(ClerkAuthGuard, OwnerGuard)
   async changePlan(
-    @Body()
-    body: {
-      planType: PlanType;
-      billingInterval?: BillingInterval;
-    },
+    @Body() body: ChangePlanDto,
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");

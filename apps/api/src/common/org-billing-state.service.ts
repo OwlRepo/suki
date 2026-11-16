@@ -7,6 +7,8 @@ import type { OrgBillingStatus, PlanType } from "@suki/types";
 export interface OrgBillingState {
   billingStatus: OrgBillingStatus;
   currentPlan: PlanType;
+  // Plan that sizes included monthly credits; free while a Lemon Squeezy payment is failing.
+  includedCreditsPlan: PlanType;
   trialStartsAt: Date | null;
   trialEndsAt: Date | null;
   daysRemaining: number | null;
@@ -31,6 +33,13 @@ const VARIABLE_COST_BLOCKED_STATUSES: OrgBillingStatus[] = [
   "subscription_paused",
   "suspended",
 ];
+
+export const LEMON_PAYMENT_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Null graceUntil = row written before the grace policy; keep the paid plan until the next webhook sets one.
+export function isLemonGraceExpired(status: string, graceUntil: Date | null, now: Date): boolean {
+  return (status === "past_due" || status === "unpaid") && graceUntil instanceof Date && graceUntil.getTime() <= now.getTime();
+}
 
 @Injectable()
 export class OrgBillingStateService {
@@ -77,10 +86,15 @@ export class OrgBillingStateService {
     const now = new Date();
     let effectiveStatus = (org.billingStatus ?? "free_active") as OrgBillingStatus;
 
-    const plan = (org.currentPlan ?? "free") as PlanType;
+    const manualSubscription = org.subscriptionProvider === "manual";
+    const lemonPaymentFailing =
+      !manualSubscription && (org.subscriptionStatus === "past_due" || org.subscriptionStatus === "unpaid");
+    const plan =
+      lemonPaymentFailing && isLemonGraceExpired(org.subscriptionStatus ?? "", org.subscriptionGraceUntil ?? null, now)
+        ? "free"
+        : ((org.currentPlan ?? "free") as PlanType);
     const subscriptionStatus = org.subscriptionStatus ?? null;
     const subscriptionEndsAt = org.subscriptionEndsAt ?? null;
-    const manualSubscription = org.subscriptionProvider === "manual";
 
     if (!manualSubscription && subscriptionStatus === "active") {
       effectiveStatus = "subscription_active";
@@ -139,6 +153,7 @@ export class OrgBillingStateService {
     return {
       billingStatus: effectiveStatus,
       currentPlan: plan,
+      includedCreditsPlan: lemonPaymentFailing ? "free" : plan,
       trialStartsAt: org.trialStartsAt ?? null,
       trialEndsAt: org.trialEndsAt ?? null,
       daysRemaining,

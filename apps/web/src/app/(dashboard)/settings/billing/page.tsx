@@ -28,6 +28,16 @@ const BILLING_STATUS_LABELS: Record<string, string> = {
   subscription_expired: "Expired",
 };
 
+const LIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due", "unpaid", "paused"];
+
+function isLiveLemonSubscription(subscription: Record<string, unknown> | null): boolean {
+  if (subscription?.provider !== "lemonsqueezy") return false;
+  const status = typeof subscription.status === "string" ? subscription.status : "";
+  if (LIVE_SUBSCRIPTION_STATUSES.includes(status)) return true;
+  const endsAt = typeof subscription.endsAt === "string" ? Date.parse(subscription.endsAt) : Number.NaN;
+  return status === "cancelled" && endsAt > Date.now();
+}
+
 type BillingStatusResponse = {
   planType: string;
   billingStatus: string;
@@ -185,8 +195,9 @@ export default function BillingSettingsPage() {
     };
   }, [getToken, searchParams]);
 
-  // Sign-up creates a trial subscription row with no provider; only a Lemon Squeezy row can be changed, cancelled, or managed.
-  const hasLemonSubscription = billing?.subscription?.provider === "lemonsqueezy";
+  // Sign-up creates a trial subscription row with no provider; only a live Lemon Squeezy row can be changed, cancelled, or managed.
+  // An ended one (expired, or cancelled past ends_at) falls back to checkout; mirrors BillingService.isLiveLemonSubscription.
+  const hasLemonSubscription = isLiveLemonSubscription(billing?.subscription ?? null);
 
   async function startPlanCheckout(planType: "starter" | "growth" | "pro") {
     setActionLoading(planType);

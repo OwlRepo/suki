@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
@@ -17,7 +19,7 @@ import {
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
 } from "@suki/database";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { createHash } from "crypto";
 import type { BillingAddonSku, BillingInterval, PlanType } from "@suki/types";
 import {
@@ -34,6 +36,7 @@ import {
   resolveSubscriptionVariantEnvKey,
 } from "./plan-catalog";
 import { FeatureFlagsService } from "../common/feature-flags.service";
+import { isLemonGraceExpired, LEMON_PAYMENT_GRACE_MS } from "../common/org-billing-state.service";
 import { SmsAddonGrantService } from "./sms-addon-grant.service";
 import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant.service";
 
@@ -57,8 +60,21 @@ type LemonWebhookPayload = {
   };
 };
 
+// unpaid stays live: LS can still recover it, so a new checkout would double-bill (D2).
+const LIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due", "unpaid", "paused"] as const;
+const PLAN_TIER_RANK: Record<PlanType, number> = { free: 0, starter: 1, growth: 2, pro: 3 };
+const WEBHOOK_PROCESSING_STALE_MS = 10 * 60 * 1000;
+
+type ReconcileOutcome = {
+  status: "processed" | "ignored";
+  reason?: string;
+  metadata?: Record<string, unknown>;
+};
+
 @Injectable()
 export class BillingService {
+  private readonly logger = new Logger(BillingService.name);
+
   constructor(
     private readonly lemonsqueezy: LemonsqueezyService,
     private readonly smsAddonGrant: SmsAddonGrantService = new SmsAddonGrantService(),
@@ -105,7 +121,10 @@ export class BillingService {
 
   async getBillingStatus(organizationId: string) {
     const subscription = await this.getSubscription(organizationId);
-    const fallbackPlanType = subscription?.planType ?? "free";
+    const graceExpired =
+      subscription?.provider === "lemonsqueezy" &&
+      isLemonGraceExpired(subscription.status, subscription.graceUntil ?? null, new Date());
+    const fallbackPlanType = graceExpired ? "free" : subscription?.planType ?? "free";
     const plan = getPlanCatalogEntry(fallbackPlanType);
     const ledger = await this.getVerifiedBookingLedger(organizationId);
     const smsLedger = await this.getSmsLedger(organizationId);
@@ -184,18 +203,9 @@ export class BillingService {
     }
 
     return {
-      planType: subscription.planType,
+      planType: fallbackPlanType,
       billingInterval: subscription.billingInterval,
-      billingStatus:
-        subscription.status === "past_due"
-          ? "subscription_past_due"
-          : subscription.status === "cancelled"
-            ? "subscription_cancelled"
-            : subscription.status === "expired"
-              ? "subscription_expired"
-              : subscription.status === "paused"
-                ? "subscription_paused"
-                : "subscription_active",
+      billingStatus: this.mapOrgBillingStatus(subscription.status, subscription.endsAt ?? null),
       cancellationPending: subscription.cancelled === "true",
       scheduledPlanType: subscription.scheduledPlanType ?? null,
       scheduledBillingInterval: subscription.scheduledBillingInterval ?? null,
@@ -220,6 +230,13 @@ export class BillingService {
   }) {
     if (!this.isSelfServeBillingEnabled()) {
       this.throwBillingDisabled();
+    }
+
+    if (await this.findLiveLemonSubscriptionId(getDb(), input.organizationId)) {
+      throw new ConflictException({
+        code: "SUBSCRIPTION_EXISTS",
+        message: "This account already has a subscription. Change plan instead of starting a new checkout.",
+      });
     }
 
     const plan = getPlanCatalogEntry(input.planType);
@@ -319,6 +336,13 @@ export class BillingService {
     const subscription = await this.getSubscription(organizationId);
     if (!subscription?.providerSubscriptionId) {
       throw new NotFoundException("Subscription not found.");
+    }
+
+    if (!this.isLiveLemonSubscription(subscription)) {
+      throw new ConflictException({
+        code: "SUBSCRIPTION_NOT_ACTIVE",
+        message: "This subscription has ended. Start a new checkout to subscribe again.",
+      });
     }
 
     if (input.planType === "free") {
@@ -481,11 +505,23 @@ export class BillingService {
     providedDeliveryKey?: string,
   ): Promise<"processed" | "ignored" | "duplicate"> {
     if (!this.isSelfServeBillingEnabled()) {
-      return "ignored";
+      // non-2xx so Lemon Squeezy retries once billing is back on
+      this.throwBillingDisabled();
     }
 
     const eventName = payload.meta?.event_name ?? "unknown";
     const resourceId = payload.data?.id ?? null;
+    const isSubscriptionEvent =
+      eventName.startsWith("subscription_") && !eventName.startsWith("subscription_payment_");
+    const claimMetadata = {
+      resourceId,
+      ...(isSubscriptionEvent
+        ? {
+            subscriptionId: resourceId,
+            providerUpdatedAt: this.readString(payload.data?.attributes?.updated_at),
+          }
+        : {}),
+    };
 
     const payloadHash = createHash("sha256")
       .update(JSON.stringify(payload))
@@ -504,20 +540,26 @@ export class BillingService {
         eventName,
         payloadHash,
         status: "processing",
-        metadata: {
-          resourceId,
-        },
+        metadata: claimMetadata,
       })
-      // A failed delivery is re-claimable so the provider's retry (same body, same key) reprocesses it;
-      // the status guard keeps concurrent or completed deliveries reported as duplicates.
+      // Failed deliveries, and claims abandoned mid-processing (crash/timeout), are re-claimable so the
+      // provider's retry reprocesses them; a fresh "processing" or completed row stays a duplicate.
       .onConflictDoUpdate({
         target: processedWebhookEvents.eventId,
         set: {
           status: "processing",
           failureReason: null,
+          metadata: claimMetadata,
+          processedAt: new Date(),
           retryCount: sql`${processedWebhookEvents.retryCount} + 1`,
         },
-        setWhere: eq(processedWebhookEvents.status, "failed"),
+        setWhere: or(
+          eq(processedWebhookEvents.status, "failed"),
+          and(
+            eq(processedWebhookEvents.status, "processing"),
+            lt(processedWebhookEvents.processedAt, new Date(Date.now() - WEBHOOK_PROCESSING_STALE_MS)),
+          ),
+        ),
       })
       .returning({
         id: processedWebhookEvents.id,
@@ -527,31 +569,38 @@ export class BillingService {
       return "duplicate";
     }
 
-    let webhookStatus: "processed" | "ignored" = "processed";
+    let outcome: ReconcileOutcome = { status: "processed" };
 
     try {
       await db.transaction(async (tx) => {
         // subscription_payment_* carry an invoice, not a subscription; LS sends subscription_updated with each.
-        if (eventName.startsWith("subscription_") && !eventName.startsWith("subscription_payment_")) {
-          await this.reconcileSubscriptionEvent(tx, payload);
+        if (isSubscriptionEvent) {
+          outcome = await this.reconcileSubscriptionEvent(tx, payload);
         } else if (eventName === "order_created") {
           await this.reconcileOrderCreatedEvent(tx, payload);
         } else if (eventName === "order_refunded") {
-          await this.reconcileOrderRefundedEvent(tx, payload);
+          outcome = await this.reconcileOrderRefundedEvent(tx, payload);
+        } else if (eventName === "subscription_payment_refunded") {
+          outcome = await this.reconcileSubscriptionPaymentRefundedEvent(tx, payload);
         } else {
-          webhookStatus = "ignored";
+          outcome = { status: "ignored", reason: "unhandled_event" };
         }
       });
 
       await db
         .update(processedWebhookEvents)
         .set({
-          status: webhookStatus,
+          status: outcome.status,
+          metadata: {
+            ...claimMetadata,
+            ...(outcome.reason ? { reason: outcome.reason } : {}),
+            ...outcome.metadata,
+          },
           processedAt: new Date(),
         })
         .where(eq(processedWebhookEvents.eventId, deliveryKey));
 
-      return webhookStatus;
+      return outcome.status;
     } catch (err) {
       await db
         .update(processedWebhookEvents)
@@ -559,10 +608,7 @@ export class BillingService {
           status: "failed",
           failureReason:
             err instanceof Error ? err.message : "Webhook reconciliation failed",
-          metadata: {
-            resourceId,
-            eventName,
-          },
+          metadata: { ...claimMetadata, eventName },
           processedAt: new Date(),
         })
         .where(eq(processedWebhookEvents.eventId, deliveryKey));
@@ -573,9 +619,11 @@ export class BillingService {
   private getRequiredEnv(name: string): string {
     const value = process.env[name]?.trim();
     if (!value || value.toLowerCase().includes("placeholder")) {
-      throw new ServiceUnavailableException(
-        `Billing configuration missing required value: ${name}`,
-      );
+      this.logger.error(`Billing configuration missing required value: ${name}`);
+      throw new ServiceUnavailableException({
+        code: "BILLING_MISCONFIGURED",
+        message: "Billing is temporarily unavailable.",
+      });
     }
     return value;
   }
@@ -591,39 +639,86 @@ export class BillingService {
       update: ReturnType<typeof getDb>["update"];
     },
     payload: LemonWebhookPayload,
-  ): Promise<void> {
+  ): Promise<ReconcileOutcome> {
     const eventName = payload.meta?.event_name ?? "subscription_updated";
     const eventId = payload.data?.id ?? null;
+    const providerSubscriptionId = this.readString(payload.data?.id);
     const attributes = payload.data?.attributes ?? {};
     const customData = payload.meta?.custom_data ?? {};
     const organizationId = this.readString(customData.organization_id);
     if (!organizationId) {
-      return;
+      return { status: "ignored", reason: "missing_organization_id" };
     }
 
-    const [existingSubscription] = await tx
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, organizationId))
-      .orderBy(desc(subscriptions.currentPeriodEnd))
-      .limit(1);
+    // LS does not guarantee delivery order; an event older than the last one applied would roll state back.
+    const providerUpdatedAt = this.parseDate(attributes.updated_at);
+    if (providerSubscriptionId && providerUpdatedAt) {
+      const [lastApplied] = await tx
+        .select({ metadata: processedWebhookEvents.metadata })
+        .from(processedWebhookEvents)
+        .where(
+          and(
+            eq(processedWebhookEvents.provider, "lemonsqueezy"),
+            sql`${processedWebhookEvents.metadata}->>'subscriptionId' = ${providerSubscriptionId}`,
+            eq(processedWebhookEvents.status, "processed"),
+          ),
+        )
+        .orderBy(desc(processedWebhookEvents.processedAt))
+        .limit(1);
+      const lastAppliedMetadata = (lastApplied?.metadata ?? {}) as Record<string, unknown>;
+      const lastUpdatedAt = this.parseDate(lastAppliedMetadata.providerUpdatedAt);
+      if (lastUpdatedAt && providerUpdatedAt.getTime() < lastUpdatedAt.getTime()) {
+        return { status: "ignored", reason: "stale_provider_event" };
+      }
+    }
 
-    const rawPlanType = this.readString(customData.plan_type);
+    // Match the provider subscription first so an event for subscription A never rewrites the row tracking B.
+    const [rowForSubscription] = providerSubscriptionId
+      ? await tx
+          .select()
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.organizationId, organizationId),
+              eq(subscriptions.providerSubscriptionId, providerSubscriptionId),
+            ),
+          )
+          .limit(1)
+      : [];
+    let existingSubscription = rowForSubscription;
+    if (!existingSubscription) {
+      // First event: adopt the org's provider-less row (sign-up trial / manual era) instead of duplicating it.
+      const [unclaimed] = await tx
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.organizationId, organizationId),
+            isNull(subscriptions.providerSubscriptionId),
+          ),
+        )
+        .orderBy(desc(subscriptions.currentPeriodEnd))
+        .limit(1);
+      existingSubscription = unclaimed;
+    }
+
+    // variant_id is the live LS plan; custom_data is frozen at checkout and only a fallback.
     const variantPlan = this.resolvePlanFromVariantId(
       this.readString(attributes.variant_id),
     );
     const planType = this.resolvePlanType(
-      rawPlanType ?? variantPlan?.planType ?? null,
+      variantPlan?.planType ?? this.readString(customData.plan_type),
       existingSubscription?.planType ?? "free",
     );
     const billingInterval = this.resolveBillingInterval(
-      this.readString(customData.billing_interval) ?? variantPlan?.billingInterval ?? null,
+      variantPlan?.billingInterval ?? this.readString(customData.billing_interval),
       (existingSubscription?.billingInterval as BillingInterval | null) ?? null,
     );
     const status = this.resolveSubscriptionStatus(
       eventName,
       this.readString(attributes.status),
     );
+    const now = new Date();
     const renewsAt = this.parseDate(attributes.renews_at);
     const endsAt = this.parseDate(attributes.ends_at);
     // LS subscription objects carry no current_period_*; renews_at (or ends_at once cancelled) closes the paid cycle.
@@ -634,7 +729,7 @@ export class BillingService {
         ? this.subtractBillingInterval(providerPeriodEnd, billingInterval ?? "monthly")
         : null) ??
       existingSubscription?.currentPeriodStart ??
-      new Date();
+      now;
     const currentPeriodEnd =
       this.parseDate(attributes.current_period_end) ??
       providerPeriodEnd ??
@@ -647,8 +742,12 @@ export class BillingService {
         ? "true"
         : "false";
     const urls = (attributes.urls ?? {}) as Record<string, unknown>;
+    const scheduledChangeDue =
+      existingSubscription?.scheduledChangeEffectiveAt instanceof Date &&
+      existingSubscription.scheduledChangeEffectiveAt.getTime() <= now.getTime();
     const scheduledDowngrade =
       !!existingSubscription &&
+      !scheduledChangeDue &&
       status === "active" &&
       existingSubscription.status === "active" &&
       planType !== "free" &&
@@ -659,16 +758,27 @@ export class BillingService {
         billingInterval ?? "monthly",
       );
     const appliedPlanType = scheduledDowngrade
-      ? existingSubscription?.planType
+      ? existingSubscription?.planType ?? planType
       : planType;
-    const nextOrgPlan = status === "expired" ? "free" : appliedPlanType;
+    const paymentFailing = status === "past_due" || status === "unpaid";
+    const wasFailing =
+      existingSubscription?.status === "past_due" || existingSubscription?.status === "unpaid";
+    // Grace runs 7 days from the first failure we saw; later retries must not extend it.
+    const graceUntil = paymentFailing
+      ? (wasFailing ? existingSubscription?.graceUntil ?? null : null) ??
+        new Date(now.getTime() + LEMON_PAYMENT_GRACE_MS)
+      : null;
+    const nextOrgPlan =
+      status === "expired" || isLemonGraceExpired(status, graceUntil, now)
+        ? "free"
+        : appliedPlanType;
 
     const subscriptionValues = {
       organizationId,
       planType: appliedPlanType,
       status,
       provider: "lemonsqueezy" as const,
-      providerSubscriptionId: payload.data?.id ?? existingSubscription?.providerSubscriptionId ?? null,
+      providerSubscriptionId: providerSubscriptionId ?? existingSubscription?.providerSubscriptionId ?? null,
       providerCustomerId: this.readString(attributes.customer_id),
       providerOrderId: this.readString(attributes.order_id),
       providerProductId: this.readString(attributes.product_id),
@@ -683,6 +793,7 @@ export class BillingService {
       renewsAt,
       endsAt,
       trialEndsAt,
+      graceUntil,
       cardBrand: this.readString(attributes.card_brand),
       cardLastFour: this.readString(attributes.card_last_four),
       updatePaymentMethodUrl: this.readString(urls.update_payment_method),
@@ -692,8 +803,9 @@ export class BillingService {
       planPricePhp: 0,
       scheduledPlanType: scheduledDowngrade ? planType : null,
       scheduledBillingInterval: scheduledDowngrade ? billingInterval : null,
+      // keep the date changePlan set; re-deriving from renews_at would slide the due date forward every event
       scheduledChangeEffectiveAt: scheduledDowngrade
-        ? renewsAt ?? currentPeriodEnd
+        ? existingSubscription?.scheduledChangeEffectiveAt ?? renewsAt ?? currentPeriodEnd
         : null,
       ...this.clearPendingSync(),
     };
@@ -707,6 +819,14 @@ export class BillingService {
       await tx.insert(subscriptions).values(subscriptionValues);
     }
 
+    // A late event for an ended subscription must not downgrade an org that already runs a newer one.
+    if (
+      !this.isLiveLemonSubscription({ status, endsAt }, now) &&
+      (await this.findLiveLemonSubscriptionId(tx, organizationId, providerSubscriptionId))
+    ) {
+      return { status: "processed", reason: "superseded_subscription" };
+    }
+
     await tx
       .update(organizations)
       .set({
@@ -716,11 +836,12 @@ export class BillingService {
         // manual-era access dates would otherwise force "suspended" in OrgBillingStateService
         accessEndsAt: null,
         billingPausedAt: null,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(organizations.id, organizationId));
 
-    if (!scheduledDowngrade && nextOrgPlan !== "free" && status !== "expired") {
+    // No included-credit grants while a payment is failing.
+    if (!scheduledDowngrade && !paymentFailing && nextOrgPlan !== "free" && status !== "expired") {
       await this.reconcileIncludedBookingCredits(tx, {
         organizationId,
         eventId,
@@ -729,6 +850,8 @@ export class BillingService {
       });
       await this.syncIncludedEmailCredits(tx, organizationId, nextOrgPlan);
     }
+
+    return { status: "processed" };
   }
 
   private async reconcileOrderCreatedEvent(
@@ -786,14 +909,20 @@ export class BillingService {
       update: ReturnType<typeof getDb>["update"];
     },
     payload: LemonWebhookPayload,
-  ): Promise<void> {
+  ): Promise<ReconcileOutcome> {
     const eventId = payload.data?.id ?? null;
     const customData = payload.meta?.custom_data ?? {};
     const organizationId = this.readString(customData.organization_id);
     const purchaseKind = this.readString(customData.purchase_kind);
     const sku = this.readString(customData.sku);
+    if (organizationId && purchaseKind === "subscription" && eventId) {
+      const notFullRefund = this.classifySubscriptionRefund(payload.data?.attributes ?? {});
+      if (notFullRefund) return notFullRefund;
+      // the subscription row stores LS attributes.order_id; orders carry no subscription_id
+      return this.cancelRefundedSubscription(tx, organizationId, eq(subscriptions.providerOrderId, eventId));
+    }
     if (!organizationId || !purchaseKind || !sku) {
-      return;
+      return { status: "ignored", reason: "missing_refund_metadata" };
     }
 
     const addon = resolveAddonSku(sku as BillingAddonSku);
@@ -816,7 +945,7 @@ export class BillingService {
           providerEventId: eventId,
           metadata: { sku: addon.sku, refundedUnits: addon.units },
         });
-        return;
+        return { status: "processed" };
       }
 
       await tx
@@ -848,7 +977,7 @@ export class BillingService {
         providerEventId: eventId,
         metadata: { sku: addon.sku, refundedUnits: addon.units },
       });
-      return;
+      return { status: "processed" };
     }
 
     if (purchaseKind === "sms_segment_topup") {
@@ -870,7 +999,7 @@ export class BillingService {
           providerEventId: eventId,
           metadata: { sku: addon.sku, refundedUnits: addon.units },
         });
-        return;
+        return { status: "processed" };
       }
 
       await tx
@@ -903,6 +1032,86 @@ export class BillingService {
         metadata: { sku: addon.sku, refundedUnits: addon.units },
       });
     }
+    return { status: "processed" };
+  }
+
+  private async reconcileSubscriptionPaymentRefundedEvent(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    payload: LemonWebhookPayload,
+  ): Promise<ReconcileOutcome> {
+    const organizationId = this.readString(payload.meta?.custom_data?.organization_id);
+    const subscriptionId = this.readString(payload.data?.attributes?.subscription_id);
+    if (!organizationId || !subscriptionId) {
+      return { status: "ignored", reason: "missing_refund_metadata" };
+    }
+    const notFullRefund = this.classifySubscriptionRefund(payload.data?.attributes ?? {});
+    if (notFullRefund) return notFullRefund;
+    return this.cancelRefundedSubscription(tx, organizationId, eq(subscriptions.providerSubscriptionId, subscriptionId));
+  }
+
+  // Order and subscription-invoice status: "refunded" = full, "partial_refund" = partial. Only a full refund cancels.
+  private classifySubscriptionRefund(attributes: Record<string, unknown>): ReconcileOutcome | null {
+    const refundStatus = this.readString(attributes.status);
+    if (refundStatus === "refunded") return null;
+    if (refundStatus === "partial_refund") {
+      return {
+        status: "processed",
+        reason: "partial_refund_review",
+        metadata: { refundedAmount: attributes.refunded_amount ?? null },
+      };
+    }
+    return { status: "ignored", reason: "refund_status_unrecognized" };
+  }
+
+  // Fully refunded subscription charge → cancel at period end. Replays must not cancel twice.
+  private async cancelRefundedSubscription(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    organizationId: string,
+    match: SQL,
+  ): Promise<ReconcileOutcome> {
+    const [row] = await tx
+      .select({
+        id: subscriptions.id,
+        providerSubscriptionId: subscriptions.providerSubscriptionId,
+        status: subscriptions.status,
+        cancelled: subscriptions.cancelled,
+        billingInterval: subscriptions.billingInterval,
+      })
+      .from(subscriptions)
+      .where(and(eq(subscriptions.organizationId, organizationId), eq(subscriptions.provider, "lemonsqueezy"), match))
+      .limit(1);
+    if (!row?.providerSubscriptionId) {
+      return { status: "ignored", reason: "refunded_subscription_not_found" };
+    }
+    if (row.cancelled === "true" || row.status === "cancelled" || row.status === "expired") {
+      return { status: "processed", reason: "subscription_already_cancelled" };
+    }
+
+    // LS does not document DELETE on an already-cancelled subscription, so check first.
+    const provider = await this.lemonsqueezy.getSubscription(row.providerSubscriptionId);
+    const providerAttributes = (provider.data?.attributes ?? {}) as Record<string, unknown>;
+    const providerStatus = this.readString(providerAttributes.status);
+    if (!this.readBoolean(providerAttributes.cancelled) && providerStatus !== "cancelled" && providerStatus !== "expired") {
+      await this.lemonsqueezy.cancelSubscription(row.providerSubscriptionId);
+    }
+
+    await tx
+      .update(subscriptions)
+      .set({
+        pendingSyncAction: "refund_cancel",
+        pendingSyncStartedAt: new Date(),
+        pendingSyncTargetPlanType: "free",
+        pendingSyncTargetBillingInterval: row.billingInterval,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, row.id));
+    return { status: "processed", reason: "refund_cancelled_subscription" };
   }
 
   // The email ledger row is created with the plan active at first send; a plan change must update it or the old allowance sticks for the month.
@@ -1210,6 +1419,36 @@ export class BillingService {
     return nextLedger;
   }
 
+  private isLiveLemonSubscription(row: { status: string; endsAt?: Date | null }, now = new Date()): boolean {
+    if ((LIVE_SUBSCRIPTION_STATUSES as readonly string[]).includes(row.status)) return true;
+    return row.status === "cancelled" && !!row.endsAt && row.endsAt.getTime() > now.getTime();
+  }
+
+  private async findLiveLemonSubscriptionId(
+    db: { select: ReturnType<typeof getDb>["select"] },
+    organizationId: string,
+    excludeProviderSubscriptionId?: string | null,
+  ): Promise<string | null> {
+    const [row] = await db
+      .select({ id: subscriptions.id })
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.organizationId, organizationId),
+          eq(subscriptions.provider, "lemonsqueezy"),
+          or(
+            inArray(subscriptions.status, [...LIVE_SUBSCRIPTION_STATUSES]),
+            and(eq(subscriptions.status, "cancelled"), gt(subscriptions.endsAt, new Date())),
+          ),
+          excludeProviderSubscriptionId
+            ? ne(subscriptions.providerSubscriptionId, excludeProviderSubscriptionId)
+            : undefined,
+        ),
+      )
+      .limit(1);
+    return row?.id ?? null;
+  }
+
   private resolvePlanType(value: string | null, fallback: PlanType): PlanType {
     if (value === "free" || value === "starter" || value === "growth" || value === "pro") {
       return value;
@@ -1266,6 +1505,7 @@ export class BillingService {
   }
 
   private mapOrgBillingStatus(status: SubscriptionStatus, endsAt: Date | null) {
+    if (status === "trialing") return "trial_active" as const;
     if (status === "past_due" || status === "unpaid") return "subscription_past_due" as const;
     if (status === "paused") return "subscription_paused" as const;
     if (status === "expired") return "subscription_expired" as const;
@@ -1423,15 +1663,11 @@ export class BillingService {
     nextPlan: Exclude<PlanType, "free">,
     nextInterval: BillingInterval,
   ): boolean {
-    return this.priceForPlan(currentPlan, currentInterval) > this.priceForPlan(nextPlan, nextInterval);
+    return this.planRank(nextPlan, nextInterval) < this.planRank(currentPlan, currentInterval);
   }
 
-  private priceForPlan(planType: PlanType, interval: BillingInterval | null | undefined): number {
-    if (planType === "free") return 0;
-    const plan = getPlanCatalogEntry(planType);
-    if (interval === "annual") {
-      return plan.annualPriceUsd ?? plan.monthlyPriceUsd;
-    }
-    return plan.monthlyPriceUsd;
+  // Tier decides; within a tier annual ranks above monthly, so monthly→annual is an immediate upgrade.
+  private planRank(planType: PlanType, interval: BillingInterval): number {
+    return PLAN_TIER_RANK[planType] * 2 + (interval === "annual" ? 1 : 0);
   }
 }

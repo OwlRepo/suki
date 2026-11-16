@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Req,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import type { Request } from "express";
@@ -35,10 +36,8 @@ export class BillingWebhookController {
   @Post("webhook/lemonsqueezy")
   async handleLemonSqueezyWebhook(@Req() req: RawBodyRequest) {
     if (!this.featureFlags.selfServeBillingEnabled()) {
-      return {
-        received: true,
-        duplicate: false,
-      };
+      // non-2xx so Lemon Squeezy retries instead of the event being dropped
+      throw new ServiceUnavailableException({ code: "BILLING_DISABLED", message: "Self-serve billing is disabled." });
     }
 
     const signature = req.headers["x-signature"];
