@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, Logger } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AutomationSendService } from "../automation/automation-send.service";
 import type { OrgBillingStateService } from "../common/org-billing-state.service";
@@ -729,6 +729,44 @@ describe("IntakeBookingService OTP", () => {
     await expect(service.sendOtp("hold_1")).rejects.toThrow("settings lookup failed");
 
     expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "released" }));
+  });
+
+  it("error: rethrows the original send error and logs when releasing the credit also fails", async () => {
+    const errorSpy = vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+      otpFailoverServiceMock as never,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([LEDGER]);
+    otpFailoverServiceMock.sendOtp.mockRejectedValueOnce(new Error("provider exploded"));
+    transactionMock
+      .mockImplementationOnce(async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({ execute: vi.fn(), select: selectMock, insert: insertMock, update: updateMock }),
+      )
+      .mockRejectedValueOnce(new Error("release failed"));
+
+    await expect(service.sendOtp("hold_1")).rejects.toThrow("provider exploded");
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: "org-1", bookingHoldId: "h1" }),
+    );
+    errorSpy.mockRestore();
   });
 
   it("edge: creates the month ledger under the Asia/Manila month with carried add-on units", async () => {

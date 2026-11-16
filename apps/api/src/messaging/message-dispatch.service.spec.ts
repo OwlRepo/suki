@@ -236,6 +236,29 @@ describe("MessageDispatchService SMS hardening", () => {
     expect(smsMetering.recordUsage).not.toHaveBeenCalled();
   });
 
+  it("error: releases reserved units and rethrows when the provider send throws", async () => {
+    seedDb();
+    const { service, smsMetering, smsProvider } = makeService({ ok: true, providerMessageId: "SM1" });
+    smsProvider.send.mockRejectedValueOnce(new Error("socket hang up"));
+
+    await expect(service.dispatch(input)).rejects.toThrow("socket hang up");
+
+    expect(smsMetering.release).toHaveBeenCalledTimes(1);
+    expect(smsMetering.release).toHaveBeenCalledWith("org-1", "2026-11", 2);
+    expect(smsMetering.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it("edge: keeps the reservation when a write fails after the provider accepted the send", async () => {
+    seedDb();
+    const { service, smsMetering, manualFollowUps } = makeService({ ok: true, providerMessageId: "SM1" });
+    smsMetering.recordUsage.mockRejectedValueOnce(new Error("db down"));
+
+    await expect(service.dispatch(input)).rejects.toThrow("db down");
+
+    expect(smsMetering.release).not.toHaveBeenCalled();
+    expect(manualFollowUps.createFromMessageEvent).not.toHaveBeenCalled();
+  });
+
   it("happy: finalizes the SMS body before reserving segment credits", async () => {
     seedDb();
     const { service, smsMetering, smsProvider } = makeService({

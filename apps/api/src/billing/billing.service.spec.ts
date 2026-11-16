@@ -96,6 +96,9 @@ function createDbHarness(input?: {
   organizations?: Array<Record<string, unknown>>;
   processedEvents?: Array<Record<string, unknown>>;
   reconciliation?: Array<Record<string, unknown>>;
+  // latest earlier month rows returned to the add-on carry-over query
+  previousSmsCredits?: Array<Record<string, number>>;
+  previousVerifiedCredits?: Array<Record<string, number>>;
   // opt-in: keep one verified-credit row per month and resolve selects/updates by the month in the where clause
   creditsByMonth?: boolean;
   // opt-in: keep every subscription row and resolve selects/updates by the rendered where clause
@@ -227,6 +230,8 @@ function createDbHarness(input?: {
         return {
         orderBy: (...ordering: unknown[]) => ({
           limit: async () => {
+            if (table === smsCredits) return input?.previousSmsCredits ?? [];
+            if (table === verifiedOnlineBookingCredits) return input?.previousVerifiedCredits ?? [];
             if (table === subscriptions) {
               const matched = matchSubscriptions(condition);
               if (!matched) return state.subscriptions.slice(0, 1);
@@ -959,6 +964,46 @@ describe("BillingService", () => {
       addon: 0,
       used: 0,
     });
+  });
+
+  it("regression: subscription sync that creates this month's sms ledger carries unused add-on units", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      previousSmsCredits: [{ included: 300, addon: 100, used: 350 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent(growthCreatedPayload());
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({ included: 800, addon: 50, used: 0 });
+  });
+
+  it("regression: subscription sync that creates this month's booking ledger carries unused add-on units", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      previousVerifiedCredits: [{ included: 30, addon: 25, used: 40 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent(growthCreatedPayload());
+
+    expect(state.inserted.credits[0]).toMatchObject({ addonGranted: 15, used: 0 });
+  });
+
+  it("edge: subscription sync keys this month's sms ledger by the Asia/Manila month", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-31T16:30:00.000Z"), toFake: ["Date"] });
+    try {
+      const { state } = createDbHarness({
+        organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(growthCreatedPayload());
+
+      expect(state.inserted.smsCredits[0]).toMatchObject({ month: "2026-11" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("edge: a scheduled downgrade leaves this month's included sms allowance unchanged", async () => {
@@ -1759,6 +1804,42 @@ describe("BillingService", () => {
     });
 
     expect(state.inserted.smsCredits[0]).toMatchObject({ organizationId: "org-1", included: 800, addon: 0, used: 0 });
+  });
+
+  it("regression: a refund that creates this month's sms ledger carries unused add-on units", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+      previousSmsCredits: [{ included: 800, addon: 40, used: 810 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "sms_segment_topup", sku: "sms-segment-topup-25" },
+      },
+      data: { id: "order_missing_carry", attributes: {} },
+    });
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({ addon: 30, used: 0 });
+  });
+
+  it("regression: a refund that creates this month's booking ledger carries unused add-on units", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "starter", billingStatus: "subscription_active" }],
+      previousVerifiedCredits: [{ included: 30, addon: 25, used: 40 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "online_booking_topup", sku: "online-booking-topup-25" },
+      },
+      data: { id: "order_missing_booking", attributes: {} },
+    });
+
+    expect(state.inserted.credits[0]).toMatchObject({ addonGranted: 15, used: 0 });
   });
 
   it("records a refund review instead of creating negative balances when refunded booking credits were already consumed", async () => {
