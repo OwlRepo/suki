@@ -84,8 +84,8 @@ describe("BillingSettingsPage", () => {
             {
               planType: "free",
               displayName: "Free",
-              monthlyPricePhp: 0,
-              annualPricePhp: null,
+              monthlyPriceUsd: 0,
+              annualPriceUsd: null,
               limits: {
                 branches: 1,
                 staffAccounts: 1,
@@ -100,8 +100,8 @@ describe("BillingSettingsPage", () => {
             {
               planType: "starter",
               displayName: "Starter",
-              monthlyPricePhp: 999,
-              annualPricePhp: 9990,
+              monthlyPriceUsd: 19,
+              annualPriceUsd: 190,
               limits: {
                 branches: 1,
                 staffAccounts: 3,
@@ -116,8 +116,8 @@ describe("BillingSettingsPage", () => {
             {
               planType: "growth",
               displayName: "Growth",
-              monthlyPricePhp: 2499,
-              annualPricePhp: 24990,
+              monthlyPriceUsd: 45,
+              annualPriceUsd: 450,
               mostPopular: true,
               limits: {
                 branches: 3,
@@ -133,8 +133,8 @@ describe("BillingSettingsPage", () => {
             {
               planType: "pro",
               displayName: "Pro",
-              monthlyPricePhp: 5999,
-              annualPricePhp: 59990,
+              monthlyPriceUsd: 99,
+              annualPriceUsd: 990,
               limits: {
                 branches: 10,
                 staffAccounts: 30,
@@ -176,6 +176,16 @@ describe("BillingSettingsPage", () => {
     expect(screen.getByText(/1,100 remaining/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /manage billing/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /cancel subscription/i })).toBeInTheDocument();
+  });
+
+  it("happy: shows self-serve add-on prices in USD", async () => {
+    render(<BillingSettingsPage />);
+
+    expect(await screen.findByText("STARTER")).toBeInTheDocument();
+    expect(screen.getAllByText("$5")).toHaveLength(2);
+    expect(screen.getByText("$11")).toBeInTheDocument();
+    expect(screen.getByText("$3")).toBeInTheDocument();
+    expect(screen.queryByText(/PHP/)).not.toBeInTheDocument();
   });
 
   it("uses change-plan for paid plan changes instead of starting a new checkout", async () => {

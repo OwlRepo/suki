@@ -30,8 +30,8 @@ describe("PricingPage", () => {
         {
           planType: "free",
           displayName: "Free",
-          monthlyPricePhp: 0,
-          annualPricePhp: null,
+          monthlyPriceUsd: 0,
+          annualPriceUsd: null,
           limits: {
             branches: 1,
             staffAccounts: 1,
@@ -46,8 +46,8 @@ describe("PricingPage", () => {
         {
           planType: "growth",
           displayName: "Growth",
-          monthlyPricePhp: 2499,
-          annualPricePhp: 24990,
+          monthlyPriceUsd: 45,
+          annualPriceUsd: 450,
           mostPopular: true,
           limits: {
             branches: 3,
@@ -73,6 +73,7 @@ describe("PricingPage", () => {
     expect(await screen.findByRole("tab", { name: "Annual" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Annual" }));
     expect(screen.getByText(/Annual billing is visible now but not yet self-serve/i)).toBeInTheDocument();
+    expect(screen.getByText("$450")).toBeInTheDocument();
   });
 
   it("routes signed-out pricing CTAs to sign-up", async () => {
@@ -109,8 +110,8 @@ describe("PricingPage", () => {
         {
           planType: "free",
           displayName: "Free",
-          monthlyPricePhp: 0,
-          annualPricePhp: null,
+          monthlyPriceUsd: 0,
+          annualPriceUsd: null,
           limits: {
             branches: 1,
             staffAccounts: 1,
@@ -125,8 +126,8 @@ describe("PricingPage", () => {
         {
           planType: "growth",
           displayName: "Growth",
-          monthlyPricePhp: 2499,
-          annualPricePhp: 24990,
+          monthlyPriceUsd: 45,
+          annualPriceUsd: 450,
           mostPopular: true,
           limits: {
             branches: 3,

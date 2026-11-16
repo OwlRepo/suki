@@ -7,7 +7,7 @@ describe("BillingController", () => {
     getPlansResponse: vi.fn().mockReturnValue({
       checkoutEnabled: false,
       annualCheckoutEnabled: false,
-      plans: [{ planType: "free", monthlyPricePhp: 0 }],
+      plans: [{ planType: "free", monthlyPriceUsd: 0 }],
     }),
     getBillingStatus: vi.fn().mockResolvedValue({
       planType: "free",
@@ -50,7 +50,7 @@ describe("BillingController", () => {
     await expect(controller.getPlans()).resolves.toEqual({
       checkoutEnabled: false,
       annualCheckoutEnabled: false,
-      plans: [{ planType: "free", monthlyPricePhp: 0 }],
+      plans: [{ planType: "free", monthlyPriceUsd: 0 }],
     });
   });
 

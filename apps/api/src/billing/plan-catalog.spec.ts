@@ -20,10 +20,10 @@ describe("plan-catalog", () => {
     ]);
   });
 
-  it("uses the approved PHP pricing and launch limits", () => {
+  it("uses the approved USD pricing and launch limits", () => {
     expect(getPlanCatalogEntry("free")).toMatchObject({
-      monthlyPricePhp: 0,
-      annualPricePhp: null,
+      monthlyPriceUsd: 0,
+      annualPriceUsd: null,
       limits: {
         branches: 1,
         staffAccounts: 1,
@@ -36,8 +36,8 @@ describe("plan-catalog", () => {
     });
 
     expect(getPlanCatalogEntry("starter")).toMatchObject({
-      monthlyPricePhp: 999,
-      annualPricePhp: 9_990,
+      monthlyPriceUsd: 19,
+      annualPriceUsd: 190,
       limits: {
         branches: 1,
         staffAccounts: 3,
@@ -50,8 +50,8 @@ describe("plan-catalog", () => {
     });
 
     expect(getPlanCatalogEntry("growth")).toMatchObject({
-      monthlyPricePhp: 2_499,
-      annualPricePhp: 24_990,
+      monthlyPriceUsd: 45,
+      annualPriceUsd: 450,
       mostPopular: true,
       limits: {
         branches: 3,
@@ -64,8 +64,8 @@ describe("plan-catalog", () => {
     });
 
     expect(getPlanCatalogEntry("pro")).toMatchObject({
-      monthlyPricePhp: 5_999,
-      annualPricePhp: 59_990,
+      monthlyPriceUsd: 99,
+      annualPriceUsd: 990,
       limits: {
         branches: 10,
         staffAccounts: 30,
@@ -109,14 +109,14 @@ describe("plan-catalog", () => {
     expect(resolveAddonSku("online-booking-topup-25")).toMatchObject({
       purchaseKind: "online_booking_topup",
       units: 25,
-      pricePhp: 699,
+      priceUsd: 11,
       variantEnvKey: "LEMONSQUEEZY_VARIANT_ONLINE_BOOKING_TOPUP_25",
     });
 
     expect(resolveAddonSku("sms-segment-topup-100")).toMatchObject({
       purchaseKind: "sms_segment_topup",
       units: 100,
-      pricePhp: 2_099,
+      priceUsd: 9,
       variantEnvKey: "LEMONSQUEEZY_VARIANT_SMS_SEGMENT_TOPUP_100",
     });
   });
@@ -141,9 +141,33 @@ describe("plan-catalog", () => {
     });
   });
 
-  it("keeps existing add-on resolution unchanged for manual billing", () => {
-    expect(resolveManualBillingSku("sms-segment-topup-25")).toEqual(
-      resolveAddonSku("sms-segment-topup-25"),
-    );
+  it("regression: keeps manual add-on billing in PHP while self-serve add-ons are USD", () => {
+    expect(resolveManualBillingSku("sms-segment-topup-25")).toMatchObject({
+      purchaseKind: "sms_segment_topup",
+      units: 25,
+      pricePhp: 599,
+      variantEnvKey: "LEMONSQUEEZY_VARIANT_SMS_SEGMENT_TOPUP_25",
+    });
+    expect(resolveManualBillingSku("online-booking-topup-250")).toMatchObject({
+      pricePhp: 5_499,
+    });
+    expect(resolveAddonSku("sms-segment-topup-25")).toMatchObject({ priceUsd: 3 });
+    expect(resolveAddonSku("sms-segment-topup-25")).not.toHaveProperty("pricePhp");
+  });
+
+  it("happy: prices every self-serve add-on SKU in USD", () => {
+    expect(
+      Object.fromEntries(BILLING_ADDON_CATALOG.map((item) => [item.sku, item.priceUsd])),
+    ).toEqual({
+      "online-booking-topup-10": 5,
+      "online-booking-topup-25": 11,
+      "online-booking-topup-50": 20,
+      "online-booking-topup-100": 38,
+      "online-booking-topup-250": 89,
+      "sms-segment-topup-25": 3,
+      "sms-segment-topup-50": 5,
+      "sms-segment-topup-100": 9,
+      "sms-segment-topup-250": 19,
+    });
   });
 });

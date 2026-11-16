@@ -8,8 +8,8 @@ const plans: BillingPlan[] = [
   {
     planType: "free",
     displayName: "Free",
-    monthlyPricePhp: 0,
-    annualPricePhp: null,
+    monthlyPriceUsd: 0,
+    annualPriceUsd: null,
     limits: {
       branches: 1,
       staffAccounts: 1,
@@ -24,8 +24,8 @@ const plans: BillingPlan[] = [
   {
     planType: "growth",
     displayName: "Growth",
-    monthlyPricePhp: 2499,
-    annualPricePhp: 24990,
+    monthlyPriceUsd: 45,
+    annualPriceUsd: 450,
     mostPopular: true,
     limits: {
       branches: 3,
@@ -41,8 +41,8 @@ const plans: BillingPlan[] = [
   {
     planType: "starter",
     displayName: "Starter",
-    monthlyPricePhp: 999,
-    annualPricePhp: 9990,
+    monthlyPriceUsd: 19,
+    annualPriceUsd: 190,
     limits: {
       branches: 1,
       staffAccounts: 3,
@@ -57,8 +57,8 @@ const plans: BillingPlan[] = [
   {
     planType: "pro",
     displayName: "Pro",
-    monthlyPricePhp: 5999,
-    annualPricePhp: 59990,
+    monthlyPriceUsd: 99,
+    annualPriceUsd: 990,
     limits: {
       branches: 10,
       staffAccounts: 30,
@@ -96,6 +96,14 @@ describe("billing plan components", () => {
     expect(screen.getByText("Growth")).toBeInTheDocument();
     expect(screen.getByText("Pro")).toBeInTheDocument();
     expect(screen.getByText("Most Popular")).toBeInTheDocument();
+  });
+
+  it("happy: formats self-serve plan prices in USD", () => {
+    render(<PlanComparisonGrid plans={plans} interval="monthly" ctaHref="/sign-up" ctaLabel="Get started" />);
+
+    expect(screen.getByText("$45")).toBeInTheDocument();
+    expect(screen.getByText("$99")).toBeInTheDocument();
+    expect(screen.queryByText(/PHP/)).not.toBeInTheDocument();
   });
 
   it("updates the selected billing interval accessibly", () => {

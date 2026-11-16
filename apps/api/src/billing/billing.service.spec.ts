@@ -330,7 +330,7 @@ describe("BillingService", () => {
     ]);
     expect(response.plans.find((plan) => plan.planType === "growth")).toMatchObject({
       mostPopular: true,
-      monthlyPricePhp: 2_499,
+      monthlyPriceUsd: 45,
     });
   });
 
@@ -780,7 +780,8 @@ describe("BillingService", () => {
       cardBrand: "visa",
       cardLastFour: "4242",
       lastProviderEventId: "sub_123",
-      planPricePhp: 999,
+      // edge: plan_price_php is PHP-denominated; Lemon Squeezy charges USD, so no PHP amount is stored
+      planPricePhp: 0,
     });
     expect(state.updated.organizations[0]).toMatchObject({
       currentPlan: "starter",
@@ -855,7 +856,7 @@ describe("BillingService", () => {
       planType: "growth",
       status: "active",
       billingInterval: "monthly",
-      planPricePhp: 2_499,
+      planPricePhp: 0,
     });
     expect(state.updated.credits[0]).toMatchObject({
       includedGranted: 80,
@@ -974,7 +975,14 @@ describe("BillingService", () => {
       sku: "online-booking-topup-25",
       providerOrderId: "order_123",
       purchasedByUserId: "user-1",
+      // edge: price_php stays PHP-denominated; the USD amount is kept in reconciliation metadata
+      pricePhp: 0,
     });
+    expect(state.inserted.reconciliation).toContainEqual(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ pricePhp: 0, priceUsd: 11 }),
+      }),
+    );
   });
 
   it("error: subscription_payment_failed invoice payload is ignored and does not overwrite the subscription", async () => {
@@ -1260,9 +1268,14 @@ describe("BillingService", () => {
     expect(state.inserted.smsAddons[0]).toMatchObject({
       organizationId: "org-1",
       packSize: 50,
-      packPricePhp: 1099,
+      packPricePhp: 0,
       purchasedByUserId: "user-1",
     });
+    expect(state.inserted.reconciliation).toContainEqual(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ pricePhp: 0, priceUsd: 5 }),
+      }),
+    );
 
     await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
       smsSegmentCredits: {
