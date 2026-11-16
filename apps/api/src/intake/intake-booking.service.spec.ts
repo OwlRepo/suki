@@ -17,6 +17,10 @@ const updateMock = vi.fn();
 const insertValuesMock = vi.fn();
 const insertMock = vi.fn();
 const transactionMock = vi.fn();
+const forMock = vi.fn();
+const orderByLimitMock = vi.fn();
+const updateReturningMock = vi.fn();
+const insertReturningMock = vi.fn();
 
 const automationSendMock = {
   sendAppointmentConfirmation: vi.fn(),
@@ -56,9 +60,17 @@ vi.mock("@suki/database", () => ({
   },
   verifiedOnlineBookingCredits: {
     organizationId: "organization_id",
+    month: "month",
+    used: "used",
+    includedGranted: "included_granted",
+    addonGranted: "addon_granted",
   },
   publicOtpSendEvents: {},
-  verifiedOnlineBookingUsageEvents: {},
+  verifiedOnlineBookingUsageEvents: {
+    id: "id",
+    bookingHoldId: "booking_hold_id",
+    status: "status",
+  },
 }));
 
 describe("isBookingHoldsCompatibilityError", () => {
@@ -76,6 +88,15 @@ describe("isBookingHoldsCompatibilityError", () => {
     ).toBe(false);
   });
 });
+
+const LEDGER = {
+  organizationId: "org-1",
+  month: "2026-11",
+  includedGranted: 5,
+  addonGranted: 0,
+  used: 2,
+  sourcePlan: "free",
+};
 
 describe("IntakeBookingService OTP", () => {
   beforeEach(() => {
@@ -99,8 +120,20 @@ describe("IntakeBookingService OTP", () => {
       where: whereMock,
     });
 
+    limitMock.mockResolvedValue([]);
+    forMock.mockReset();
+    forMock.mockResolvedValue([]);
+    orderByLimitMock.mockReset();
+    orderByLimitMock.mockResolvedValue([]);
+    updateReturningMock.mockReset();
+    updateReturningMock.mockResolvedValue([{ id: "credit-1" }]);
+    insertReturningMock.mockReset();
+    insertReturningMock.mockResolvedValue([{ id: "usage-1" }]);
+
     whereMock.mockReturnValue({
       limit: limitMock,
+      for: forMock,
+      orderBy: () => ({ limit: orderByLimitMock }),
     });
 
     updateMock.mockReturnValue({
@@ -115,8 +148,14 @@ describe("IntakeBookingService OTP", () => {
       where: updateWhereMock,
     });
 
-    updateWhereMock.mockResolvedValue(undefined);
-    insertValuesMock.mockResolvedValue(undefined);
+    updateWhereMock.mockImplementation(() => ({
+      returning: updateReturningMock,
+      then: (resolve: (value: unknown) => void) => resolve(undefined),
+    }));
+    insertValuesMock.mockImplementation(() => ({
+      returning: insertReturningMock,
+      then: (resolve: (value: unknown) => void) => resolve(undefined),
+    }));
     transactionMock.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) =>
       callback({
         execute: vi.fn(),
@@ -308,7 +347,7 @@ describe("IntakeBookingService OTP", () => {
     );
   });
 
-  it("blocks public OTP sends with a safe message when verified booking credits are exhausted", async () => {
+  it("error: blocks public OTP sends when the atomic reserve matches no row", async () => {
     process.env.TWILIO_ACCOUNT_SID = "AC123";
     process.env.TWILIO_AUTH_TOKEN = "tok";
     process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
@@ -316,6 +355,7 @@ describe("IntakeBookingService OTP", () => {
     const service = new IntakeBookingService(
       automationSendMock,
       orgBillingStateMock,
+      otpFailoverServiceMock as never,
     );
 
     limitMock.mockResolvedValueOnce([
@@ -330,6 +370,9 @@ describe("IntakeBookingService OTP", () => {
       },
     ]);
     limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([]); // mobile rate-limit events
+    limitMock.mockResolvedValueOnce([]); // business daily events
+    limitMock.mockResolvedValueOnce([]); // consumed usage events for the hold
     limitMock.mockResolvedValueOnce([
       {
         organizationId: "org-1",
@@ -341,8 +384,16 @@ describe("IntakeBookingService OTP", () => {
       },
     ]);
 
+    updateReturningMock.mockResolvedValueOnce([]);
+
     await expect(service.sendOtp("hold_1")).rejects.toThrow(
       /temporarily unavailable/i,
+    );
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "OTP_BILLING_BLOCKED" }),
+    );
+    expect(insertValuesMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "consumed" }),
     );
   });
 
@@ -453,7 +504,7 @@ describe("IntakeBookingService OTP", () => {
     );
   });
 
-  it("blocks OTP sends when the same mobile exceeds the rolling limit", async () => {
+  it("error: blocks OTP sends when the same mobile exceeds the rolling limit", async () => {
     process.env.TWILIO_ACCOUNT_SID = "AC123";
     process.env.TWILIO_AUTH_TOKEN = "tok";
     process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
@@ -477,16 +528,6 @@ describe("IntakeBookingService OTP", () => {
       },
     ]);
     limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
-    limitMock.mockResolvedValueOnce([
-      {
-        organizationId: "org-1",
-        month: "2026-06",
-        includedGranted: 5,
-        addonGranted: 0,
-        used: 0,
-        sourcePlan: "free",
-      },
-    ]);
     limitMock.mockResolvedValueOnce([
       {
         id: "evt-1",
@@ -515,7 +556,7 @@ describe("IntakeBookingService OTP", () => {
     );
   });
 
-  it("blocks OTP sends when the same IP exceeds the rolling limit", async () => {
+  it("error: blocks OTP sends when the same IP exceeds the rolling limit", async () => {
     process.env.TWILIO_ACCOUNT_SID = "AC123";
     process.env.TWILIO_AUTH_TOKEN = "tok";
     process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
@@ -544,16 +585,6 @@ describe("IntakeBookingService OTP", () => {
     limitMock.mockResolvedValueOnce([]);
     limitMock.mockResolvedValueOnce([
       {
-        organizationId: "org-1",
-        month: "2026-06",
-        includedGranted: 5,
-        addonGranted: 0,
-        used: 0,
-        sourcePlan: "free",
-      },
-    ]);
-    limitMock.mockResolvedValueOnce([
-      {
         id: "evt-1",
         mobile: "+639171234568",
         ipAddress: "127.0.0.1",
@@ -580,7 +611,7 @@ describe("IntakeBookingService OTP", () => {
     );
   });
 
-  it("blocks OTP sends when the business daily cap is exceeded", async () => {
+  it("error: blocks OTP sends when the business daily cap is exceeded", async () => {
     process.env.TWILIO_ACCOUNT_SID = "AC123";
     process.env.TWILIO_AUTH_TOKEN = "tok";
     process.env.TWILIO_VERIFY_SERVICE_SID = "VA123";
@@ -611,16 +642,6 @@ describe("IntakeBookingService OTP", () => {
     limitMock.mockResolvedValueOnce([]);
     limitMock.mockResolvedValueOnce([
       {
-        organizationId: "org-1",
-        month: "2026-06",
-        includedGranted: 5,
-        addonGranted: 0,
-        used: 0,
-        sourcePlan: "free",
-      },
-    ]);
-    limitMock.mockResolvedValueOnce([
-      {
         id: "evt-1",
         mobile: "+639171234568",
         ipAddress: "127.0.0.1",
@@ -644,6 +665,185 @@ describe("IntakeBookingService OTP", () => {
         bookingHoldId: "h1",
         outcome: "OTP_BUSINESS_DAILY_LIMIT",
       }),
+    );
+  });
+
+  it("error: releases the booking credit when the OTP provider fails", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+      otpFailoverServiceMock as never,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([LEDGER]);
+    otpFailoverServiceMock.sendOtp.mockResolvedValueOnce({
+      ok: false,
+      provider: "twilio",
+      errorCode: "provider_unavailable",
+    });
+
+    await expect(service.sendOtp("hold_1")).rejects.toThrow(/temporarily unavailable/i);
+
+    expect(transactionMock).toHaveBeenCalledTimes(2);
+    expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "released" }));
+  });
+
+  it("error: releases the booking credit when the OTP send throws", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+      otpFailoverServiceMock as never,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([LEDGER]);
+    otpFailoverServiceMock.sendOtp.mockRejectedValueOnce(new Error("settings lookup failed"));
+
+    await expect(service.sendOtp("hold_1")).rejects.toThrow("settings lookup failed");
+
+    expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "released" }));
+  });
+
+  it("edge: creates the month ledger under the Asia/Manila month with carried add-on units", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-31T16:30:00.000Z"));
+    try {
+      const service = new IntakeBookingService(
+        automationSendMock,
+        orgBillingStateMock,
+        otpFailoverServiceMock as never,
+      );
+      limitMock.mockResolvedValueOnce([
+        {
+          id: "h1",
+          businessId: "biz-1",
+          status: "held",
+          expiresAt: new Date(Date.now() + 60_000),
+          mobile: "+639171234567",
+          otpSentCount: 0,
+          updatedAt: new Date(Date.now() - 120_000),
+        },
+      ]);
+      limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+      orderByLimitMock.mockResolvedValueOnce([{ included: 5, addon: 25, used: 10 }]);
+      otpFailoverServiceMock.sendOtp.mockResolvedValueOnce({
+        ok: true,
+        provider: "twilio",
+        providerMessageId: "VE1",
+      });
+
+      await service.sendOtp("hold_1");
+
+      expect(insertValuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ month: "2026-11", addonGranted: 20, used: 0 }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("regression: does not charge again when the hold already has a consumed usage event", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+      otpFailoverServiceMock as never,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([{ id: "usage-0" }]);
+    otpFailoverServiceMock.sendOtp.mockResolvedValueOnce({
+      ok: true,
+      provider: "twilio",
+      providerMessageId: "VE2",
+    });
+
+    await expect(service.sendOtp("hold_1")).resolves.toEqual(
+      expect.objectContaining({ success: true, reused: false }),
+    );
+
+    expect(otpFailoverServiceMock.sendOtp).toHaveBeenCalledTimes(1);
+    expect(updateReturningMock).not.toHaveBeenCalled();
+    expect(insertValuesMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "consumed" }),
+    );
+  });
+
+  it("happy: charges one credit and records provider details on first successful send", async () => {
+    const service = new IntakeBookingService(
+      automationSendMock,
+      orgBillingStateMock,
+      otpFailoverServiceMock as never,
+    );
+    limitMock.mockResolvedValueOnce([
+      {
+        id: "h1",
+        businessId: "biz-1",
+        status: "held",
+        expiresAt: new Date(Date.now() + 60_000),
+        mobile: "+639171234567",
+        otpSentCount: 0,
+        updatedAt: new Date(Date.now() - 120_000),
+      },
+    ]);
+    limitMock.mockResolvedValueOnce([{ organizationId: "org-1" }]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([]);
+    limitMock.mockResolvedValueOnce([LEDGER]);
+    otpFailoverServiceMock.sendOtp.mockResolvedValueOnce({
+      ok: true,
+      provider: "twilio",
+      providerMessageId: "VE3",
+    });
+
+    await service.sendOtp("hold_1");
+
+    expect(forMock).toHaveBeenCalledWith("update");
+    expect(updateReturningMock).toHaveBeenCalledTimes(1);
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ bookingHoldId: "h1", units: 1, status: "consumed" }),
+    );
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ providerVerificationSid: "VE3" }),
     );
   });
 

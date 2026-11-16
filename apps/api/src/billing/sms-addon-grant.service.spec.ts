@@ -6,6 +6,7 @@ import {
   smsAddons,
   smsCredits,
 } from "@suki/database";
+import { SQL } from "drizzle-orm";
 import { SmsAddonGrantService } from "./sms-addon-grant.service";
 
 vi.mock("@suki/database", async () => {
@@ -31,6 +32,8 @@ function createGrantHarness(input?: {
   ledger?: SmsLedger | null;
   addons?: Array<Record<string, unknown>>;
   organizations?: Array<Record<string, unknown>>;
+  previousLedger?: Record<string, number> | null;
+  grantUnits?: number;
 }) {
   const state = {
     ledger: input?.ledger === null ? null : input?.ledger ?? {
@@ -55,6 +58,9 @@ function createGrantHarness(input?: {
   const select = vi.fn(() => ({
     from: (table: unknown) => ({
       where: () => ({
+        orderBy: () => ({
+          limit: async () => (input?.previousLedger ? [input.previousLedger] : []),
+        }),
         limit: async () => {
           if (table === smsAddons) return state.addons.slice(0, 1);
           if (table === smsCredits) return state.ledger ? [state.ledger] : [];
@@ -83,11 +89,24 @@ function createGrantHarness(input?: {
 
   const update = vi.fn((table: unknown) => ({
     set: (value: Record<string, unknown>) => ({
-      where: async () => {
+      where: () => {
         if (table === smsCredits) {
           state.updated.ledgers.push(value);
-          state.ledger = { ...state.ledger, ...value } as SmsLedger;
+          const current = state.ledger as SmsLedger;
+          // The service increments addon in SQL; mirror that increment here.
+          const addon =
+            typeof value.addon === "number"
+              ? value.addon
+              : current.addon + (input?.grantUnits ?? 25);
+          state.ledger = { ...current, addon };
         }
+        const row = state.ledger
+          ? { included: state.ledger.included, addon: state.ledger.addon, used: state.ledger.used }
+          : null;
+        return {
+          returning: async () => (row ? [row] : []),
+          then: (resolve: (value: unknown) => void) => resolve(undefined),
+        };
       },
     }),
   }));
@@ -106,6 +125,25 @@ describe("SmsAddonGrantService", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("edge: ledger month follows Asia/Manila time", async () => {
+    vi.setSystemTime(new Date("2026-10-31T16:30:00.000Z"));
+    const state = createGrantHarness({
+      ledger: null,
+      organizations: [{ currentPlan: "starter" }],
+    });
+    const service = new SmsAddonGrantService();
+
+    await service.grant({
+      organizationId: "org-1",
+      units: 25,
+      pricePhp: 599,
+      source: "manual_payment",
+      sourceReference: "manual-payment:item-manila",
+    });
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({ month: "2026-11" });
   });
 
   it("edge: a grant that creates this month's ledger seeds the org plan's included allowance", async () => {
@@ -132,6 +170,43 @@ describe("SmsAddonGrantService", () => {
       used: 0,
     });
     expect(result.ledgerAfter).toMatchObject({ included: 800, addon: 25, used: 0 });
+  });
+
+  it("regression: new month ledger starts with unused add-on units from the latest earlier row", async () => {
+    const state = createGrantHarness({
+      ledger: null,
+      organizations: [{ currentPlan: "starter" }],
+      previousLedger: { included: 300, addon: 100, used: 350 },
+    });
+    const service = new SmsAddonGrantService();
+
+    const result = await service.grant({
+      organizationId: "org-1",
+      units: 25,
+      pricePhp: 599,
+      source: "manual_payment",
+      sourceReference: "manual-payment:item-carry",
+    });
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({ included: 300, addon: 50, used: 0 });
+    expect(result.ledgerAfter).toMatchObject({ addon: 75 });
+  });
+
+  it("regression: grant increments addon in SQL and never writes used", async () => {
+    const state = createGrantHarness();
+    const service = new SmsAddonGrantService();
+
+    await service.grant({
+      organizationId: "org-1",
+      units: 25,
+      pricePhp: 599,
+      source: "manual_payment",
+      sourceReference: "manual-payment:item-sql",
+    });
+
+    const written = state.updated.ledgers[0]!;
+    expect(written).not.toHaveProperty("used");
+    expect(written.addon).toBeInstanceOf(SQL);
   });
 
   it("increments the current-month addon ledger and writes reconciliation", async () => {

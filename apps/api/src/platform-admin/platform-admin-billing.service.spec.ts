@@ -64,6 +64,7 @@ function createBillingHarness(input?: {
   organization?: Record<string, unknown>;
   subscription?: Record<string, unknown> | null;
   verifiedLedger?: Record<string, unknown> | null;
+  previousVerifiedLedger?: Record<string, number> | null;
   emailDeliveries?: Array<Record<string, unknown>>;
 }) {
   const state = {
@@ -121,7 +122,7 @@ function createBillingHarness(input?: {
       addon: 0,
       used: 20,
     },
-    verifiedLedger: input?.verifiedLedger ?? {
+    verifiedLedger: input?.verifiedLedger === null ? null : input?.verifiedLedger ?? {
       organizationId: "org-1",
       month: "2026-07",
       includedGranted: 5,
@@ -174,6 +175,9 @@ function createBillingHarness(input?: {
         },
         orderBy: () => ({
           limit: async () => {
+            if (table === verifiedOnlineBookingCredits) {
+              return input?.previousVerifiedLedger ? [input.previousVerifiedLedger] : [];
+            }
             if (table === manualBillingEmailDeliveries) {
               return state.emailDeliveries;
             }
@@ -791,6 +795,60 @@ describe("PlatformAdminBillingService", () => {
       billingPausedAt: null,
       accessEndsAt: new Date("2026-07-07T10:00:00.000Z"),
       nextBillingDueAt: new Date("2026-07-07T10:00:00.000Z"),
+    });
+  });
+
+  it("regression: manual subscription booking ledger carries unused add-on units into a new month", async () => {
+    const state = createBillingHarness({
+      organization: {
+        id: "org-1",
+        name: "Suki Clinic",
+        currentPlan: "free",
+        billingStatus: "free_active",
+        accessEndsAt: null,
+      },
+      subscription: null,
+      verifiedLedger: null,
+      previousVerifiedLedger: { included: 5, addon: 25, used: 12 },
+      request: {
+        id: "billing-request-1",
+        organizationId: "org-1",
+        referenceNumber: "TYV-2026-000001",
+        status: "payment_reported",
+        totalAmountPhp: 999,
+      },
+      item: {
+        id: "item-1",
+        billingRequestId: "billing-request-1",
+        sku: "starter-monthly",
+        purchaseKind: "subscription",
+        units: 1,
+        unitPricePhp: 999,
+        quantity: 1,
+        totalAmountPhp: 999,
+        planType: "starter",
+        billingInterval: "monthly",
+        coverageStartsAt: new Date("2026-06-07T10:00:00.000Z"),
+        coverageEndsAt: new Date("2026-07-07T10:00:00.000Z"),
+      },
+      payment: {
+        id: "payment-1",
+        billingRequestId: "billing-request-1",
+        amountPhp: 999,
+        status: "pending",
+        method: "gcash",
+      },
+    });
+    const service = createService();
+
+    await service.confirmAndFulfillManualPayment(financeAdmin, "payment-1");
+
+    expect(state.inserted.verifiedCredits[0]).toMatchObject({
+      month: "2026-06",
+      includedGranted: 30,
+      addonGranted: 18,
+      used: 0,
+      sourcePlan: "starter",
     });
   });
 
