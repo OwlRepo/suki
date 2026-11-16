@@ -358,6 +358,9 @@ describe("BillingSettingsPage", () => {
     expect(await screen.findByText(/temporarily paused/i)).toBeInTheDocument();
     expect(screen.getByText(/scheduled to move to starter/i)).toBeInTheDocument();
     expect(screen.getByText(/waiting for webhook reconciliation/i)).toBeInTheDocument();
+    // edge: annualCheckoutEnabled false hides the Monthly/Annual toggle
+    expect(screen.getByText(/upgrade or change plan/i)).toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: /billing interval/i })).not.toBeInTheDocument();
   });
 
   it("hides Lemon-backed billing actions when self-serve billing is off", async () => {

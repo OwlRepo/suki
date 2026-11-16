@@ -377,6 +377,26 @@ describe("BillingService", () => {
     expect(provider.cancelSubscription).not.toHaveBeenCalled();
   });
 
+  it("edge: FF_self_serve_billing_enabled=\"1\" enables checkout like the FeatureFlagsService", async () => {
+    process.env.FF_self_serve_billing_enabled = "1";
+    process.env.LEMONSQUEEZY_VARIANT_GROWTH_MONTHLY = "variant-growth-monthly";
+    const provider = {
+      createCheckout: vi.fn().mockResolvedValue({ checkoutUrl: "https://checkout.example/x" }),
+    };
+    const service = new BillingService(provider as never);
+
+    await service.createSubscriptionCheckout({
+      organizationId: "org-1",
+      userId: "user-1",
+      planType: "growth",
+      billingInterval: "monthly",
+    });
+
+    expect(provider.createCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ variantId: "variant-growth-monthly" }),
+    );
+  });
+
   it("builds a free fallback billing status when no subscription exists", async () => {
     createDbHarness();
     const service = new BillingService({} as never);
@@ -697,7 +717,15 @@ describe("BillingService", () => {
 
   it("reconciles subscription_created into subscription, org state, and included booking credits", async () => {
     const { state } = createDbHarness({
-      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      organizations: [
+        {
+          id: "org-1",
+          currentPlan: "free",
+          billingStatus: "free_active",
+          accessEndsAt: new Date("2026-01-01T00:00:00.000Z"),
+          billingPausedAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      ],
     });
     const service = new BillingService({} as never);
 
@@ -757,6 +785,9 @@ describe("BillingService", () => {
     expect(state.updated.organizations[0]).toMatchObject({
       currentPlan: "starter",
       billingStatus: "subscription_active",
+      // edge: stale manual-era access dates must not force "suspended" once LS owns billing
+      accessEndsAt: null,
+      billingPausedAt: null,
     });
     expect(state.inserted.credits[0]).toMatchObject({
       organizationId: "org-1",
@@ -946,7 +977,43 @@ describe("BillingService", () => {
     });
   });
 
-  it("marks payment failures as past due without downgrading the plan", async () => {
+  it("error: subscription_payment_failed invoice payload is ignored and does not overwrite the subscription", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-06-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-06-30T23:59:59.000Z"),
+          cancelled: "false",
+          providerSubscriptionId: "sub_123",
+        },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    const result = await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "subscription_payment_failed",
+        custom_data: { organization_id: "org-1" },
+      },
+      data: {
+        id: "inv_1",
+        attributes: { subscription_id: 123, status: "pending", urls: { invoice_url: "https://billing.example/inv_1" } },
+      },
+    });
+
+    expect(result).toBe("ignored");
+    expect(state.updated.subscriptions).toHaveLength(0);
+    expect(state.inserted.subscriptions).toHaveLength(0);
+    expect(state.updated.organizations).toHaveLength(0);
+  });
+
+  it("regression: subscription_updated with past_due marks the org past due without downgrading the plan", async () => {
     const { state } = createDbHarness({
       organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
       subscriptions: [
@@ -967,7 +1034,7 @@ describe("BillingService", () => {
 
     await service.reconcileWebhookEvent({
       meta: {
-        event_name: "subscription_payment_failed",
+        event_name: "subscription_updated",
         custom_data: {
           organization_id: "org-1",
           plan_type: "growth",
@@ -1046,7 +1113,7 @@ describe("BillingService", () => {
     });
   });
 
-  it("does not re-grant included credits on subscription_payment_success", async () => {
+  it("error: subscription_payment_success invoice payload is ignored and writes no subscription or org rows", async () => {
     const { state } = createDbHarness({
       organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
       subscriptions: [
@@ -1075,7 +1142,7 @@ describe("BillingService", () => {
     });
     const service = new BillingService({} as never);
 
-    await service.reconcileWebhookEvent({
+    const result = await service.reconcileWebhookEvent({
       meta: {
         event_name: "subscription_payment_success",
         custom_data: {
@@ -1085,26 +1152,19 @@ describe("BillingService", () => {
         },
       },
       data: {
-        id: "sub_123",
-        attributes: {
-          status: "active",
-          current_period_start: "2026-06-01T00:00:00.000Z",
-          current_period_end: "2026-06-30T23:59:59.000Z",
-          renews_at: "2026-07-01T00:00:00.000Z",
-          urls: {},
-        },
+        id: "inv_1",
+        attributes: { subscription_id: 123, status: "paid", urls: { invoice_url: "https://billing.example/inv_1" } },
       },
     });
 
     expect(state.inserted.reconciliation).toHaveLength(0);
     expect(state.updated.credits).toHaveLength(0);
-    expect(state.updated.organizations[0]).toMatchObject({
-      currentPlan: "growth",
-      billingStatus: "subscription_active",
-    });
+    expect(result).toBe("ignored");
+    expect(state.updated.subscriptions).toHaveLength(0);
+    expect(state.updated.organizations).toHaveLength(0);
   });
 
-  it("restores active status on payment recovery without double-granting included credits", async () => {
+  it("error: subscription_payment_recovered invoice payload is ignored (subscription_updated carries the state)", async () => {
     const { state } = createDbHarness({
       organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_past_due" }],
       subscriptions: [
@@ -1133,7 +1193,7 @@ describe("BillingService", () => {
     });
     const service = new BillingService({} as never);
 
-    await service.reconcileWebhookEvent({
+    const result = await service.reconcileWebhookEvent({
       meta: {
         event_name: "subscription_payment_recovered",
         custom_data: {
@@ -1143,25 +1203,14 @@ describe("BillingService", () => {
         },
       },
       data: {
-        id: "sub_123",
-        attributes: {
-          status: "active",
-          current_period_start: "2026-06-01T00:00:00.000Z",
-          current_period_end: "2026-06-30T23:59:59.000Z",
-          renews_at: "2026-07-01T00:00:00.000Z",
-          urls: {},
-        },
+        id: "inv_2",
+        attributes: { subscription_id: 123, status: "paid", urls: { invoice_url: "https://billing.example/inv_2" } },
       },
     });
 
-    expect(state.updated.subscriptions[0]).toMatchObject({
-      status: "active",
-      planType: "growth",
-    });
-    expect(state.updated.organizations[0]).toMatchObject({
-      currentPlan: "growth",
-      billingStatus: "subscription_active",
-    });
+    expect(result).toBe("ignored");
+    expect(state.updated.subscriptions).toHaveLength(0);
+    expect(state.updated.organizations).toHaveLength(0);
     expect(state.inserted.reconciliation).toHaveLength(0);
   });
 

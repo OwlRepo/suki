@@ -1,4 +1,4 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { BillingController } from "./billing.controller";
 
@@ -92,6 +92,32 @@ describe("BillingController", () => {
       planType: "free",
       readOnly: true,
     });
+  });
+
+  it("error: rejects annual checkout while annual billing is disabled", async () => {
+    featureFlags.annualBillingCheckoutEnabled.mockReturnValue(false);
+    billingService.createSubscriptionCheckout.mockClear();
+
+    const attempt = controller.createCheckout(
+      { planType: "growth", billingInterval: "annual" },
+      "org-1",
+      "user-1",
+    );
+    await expect(attempt).rejects.toBeInstanceOf(BadRequestException);
+    await expect(attempt).rejects.toMatchObject({
+      response: { code: "ANNUAL_BILLING_DISABLED" },
+    });
+    expect(billingService.createSubscriptionCheckout).not.toHaveBeenCalled();
+  });
+
+  it("error: rejects annual plan change while annual billing is disabled", async () => {
+    featureFlags.annualBillingCheckoutEnabled.mockReturnValue(false);
+    billingService.changePlan.mockClear();
+
+    await expect(
+      controller.changePlan({ planType: "growth", billingInterval: "annual" }, "org-1"),
+    ).rejects.toMatchObject({ response: { code: "ANNUAL_BILLING_DISABLED" } });
+    expect(billingService.changePlan).not.toHaveBeenCalled();
   });
 
   it("creates a subscription checkout session", async () => {
