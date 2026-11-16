@@ -28,6 +28,8 @@ type SmsLedger = {
   pausedReason?: string;
 };
 
+const orgBillingState = { getOrgBillingState: vi.fn() };
+
 function createGrantHarness(input?: {
   ledger?: SmsLedger | null;
   addons?: Array<Record<string, unknown>>;
@@ -112,6 +114,12 @@ function createGrantHarness(input?: {
   }));
 
   vi.mocked(getDb).mockReturnValue({ select, insert, update } as never);
+  const org = input?.organizations?.[0] as
+    | { currentPlan?: string; includedCreditsPlan?: string }
+    | undefined;
+  orgBillingState.getOrgBillingState.mockResolvedValue(
+    org ? { currentPlan: org.currentPlan, includedCreditsPlan: org.includedCreditsPlan ?? org.currentPlan } : null,
+  );
 
   return state;
 }
@@ -133,7 +141,7 @@ describe("SmsAddonGrantService", () => {
       ledger: null,
       organizations: [{ currentPlan: "starter" }],
     });
-    const service = new SmsAddonGrantService();
+    const service = new SmsAddonGrantService(orgBillingState as never);
 
     await service.grant({
       organizationId: "org-1",
@@ -151,7 +159,7 @@ describe("SmsAddonGrantService", () => {
       ledger: null,
       organizations: [{ currentPlan: "growth" }],
     });
-    const service = new SmsAddonGrantService();
+    const service = new SmsAddonGrantService(orgBillingState as never);
 
     const result = await service.grant({
       organizationId: "org-1",
@@ -178,7 +186,7 @@ describe("SmsAddonGrantService", () => {
       organizations: [{ currentPlan: "starter" }],
       previousLedger: { included: 300, addon: 100, used: 350 },
     });
-    const service = new SmsAddonGrantService();
+    const service = new SmsAddonGrantService(orgBillingState as never);
 
     const result = await service.grant({
       organizationId: "org-1",
@@ -194,7 +202,7 @@ describe("SmsAddonGrantService", () => {
 
   it("regression: grant increments addon in SQL and never writes used", async () => {
     const state = createGrantHarness();
-    const service = new SmsAddonGrantService();
+    const service = new SmsAddonGrantService(orgBillingState as never);
 
     await service.grant({
       organizationId: "org-1",
@@ -209,9 +217,29 @@ describe("SmsAddonGrantService", () => {
     expect(written.addon).toBeInstanceOf(SQL);
   });
 
+  it("regression: a grant during payment grace seeds the free included allowance but keeps the pack units", async () => {
+    const state = createGrantHarness({
+      ledger: null,
+      organizations: [{ currentPlan: "growth", includedCreditsPlan: "free" }],
+      previousLedger: { included: 800, addon: 40, used: 800 },
+    });
+    const service = new SmsAddonGrantService(orgBillingState as never);
+
+    const result = await service.grant({
+      organizationId: "org-1",
+      units: 25,
+      pricePhp: 599,
+      source: "manual_payment",
+      sourceReference: "manual-payment:item-grace",
+    });
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({ included: 0, addon: 40 });
+    expect(result.ledgerAfter).toMatchObject({ addon: 65 });
+  });
+
   it("increments the current-month addon ledger and writes reconciliation", async () => {
     const state = createGrantHarness();
-    const service = new SmsAddonGrantService();
+    const service = new SmsAddonGrantService(orgBillingState as never);
 
     const result = await service.grant({
       organizationId: "org-1",
@@ -256,7 +284,7 @@ describe("SmsAddonGrantService", () => {
         },
       ],
     });
-    const service = new SmsAddonGrantService();
+    const service = new SmsAddonGrantService(orgBillingState as never);
 
     const result = await service.grant({
       organizationId: "org-1",

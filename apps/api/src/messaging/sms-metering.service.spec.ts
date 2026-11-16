@@ -71,7 +71,10 @@ function createHarness(input: {
   return { state, update, insert };
 }
 
-const planCapacity = { getActivePlan: vi.fn(async () => "starter") };
+const planCapacity = {
+  getActivePlan: vi.fn(async () => "starter"),
+  getIncludedCreditsPlan: vi.fn(async () => "starter"),
+};
 
 const currentLedger: Ledger = {
   organizationId: "org-1",
@@ -127,6 +130,19 @@ describe("SmsMeteringService", () => {
 
     expect(state.inserted.credits[0]).toMatchObject({ month: "2026-11", included: 300, addon: 50, used: 0 });
     expect(credits).toMatchObject({ included: 300, addon: 50, total: 350, remaining: 350 });
+  });
+
+  it("regression: past_due org gets free included SMS but keeps carried add-on units", async () => {
+    planCapacity.getIncludedCreditsPlan.mockResolvedValueOnce("free");
+    const { state } = createHarness({
+      ledger: null,
+      previousLedger: { included: 300, addon: 100, used: 350 },
+    });
+    const service = new SmsMeteringService(planCapacity as never);
+
+    await service.getOrCreateCredits("org-1");
+
+    expect(state.inserted.credits[0]).toMatchObject({ included: 0, addon: 50 });
   });
 
   it("regression: reserve increments used atomically and returns the reserved month", async () => {

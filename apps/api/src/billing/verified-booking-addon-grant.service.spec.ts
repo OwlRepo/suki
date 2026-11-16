@@ -28,6 +28,8 @@ type BookingLedger = {
   sourcePlan: string;
 };
 
+const orgBillingState = { getOrgBillingState: vi.fn() };
+
 function createGrantHarness(input?: {
   addons?: Array<Record<string, unknown>>;
   ledger?: BookingLedger | null;
@@ -115,6 +117,12 @@ function createGrantHarness(input?: {
   }));
 
   vi.mocked(getDb).mockReturnValue({ select, insert, update } as never);
+  const org = input?.organizations?.[0] as
+    | { currentPlan?: string; includedCreditsPlan?: string }
+    | undefined;
+  orgBillingState.getOrgBillingState.mockResolvedValue(
+    org ? { currentPlan: org.currentPlan, includedCreditsPlan: org.includedCreditsPlan ?? org.currentPlan } : null,
+  );
 
   return state;
 }
@@ -135,7 +143,7 @@ describe("VerifiedBookingAddonGrantService", () => {
       ledger: null,
       organizations: [{ currentPlan: "starter" }],
     });
-    const service = new VerifiedBookingAddonGrantService();
+    const service = new VerifiedBookingAddonGrantService(orgBillingState as never);
 
     await service.grant({
       organizationId: "org-1",
@@ -160,7 +168,7 @@ describe("VerifiedBookingAddonGrantService", () => {
       organizations: [{ currentPlan: "starter" }],
       previousLedger: { included: 30, addon: 25, used: 40 },
     });
-    const service = new VerifiedBookingAddonGrantService();
+    const service = new VerifiedBookingAddonGrantService(orgBillingState as never);
 
     await service.grant({
       organizationId: "org-1",
@@ -176,7 +184,7 @@ describe("VerifiedBookingAddonGrantService", () => {
 
   it("regression: grant increments addonGranted in SQL and never writes used", async () => {
     const state = createGrantHarness();
-    const service = new VerifiedBookingAddonGrantService();
+    const service = new VerifiedBookingAddonGrantService(orgBillingState as never);
 
     await service.grant({
       organizationId: "org-1",
@@ -192,9 +200,28 @@ describe("VerifiedBookingAddonGrantService", () => {
     expect(written.addonGranted).toBeInstanceOf(SQL);
   });
 
+  it("regression: a booking pack bought during payment grace seeds free included bookings", async () => {
+    const state = createGrantHarness({
+      ledger: null,
+      organizations: [{ currentPlan: "starter", includedCreditsPlan: "free" }],
+    });
+    const service = new VerifiedBookingAddonGrantService(orgBillingState as never);
+
+    await service.grant({
+      organizationId: "org-1",
+      units: 10,
+      pricePhp: 299,
+      sku: "online-booking-topup-10",
+      source: "manual_payment",
+      sourceReference: "manual-payment:grace",
+    });
+
+    expect(state.inserted.ledgers[0]).toMatchObject({ includedGranted: 5, sourcePlan: "free" });
+  });
+
   it("increments the current-month addon ledger and writes reconciliation", async () => {
     const state = createGrantHarness();
-    const service = new VerifiedBookingAddonGrantService();
+    const service = new VerifiedBookingAddonGrantService(orgBillingState as never);
 
     const result = await service.grant({
       organizationId: "org-1",
@@ -237,7 +264,7 @@ describe("VerifiedBookingAddonGrantService", () => {
         },
       ],
     });
-    const service = new VerifiedBookingAddonGrantService();
+    const service = new VerifiedBookingAddonGrantService(orgBillingState as never);
 
     const result = await service.grant({
       organizationId: "org-1",

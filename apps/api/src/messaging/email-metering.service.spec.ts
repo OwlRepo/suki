@@ -31,6 +31,7 @@ vi.mock("drizzle-orm", () => ({
 describe("EmailMeteringService", () => {
   const planCapacity = {
     getActivePlan: vi.fn().mockResolvedValue("free"),
+    getIncludedCreditsPlan: vi.fn().mockResolvedValue("free"),
   };
 
   beforeEach(() => {
@@ -56,6 +57,18 @@ describe("EmailMeteringService", () => {
 
     const out = await service.getOrCreateCredits("org-1", "2026-05");
     expect(out).toMatchObject({ included: 100, used: 0, remaining: 100, total: 100 });
+  });
+
+  it("regression: past_due org gets free included email allowance", async () => {
+    planCapacity.getActivePlan.mockResolvedValueOnce("starter");
+    planCapacity.getIncludedCreditsPlan.mockResolvedValueOnce("free");
+    const service = new EmailMeteringService(planCapacity as never);
+    queuedWhereResults = [{ limit: mockLimit }];
+    mockLimit.mockResolvedValueOnce([]);
+
+    await service.getOrCreateCredits("org-1", "2026-05");
+
+    expect(mockValues).toHaveBeenCalledWith(expect.objectContaining({ included: 100 }));
   });
 
   it("blocks when cap is reached", async () => {
