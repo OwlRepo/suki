@@ -1,18 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import AppointmentsPage from "./page";
 
-const mocks = vi.hoisted(() => ({ api: vi.fn(), replace: vi.fn(), query: "", token: vi.fn(async () => "token") }));
+const mocks = vi.hoisted(() => ({ api: vi.fn(), replace: vi.fn(), query: "", token: vi.fn(async () => "token"), workspace: { loading: false, activeBusinessId: "biz1", businesses: [{ id: "biz1", name: "Salon" }] } }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(mocks.query), usePathname: () => "/appointments", useRouter: () => ({ replace: mocks.replace, push: vi.fn() }) }));
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ getToken: mocks.token }) }));
 vi.mock("@/hooks/use-auth-sync", () => ({ useAuthSync: () => ({ data: { organization: { id: "org1" } } }) }));
-vi.mock("@/contexts/workspace-context", () => ({ useWorkspace: () => ({ loading: false, activeBusinessId: "biz1", businesses: [{ id: "biz1", name: "Salon" }] }) }));
+vi.mock("@/contexts/workspace-context", () => ({ useWorkspace: () => mocks.workspace }));
 vi.mock("@/lib/api", () => ({ apiRequest: (...args: unknown[]) => mocks.api(...args) }));
 vi.mock("@/lib/onboarding-metrics", () => ({ recordOnboardingEvent: vi.fn() }));
 
 describe("Suki single-screen booking", () => {
   beforeEach(() => {
     vi.clearAllMocks(); mocks.query = "";
+    mocks.workspace = { loading: false, activeBusinessId: "biz1", businesses: [{ id: "biz1", name: "Salon" }] };
     mocks.api.mockImplementation((path: string) => {
       if (path.startsWith("/customers?")) return Promise.resolve({ customers: [{ id: "c1", name: "Alice" }] });
       if (path.startsWith("/appointments/booking/availability")) return Promise.resolve({ month: "2026-11", slotDurationMins: 30, byDay: { "2026-11-17": ["2026-11-17T10:00:00.000Z"] } });
@@ -60,6 +61,65 @@ describe("Suki single-screen booking", () => {
     expect(screen.getByRole("button", { name: /^Retry$/i })).toBeInTheDocument();
   });
 
+  it("error: discards customer resolution from the previous business before booking or retrying", async () => {
+    let resolvePrevious: ((value: { customer: { id: string } }) => void) | undefined;
+    mocks.api.mockImplementation((path: string, init?: { method?: string; body?: string }) => {
+      if (path.startsWith("/customers?")) return Promise.resolve({ customers: [] });
+      if (path.startsWith("/appointments/booking/availability")) return Promise.resolve({ month: "2026-11", slotDurationMins: 30, byDay: { "2026-11-17": ["2026-11-17T10:00:00.000Z"] } });
+      if (path === "/customers/resolve-for-booking") return JSON.parse(init?.body ?? "{}").businessId === "biz1" ? new Promise((resolve) => { resolvePrevious = resolve; }) : Promise.resolve({ customer: { id: "customer-b" } });
+      if (path === "/appointments" && init?.method === "POST") return JSON.parse(init.body ?? "{}").businessId === "biz1" ? Promise.reject(new Error("Previous business save failed")) : Promise.resolve({ appointment: { id: "booking-b" } });
+      return Promise.resolve({ appointments: [] });
+    });
+    const view = render(<AppointmentsPage />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /new appointment/i }))[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /^New customer$/i }));
+    fireEvent.change(screen.getByPlaceholderText("Customer name"), { target: { value: "Customer A" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Save appointment$/i })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: /^Save appointment$/i }));
+    await waitFor(() => expect(resolvePrevious).toBeDefined());
+    mocks.workspace = { loading: false, activeBusinessId: "biz2", businesses: [{ id: "biz2", name: "Second salon" }] };
+    view.rerender(<AppointmentsPage />);
+    await act(async () => { resolvePrevious?.({ customer: { id: "customer-a" } }); });
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /new appointment/i })[0]).not.toBeDisabled());
+    expect(screen.queryByText("Previous business save failed")).not.toBeInTheDocument();
+    expect(mocks.api.mock.calls.filter(([path, init]) => path === "/appointments" && init?.method === "POST")).toHaveLength(0);
+    fireEvent.click(screen.getAllByRole("button", { name: /new appointment/i })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /^New customer$/i }));
+    fireEvent.change(screen.getByPlaceholderText("Customer name"), { target: { value: "Customer B" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Save appointment$/i })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: /^Save appointment$/i }));
+    expect(await screen.findByText(/Appointment booked successfully/i)).toBeInTheDocument();
+    const saved = mocks.api.mock.calls.find(([path, init]) => path === "/appointments" && init?.method === "POST");
+    expect(JSON.parse(saved?.[1].body ?? "{}")).toMatchObject({ businessId: "biz2", customerId: "customer-b" });
+  });
+
+  it("error: an old booking rejection cannot overwrite the next business form", async () => {
+    let rejectPrevious: ((error: Error) => void) | undefined;
+    mocks.api.mockImplementation((path: string, init?: { method?: string }) => {
+      if (path.startsWith("/customers?")) return Promise.resolve({ customers: [] });
+      if (path.startsWith("/appointments/booking/availability")) return Promise.resolve({ month: "2026-11", slotDurationMins: 30, byDay: { "2026-11-17": ["2026-11-17T10:00:00.000Z"] } });
+      if (path === "/customers/resolve-for-booking") return Promise.resolve({ customer: { id: "customer-a" } });
+      if (path === "/appointments" && init?.method === "POST") return new Promise((_, reject) => { rejectPrevious = reject; });
+      return Promise.resolve({ appointments: [] });
+    });
+    const view = render(<AppointmentsPage />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /new appointment/i }))[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /^New customer$/i }));
+    fireEvent.change(screen.getByPlaceholderText("Customer name"), { target: { value: "Customer A" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Save appointment$/i })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: /^Save appointment$/i }));
+    await waitFor(() => expect(rejectPrevious).toBeDefined());
+    mocks.workspace = { loading: false, activeBusinessId: "biz2", businesses: [{ id: "biz2", name: "Second salon" }] };
+    view.rerender(<AppointmentsPage />);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /new appointment/i })[0]).not.toBeDisabled());
+    fireEvent.click(screen.getAllByRole("button", { name: /new appointment/i })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /^New customer$/i }));
+    fireEvent.change(screen.getByPlaceholderText("Customer name"), { target: { value: "Customer B" } });
+    await act(async () => { rejectPrevious?.(new Error("Old business error")); });
+    expect(screen.getByDisplayValue("Customer B")).toBeInTheDocument();
+    expect(screen.queryByText("Old business error")).not.toBeInTheDocument();
+  });
+
   it("edge: ignores a second submission while customer resolution is pending", async () => {
     let finishResolve: ((value: { customer: { id: string } }) => void) | undefined;
     mocks.api.mockImplementation((path: string) => {
@@ -103,6 +163,17 @@ describe("Suki single-screen booking", () => {
     expect(screen.getByDisplayValue("Existing notes")).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole("region", { name: /Reschedule appointment/i })).getByRole("button", { name: /^Cancel$/i }));
     expect(mocks.replace).toHaveBeenCalledWith("/appointments?source=today", expect.anything());
+  });
+
+  it("regression: opening booking moves focus to its heading and cancel restores the opener", async () => {
+    render(<AppointmentsPage />);
+    const opener = (await screen.findAllByRole("button", { name: /new appointment/i }))[0]!;
+    opener.focus();
+    fireEvent.click(opener);
+    const heading = await screen.findByRole("heading", { name: /^Book appointment$/i });
+    await waitFor(() => expect(heading).toHaveFocus());
+    fireEvent.click(within(screen.getByRole("region", { name: /^Book appointment$/i })).getByRole("button", { name: /^Cancel$/i }));
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 
   it("regression: shows customer, date/time choices and save without intermediate Continue steps", async () => {
