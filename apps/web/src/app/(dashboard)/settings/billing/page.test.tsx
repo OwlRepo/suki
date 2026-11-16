@@ -166,6 +166,13 @@ describe("BillingSettingsPage", () => {
     });
   });
 
+  it("regression: gives billing an obvious title and readable subscription status", async () => {
+    render(<BillingSettingsPage />);
+    expect(await screen.findByRole("heading", { name: "Plan & usage", exact: true })).toBeInTheDocument();
+    expect(await screen.findByText("Active", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("subscription_active")).not.toBeInTheDocument();
+  });
+
   it("renders real verified booking and sms balances plus paid-plan actions", async () => {
     render(<BillingSettingsPage />);
 
