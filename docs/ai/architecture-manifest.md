@@ -24,10 +24,10 @@ Verify all conclusions against real source code, tests, types, schemas, routes, 
 ## Frontend
 
 - Main route groups: dashboard, platform-admin, intake, onboarding, auth, pricing
-- Key dashboard areas: appointments, customers, imports, insights, settings, billing, help, loyalty, promos
+- Rendered customer pages: Today (/dashboard), appointments, share-slots, needs-attention, insights, analytics, imports, setup, settings, billing, help. Customers redirects to appointments; loyalty, pipeline and promos redirect to dashboard.
 - Platform-admin surfaces: communications, automation-runs, alerts, businesses, client-requests, billing-requests, audit-logs
 - Shared feature UI under `apps/web/src/components`
-- Dashboard shell `apps/web/src/components/navigation/adaptive-app-shell.tsx` reads the desktop sidebar preference through `apps/web/src/hooks/use-sidebar-collapsed.ts` (localStorage key `tyvera-sidebar-collapsed-v1`)
+- Dashboard shell `apps/web/src/components/navigation/adaptive-app-shell.tsx` reads the desktop sidebar preference through `apps/web/src/hooks/use-sidebar-collapsed.ts` (canonical localStorage key `suki-sidebar-collapsed-v1`, legacy preference fallback retained; default expanded)
 - API calls use `apps/web/src/lib/api.ts` and `apps/web/src/lib/api-base.ts`
 
 ## Backend
@@ -106,3 +106,10 @@ Verified from package scripts:
 - Medium risk: imports, platform-admin read models, shared package contract changes
 - Low risk: docs and prompts
 - Standard risk: AI workflow hooks and CI gates (a broken hook blocks every agent session; a broken gate blocks every PR)
+
+## Suki customer experience (2026-11-16)
+
+- Suki is the application; `suki.tyvera.app` is the configured application host. Parent domain remains unchanged. Production cutover is not part of this change.
+- Business name/type complete required setup; first booking and sharing are optional. Existing progress endpoints/sentinel and historical timestamps are retained.
+- Appointment booking uses one form and existing resolve/availability/appointment APIs. `?new=1` and scoped `?reschedule=<id>` support direct entry.
+- Compatibility and intentionally retained names: `docs/ai/suki-rename-compatibility.md`.

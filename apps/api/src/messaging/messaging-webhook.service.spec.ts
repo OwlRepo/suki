@@ -21,7 +21,7 @@ vi.mock("svix", () => ({
   })),
 }));
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     select: selectMock,
     from: fromMock,

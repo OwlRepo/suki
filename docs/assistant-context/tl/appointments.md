@@ -6,17 +6,12 @@ intents: ["appointment", "schedule", "time slots", "booking"]
 relatedRoutes: ["/appointments", "/share-slots"]
 toolBindings: ["route_guidance"]
 priority: high
-lastUpdated: 2026-05-10
-quickAnswer: Gamitin ang Appointments para sa schedule at Share Slots para sa booking link.
+lastUpdated: 2026-11-16
+quickAnswer: Gamitin ang Appointments para sa agenda, iisang booking form, arrival, at rescheduling.
 ---
-- Buksan ang Appointments para gumawa at mag-manage ng schedule.
-- I-set muna ang available time slots bago mag-share ng booking link.
-- I-check ang service duration at slot spacing para maiwasan ang overlap.
-- Tingnan muna ang existing bookings bago magbukas ng bagong schedule windows.
-- Kung external ang booking ng customers, i-sync muna ang latest slot setup.
-- Buksan ang Share Slots para gumawa ng QR/link para sa self-booking ng customers.
-- I-share lang ang link kapag tama na ang business scope at date range.
-- Karaniwang mali: nag-share agad ng link kahit hindi pa final ang slots.
-- Recovery: ayusin ang slots sa Appointments, tapos i-share ulit ang tamang link.
-- Karaniwang mali: maling petsa dahil sa month navigation.
-- Recovery: i-verify ang month header at selected day bago mag-save.
+- Agenda ang unang view; mayroon pa ring Calendar view. Ang search ay para sa appointments na naka-load sa napiling scope.
+- Sa New appointment, nasa isang form ang customer, available na petsa/oras, at notes. Wala nang magkakahiwalay na Continue screens.
+- Bine-validate ang bagong customer contact details. Hintaying ma-load ang availability; gamitin ang Retry kapag may error.
+- Nananatili ang inputs sa failed booking. Ginagamit muli ang na-resolve nang customer kapag nag-retry.
+- May dati nang details sa Reschedule. May confirmation ang cancellation. Sinisimulan ng Arrived ang automatic visit recording.
+- Sa Share slots makikita ang booking link at social assets. Tiyaking tama ang negosyo at schedule bago magbahagi.

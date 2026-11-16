@@ -3,7 +3,7 @@ import type {
   ClientBillingRequestKind,
   ClientBillingRequestStatus,
   PlanType,
-} from "@tyvera/types";
+} from "@suki/types";
 
 export type PlatformAdminClientBillingRequest = {
   id: string;

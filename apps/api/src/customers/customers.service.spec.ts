@@ -11,7 +11,7 @@ const returningMock = vi.fn();
 const insertMock = vi.fn();
 const transactionMock = vi.fn();
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     select: selectMock,
     insert: insertMock,

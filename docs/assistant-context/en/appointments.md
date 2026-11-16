@@ -6,17 +6,13 @@ intents: ["appointment", "schedule", "time slots", "booking"]
 relatedRoutes: ["/appointments", "/share-slots"]
 toolBindings: ["route_guidance"]
 priority: high
-lastUpdated: 2026-05-10
-quickAnswer: Use Appointments to manage schedules and Share Slots to send booking links.
+lastUpdated: 2026-11-16
+quickAnswer: Open Appointments for an agenda, one-screen booking, arrival, and rescheduling.
 ---
-- Open Appointments to create and manage booking schedules.
-- Add or adjust available time slots before sharing any booking link.
-- Confirm service duration and slot spacing to avoid overlap.
-- Review existing bookings before opening new time windows.
-- If customers book externally, sync your latest slot setup first.
-- Open Share Slots to generate QR/link that customers can use for self-booking.
-- Copy and share the booking link only after confirming the business scope and schedule period.
-- Common mistake: sharing links before slot setup is complete.
-- Recovery: update slots in Appointments, then regenerate or re-share the correct link.
-- Common mistake: creating slots on wrong dates due to month navigation confusion.
-- Recovery: verify month header and selected day before final save.
+- Agenda is the default; Calendar view remains available. Customer search filters loaded appointments for the selected scope.
+- New appointment opens one form with existing/new customer, available day/time, and notes. No intermediate Continue screens are required.
+- New-customer contact information is validated. Availability is loaded from the existing booking service; retry failed loading before choosing a slot.
+- A booking failure retains entered information. A resolved customer is reused when retrying, rather than resolving a second customer.
+- Reschedule retains appointment details. Cancellation requires confirmation. Arrived starts automatic visit recording; staff bookings retain their existing OTP/PIN rules.
+- /appointments?new=1 opens booking directly. A direct reschedule link identifies only a loaded appointment from the active business.
+- Share slots provides booking links and generated social assets. Confirm the business and schedule before sharing.

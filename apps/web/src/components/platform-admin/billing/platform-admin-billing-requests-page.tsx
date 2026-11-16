@@ -54,7 +54,7 @@ export function PlatformAdminBillingRequestsPage() {
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Billing Requests"
-        plainLanguageDescription="Create and verify manual Tyvera add-on payments for tenant organizations."
+        plainLanguageDescription="Create and verify manual Suki add-on payments for tenant organizations."
         whatThisPageIsFor="Use this page to track request status, reported payments, and completed fulfillment."
         whatToDoNext="Filter by status, open a request, then record or verify payment when finance confirms the transfer."
         actions={

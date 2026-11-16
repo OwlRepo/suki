@@ -303,7 +303,7 @@ describe("AssistantReadModelService", () => {
     expect(
       service.draftReminderMessage({
         scheduledAt: "2026-06-20T02:00:00.000Z",
-        businessName: "Tyvera Studio",
+        businessName: "Suki Studio",
         tone: "concise",
       }),
     ).toEqual(

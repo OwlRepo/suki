@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { usePathname } from "next/navigation";
 import {
   Sheet,
@@ -15,7 +16,7 @@ import { cn } from "@/lib/utils";
 import type { NavGroup } from "./dashboard-nav-config";
 
 const DRAWER_LINK_CLASS =
-  "relative flex min-h-[124px] flex-col items-center justify-center gap-3 rounded-2xl border px-4 py-5 text-center text-sm font-medium transition-[background-color,color,box-shadow] duration-150";
+  "relative flex min-h-[52px] flex-row items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm font-medium transition-[background-color,color] duration-150";
 
 interface MobileNavDrawerProps {
   groups: NavGroup[];
@@ -29,12 +30,22 @@ export function MobileNavDrawer({
   onOpenChange,
 }: MobileNavDrawerProps) {
   const pathname = usePathname();
+  const opener = useRef<HTMLElement | null>(null);
+  const navigating = useRef(false);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="left"
         className="w-dvw max-w-none gap-0 p-0 sm:w-[min(30rem,100dvw)] sm:max-w-[30rem]"
+        onOpenAutoFocus={() => {
+          opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          navigating.current = false;
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (!navigating.current && opener.current?.isConnected) opener.current.focus();
+        }}
       >
         <SheetHeader className="border-b border-border px-5 py-5">
           <SheetTitle className="text-xl">Menu</SheetTitle>
@@ -51,18 +62,24 @@ export function MobileNavDrawer({
               <p className="mb-3 px-1 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 {group.label}
               </p>
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <ul className="flex flex-col gap-2">
                 {group.items.map((item) => {
                   const isActive =
-                    pathname === item.href ||
+                    (pathname === item.href ||
                     (item.href !== "/dashboard" &&
-                      pathname.startsWith(item.href + "/"));
+                      pathname.startsWith(item.href + "/"))) &&
+                    !(item.href === "/settings" && pathname.startsWith("/settings/billing"));
                   const Icon = item.icon;
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        onClick={() => onOpenChange(false)}
+                        aria-current={isActive ? "page" : undefined}
+                        onClick={(event) => {
+                          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                          navigating.current = true;
+                          onOpenChange(false);
+                        }}
                         className={cn(
                           DRAWER_LINK_CLASS,
                           isActive
@@ -70,7 +87,7 @@ export function MobileNavDrawer({
                             : "border-border/70 bg-background text-muted-foreground shadow-[0_8px_24px_rgba(15,23,42,0.06)] hover:bg-muted/30 hover:text-foreground"
                         )}
                       >
-                        <Icon className="size-6 shrink-0" aria-hidden />
+                        <Icon className="size-5 shrink-0" aria-hidden />
                         <span className="text-sm font-medium leading-tight text-balance">
                           {item.label}
                         </span>

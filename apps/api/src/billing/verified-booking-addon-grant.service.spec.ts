@@ -4,12 +4,12 @@ import {
   getDb,
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
-} from "@tyvera/database";
+} from "@suki/database";
 import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant.service";
 
-vi.mock("@tyvera/database", async () => {
-  const actual = await vi.importActual<typeof import("@tyvera/database")>(
-    "@tyvera/database",
+vi.mock("@suki/database", async () => {
+  const actual = await vi.importActual<typeof import("@suki/database")>(
+    "@suki/database",
   );
   return {
     ...actual,

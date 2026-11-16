@@ -16,7 +16,7 @@ Verify behavior against source.
 
 | Path | Purpose | Main Exports / Shapes | Main Dependencies | Main Consumers | Usage Pattern | Risk |
 |---|---|---|---|---|---|---|
-| `apps/web/src/app` | Next.js route tree | layouts, pages, route segments | Next.js, auth, hooks, UI | browser users | dashboard, platform-admin, onboarding, intake, auth, pricing | High |
+| `apps/web/src/app` | Next.js route tree | layouts, pages, route segments | Next.js, auth, hooks, UI | browser users | Suki Today and customer workspace, platform-admin, business-only onboarding, intake, auth, pricing | High |
 | `apps/web/src/components` | feature UI and reusable view pieces | React components | hooks, lib, shared UI | pages, layouts | billing, customers, assistant, platform-admin, share-slots, landing | Medium |
 | `apps/web/src/hooks` | reusable client logic | hooks | React, API helpers | components, pages | billing status, workspace sync, sidebar collapse preference, other feature hooks | Medium |
 | `apps/web/src/lib` | frontend helpers and API plumbing | `apiRequest`, auth helpers, route helpers | env, fetch, Clerk | app, hooks, components | API base URL, auth client, protected route logic, onboarding rules | High |
@@ -85,3 +85,10 @@ Verify behavior against source.
 ## Drift Log
 
 - `CONTEXT DRIFT` (2026-10-01): the former apps/web/src/domains row was removed — that directory does not exist on `origin/main` (`bdf6e70`).
+
+## Suki redesign ownership
+
+- Navigation and direct booking links: `apps/web/src/components/navigation/`.
+- Business-only setup and legacy progress completion: `apps/web/src/components/onboarding/{onboarding-gate,onboarding-wizard}.tsx`.
+- Canonical assistant: `apps/web/src/components/suki-assistant.tsx`; legacy module/export remain compatible.
+- Rename compatibility audit: `docs/ai/suki-rename-compatibility.md`.

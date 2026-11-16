@@ -18,6 +18,29 @@ describe("IntakePage OTP flow", () => {
     });
   });
 
+  it("regression: restores a legacy intake draft without deleting it", async () => {
+    const draft = JSON.stringify({ name: "Legacy customer", mobile: "+639171234567", email: "legacy@example.test" });
+    localStorage.setItem("tyvera:intake:biz-legacy", draft);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ template: null }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    await act(async () => {
+      render(<Suspense fallback={<div>Loading</div>}><IntakePage params={Promise.resolve({ businessId: "biz-legacy" })} /></Suspense>);
+    });
+    expect(await screen.findByLabelText(/name/i)).toHaveValue("Legacy customer");
+    expect(screen.getByLabelText(/mobile/i)).toHaveValue("+639171234567");
+    expect(localStorage.getItem("tyvera:intake:biz-legacy")).toBe(draft);
+  });
+
+  it("regression: canonical intake draft takes precedence over legacy data for the same business", async () => {
+    localStorage.setItem("tyvera:intake:biz-current", JSON.stringify({ name: "Legacy customer", mobile: "+639171234567" }));
+    localStorage.setItem("suki:intake:biz-current", JSON.stringify({ name: "Current customer", mobile: "+639181234567" }));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ template: null }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    await act(async () => {
+      render(<Suspense fallback={<div>Loading</div>}><IntakePage params={Promise.resolve({ businessId: "biz-current" })} /></Suspense>);
+    });
+    expect(await screen.findByLabelText(/name/i)).toHaveValue("Current customer");
+    expect(screen.getByLabelText(/mobile/i)).toHaveValue("+639181234567");
+  });
+
   it("shows resend cooldown and hold-expiry countdown after OTP send", async () => {
     const fetchMock = vi.fn(async (url: string | URL | Request) => {
       const href = String(url);

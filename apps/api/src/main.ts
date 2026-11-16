@@ -36,10 +36,10 @@ function validateEnv() {
   const required = ["DATABASE_URL"];
   const missing = required.filter((k) => !isConfigured(k));
   if (missing.length) {
-    console.warn(`[Tyvera API] Missing or placeholder env: ${missing.join(", ")}. Some features may be unavailable.`);
+    console.warn(`[Suki API] Missing or placeholder env: ${missing.join(", ")}. Some features may be unavailable.`);
   }
   if (process.env.OPENAI_API_KEY?.includes("placeholder")) {
-    console.warn("[Tyvera API] OPENAI_API_KEY is placeholder. AI messaging will be disabled.");
+    console.warn("[Suki API] OPENAI_API_KEY is placeholder. AI messaging will be disabled.");
   }
   const selfServeBillingEnabled = new FeatureFlagsService().selfServeBillingEnabled();
   if (
@@ -49,7 +49,7 @@ function validateEnv() {
       !process.env.LEMONSQUEEZY_STORE_ID)
   ) {
     console.warn(
-      "[Tyvera API] Lemon Squeezy not fully configured. Self-serve billing checkout will be unavailable.",
+      "[Suki API] Lemon Squeezy not fully configured. Self-serve billing checkout will be unavailable.",
     );
   }
   const twilioCredentialsOk = isConfigured("TWILIO_ACCOUNT_SID") && isConfigured("TWILIO_AUTH_TOKEN");
@@ -63,19 +63,19 @@ function validateEnv() {
     !String(process.env.RESEND_API_KEY).toLowerCase().includes("placeholder");
   if (!twilioOk) {
     console.warn(
-      "[Tyvera API] Twilio outbound SMS is not fully configured. SMS delivery will use noop when selected.",
+      "[Suki API] Twilio outbound SMS is not fully configured. SMS delivery will use noop when selected.",
     );
   }
   if (!twilioVerifyOk) {
-    console.warn("[Tyvera API] Twilio Verify OTP is not fully configured. Public booking OTP SMS will be unavailable.");
+    console.warn("[Suki API] Twilio Verify OTP is not fully configured. Public booking OTP SMS will be unavailable.");
   }
   if (!twilioInboundValidationOk) {
     console.warn(
-      "[Tyvera API] Twilio inbound SMS webhook validation is not fully configured. Set TWILIO_AUTH_TOKEN and TWILIO_INBOUND_SMS_WEBHOOK_URL before production STOP handling.",
+      "[Suki API] Twilio inbound SMS webhook validation is not fully configured. Set TWILIO_AUTH_TOKEN and TWILIO_INBOUND_SMS_WEBHOOK_URL before production STOP handling.",
     );
   }
   if (twilioOk && !isConfigured("TWILIO_STATUS_CALLBACK_URL")) {
-    console.warn("[Tyvera API] TWILIO_STATUS_CALLBACK_URL is not configured. Delivery status callbacks may be disabled.");
+    console.warn("[Suki API] TWILIO_STATUS_CALLBACK_URL is not configured. Delivery status callbacks may be disabled.");
   }
   if (
     (process.env.FF_auto_messaging_enabled === "true" || process.env.FF_auto_followups_scheduler_enabled === "true") &&
@@ -83,7 +83,7 @@ function validateEnv() {
     !resendOk
   ) {
     console.warn(
-      "[Tyvera API] Messaging flags enabled but Twilio/Resend not configured. Auto-sends will use noop (no real delivery).",
+      "[Suki API] Messaging flags enabled but Twilio/Resend not configured. Auto-sends will use noop (no real delivery).",
     );
   }
 }
@@ -114,7 +114,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Tyvera API running on http://localhost:${port}`);
+  console.log(`Suki API running on http://localhost:${port}`);
 }
 
 bootstrap();

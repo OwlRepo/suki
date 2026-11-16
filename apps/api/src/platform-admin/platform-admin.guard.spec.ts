@@ -1,7 +1,7 @@
 import { ExecutionContext, ForbiddenException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlatformAdminPermission } from "@tyvera/types";
+import type { PlatformAdminPermission } from "@suki/types";
 import { PlatformAdminGuard } from "./platform-admin.guard";
 import { PLATFORM_ADMIN_PERMISSIONS_KEY } from "./platform-admin.decorator";
 import type { PlatformAdminService } from "./platform-admin.service";

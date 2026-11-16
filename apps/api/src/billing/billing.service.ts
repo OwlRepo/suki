@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import {
   aiUsageEvents,
   creditReconciliationEvents,
@@ -16,10 +16,10 @@ import {
   subscriptions,
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
-} from "@tyvera/database";
+} from "@suki/database";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { createHash } from "crypto";
-import type { BillingAddonSku, BillingInterval, PlanType } from "@tyvera/types";
+import type { BillingAddonSku, BillingInterval, PlanType } from "@suki/types";
 import {
   LemonsqueezyService,
   type LemonSubscriptionResponse,

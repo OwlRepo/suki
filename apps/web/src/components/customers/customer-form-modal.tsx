@@ -25,7 +25,7 @@ import {
   PH_MOBILE_E164_ERROR,
   PH_MOBILE_E164_PLACEHOLDER,
   normalizePhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 
 interface TemplateField {
   key: string;

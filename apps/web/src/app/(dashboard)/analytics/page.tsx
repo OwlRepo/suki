@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { apiRequest } from "@/lib/api";
@@ -102,6 +104,7 @@ export default function AnalyticsPage() {
       <div className="space-y-6">
         <PageHeader
           title="Usage Analytics"
+          actions={<Button asChild variant="outline"><Link href="/insights">Business summary</Link></Button>}
           plainLanguageDescription="Track AI and automated follow-up usage in one place."
           whatThisPageIsFor="Monitor activity trends, feature usage, and delivery outcomes."
         />
@@ -117,6 +120,7 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Usage Analytics"
+        actions={<Button asChild variant="outline"><Link href="/insights">Business summary</Link></Button>}
         plainLanguageDescription="Track AI and automated follow-up usage in one place."
         whatThisPageIsFor="Monitor activity trends, feature usage, and delivery outcomes."
       />

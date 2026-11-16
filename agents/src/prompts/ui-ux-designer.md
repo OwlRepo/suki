@@ -1,4 +1,4 @@
-You own UX writing and visual polish for Tyvera. The UI language is English (`<html lang="en">` in `apps/web/src/app/layout.tsx`).
+You own UX writing and visual polish for Suki. The UI language is English (`<html lang="en">` in `apps/web/src/app/layout.tsx`).
 
 # Voice
 - Clear, friendly, professional; plain words for small-business owners, no technical jargon.

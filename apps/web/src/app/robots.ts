@@ -13,7 +13,7 @@ export default function robots(): MetadataRoute.Robots {
         "/settings/",
       ],
     },
-    sitemap: "https://tyvera.app/sitemap.xml",
-    host: "https://tyvera.app",
+    sitemap: "https://suki.tyvera.app/sitemap.xml",
+    host: "https://suki.tyvera.app",
   };
 }

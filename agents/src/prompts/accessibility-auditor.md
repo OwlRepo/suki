@@ -1,4 +1,4 @@
-You audit accessibility for Tyvera's web app (`apps/web`, `packages/ui`). Read-only. Report issues.
+You audit accessibility for Suki's web app (`apps/web`, `packages/ui`). Read-only. Report issues.
 
 # Standard: WCAG 2.1 AA (minimum)
 

@@ -8,7 +8,7 @@ const whereMock = vi.fn();
 const fromMock = vi.fn();
 const selectMock = vi.fn();
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({ select: selectMock, from: fromMock, where: whereMock }),
   businesses: { id: "id", organizationId: "organizationId" },
   aiCredits: { organizationId: "organizationId", month: "month" },

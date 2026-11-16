@@ -24,7 +24,7 @@ import {
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
   verifiedOnlineBookingUsageEvents,
-} from "@tyvera/database";
+} from "@suki/database";
 import type {
   BillingAddonSku,
   ClientBillingRequestStatus,
@@ -35,11 +35,11 @@ import type {
   OrgBillingStatus,
   PlatformAdminPermission,
   PlanType,
-} from "@tyvera/types";
+} from "@suki/types";
 import {
   PH_MOBILE_E164_ERROR,
   isValidPhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 import { and, desc, eq, ilike } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import {
@@ -1630,17 +1630,17 @@ export class PlatformAdminBillingService {
     const copyText = [
       `Hi ${input.businessName},`,
       input.purchaseKind === "subscription"
-        ? "Your Tyvera subscription payment request is ready."
-        : "Your Tyvera top-up request is ready.",
+        ? "Your Suki subscription payment request is ready."
+        : "Your Suki top-up request is ready.",
       input.purchaseKind === "subscription"
         ? `Plan: ${input.sku}`
         : `Package: ${input.sku}`,
       `Amount: ${this.formatPhp(input.amountPhp)}`,
       `Reference: ${input.referenceNumber}`,
       "Payment method:",
-      paymentMethodLines.join("\n") || "Use the payment account shared by Tyvera support.",
+      paymentMethodLines.join("\n") || "Use the payment account shared by Suki support.",
       input.purchaseKind === "subscription"
-        ? "After payment, please send your transaction reference number so we can verify the payment and activate your Tyvera subscription."
+        ? "After payment, please send your transaction reference number so we can verify the payment and activate your Suki subscription."
         : "After payment, please send your transaction reference number so we can apply your credits.",
     ].join("\n");
 

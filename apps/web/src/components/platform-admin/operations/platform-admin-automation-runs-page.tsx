@@ -81,7 +81,7 @@ export function PlatformAdminAutomationRunsPage() {
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Automation Runs"
-        plainLanguageDescription="Review whether Tyvera background jobs are running successfully."
+        plainLanguageDescription="Review whether Suki background jobs are running successfully."
         whatThisPageIsFor="Check appointment reminders, winback jobs, and Semaphore reconciliation health."
         whatToDoNext="Investigate failed or missing runs before customer reminders are affected."
         actions={

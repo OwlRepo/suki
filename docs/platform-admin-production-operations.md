@@ -1,6 +1,6 @@
 # Platform Admin Production Operations
 
-Tyvera platform-admin pages are internal monitoring. Better Stack is external monitoring.
+Suki platform-admin pages are internal monitoring. Better Stack is external monitoring.
 
 External monitoring detects complete outages such as the public site, sign-in page, or health endpoint being unavailable. Internal monitoring identifies affected customers, providers, scheduler jobs, communications, billing actions, and alerts after the application is reachable.
 
@@ -8,9 +8,9 @@ External monitoring detects complete outages such as the public site, sign-in pa
 
 Configure these uptime monitors manually in Better Stack:
 
-- `https://tyvera.app`
-- `https://tyvera.app/sign-in`
-- `https://tyvera.app/api/health`
+- `https://suki.tyvera.app`
+- `https://suki.tyvera.app/sign-in`
+- `https://suki.tyvera.app/api/health`
 
 Heartbeat candidates for a later approved implementation:
 

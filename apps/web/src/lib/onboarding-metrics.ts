@@ -29,7 +29,8 @@ export interface OnboardingEvent {
   timestamp: string;
 }
 
-const STORAGE_KEY = "tyvera-onboarding-events";
+const STORAGE_KEY = "suki-onboarding-events";
+const LEGACY_STORAGE_KEY = "tyvera-onboarding-events";
 
 export function recordOnboardingEvent(
   type: OnboardingEventType,
@@ -44,7 +45,7 @@ export function recordOnboardingEvent(
   };
   if (typeof window !== "undefined") {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = (localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY));
       const events: OnboardingEvent[] = raw ? JSON.parse(raw) : [];
       events.push(event);
       if (events.length > 200) events.splice(0, events.length - 200);
@@ -58,7 +59,7 @@ export function recordOnboardingEvent(
 export function getOnboardingEvents(): OnboardingEvent[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = (localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY));
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];

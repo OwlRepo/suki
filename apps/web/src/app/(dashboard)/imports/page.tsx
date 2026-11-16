@@ -75,7 +75,7 @@ function ImportsPageContent() {
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [skipRows, setSkipRows] = useState<Set<number>>(new Set());
-  const [step, setStep] = useState<"source" | "upload" | "paste" | "review" | "dryrun" | "done">("source");
+  const [step, setStep] = useState<"source" | "upload" | "paste" | "review" | "dryrun" | "done">("upload");
   const [source, setSource] = useState<"csv" | "hubspot" | "pipedrive">("csv");
   const [hubspotToken, setHubspotToken] = useState("");
   const [pipedriveToken, setPipedriveToken] = useState("");
@@ -324,7 +324,7 @@ function ImportsPageContent() {
     setReport(null);
     setDryRunResult(null);
     setStatus(null);
-    setStep("source");
+    setStep("upload");
     fetchBatches();
   };
 
@@ -627,7 +627,7 @@ function ImportsPageContent() {
         </Card>
       )}
 
-      {step === "source" && (
+      {(step === "source" || step === "upload") && (
         <div className="mt-8 space-y-4">
           <p className="text-sm font-medium text-foreground">Import from</p>
           <div className="flex flex-wrap gap-2">
@@ -722,24 +722,11 @@ function ImportsPageContent() {
               </CardContent>
             </Card>
           )}
-          {source === "csv" && (
-            <Button onClick={() => setStep("upload")} size="lg" className="min-h-[44px] text-base">
-              Continue to CSV / Excel
-            </Button>
-          )}
         </div>
       )}
 
-      {step === "upload" && (
+      {(step === "upload" || step === "source") && source === "csv" && (
         <div className="mt-8 space-y-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setStep("source")}
-            className="mb-2 text-sm text-muted-foreground"
-          >
-            ← Change source
-          </Button>
           <Card className="rounded-lg p-4">
             <CardContent className="p-0">
             <label

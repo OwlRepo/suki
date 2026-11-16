@@ -1,8 +1,8 @@
 import { Injectable, Inject } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
-import { businesses, customers, messageEvents } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { businesses, customers, messageEvents } from "@suki/database";
 import { eq, and, gte, sql } from "drizzle-orm";
-import type { AutomationKey, MessagePurpose } from "@tyvera/types";
+import type { AutomationKey, MessagePurpose } from "@suki/types";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { AutomationPolicyService } from "../automation/automation-policy.service";
 import { SmsMeteringService } from "./sms-metering.service";
@@ -14,7 +14,7 @@ import { calculateSmsSegments } from "./sms-segmentation";
 import { ManualFollowUpService } from "./manual-follow-ups/manual-follow-up.service";
 
 const SMS_STOP = " Reply STOP to opt out.";
-const AUTO_FOOTER = " Sent automatically by Tyvera";
+const AUTO_FOOTER = " Sent automatically by Suki";
 const FOLLOWUP_DAILY_ORG_LIMIT_DEFAULT = 500;
 const FOLLOWUP_DAILY_BUSINESS_LIMIT_DEFAULT = 300;
 const FOLLOWUP_DAILY_USER_LIMIT_DEFAULT = 120;
@@ -181,7 +181,7 @@ export class MessageDispatchService {
       }
     }
 
-    const clientRef = `tyvera-${input.automationKey}-${input.customerId}-${Date.now()}`;
+    const clientRef = `suki-${input.automationKey}-${input.customerId}-${Date.now()}`;
 
     const [evt] = await db
       .insert(messageEvents)
@@ -340,7 +340,7 @@ export class MessageDispatchService {
       }
       const emailResult = await this.emailProvider.send({
         to,
-        subject: input.subject ?? "Message from Tyvera",
+        subject: input.subject ?? "Message from Suki",
         body,
         clientRef,
       });

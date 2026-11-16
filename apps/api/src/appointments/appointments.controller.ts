@@ -18,7 +18,7 @@ import { Tenant } from "../common/tenant.decorator";
 import {
   PH_MOBILE_E164_ERROR,
   normalizePhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 
 type ManualAppointmentStatus =
   | "scheduled"

@@ -113,8 +113,8 @@ describe("LemonsqueezyService", () => {
       planType: "starter",
       billingInterval: "monthly",
       productLabel: "Starter Monthly",
-      successUrl: "https://tyvera.app/settings/billing?checkout=success",
-      cancelUrl: "https://tyvera.app/settings/billing?checkout=cancelled",
+      successUrl: "https://suki.tyvera.app/settings/billing?checkout=success",
+      cancelUrl: "https://suki.tyvera.app/settings/billing?checkout=cancelled",
     });
 
     expect(result).toEqual({

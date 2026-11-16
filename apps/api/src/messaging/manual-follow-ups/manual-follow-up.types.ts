@@ -1,4 +1,4 @@
-import type { AutomationKey, MessagePurpose } from "@tyvera/types";
+import type { AutomationKey, MessagePurpose } from "@suki/types";
 
 export type ManualFollowUpStatus = "open" | "contacted" | "dismissed";
 

@@ -6,22 +6,15 @@ intents: ["ai usage", "token credits", "message credits", "billing status", "set
 relatedRoutes: ["/settings", "/settings/billing"]
 toolBindings: ["get_ai_usage", "get_billing_status", "route_guidance"]
 priority: high
-lastUpdated: 2026-06-19
-quickAnswer: Open Settings to check usage and billing. In manual billing mode, workspace owners can request plan changes, SMS top-ups, or cancellation.
+lastUpdated: 2026-11-16
+quickAnswer: Open Plan & usage directly for billing and allowances, or Settings for business and messaging controls.
 ---
-- Open Settings to review AI usage, remaining credits, and reset timing.
-- Check both message credits and AI token credits to understand limits.
-- Read reset date text to know when usage renews.
-- Review plan/billing status before requesting limit increases.
-- Owners upgrade, change plan, buy top-ups, cancel, or resume in Settings > Billing; payment runs on Lemon Squeezy checkout.
+- Plan & usage at /settings/billing shows the current plan, allowances, and billing actions.
+- Workspace owners upgrade, change plan, buy top-ups, cancel, or resume there; payment runs on Lemon Squeezy checkout. Staff retain their existing viewing permissions.
 - Use Manage billing to update the card or download invoices in the Lemon Squeezy customer portal.
 - A new plan becomes active after Lemon Squeezy confirms the payment.
 - Self-serve plan and top-up prices are shown and charged in USD.
-- When self-serve checkout is unavailable, Settings > Billing shows Request billing help instead.
-- Staff can view request status and decision notes, but only workspace owners can submit or cancel requests.
-- If AI stops responding, verify cap state first before troubleshooting.
-- Use this page to explain to staff why AI is capped or still available.
-- Common mistake: checking only one bar (messages or tokens).
-- Recovery: always review both bars and the reset date line.
-- Common mistake: expecting real-time refill before reset date.
-- Recovery: use Help Center workflows until the reset window or plan upgrade.
+- When self-serve checkout is unavailable and manual billing is enabled, owners request a plan change, SMS top-up, or cancellation instead. A request is not payment or fulfillment; follow the displayed status.
+- Settings groups business details, automated follow-ups, messaging limits, customer descriptions, and usage controls. Linked sections open directly.
+- Monthly allowances and prepaid SMS credits are separate. AI writing remains limited by plan and quotas.
+- Saving settings never changes the active business silently. Check the selected workspace before changing automation controls.

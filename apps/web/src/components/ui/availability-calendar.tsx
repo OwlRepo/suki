@@ -40,7 +40,8 @@ export function AvailabilityCalendar({
           const inMonth = day.startsWith(month);
           const isAvailable = inMonth && availableSet.has(day);
           const isSelected = selectedDay === day;
-          const date = new Date(day);
+          const [year, monthNumber, dayNumber] = day.split("-").map(Number);
+          const date = new Date(year, monthNumber - 1, dayNumber);
           return (
             <Button
               key={day}
@@ -54,6 +55,7 @@ export function AvailabilityCalendar({
               disabled={!isAvailable}
               onClick={() => onSelect(day)}
               aria-label={`${date.toLocaleDateString()} ${isAvailable ? "available" : "unavailable"}`}
+              aria-pressed={isSelected}
             >
               {date.getDate()}
             </Button>

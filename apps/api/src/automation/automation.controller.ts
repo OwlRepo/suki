@@ -13,7 +13,7 @@ import { BillingWriteGuard } from "../common/billing-write.guard";
 import { Tenant } from "../common/tenant.decorator";
 import { AutomationSettingsService } from "./automation-settings.service";
 import { MessagingService } from "../messaging/messaging.service";
-import type { AutomationKey } from "@tyvera/types";
+import type { AutomationKey } from "@suki/types";
 
 @Controller("automation")
 @UseGuards(ClerkAuthGuard, BillingWriteGuard)

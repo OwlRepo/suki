@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { Webhook } from "svix";
-import { getDb } from "@tyvera/database";
-import { messageEvents, processedWebhookEvents } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { messageEvents, processedWebhookEvents } from "@suki/database";
 import { eq, sql } from "drizzle-orm";
 import { createHash } from "crypto";
 

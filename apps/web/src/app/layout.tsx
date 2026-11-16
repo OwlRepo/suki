@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const siteUrl = "https://tyvera.app";
+const siteUrl = "https://suki.tyvera.app";
 
 const siteTitle =
-  "Tyvera | Automated Customer Follow-Ups for Service Businesses";
+  "Suki | Automated Customer Follow-Ups for Service Businesses";
 
 const siteDescription =
-  "Reduce no-shows and bring customers back automatically. Tyvera sends appointment reminders, missed-visit recovery messages, and customer follow-ups for salons, clinics, spas, gyms, and other service businesses.";
+  "Reduce no-shows and bring customers back automatically. Suki sends appointment reminders, missed-visit recovery messages, and customer follow-ups for salons, clinics, spas, gyms, and other service businesses.";
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -16,14 +16,14 @@ const jsonLd = {
     {
       "@type": "Organization",
       "@id": `${siteUrl}/#organization`,
-      name: "Tyvera",
+      name: "Suki",
       url: siteUrl,
       description: siteDescription,
     },
     {
       "@type": "SoftwareApplication",
       "@id": `${siteUrl}/#software`,
-      name: "Tyvera",
+      name: "Suki",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       url: siteUrl,
@@ -42,11 +42,11 @@ const jsonLd = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
 
-  applicationName: "Tyvera",
+  applicationName: "Suki",
 
   title: {
     default: siteTitle,
-    template: "%s | Tyvera",
+    template: "%s | Suki",
   },
 
   description: siteDescription,
@@ -58,11 +58,11 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/favicon.ico",
-        type: "image/x-icon",
+        url: "/icon.svg",
+        type: "image/svg+xml",
       },
     ],
-    shortcut: "/favicon.ico",
+    shortcut: "/icon.svg",
   },
 
   manifest: "/manifest.webmanifest",
@@ -70,7 +70,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: siteUrl,
-    siteName: "Tyvera",
+    siteName: "Suki",
     title: siteTitle,
     description: siteDescription,
     locale: "en_PH",

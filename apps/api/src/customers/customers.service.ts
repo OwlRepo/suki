@@ -1,9 +1,9 @@
 import { Injectable, ForbiddenException, ConflictException } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
-import { customers, businesses, messageEvents, visitAdjustmentHistory } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { customers, businesses, messageEvents, visitAdjustmentHistory } from "@suki/database";
 import { eq, and, ilike, like, or, sql, desc, gte, lt, isNull } from "drizzle-orm";
 import { AutomationSendService } from "../automation/automation-send.service";
-import { normalizePhilippineMobileE164 } from "@tyvera/types";
+import { normalizePhilippineMobileE164 } from "@suki/types";
 
 const DEFAULT_LOYALTY_THRESHOLD = 5;
 

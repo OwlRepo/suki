@@ -21,7 +21,7 @@ function makeTask(overrides: Partial<ManualFollowUpTask> = {}): ManualFollowUpTa
     failureReason: "provider_rejected",
     createdAt: "2026-06-05T00:00:00.000Z",
     customerName: "Ana Santos",
-    businessName: "Tyvera Clinic",
+    businessName: "Suki Clinic",
     appointmentScheduledAt: null,
     duplicateRisk: false,
     ...overrides,
@@ -49,7 +49,7 @@ describe("ManualFollowUpCard", () => {
     expect(writeText).toHaveBeenCalledWith("Reminder body");
     expect(screen.getByText(/copy fallback is available/i)).toBeInTheDocument();
     expect(
-      container.querySelector("article.rounded-2xl.border-slate-200.bg-white"),
+      container.querySelector("article.rounded-2xl.border-border.bg-card"),
     ).toBeTruthy();
   });
 

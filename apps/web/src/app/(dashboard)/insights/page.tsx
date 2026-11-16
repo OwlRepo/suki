@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
@@ -18,6 +19,7 @@ import { MetricGridSkeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSection } from "@/components/ui/page-section";
+import { usePlanCapabilities } from "@/hooks/use-plan-capabilities";
 import { InsightsBarChart, InsightsPieChart } from "@/components/insights/insights-charts";
 
 interface Business {
@@ -34,6 +36,7 @@ interface Metrics {
 }
 
 function InsightsPageContent() {
+  const planCapabilities = usePlanCapabilities();
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const workspace = useWorkspace();
@@ -95,6 +98,7 @@ function InsightsPageContent() {
         whatToDoNext="Check this month first. Use 'View past months' when you want to compare."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {planCapabilities.canSeeAiAnalytics ? <Button asChild variant="outline"><Link href="/analytics">Usage analytics</Link></Button> : null}
             <Select
               value={String(month)}
               onValueChange={(v) => setMonth(parseInt(v, 10))}
@@ -166,8 +170,8 @@ function InsightsPageContent() {
               />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
-              <Card className="lg:col-span-2">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+              <Card className="min-w-0 lg:col-span-2">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">Monthly breakdown</CardTitle>
                 </CardHeader>
@@ -176,7 +180,7 @@ function InsightsPageContent() {
                 </CardContent>
               </Card>
               {(metrics.newCustomers > 0 || metrics.repeatCustomers > 0) && (
-                <Card>
+                <Card className="min-w-0">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium">Customer mix</CardTitle>
                   </CardHeader>

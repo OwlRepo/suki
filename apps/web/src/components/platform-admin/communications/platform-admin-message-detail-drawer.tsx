@@ -35,7 +35,7 @@ export function PlatformAdminMessageDetailDrawer({
         <SheetHeader>
           <SheetTitle>Message details</SheetTitle>
           <SheetDescription>
-            Operational delivery details for one Tyvera communication.
+            Operational delivery details for one Suki communication.
           </SheetDescription>
         </SheetHeader>
 

@@ -30,31 +30,12 @@ import {
 } from "@/components/ui/accordion";
 import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 
-type TyveraMarkProps = {
+type SukiMarkProps = {
   className?: string;
 };
 
-function TyveraMark({ className = "h-8 w-8" }: TyveraMarkProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect x="5" y="6" width="38" height="10" rx="5" fill="currentColor" />
-      <rect
-        x="19"
-        y="14"
-        width="10"
-        height="28"
-        rx="5"
-        fill="currentColor"
-        opacity="0.72"
-      />
-    </svg>
-  );
+function SukiMark({ className = "h-8 w-8" }: SukiMarkProps) {
+  return <span aria-hidden="true" className={`${className} inline-flex shrink-0 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground`}>S</span>;
 }
 
 const TRUST_CHIPS = [
@@ -109,7 +90,7 @@ const HOW_IT_WORKS = [
     icon: MessageSquare,
     title: "Routine messages go out",
     description:
-      "Tyvera sends appointment reminders and follow-ups automatically, reducing repetitive manual texting.",
+      "Suki sends appointment reminders and follow-ups automatically, reducing repetitive manual texting.",
   },
   {
     step: "3",
@@ -180,24 +161,24 @@ const BUSINESS_TYPES = [
 
 const FAQ = [
   {
-    q: "Is Tyvera free to use?",
-    a: "Yes. Tyvera is currently free to use during early validation, with core features enabled and sensible daily usage limits.",
+    q: "Is Suki free to use?",
+    a: "Yes. Suki is currently free to use during early validation, with core features enabled and sensible daily usage limits.",
   },
   {
-    q: "Do I need to open Tyvera every day?",
-    a: "Tyvera is designed to reduce daily admin. Routine reminders and follow-ups run automatically. Your team still reviews appointments that need a decision and updates appointment statuses when necessary.",
+    q: "Do I need to open Suki every day?",
+    a: "Suki is designed to reduce daily admin. Routine reminders and follow-ups run automatically. Your team still reviews appointments that need a decision and updates appointment statuses when necessary.",
   },
   {
-    q: "How does Tyvera help bring customers back?",
-    a: "Tyvera sends post-visit follow-ups, missed-appointment recovery messages, and inactivity winback messages so customers receive a timely reason to book again.",
+    q: "How does Suki help bring customers back?",
+    a: "Suki sends post-visit follow-ups, missed-appointment recovery messages, and inactivity winback messages so customers receive a timely reason to book again.",
   },
   {
     q: "How are repeat visits tracked?",
     a: "Customer history stays connected to appointments. Completed appointments can be used for post-visit follow-ups, repeat-customer insights, and inactivity winback workflows.",
   },
   {
-    q: "Is Tyvera only for the Philippines?",
-    a: "Tyvera is designed first for Philippine service businesses, especially salons, clinics, gyms, spas, and other businesses where customers book ahead or return regularly.",
+    q: "Is Suki only for the Philippines?",
+    a: "Suki is designed first for Philippine service businesses, especially salons, clinics, gyms, spas, and other businesses where customers book ahead or return regularly.",
   },
 ] as const;
 
@@ -210,8 +191,8 @@ export default function Home() {
             href="/"
             className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-slate-950"
           >
-            <TyveraMark className="h-8 w-8 shrink-0 text-blue-600" />
-            <span>Tyvera</span>
+            <SukiMark className="h-8 w-8 shrink-0 text-blue-600" />
+            <span>Suki</span>
           </Link>
 
           <AuthCta />
@@ -241,11 +222,11 @@ export default function Home() {
               </div>
 
               <h1 className="mt-6 max-w-2xl text-4xl font-bold leading-[1.02] tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-                Appointments come in. Tyvera keeps customers coming back.
+                Appointments come in. Suki keeps customers coming back.
               </h1>
 
               <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-                Tyvera helps Philippine service businesses accept bookings,
+                Suki helps Philippine service businesses accept bookings,
                 send routine reminders and follow-ups automatically, and
                 encourage repeat visits without managing every customer
                 manually.
@@ -309,7 +290,7 @@ export default function Home() {
 
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
               Customers forget. Staff get busy. Manual follow-ups become
-              inconsistent. Tyvera keeps the routine moving so fewer customers
+              inconsistent. Suki keeps the routine moving so fewer customers
               quietly disappear.
             </p>
           </div>
@@ -335,7 +316,7 @@ export default function Home() {
               </h2>
 
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
-                Tyvera handles repeatable communication around bookings and
+                Suki handles repeatable communication around bookings and
                 return visits. Instead of relying on memory, spreadsheets, or
                 manual texting, your team focuses on customers and the
                 appointments that require a decision.
@@ -429,7 +410,7 @@ export default function Home() {
               </h2>
 
               <p className="mt-2 text-sm text-slate-600 sm:text-base">
-                Tyvera sends the follow-ups that busy owners and staff often
+                Suki sends the follow-ups that busy owners and staff often
                 forget.
               </p>
             </div>
@@ -484,7 +465,7 @@ export default function Home() {
 
             <Card className="h-full border-blue-200 bg-blue-50/70 shadow-sm">
               <CardContent className="p-5">
-                <h3 className="font-semibold text-slate-900">After Tyvera</h3>
+                <h3 className="font-semibold text-slate-900">After Suki</h3>
 
                 <div className="mt-4 space-y-3">
                   {BEFORE_AFTER.after.map((item) => (
@@ -509,7 +490,7 @@ export default function Home() {
             </h2>
 
             <p className="mt-2 text-sm text-slate-600 sm:text-base">
-              Tyvera works best when customers book ahead or return regularly.
+              Suki works best when customers book ahead or return regularly.
             </p>
 
             <div className="mx-auto mt-8 flex max-w-4xl flex-wrap justify-center gap-3">
@@ -539,7 +520,7 @@ export default function Home() {
               </div>
 
               <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">
-                Tyvera helps you organize customer history and automate
+                Suki helps you organize customer history and automate
                 follow-ups. You can view and export your data anytime.
               </p>
             </div>
@@ -564,7 +545,7 @@ export default function Home() {
           <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] lg:items-center">
             <div className="min-w-0">
               <h2 className="max-w-2xl text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                Let Tyvera handle the routine follow-up.
+                Let Suki handle the routine follow-up.
               </h2>
 
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
@@ -593,16 +574,16 @@ export default function Home() {
             href="/"
             className="flex items-center gap-2 font-semibold text-slate-900"
           >
-            <TyveraMark className="h-5 w-5 shrink-0 text-blue-600" />
-            Tyvera
+            <SukiMark className="h-5 w-5 shrink-0 text-blue-600" />
+            Suki
           </Link>
 
           <span>
-            Tyvera — Appointment and customer recovery automation for Philippine
+            Suki — Appointment and customer recovery automation for Philippine
             service businesses.
           </span>
 
-          <span>© {new Date().getFullYear()} Tyvera</span>
+          <span>© {new Date().getFullYear()} Suki</span>
         </div>
       </footer>
     </div>

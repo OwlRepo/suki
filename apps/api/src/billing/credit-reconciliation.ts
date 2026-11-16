@@ -1,4 +1,4 @@
-import type { PlanType } from "@tyvera/types";
+import type { PlanType } from "@suki/types";
 
 export interface CreditLedgerSnapshot {
   organizationId: string;

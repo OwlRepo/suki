@@ -20,7 +20,7 @@ import { AutomationSendService } from "../automation/automation-send.service";
 import {
   PH_MOBILE_E164_ERROR,
   normalizePhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 
 @Controller("customers")
 @UseGuards(ClerkAuthGuard, BillingWriteGuard)

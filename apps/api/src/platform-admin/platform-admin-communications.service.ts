@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import type {
   DeliveryStatus,
   MessageChannel,
   MessageEventStatus,
   MessagePurpose,
-} from "@tyvera/types";
+} from "@suki/types";
 import { sql, type SQL } from "drizzle-orm";
 import { maskRecipient, toIsoString } from "./platform-admin-communications.util";
 

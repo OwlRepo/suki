@@ -1,4 +1,4 @@
-# GitHub Copilot Instructions for Tyvera
+# GitHub Copilot Instructions for Suki
 
 `AGENTS.md` is the canonical AI workflow for this repository, and `CLAUDE.md`
 holds the verified project facts. The `docs/ai/` maps route every task.

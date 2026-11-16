@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarDays,
-  CalendarPlus,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Info,
   PlusCircle,
   Send,
   UserPlus,
@@ -37,21 +35,16 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { PrimaryPageAction } from "@/components/ui/primary-page-action";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
 import { fromError } from "@/lib/ui-feedback";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  buildAppointmentWizardSteps,
-  type BookingStep,
-} from "./wizard-progress";
 import { normalizeBookingError } from "./booking-flow";
 import {
   PH_MOBILE_E164_ERROR,
   PH_MOBILE_E164_PLACEHOLDER,
   normalizePhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 
 interface Customer {
   id: string;
@@ -110,7 +103,13 @@ function monthKey(iso: string): string {
 }
 
 function dayKey(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
+  const date = new Date(iso);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function localDateTimeValue(iso: string): string {
+  const date = new Date(iso);
+  return `${dayKey(iso)}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function buildMonthCells(month: string): string[] {
@@ -122,11 +121,16 @@ function buildMonthCells(month: string): string[] {
   return Array.from({ length: 42 }).map((_, index) => {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
-    return date.toISOString().slice(0, 10);
+    return dayKey(date.toISOString());
   });
 }
 
 function AppointmentsPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const newEntry = searchParams?.get("new");
+  const rescheduleEntry = searchParams?.get("reschedule");
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const workspace = useWorkspace();
@@ -155,8 +159,21 @@ function AppointmentsPageContent() {
     useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [step, setStep] = useState<BookingStep>("customer");
   const [entryMode, setEntryMode] = useState<"existing" | "new">("existing");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const submitPending = useRef(false);
+  const submissionGeneration = useRef(0);
+  const activeBusiness = useRef(selectedBiz);
+  const resolvedCustomerId = useRef<{ businessId: string; customerKey: string; id: string } | null>(null);
+  const openedEntry = useRef<string | null>(null);
+  const activeEntryParameter = useRef<"new" | "reschedule" | null>(null);
+  const bookingHeading = useRef<HTMLHeadingElement>(null);
+  const bookingOpener = useRef<HTMLElement | null>(null);
+  const newAppointmentButton = useRef<HTMLButtonElement>(null);
+  const restoreBookingFocus = useRef(false);
+
+  activeBusiness.current = selectedBiz;
 
   const [formData, setFormData] = useState({
     customerId: "",
@@ -166,7 +183,7 @@ function AppointmentsPageContent() {
   });
 
   const [calendarMonth, setCalendarMonth] = useState(
-    new Date().toISOString().slice(0, 7),
+    monthKey(new Date().toISOString()),
   );
   const [selectedAgendaDay, setSelectedAgendaDay] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -186,7 +203,7 @@ function AppointmentsPageContent() {
     notes: "",
   });
 
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [month, setMonth] = useState(monthKey(new Date().toISOString()));
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityRetryNonce, setAvailabilityRetryNonce] = useState(0);
@@ -210,10 +227,10 @@ function AppointmentsPageContent() {
     (!action || pendingAppointmentAction.action === action);
 
   const loadCustomers = async (options?: LoadOptions) => {
-    if (!selectedBiz) return;
+    if (!selectedBiz || activeBusiness.current !== selectedBiz) return;
 
     const token = await getToken();
-    if (!token) return;
+    if (!token || activeBusiness.current !== selectedBiz) return;
 
     if (!options?.preserveExisting) {
       setCustomers([]);
@@ -228,9 +245,11 @@ function AppointmentsPageContent() {
         { token },
       );
 
+      if (activeBusiness.current !== selectedBiz) return;
       setCustomers(response.customers);
       setCustomersLoadState("success");
     } catch (loadError) {
+      if (activeBusiness.current !== selectedBiz) return;
       setCustomersLoadState("error");
       setCustomersLoadError(
         fromError(loadError, "Failed to load customers."),
@@ -240,10 +259,10 @@ function AppointmentsPageContent() {
   };
 
   const loadAppointments = async (options?: LoadOptions) => {
-    if (!selectedBiz) return;
+    if (!selectedBiz || activeBusiness.current !== selectedBiz) return;
 
     const token = await getToken();
-    if (!token) return;
+    if (!token || activeBusiness.current !== selectedBiz) return;
 
     if (!options?.preserveExisting) {
       setAppointments([]);
@@ -266,7 +285,8 @@ function AppointmentsPageContent() {
         token,
       });
 
-      setAppointments(response.appointments);
+      if (activeBusiness.current !== selectedBiz) return;
+      setAppointments(response.appointments.filter((appointment) => appointment.businessId === selectedBiz));
       setAppointmentsLoadState("success");
 
       const firstDay =
@@ -283,6 +303,7 @@ function AppointmentsPageContent() {
           : firstDay,
       );
     } catch (loadError) {
+      if (activeBusiness.current !== selectedBiz) return;
       setAppointmentsLoadState("error");
       setAppointmentsLoadError("Failed to load appointments.");
       if (options?.rethrow) throw loadError;
@@ -290,10 +311,10 @@ function AppointmentsPageContent() {
   };
 
   const loadNeedsReview = async (options?: LoadOptions) => {
-    if (!selectedBiz) return;
+    if (!selectedBiz || activeBusiness.current !== selectedBiz) return;
 
     const token = await getToken();
-    if (!token) return;
+    if (!token || activeBusiness.current !== selectedBiz) return;
 
     if (!options?.preserveExisting) {
       setNeedsReviewAppointments([]);
@@ -308,9 +329,11 @@ function AppointmentsPageContent() {
         { token },
       );
 
+      if (activeBusiness.current !== selectedBiz) return;
       setNeedsReviewAppointments(response.appointments);
       setNeedsReviewLoadState("success");
     } catch (loadError) {
+      if (activeBusiness.current !== selectedBiz) return;
       setNeedsReviewLoadState("error");
       setNeedsReviewLoadError("Failed to load appointments that need review.");
 
@@ -324,10 +347,23 @@ function AppointmentsPageContent() {
   }, [syncData]);
 
   useEffect(() => {
+    submissionGeneration.current += 1;
+    submitPending.current = false;
+    setSubmitting(false);
+    setPendingAppointmentAction(null);
+    setError(null);
+    setFeedback(null);
     setCustomers([]);
     setAppointments([]);
     setNeedsReviewAppointments([]);
     setSelectedAgendaDay(null);
+    setShowForm(false);
+    setEditingId(null);
+    setFormData({ customerId: "", scheduledAt: "", notes: "", remindersOn: true });
+    setEntryMode("existing");
+    setNewCustomer({ name: "", mobile: "", email: "", notes: "" });
+    resolvedCustomerId.current = null;
+    openedEntry.current = null;
     if (!selectedBiz) return;
 
     void Promise.all([
@@ -343,257 +379,195 @@ function AppointmentsPageContent() {
   }, [calendarMonth]);
 
   useEffect(() => {
-    if (!showForm || !selectedBiz) return;
-    if (step !== "date" && step !== "time") return;
+    if (!showForm || !selectedBiz || editingId) return;
+    let cancelled = false;
+    setAvailability(null);
+    setSelectedDay(null);
+    setFormData((previous) => ({ ...previous, scheduledAt: "" }));
+    setAvailabilityLoading(true);
+    setAvailabilityError(null);
 
     const run = async () => {
-      const token = await getToken();
-      if (!token) return;
-
-      setAvailabilityLoading(true);
-      setAvailabilityError(null);
-
       try {
+        const token = await getToken();
+        if (!token) throw new Error("Sign in again to load available times.");
         const data = await apiRequest<Availability>(
           `/appointments/booking/availability?businessId=${selectedBiz}&month=${month}`,
           { token },
         );
-
-        setAvailability(data);
-
-        const day = Object.keys(data.byDay ?? {}).sort()[0] ?? null;
+        if (cancelled) return;
+        // Offered instants are authoritative; server day keys can use a different timezone.
+        const byDay: Record<string, string[]> = {};
+        for (const slot of Object.values(data.byDay ?? {}).flat()) {
+          const localDay = dayKey(slot);
+          (byDay[localDay] ??= []).push(slot);
+        }
+        setAvailability({ ...data, byDay });
+        const day = Object.keys(byDay).sort()[0] ?? null;
         setSelectedDay(day);
-
-        const slot = day ? data.byDay[day]?.[0] ?? "" : "";
-
-        setFormData((previous) => ({
-          ...previous,
-          scheduledAt: slot ? slot.slice(0, 16) : previous.scheduledAt,
-        }));
+        setFormData((previous) => ({ ...previous, scheduledAt: day ? byDay[day]?.[0] ?? "" : "" }));
       } catch (loadError) {
-        setAvailabilityError(fromError(loadError, "Failed to load availability."));
+        if (!cancelled) setAvailabilityError(fromError(loadError, "Failed to load availability."));
       } finally {
-        setAvailabilityLoading(false);
+        if (!cancelled) setAvailabilityLoading(false);
       }
     };
-
     void run();
-  }, [showForm, selectedBiz, step, month, availabilityRetryNonce]);
+    return () => { cancelled = true; };
+  }, [showForm, selectedBiz, editingId, month, availabilityRetryNonce, getToken]);
+
+  useEffect(() => {
+    if (showForm) {
+      if (!bookingOpener.current || !bookingOpener.current.isConnected) {
+        bookingOpener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+          ? document.activeElement
+          : newAppointmentButton.current;
+      }
+      restoreBookingFocus.current = false;
+      bookingHeading.current?.focus({ preventScroll: true });
+      bookingHeading.current?.scrollIntoView?.({ block: "start" });
+    } else if (restoreBookingFocus.current) {
+      restoreBookingFocus.current = false;
+      const opener = bookingOpener.current?.isConnected ? bookingOpener.current : newAppointmentButton.current;
+      bookingOpener.current = null;
+      opener?.focus({ preventScroll: true });
+    }
+  }, [showForm, editingId]);
+
+  const consumeEntryParameter = () => {
+    const parameter = activeEntryParameter.current;
+    if (!parameter) return;
+    const remaining = new URLSearchParams(searchParams?.toString() ?? "");
+    remaining.delete(parameter);
+    const query = remaining.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}${window.location.hash}`, { scroll: false });
+    activeEntryParameter.current = null;
+  };
 
   const resetForm = () => {
-    const defaultTime = new Date();
-    defaultTime.setHours(14, 0, 0, 0);
-
-    setFormData({
-      customerId: "",
-      scheduledAt: defaultTime.toISOString().slice(0, 16),
-      notes: "",
-      remindersOn: true,
-    });
-
+    restoreBookingFocus.current = showForm;
+    setFormData({ customerId: "", scheduledAt: "", notes: "", remindersOn: true });
     setEditingId(null);
     setShowForm(false);
     setError(null);
-    setStep("customer");
     setEntryMode("existing");
     setNewCustomer({ name: "", mobile: "", email: "", notes: "" });
+    resolvedCustomerId.current = null;
     setAvailability(null);
     setAvailabilityError(null);
     setSelectedDay(null);
+    setMonth(calendarMonth);
+    consumeEntryParameter();
   };
 
   const handleEdit = (appointment: Appointment) => {
+    bookingOpener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement
+      : newAppointmentButton.current;
     setEditingId(appointment.id);
-
+    setError(null);
     setFormData({
       customerId: appointment.customerId,
-      scheduledAt: appointment.scheduledAt.slice(0, 16),
+      scheduledAt: localDateTimeValue(appointment.scheduledAt),
       notes: appointment.notes ?? "",
       remindersOn: true,
     });
-
     setShowForm(true);
   };
 
+  useEffect(() => {
+    const entry = newEntry === "1" ? "new" : rescheduleEntry ? `reschedule:${rescheduleEntry}` : null;
+    if (!entry) { openedEntry.current = null; return; }
+    if (!selectedBiz) return;
+    const key = `${selectedBiz}:${entry}`;
+    if (openedEntry.current === key) return;
+    if (newEntry === "1") {
+      openedEntry.current = key;
+      activeEntryParameter.current = "new";
+      setEditingId(null);
+      setShowForm(true);
+      return;
+    }
+    if (appointmentsLoadState !== "success") return;
+    const appointment = appointments.find((item) => item.id === rescheduleEntry && item.businessId === selectedBiz);
+    if (!appointment || !["scheduled", "needs_review"].includes(appointment.status)) {
+      setFeedback({ type: "error", message: "This appointment is not available to reschedule in the selected business and month. Choose its month or retry loading appointments." });
+      return;
+    }
+    openedEntry.current = key;
+    activeEntryParameter.current = "reschedule";
+    handleEdit(appointment);
+  }, [newEntry, rescheduleEntry, selectedBiz, appointmentsLoadState, appointments]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
-    if (!selectedBiz || !formData.customerId || !formData.scheduledAt) return;
-
-    setSubmitting(true);
-    if (editingId) {
-      setPendingAppointmentAction({ id: editingId, action: "reschedule" });
-    }
+    if (submitPending.current) return;
     setError(null);
+    if (!selectedBiz) { setError("Choose a business first."); return; }
+    if (!editingId && entryMode === "new") {
+      if (!newCustomer.name.trim()) { setError("Customer name is required."); return; }
+      if (newCustomer.mobile.trim() && !normalizePhilippineMobileE164(newCustomer.mobile)) { setError(PH_MOBILE_E164_ERROR); return; }
+    } else if (!formData.customerId) { setError("Select or create a customer first."); return; }
+    if (!formData.scheduledAt || (!editingId && (!selectedDay || !availability?.byDay[selectedDay]?.includes(formData.scheduledAt)))) {
+      setError("Choose an available appointment time.");
+      return;
+    }
+    submitPending.current = true;
+    const generation = ++submissionGeneration.current;
+    const isCurrentSubmission = () => submissionGeneration.current === generation && activeBusiness.current === selectedBiz;
+    setSubmitting(true);
+    const savedEditingId = editingId;
+    if (savedEditingId) setPendingAppointmentAction({ id: savedEditingId, action: "reschedule" });
 
     try {
       const token = await getToken();
-      if (!token) return;
-
-      const body = {
-        customerId: formData.customerId,
-        scheduledAt: new Date(formData.scheduledAt).toISOString(),
-        notes: formData.notes || undefined,
-      };
-
-      if (editingId) {
-        await apiRequest(`/appointments/${editingId}`, {
-          method: "PATCH",
-          token,
-          body: JSON.stringify({
-            scheduledAt: body.scheduledAt,
-            notes: body.notes,
-          }),
-        });
-      } else {
-        await apiRequest("/appointments", {
-          method: "POST",
-          token,
-          body: JSON.stringify({ businessId: selectedBiz, ...body }),
-        });
+      if (!isCurrentSubmission()) return;
+      if (!token) throw new Error("Sign in again before saving the appointment.");
+      let customerId = formData.customerId;
+      if (!savedEditingId && entryMode === "new") {
+        const customerKey = JSON.stringify([newCustomer.name.trim(), newCustomer.mobile.trim(), newCustomer.email.trim(), newCustomer.notes.trim()]);
+        if (resolvedCustomerId.current?.businessId !== selectedBiz || resolvedCustomerId.current.customerKey !== customerKey) {
+          const response = await apiRequest<{ customer: { id: string } }>("/customers/resolve-for-booking", {
+            method: "POST", token,
+            body: JSON.stringify({
+              businessId: selectedBiz, name: newCustomer.name.trim(),
+              mobile: newCustomer.mobile.trim() ? normalizePhilippineMobileE164(newCustomer.mobile) : undefined,
+              email: newCustomer.email.trim() || undefined, notes: newCustomer.notes.trim() || undefined,
+            }),
+          });
+          if (!isCurrentSubmission()) return;
+          // Keep the resolved identity when a booking retry follows a failed save.
+          resolvedCustomerId.current = { businessId: selectedBiz, customerKey, id: response.customer.id };
+        }
+        customerId = resolvedCustomerId.current.id;
       }
-
+      const body = { scheduledAt: new Date(formData.scheduledAt).toISOString(), notes: formData.notes.trim() || undefined };
+      await apiRequest(savedEditingId ? `/appointments/${savedEditingId}` : "/appointments", {
+        method: savedEditingId ? "PATCH" : "POST", token,
+        body: JSON.stringify(savedEditingId ? body : { businessId: selectedBiz, customerId, ...body }),
+      });
+      if (!isCurrentSubmission()) return;
       resetForm();
-
-      if (!editingId) {
-        recordOnboardingEvent("appointment_created", orgId);
-      }
-
+      if (!savedEditingId) recordOnboardingEvent("appointment_created", orgId);
       const refreshResults = await Promise.allSettled([
         loadAppointments({ preserveExisting: true, rethrow: true }),
         loadNeedsReview({ preserveExisting: true, rethrow: true }),
+        loadCustomers({ preserveExisting: true, rethrow: true }),
       ]);
-      const refreshFailed = refreshResults.some(
-        (result) => result.status === "rejected",
-      );
-
+      if (!isCurrentSubmission()) return;
+      const refreshFailed = refreshResults.some((result) => result.status === "rejected");
       setFeedback({
         type: refreshFailed ? "error" : "success",
-        message: refreshFailed
-          ? "The update was saved, but the list could not refresh. Retry."
-          : editingId
-            ? "Appointment rescheduled."
-            : "Appointment created.",
+        message: refreshFailed ? "The update was saved, but the list could not refresh. Retry." : savedEditingId ? "Appointment rescheduled." : "Appointment booked successfully.",
       });
-
-      setTimeout(() => setFeedback(null), 3000);
     } catch (saveError) {
-      setError(
-        fromError(saveError, "Failed to save appointment. Please try again."),
-      );
+      if (isCurrentSubmission()) setError(normalizeBookingError(fromError(saveError, "Failed to save appointment. Please try again.")));
     } finally {
-      setSubmitting(false);
-      setPendingAppointmentAction(null);
-    }
-  };
-
-  const ensureCustomerForWizard = async () => {
-    const token = await getToken();
-    if (!token || !selectedBiz) return null;
-
-    if (entryMode === "existing") {
-      return formData.customerId || null;
-    }
-
-    if (!newCustomer.name.trim()) {
-      throw new Error("Customer name is required.");
-    }
-
-    const normalizedMobile = newCustomer.mobile.trim()
-      ? normalizePhilippineMobileE164(newCustomer.mobile)
-      : undefined;
-
-    if (newCustomer.mobile.trim() && !normalizedMobile) {
-      throw new Error(PH_MOBILE_E164_ERROR);
-    }
-
-    const response = await apiRequest<{ customer: { id: string } }>(
-      "/customers/resolve-for-booking",
-      {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          businessId: selectedBiz,
-          name: newCustomer.name.trim(),
-          mobile: normalizedMobile,
-          email: newCustomer.email.trim() || undefined,
-          notes: newCustomer.notes.trim() || undefined,
-        }),
-      },
-    );
-
-    await loadCustomers({ preserveExisting: true });
-
-    setFormData((previous) => ({
-      ...previous,
-      customerId: response.customer.id,
-    }));
-
-    return response.customer.id;
-  };
-
-  const validateCustomerStep = () => {
-    if (entryMode === "existing") return true;
-
-    if (!newCustomer.name.trim()) {
-      setError("Customer name is required.");
-      return false;
-    }
-
-    if (
-      newCustomer.mobile.trim() &&
-      !normalizePhilippineMobileE164(newCustomer.mobile)
-    ) {
-      setError(PH_MOBILE_E164_ERROR);
-      return false;
-    }
-
-    return true;
-  };
-
-  const completeWizardBooking = async () => {
-    if (!selectedBiz || !formData.scheduledAt) return;
-
-    setSubmitting(true);
-
-    try {
-    const customerId = await ensureCustomerForWizard();
-
-    if (!customerId) {
-      throw new Error("Select or create a customer first.");
-    }
-
-    const token = await getToken();
-    if (!token) return;
-
-    await apiRequest("/appointments", {
-      method: "POST",
-      token,
-      body: JSON.stringify({
-        businessId: selectedBiz,
-        customerId,
-        scheduledAt: new Date(formData.scheduledAt).toISOString(),
-        notes: formData.notes.trim() || undefined,
-      }),
-    });
-
-    const refreshResults = await Promise.allSettled([
-      loadAppointments({ preserveExisting: true, rethrow: true }),
-      loadNeedsReview({ preserveExisting: true, rethrow: true }),
-    ]);
-    const refreshFailed = refreshResults.some(
-      (result) => result.status === "rejected",
-    );
-
-    setFeedback({
-      type: refreshFailed ? "error" : "success",
-      message: refreshFailed
-        ? "The update was saved, but the list could not refresh. Retry."
-        : "Appointment created.",
-    });
-    setStep("done");
-    } finally {
-      setSubmitting(false);
+      if (isCurrentSubmission()) {
+        submitPending.current = false;
+        setSubmitting(false);
+        setPendingAppointmentAction(null);
+      }
     }
   };
 
@@ -744,8 +718,8 @@ function AppointmentsPageContent() {
     return accumulator;
   }, {});
 
-  const agenda = selectedAgendaDay
-    ? (appointmentsByDay[selectedAgendaDay] ?? [])
+  const agenda = (customerSearch.trim() ? appointmentsForMonth : selectedAgendaDay ? (appointmentsByDay[selectedAgendaDay] ?? []) : [])
+        .filter((appointment) => !customerSearch.trim() || getCustomerName(appointment.customerId).toLowerCase().includes(customerSearch.trim().toLowerCase()))
         .filter(
           (appointment) =>
             appointment.status !== "needs_review" ||
@@ -754,8 +728,7 @@ function AppointmentsPageContent() {
             ),
         )
         .slice()
-        .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
-    : [];
+        .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
   const monthLabel = useMemo(() => {
     const [year, monthNumber] = calendarMonth.split("-").map(Number);
@@ -772,7 +745,7 @@ function AppointmentsPageContent() {
         <PageHeader
           title="Appointments"
           plainLanguageDescription="Appointments are your daily workspace."
-          whatThisPageIsFor="Mark a customer as Arrived once. Tyvera records the visit automatically after the appointment."
+          whatThisPageIsFor="Mark a customer as Arrived once. Suki records the visit automatically after the appointment."
           whatToDoNext="Create a business in Setup first, then add customers and appointments."
         />
       </div>
@@ -780,60 +753,23 @@ function AppointmentsPageContent() {
   }
 
   return (
-    <div className="w-full space-y-6 sm:space-y-8">
+    <div className="mx-auto w-full max-w-7xl space-y-5 sm:space-y-6">
       <PageHeader
         title="Appointments"
-        plainLanguageDescription="Appointments are your daily workspace."
-        whatThisPageIsFor="Mark a customer as Arrived once. Tyvera records the visit automatically after the appointment."
-        whatToDoNext={
-          appointments.length === 0
-            ? "Create your first appointment."
-            : "Mark arriving customers as Arrived."
-        }
-        actions={
-          <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
-            <MonthPicker
-              value={calendarMonth}
-              onChange={setCalendarMonth}
-              className="w-full sm:w-44"
-            />
-
-            <DatePicker
-              value={selectedAgendaDay ?? ""}
-              onChange={(value) => {
-                setSelectedAgendaDay(value);
-                setCalendarMonth(value.slice(0, 7));
-              }}
-              placeholder="Pick day"
-              aria-label="Focus day"
-            />
-          </div>
-        }
+        plainLanguageDescription="Find a customer, manage the day, or book a time."
+        actions={<Button ref={newAppointmentButton} disabled={submitting} onClick={(event) => { bookingOpener.current = event.currentTarget; resetForm(); setShowForm(true); }} className="w-full gap-2 sm:w-auto"><PlusCircle className="size-4" aria-hidden />New appointment</Button>}
       />
-
-      <PrimaryPageAction
-        primaryAction={
-          <Button
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            size="lg"
-            className="w-full gap-2 sm:w-auto"
-          >
-            <PlusCircle className="size-5" />
-            {appointments.length === 0
-              ? "Create first appointment"
-              : "New appointment"}
-          </Button>
-        }
-        hintText="Pick a customer first, then choose a time preset or exact date and time."
-      />
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-40 flex-1 space-y-2"><Label htmlFor="appointment-search">Find appointments</Label><Input id="appointment-search" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer name this month" /></div>
+        <div className="space-y-2"><Label>Month</Label><MonthPicker value={calendarMonth} onChange={setCalendarMonth} className="w-full sm:w-44" /></div>
+        <div className="space-y-2"><Label>Day</Label><DatePicker value={selectedAgendaDay ?? ""} onChange={(value) => { setSelectedAgendaDay(value); setCalendarMonth(value.slice(0, 7)); setCustomerSearch(""); }} placeholder="Pick day" aria-label="Focus day" /></div>
+        <Button type="button" variant="outline" aria-pressed={showCalendar} onClick={() => setShowCalendar((previous) => !previous)}><CalendarDays className="size-4" aria-hidden />{showCalendar ? "Hide calendar" : "Calendar view"}</Button>
+      </div>
 
       {feedback ? (
         <StatusBanner
           variant={feedback.type}
-          message={feedback.message}
+          message={<span className="flex flex-wrap items-center gap-2">{feedback.message}{feedback.type === "error" && rescheduleEntry ? <Button type="button" size="sm" variant="outline" onClick={() => void loadAppointments({ preserveExisting: true })}>Retry</Button> : null}</span>}
           onDismiss={() => setFeedback(null)}
         />
       ) : null}
@@ -882,6 +818,78 @@ function AppointmentsPageContent() {
         }}
       />
 
+      {showForm ? (
+        <section className="rounded-xl border border-border bg-card p-4 sm:p-6" aria-labelledby="booking-form-title">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="booking-form-title" ref={bookingHeading} tabIndex={-1} className="text-lg font-semibold text-foreground">
+                  {editingId ? "Reschedule appointment" : "Book appointment"}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {editingId ? `Update ${getCustomerName(formData.customerId)}’s appointment.` : "Customer, date, and time together. Save when ready."}
+                </p>
+              </div>
+              <Button type="button" variant="ghost" onClick={resetForm} disabled={submitting}>Cancel</Button>
+            </div>
+
+            {editingId ? (
+              <div className="max-w-md space-y-2">
+                <Label>Date &amp; time</Label>
+                <DateTimePicker key={editingId} value={formData.scheduledAt} onChange={(value) => setFormData((previous) => ({ ...previous, scheduledAt: value }))} aria-label="Reschedule date and time" />
+              </div>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                <div className="min-w-0 space-y-4">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Customer type">
+                    <Button type="button" variant={entryMode === "existing" ? "default" : "outline"} aria-pressed={entryMode === "existing"} onClick={() => setEntryMode("existing")} disabled={submitting}>Existing customer</Button>
+                    <Button type="button" variant={entryMode === "new" ? "default" : "outline"} aria-pressed={entryMode === "new"} onClick={() => setEntryMode("new")} disabled={submitting}><UserPlus className="size-4" aria-hidden />New customer</Button>
+                  </div>
+                  {entryMode === "existing" ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="booking-customer">Customer</Label>
+                      <Select value={formData.customerId || "__none__"} disabled={customersLoadState === "loading" || submitting} onValueChange={(value) => setFormData((previous) => ({ ...previous, customerId: value === "__none__" ? "" : value }))}>
+                        <SelectTrigger id="booking-customer" className="min-h-11"><SelectValue placeholder="Select customer" /></SelectTrigger>
+                        <SelectContent><SelectItem value="__none__">Select customer</SelectItem>{customers.map((customer) => <SelectItem key={customer.id} value={customer.id}>{customer.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                      {customersLoadState === "loading" ? <p className="text-sm text-muted-foreground">Loading saved customers...</p> : null}
+                      {customersLoadState === "error" ? <StatusBanner variant="error" message={<span className="flex flex-wrap items-center gap-2">{customersLoadError ?? "Failed to load customers."}<Button type="button" size="sm" variant="outline" onClick={() => void loadCustomers()}>Retry</Button></span>} /> : null}
+                      {customersLoadState === "success" && customers.length === 0 ? <p className="text-sm text-muted-foreground">No saved customers yet. Create a new customer while booking this appointment.</p> : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="space-y-2"><Label htmlFor="booking-name">Customer name</Label><Input id="booking-name" placeholder="Customer name" value={newCustomer.name} disabled={submitting} onChange={(event) => { resolvedCustomerId.current = null; setNewCustomer((previous) => ({ ...previous, name: event.target.value })); }} /></div>
+                      <div className="space-y-2"><Label htmlFor="booking-mobile">Mobile <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="booking-mobile" type="tel" placeholder={PH_MOBILE_E164_PLACEHOLDER} value={newCustomer.mobile} disabled={submitting} onChange={(event) => { resolvedCustomerId.current = null; setNewCustomer((previous) => ({ ...previous, mobile: event.target.value })); }} /><p className="text-xs text-muted-foreground">{PH_MOBILE_E164_ERROR}</p></div>
+                      <div className="space-y-2"><Label htmlFor="booking-email">Email <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="booking-email" type="email" placeholder="Email (optional)" value={newCustomer.email} disabled={submitting} onChange={(event) => { resolvedCustomerId.current = null; setNewCustomer((previous) => ({ ...previous, email: event.target.value })); }} /></div>
+                      <div className="space-y-2"><Label htmlFor="booking-customer-notes">Customer notes <span className="font-normal text-muted-foreground">(optional)</span></Label><Textarea id="booking-customer-notes" placeholder="Customer notes (optional)" value={newCustomer.notes} disabled={submitting} onChange={(event) => { resolvedCustomerId.current = null; setNewCustomer((previous) => ({ ...previous, notes: event.target.value })); }} /></div>
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-medium">Available days</h3><MonthPicker value={month} onChange={setMonth} className="w-full sm:w-44" /></div>
+                  {availabilityLoading ? <p role="status" className="text-sm text-muted-foreground">Loading available slots...</p> : availabilityError ? (
+                    <StatusBanner variant="error" message={<span className="flex flex-wrap items-center gap-2">{availabilityError}<Button type="button" size="sm" variant="outline" onClick={() => setAvailabilityRetryNonce((value) => value + 1)}>Retry</Button></span>} />
+                  ) : availability && !Object.values(availability.byDay ?? {}).some((slots) => slots.length) ? (
+                    <EmptyState what="No available slots for this month." why="Choose another month or review your business schedule." />
+                  ) : availability ? (
+                    <>
+                      <AvailabilityCalendar month={month} selectedDay={selectedDay} availableDays={Object.keys(availability.byDay ?? {}).filter((day) => availability.byDay[day]?.length).sort()} onSelect={(day) => { setSelectedDay(day); setFormData((previous) => ({ ...previous, scheduledAt: availability.byDay[day]?.[0] ?? "" })); }} />
+                      <div className="space-y-2"><h3 className="text-sm font-medium">Available times</h3><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{(selectedDay ? availability.byDay[selectedDay] ?? [] : []).map((slot) => <Button key={slot} type="button" variant={formData.scheduledAt === slot ? "default" : "outline"} aria-pressed={formData.scheduledAt === slot} disabled={submitting} onClick={() => setFormData((previous) => ({ ...previous, scheduledAt: slot }))}>{new Date(slot).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Button>)}</div></div>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            )}
+            <div className="space-y-2"><Label htmlFor="booking-notes">Appointment notes <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="booking-notes" value={formData.notes} onChange={(event) => setFormData((previous) => ({ ...previous, notes: event.target.value }))} disabled={submitting} placeholder="Appointment notes (optional)" /></div>
+            {error ? <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+              <p className="text-sm text-muted-foreground">{formData.scheduledAt ? new Date(formData.scheduledAt).toLocaleString() : "Choose an available time."}</p>
+              <Button type="submit" disabled={submitting || (!editingId && (availabilityLoading || !availability || !!availabilityError || !formData.scheduledAt))} className="w-full sm:w-auto">{submitting ? "Saving..." : editingId ? "Update appointment" : "Save appointment"}</Button>
+            </div>
+          </form>
+        </section>
+      ) : null}
+
       {needsReviewLoadState === "loading" &&
       needsReviewAppointments.length === 0 ? (
         <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -910,8 +918,8 @@ function AppointmentsPageContent() {
 
       {needsReviewAppointments.length > 0 ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm sm:p-5">
-          <h2 className="text-base font-bold text-slate-950">Needs review</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <h2 className="text-base font-bold text-foreground">Needs review</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             These appointments passed without an arrival check. Confirm what
             happened.
           </p>
@@ -920,13 +928,13 @@ function AppointmentsPageContent() {
             {needsReviewAppointments.map((appointment) => (
               <li
                 key={appointment.id}
-                className="rounded-xl border border-amber-200 bg-white p-3"
+                className="rounded-xl border border-amber-200 bg-card p-3"
               >
-                <p className="font-semibold text-slate-950">
+                <p className="font-semibold text-foreground">
                   {getCustomerName(appointment.customerId)}
                 </p>
 
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {new Date(appointment.scheduledAt).toLocaleString()}
                 </p>
 
@@ -976,432 +984,6 @@ function AppointmentsPageContent() {
         </section>
       ) : null}
 
-      {showForm ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          {editingId ? (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                  <CalendarDays className="size-5" />
-                </span>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-950">
-                    Reschedule appointment
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Update the appointment date, time, or notes.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <Label className="mb-2 block">Date &amp; time</Label>
-                <DateTimePicker
-                  value={formData.scheduledAt}
-                  onChange={(value) =>
-                    setFormData((previous) => ({
-                      ...previous,
-                      scheduledAt: value,
-                    }))
-                  }
-                  aria-label="Reschedule date and time"
-                />
-              </div>
-
-              <div>
-                <Label className="mb-2 block">Notes</Label>
-                <Input
-                  value={formData.notes}
-                  onChange={(event) =>
-                    setFormData((previous) => ({
-                      ...previous,
-                      notes: event.target.value,
-                    }))
-                  }
-                  placeholder="Optional"
-                />
-              </div>
-
-              {error ? (
-                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                  {error}
-                </p>
-              ) : null}
-
-              <div className="grid gap-3 sm:flex">
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? "Saving..." : "Update"}
-                </Button>
-
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                  <CalendarPlus className="size-5" />
-                </span>
-
-                <div>
-                  <h2 className="text-lg font-bold text-slate-950">
-                    Book appointment
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Follow the steps to create a visit.
-                  </p>
-                </div>
-              </div>
-
-              <ol className="mt-5 grid gap-3 sm:grid-cols-4">
-                {buildAppointmentWizardSteps(step).map((wizardStep, index) => (
-                  <li
-                    key={wizardStep.id}
-                    className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-sm ${
-                      wizardStep.state === "active"
-                        ? "border-blue-200 bg-blue-50 text-blue-700"
-                        : "border-slate-200 bg-white text-slate-500"
-                    }`}
-                  >
-                    <span
-                      className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        wizardStep.state === "active"
-                          ? "bg-blue-600 text-white"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {index + 1}
-                    </span>
-
-                    <span className="capitalize">{wizardStep.id}</span>
-                  </li>
-                ))}
-              </ol>
-
-              {step === "customer" ? (
-                <div className="mt-5 space-y-4">
-                  <div className="grid gap-3 sm:flex">
-                    <Button
-                      type="button"
-                      variant={entryMode === "existing" ? "default" : "outline"}
-                      onClick={() => setEntryMode("existing")}
-                    >
-                      Existing customer
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant={entryMode === "new" ? "default" : "outline"}
-                      onClick={() => setEntryMode("new")}
-                    >
-                      <UserPlus className="size-4" />
-                      New customer
-                    </Button>
-                  </div>
-
-                  {entryMode === "existing" ? (
-                    <div>
-                      <Label className="mb-2 block">Customer</Label>
-
-                      <Select
-                        value={formData.customerId || "__none__"}
-                        disabled={customersLoadState === "loading"}
-                        onValueChange={(value) =>
-                          setFormData((previous) => ({
-                            ...previous,
-                            customerId: value === "__none__" ? "" : value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="min-h-11">
-                          <SelectValue placeholder="Select customer" />
-                        </SelectTrigger>
-
-                        <SelectContent>
-                          <SelectItem value="__none__">
-                            Select customer
-                          </SelectItem>
-
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      {customersLoadState === "loading" ? (
-                        <p className="mt-2 text-sm text-slate-500">
-                          Loading saved customers...
-                        </p>
-                      ) : null}
-
-                      {customersLoadState === "error" ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                          <span>
-                            {customersLoadError ?? "Failed to load customers."}
-                          </span>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void loadCustomers()}
-                          >
-                            Retry
-                          </Button>
-                        </div>
-                      ) : null}
-
-                      {customersLoadState === "success" &&
-                      customers.length === 0 ? (
-                        <p className="mt-2 text-sm text-slate-500">
-                          No saved customers yet. Create a new customer while
-                          booking this appointment.
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <Input
-                        placeholder="Customer name"
-                        value={newCustomer.name}
-                        onChange={(event) =>
-                          setNewCustomer((previous) => ({
-                            ...previous,
-                            name: event.target.value,
-                          }))
-                        }
-                      />
-
-                      <div>
-                        <Input
-                          type="tel"
-                          placeholder={PH_MOBILE_E164_PLACEHOLDER}
-                          value={newCustomer.mobile}
-                          onChange={(event) =>
-                            setNewCustomer((previous) => ({
-                              ...previous,
-                              mobile: event.target.value,
-                            }))
-                          }
-                          aria-label="Mobile"
-                        />
-
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
-                          {PH_MOBILE_E164_ERROR}
-                        </p>
-                      </div>
-
-                      <Input
-                        placeholder="Email (optional)"
-                        value={newCustomer.email}
-                        onChange={(event) =>
-                          setNewCustomer((previous) => ({
-                            ...previous,
-                            email: event.target.value,
-                          }))
-                        }
-                      />
-
-                      <Textarea
-                        placeholder="Notes (optional)"
-                        value={newCustomer.notes}
-                        onChange={(event) =>
-                          setNewCustomer((previous) => ({
-                            ...previous,
-                            notes: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {step === "date" || step === "time" ? (
-                <div className="mt-5 space-y-4">
-                  <MonthPicker
-                    value={month}
-                    onChange={setMonth}
-                    className="w-full sm:w-48"
-                  />
-
-                  {availabilityLoading ? (
-                    <p className="text-sm text-slate-500">
-                      Loading available slots...
-                    </p>
-                  ) : availabilityError ? (
-                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                      <span>{availabilityError}</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setAvailabilityRetryNonce((value) => value + 1);
-                        }}
-                      >
-                        Retry
-                      </Button>
-                    </div>
-                  ) : availability &&
-                    Object.keys(availability.byDay ?? {}).length === 0 ? (
-                    <EmptyState
-                      what="No available slots for this month."
-                      why="Choose another month or review your business schedule."
-                    />
-                  ) : (
-                    <>
-                      {step === "date" ? (
-                        <AvailabilityCalendar
-                          month={month}
-                          selectedDay={selectedDay}
-                          availableDays={Object.keys(
-                            availability?.byDay ?? {},
-                          ).sort()}
-                          onSelect={(day) => setSelectedDay(day)}
-                        />
-                      ) : null}
-
-                      {step === "time" && selectedDay ? (
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                          {(availability?.byDay[selectedDay] ?? []).map(
-                            (slot) => (
-                              <Button
-                                key={slot}
-                                type="button"
-                                variant={
-                                  formData.scheduledAt === slot.slice(0, 16)
-                                    ? "default"
-                                    : "outline"
-                                }
-                                onClick={() =>
-                                  setFormData((previous) => ({
-                                    ...previous,
-                                    scheduledAt: slot.slice(0, 16),
-                                  }))
-                                }
-                              >
-                                {new Date(slot).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </Button>
-                            ),
-                          )}
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              ) : null}
-
-              {step === "review" ? (
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-                    <p>
-                      <span className="font-semibold text-slate-950">
-                        Customer:
-                      </span>{" "}
-                      {entryMode === "existing"
-                        ? getCustomerName(formData.customerId)
-                        : newCustomer.name || "—"}
-                    </p>
-
-                    <p>
-                      <span className="font-semibold text-slate-950">
-                        Appointment:
-                      </span>{" "}
-                      {formData.scheduledAt
-                        ? new Date(formData.scheduledAt).toLocaleString()
-                        : "—"}
-                    </p>
-                  </div>
-
-                  <Input
-                    className="mt-4"
-                    placeholder="Notes (optional)"
-                    value={formData.notes}
-                    onChange={(event) =>
-                      setFormData((previous) => ({
-                        ...previous,
-                        notes: event.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              ) : null}
-
-              {step === "done" ? (
-                <div className="mt-5 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
-                  <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
-
-                  <div>
-                    <p className="font-semibold">
-                      Appointment booked successfully.
-                    </p>
-                    <p className="mt-1 text-sm">
-                      The new appointment is now visible in the calendar.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              {error ? (
-                <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                  {error}
-                </p>
-              ) : null}
-
-              <div className="mt-5 grid gap-3 sm:flex">
-                {step !== "done" ? (
-                  <Button
-                    type="button"
-                    disabled={submitting}
-                    onClick={async () => {
-                      setError(null);
-
-                      try {
-                        if (step === "customer") {
-                          if (!validateCustomerStep()) return;
-                          setStep("date");
-                        } else if (step === "date") {
-                          setStep("time");
-                        } else if (step === "time") {
-                          setStep("review");
-                        } else if (step === "review") {
-                          await completeWizardBooking();
-                        }
-                      } catch (wizardError) {
-                        setError(
-                          normalizeBookingError(
-                            fromError(wizardError, "Unable to continue."),
-                          ),
-                        );
-                      }
-                    }}
-                  >
-                    {submitting ? "Creating..." : "Continue"}
-                  </Button>
-                ) : null}
-
-                {step === "done" ? (
-                  <Button type="button" onClick={resetForm}>
-                    Close
-                  </Button>
-                ) : (
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancel
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </section>
-      ) : null}
 
       <section>
         {!syncReady ||
@@ -1414,14 +996,14 @@ function AppointmentsPageContent() {
           </div>
         ) : (
           <>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className={showCalendar ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]" : "space-y-4"}>
+              {showCalendar ? <article className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-bold text-slate-950">
+                    <h2 className="text-base font-bold text-foreground">
                       Calendar view
                     </h2>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {appointmentsForMonth.length} appointments in this month
                     </p>
                   </div>
@@ -1443,7 +1025,7 @@ function AppointmentsPageContent() {
                       <ChevronLeft className="size-4" />
                     </Button>
 
-                    <span className="min-w-28 text-center text-sm font-medium text-slate-700">
+                    <span className="min-w-28 text-center text-sm font-medium text-foreground">
                       {monthLabel}
                     </span>
 
@@ -1465,7 +1047,7 @@ function AppointmentsPageContent() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[11px] text-slate-500 sm:gap-2 sm:text-xs">
+                <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground sm:gap-2 sm:text-xs">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
                     (dayName) => (
                       <span key={dayName}>{dayName}</span>
@@ -1485,24 +1067,24 @@ function AppointmentsPageContent() {
                         type="button"
                         className={`relative min-h-10 rounded-xl border p-1 text-left text-[11px] transition sm:min-h-12 sm:p-2 sm:text-xs ${
                           isSelected
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-slate-200 bg-white hover:border-blue-200"
+                            ? "border-primary bg-primary/5 text-primary"
+                            : "border-border bg-card hover:border-primary/25"
                         } ${inMonth ? "" : "opacity-40"}`}
                         onClick={() => setSelectedAgendaDay(day)}
                       >
                         <p className="font-medium">
-                          {new Date(day).getDate()}
+                          {new Date(`${day}T12:00:00`).getDate()}
                         </p>
 
                         {dayAppointments.length > 0 ? (
                           <>
                             <span
-                              className="absolute right-1.5 top-1.5 size-2 rounded-full bg-blue-600"
+                              className="absolute right-1.5 top-1.5 size-2 rounded-full bg-primary"
                               aria-hidden
                             />
 
                             {dayAppointments.length > 1 ? (
-                              <span className="absolute bottom-1 right-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                              <span className="absolute bottom-1 right-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                                 {dayAppointments.length}
                               </span>
                             ) : null}
@@ -1513,9 +1095,9 @@ function AppointmentsPageContent() {
                   })}
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
+                <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-blue-600" />
+                    <span className="size-2 rounded-full bg-primary" />
                     Has appointments
                   </span>
 
@@ -1524,19 +1106,18 @@ function AppointmentsPageContent() {
                     Other month
                   </span>
                 </div>
-              </article>
+              </article> : null}
 
-              <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                <h2 className="text-base font-bold text-slate-950">
-                  Selected day agenda
+              <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h2 className="text-base font-bold text-foreground">
+                  {customerSearch.trim() ? "Search results this month" : "Selected day agenda"}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  {selectedAgendaDay
-                    ? new Date(selectedAgendaDay).toLocaleDateString()
-                    : "No day selected"}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {customerSearch.trim() ? `${agenda.length} matching appointments` : selectedAgendaDay ? new Date(`${selectedAgendaDay}T12:00:00`).toLocaleDateString() : "Choose a day"}
                 </p>
 
+                <p className="mt-1 text-xs text-muted-foreground">{appointmentsForMonth.length} appointments in this month</p>
                 <ul className="mt-4 space-y-3">
                   {agenda.map((appointment) => {
                     const isNew =
@@ -1547,10 +1128,10 @@ function AppointmentsPageContent() {
                     return (
                       <li
                         key={appointment.id}
-                        className="rounded-2xl border-l-4 border-l-blue-600 border-y border-r border-slate-200 bg-white p-4 shadow-sm"
+                        className="rounded-2xl border-l-4 border-l-primary border-y border-r border-border bg-card p-4 shadow-sm"
                       >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-slate-950">
+                          <span className="font-bold text-foreground">
                             {getCustomerName(appointment.customerId)}
                           </span>
 
@@ -1574,7 +1155,8 @@ function AppointmentsPageContent() {
                           ) : null}
                         </div>
 
-                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          {customerSearch.trim() ? `${new Date(appointment.scheduledAt).toLocaleDateString()} · ` : ""}
                           {new Date(
                             appointment.scheduledAt,
                           ).toLocaleTimeString([], {
@@ -1723,17 +1305,17 @@ function AppointmentsPageContent() {
                 </ul>
 
                 {agenda.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                  <div className="mt-4 rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center">
                     <EmptyState
                       what="No appointments for this day."
                       why="Create a booking or choose another date."
                     />
                   </div>
                 ) : (
-                  <div className="mt-4 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center">
+                  <div className="mt-4 flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 px-4 text-center">
                     <div>
-                      <CalendarDays className="mx-auto size-7 text-slate-400" />
-                      <p className="mt-3 text-sm text-slate-500">
+                      <CalendarDays className="mx-auto size-7 text-muted-foreground" />
+                      <p className="mt-3 text-sm text-muted-foreground">
                         No more appointments for this day.
                       </p>
                     </div>
@@ -1764,28 +1346,11 @@ function AppointmentsPageContent() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
-            <Info className="size-5" />
-          </span>
 
-          <div>
-            <p className="font-semibold text-slate-950">
-              Tip: Arrived starts automatic visit recording.
-            </p>
-
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Mark the customer once when they arrive. Tyvera completes the
-              visit after the expected duration and grace period.
-            </p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
 
 export default function AppointmentsPage() {
-  return <AppointmentsPageContent />;
+  return <Suspense fallback={<ListSkeleton rowCount={5} />}><AppointmentsPageContent /></Suspense>;
 }

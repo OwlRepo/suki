@@ -76,7 +76,7 @@ export function PlatformAdminOverviewPage() {
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Platform Admin"
-        plainLanguageDescription="Internal Tyvera operations access is active for this signed-in account."
+        plainLanguageDescription="Internal Suki operations access is active for this signed-in account."
         whatThisPageIsFor="Confirm your internal role and permission set before using platform-admin tools."
         whatToDoNext="Use this overview as the starting point for future internal operations workflows."
         actions={

@@ -76,7 +76,7 @@ const cutoff10m = new Date(now - 10 * 60 * 1000);
 const cutoff15m = new Date(now - 15 * 60 * 1000);
 const cutoff24h = new Date(now - 24 * 60 * 60 * 1000);
 
-console.log("Tyvera platform-admin monitoring diagnostics");
+console.log("Suki platform-admin monitoring diagnostics");
 console.log("DATABASE_URL:", redactDatabaseUrl(process.env.DATABASE_URL));
 console.log("Timestamp probes:", {
   cutoff10m: cutoff10m.toISOString(),
@@ -229,6 +229,6 @@ console.log("\nDiagnostics complete.");
 if (process.exitCode) {
   console.log("At least one probe failed. Paste the complete FAIL block only.");
 } else {
-  console.log("All probes passed through Tyvera's real database client and service layer.");
+  console.log("All probes passed through Suki's real database client and service layer.");
   console.log("If the browser still shows 500 responses, the remaining defect is above the service layer.");
 }

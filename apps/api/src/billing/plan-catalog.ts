@@ -5,7 +5,7 @@ import type {
   ManualBillingSku,
   ManualSubscriptionSku,
   PlanType,
-} from "@tyvera/types";
+} from "@suki/types";
 
 export interface PlanCatalogEntry {
   planType: PlanType;

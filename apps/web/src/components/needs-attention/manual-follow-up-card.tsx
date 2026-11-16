@@ -38,7 +38,7 @@ export function ManualFollowUpCard({
     : null;
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <article className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
           <MessageSquareText className="size-5" />
@@ -47,10 +47,10 @@ export function ManualFollowUpCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0">
-              <h2 className="text-base font-bold text-slate-950">
+              <h2 className="text-base font-bold text-foreground">
                 {task.customerName}
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 {task.businessName}
                 {scheduledAt ? ` · ${scheduledAt}` : ""}
               </p>
@@ -78,14 +78,14 @@ export function ManualFollowUpCard({
         />
       ) : null}
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-semibold text-slate-950">Message</p>
-        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+      <div className="mt-4 rounded-2xl border border-border bg-muted p-4">
+        <p className="text-sm font-semibold text-foreground">Message</p>
+        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
           {task.messageBody}
         </p>
       </div>
 
-      <p className="mt-3 text-sm leading-6 text-slate-500">
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
         Copy fallback is available if the SMS app does not prefill the body.
       </p>
 

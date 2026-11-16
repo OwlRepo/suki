@@ -12,11 +12,11 @@ import {
   subscriptions,
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
-} from "@tyvera/database";
+} from "@suki/database";
 import { BillingService } from "./billing.service";
 
-vi.mock("@tyvera/database", async () => {
-  const actual = await vi.importActual<typeof import("@tyvera/database")>("@tyvera/database");
+vi.mock("@suki/database", async () => {
+  const actual = await vi.importActual<typeof import("@suki/database")>("@suki/database");
   return {
     ...actual,
     getDb: vi.fn(),

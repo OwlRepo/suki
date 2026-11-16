@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
-import { organizations, subscriptions } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { organizations, subscriptions } from "@suki/database";
 import { desc, eq } from "drizzle-orm";
-import type { OrgBillingStatus, PlanType } from "@tyvera/types";
+import type { OrgBillingStatus, PlanType } from "@suki/types";
 
 export interface OrgBillingState {
   billingStatus: OrgBillingStatus;

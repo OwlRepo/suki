@@ -7,7 +7,7 @@ import {
   Logger,
   Optional,
 } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import {
   appointments,
   bookingHolds,
@@ -15,12 +15,12 @@ import {
   publicOtpSendEvents,
   verifiedOnlineBookingCredits,
   verifiedOnlineBookingUsageEvents,
-} from "@tyvera/database";
+} from "@suki/database";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import {
   PH_MOBILE_E164_ERROR,
   normalizePhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 import { AutomationSendService } from "../automation/automation-send.service";
 import { appointmentDurationMinutesForBusinessType } from "../common/appointment-timing";
 import { OrgBillingStateService } from "../common/org-billing-state.service";

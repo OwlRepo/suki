@@ -1,16 +1,15 @@
 @AGENTS.md
 
-# Tyvera — Project Context
+# Suki — Project Context
 
 > Facts below cite the file that proves them. If anything here contradicts the
 > code, the code wins — fix this file in the same PR (`CONTEXT DRIFT`).
 
 ## What it is
 
-Tyvera: appointment, customer, messaging, and automation software for small
+Suki: appointment, customer, messaging, and automation software for small
 service businesses, with a platform-admin console and a public intake/booking
-flow (`README.md`, `apps/web/src/app`, `apps/api/src`). Production runs at
-`https://tyvera.app` (`.github/workflows/deploy.yml` smoke check).
+flow (`README.md`, `apps/web/src/app`, `apps/api/src`). Configured application hostname: `https://suki.tyvera.app` (application metadata). Deployment smoke checks retain the existing production host until cutover; production hostname cutover remains unverified.
 
 ## Tech stack (verified)
 

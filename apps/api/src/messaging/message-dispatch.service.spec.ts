@@ -10,7 +10,7 @@ const dbState = {
   updates: [] as Record<string, unknown>[],
 };
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     select: () => {
       const query = {
@@ -346,7 +346,7 @@ describe("MessageDispatchService SMS hardening", () => {
     );
     expect(smsProvider.send).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining("Sent automatically by Tyvera"),
+        body: expect.stringContaining("Sent automatically by Suki"),
       }),
     );
   });

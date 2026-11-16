@@ -43,8 +43,9 @@ export function DesktopSidebarNav({
           <ul className={cn(collapsed ? "space-y-2" : "space-y-1")}>
             {group.items.map((item) => {
               const isActive =
-                pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+                (pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"))) &&
+                !(item.href === "/settings" && pathname.startsWith("/settings/billing"));
               const Icon = item.icon;
               return (
                 <li key={item.href}>

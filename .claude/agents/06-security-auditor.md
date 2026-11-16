@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 
-You audit security for Tyvera. Read-only. Report issues.
+You audit security for Suki. Read-only. Report issues.
 
 # Checklist (mandatory)
 1. **Secrets:** no hardcoded API keys, tokens, or passwords; `.env*` stays gitignored and unstaged.

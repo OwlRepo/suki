@@ -11,9 +11,11 @@ let mockWorkspace = {
   businesses: [{ id: "biz1", name: "Biz" }],
 };
 
-vi.mock("@clerk/nextjs", () => ({
+vi.mock("@/lib/auth", () => ({
   useAuth: () => ({ getToken: mockGetToken }),
 }));
+
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/appointments", useRouter: () => ({ replace: vi.fn() }) }));
 
 vi.mock("@/hooks/use-auth-sync", () => ({
   useAuthSync: () => ({ data: { organization: { id: "org1" } } }),
@@ -81,63 +83,62 @@ describe("Appointments wizard component", () => {
 
   it("does not show OTP or manager override guidance in booking section", async () => {
     render(<AppointmentsPage />);
-    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment|new appointment/i }))[0]!);
     expect(await screen.findByText(/Book appointment/i)).toBeInTheDocument();
     expect(screen.queryByText(/PIN setup is managed in Settings/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Verify via OTP/i)).not.toBeInTheDocument();
   });
 
-  it("progresses new-customer flow and confirms without OTP step", async () => {
+  it("regression: books from one screen without an OTP step", async () => {
     render(<AppointmentsPage />);
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment|new appointment/i }))[0]!);
     fireEvent.click(screen.getByRole("button", { name: /new customer/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Customer name/i), { target: { value: "Ete" } });
+    fireEvent.change(screen.getByPlaceholderText("Customer name"), { target: { value: "Ete" } });
     fireEvent.change(screen.getByPlaceholderText("+639171234567"), { target: { value: "+639171234567" } });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     expect(await screen.findByRole("button", { name: /6\/12\/2026 unavailable/i })).toBeDisabled();
     fireEvent.click(await screen.findByRole("button", { name: /6\/10\/2026/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Save appointment$/i }));
 
     expect(await screen.findByText(/Appointment booked successfully/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Verify via OTP/i })).not.toBeInTheDocument();
   });
 
-  it("blocks invalid new-customer mobile before leaving customer step", async () => {
+  it("regression: blocks invalid new-customer mobile before saving", async () => {
     render(<AppointmentsPage />);
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment|new appointment/i }))[0]!);
     fireEvent.click(screen.getByRole("button", { name: /new customer/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Customer name/i), { target: { value: "Ete" } });
+    fireEvent.change(screen.getByPlaceholderText("Customer name"), { target: { value: "Ete" } });
     fireEvent.change(screen.getByPlaceholderText("+639171234567"), { target: { value: "0917" } });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
 
+    const save = screen.getByRole("button", { name: /^Save appointment$/i });
+    await waitFor(() => expect(save).not.toBeDisabled());
+    fireEvent.click(save);
     await waitFor(() => {
       expect(screen.getAllByText(/Use \+63 format/i).length).toBeGreaterThan(1);
     });
-    expect(screen.queryByText(/Available days/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Available days/i)).toBeInTheDocument();
+    expect(mockApiRequest.mock.calls.some(([path, init]) => path === "/appointments" && init?.method === "POST")).toBe(false);
   });
 
-  it("shows friendly conflict message instead of raw exception", async () => {
+  it("regression: shows friendly conflict message instead of raw exception", async () => {
     setupApi({ createError: new Error("Conflict Exception") });
     render(<AppointmentsPage />);
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment|new appointment/i }))[0]!);
     fireEvent.click(screen.getByRole("button", { name: /new customer/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Customer name/i), { target: { value: "Ete" } });
+    fireEvent.change(screen.getByPlaceholderText("Customer name"), { target: { value: "Ete" } });
     fireEvent.change(screen.getByPlaceholderText("+639171234567"), { target: { value: "+639171234567" } });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(await screen.findByRole("button", { name: /6\/10\/2026/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
     fireEvent.click(screen.getByRole("button", { name: /06:00 PM|10:00 AM/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Continue$/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Save appointment$/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/slot was just taken/i)).toBeInTheDocument();
@@ -145,15 +146,15 @@ describe("Appointments wizard component", () => {
     expect(screen.queryByText(/Conflict Exception/i)).not.toBeInTheDocument();
   });
 
-  it("cancel resets wizard so reopening starts from customer step", async () => {
+  it("regression: cancel resets the single-screen form", async () => {
     render(<AppointmentsPage />);
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment|new appointment/i }))[0]!);
     fireEvent.click(screen.getByRole("button", { name: /new customer/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Customer name/i), { target: { value: "Tmp" } });
+    fireEvent.change(screen.getByPlaceholderText("Customer name"), { target: { value: "Tmp" } });
     fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment/i }))[0]!);
+    fireEvent.click((await screen.findAllByRole("button", { name: /create first appointment|new appointment/i }))[0]!);
     expect(screen.getByRole("button", { name: /existing customer/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new customer/i })).toBeInTheDocument();
   });

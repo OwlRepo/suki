@@ -1,13 +1,13 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import {
   appointments,
   customers,
   automationSettings,
   businesses,
-} from "@tyvera/database";
+} from "@suki/database";
 import { eq, and, or, lt, isNull } from "drizzle-orm";
-import type { AutomationKey } from "@tyvera/types";
+import type { AutomationKey } from "@suki/types";
 import { MessageDispatchService } from "../messaging/message-dispatch.service";
 import { AutomationSettingsService } from "./automation-settings.service";
 import { AutomationMessageComposerService } from "./automation-message-composer.service";

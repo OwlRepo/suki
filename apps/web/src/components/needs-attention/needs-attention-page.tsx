@@ -105,7 +105,7 @@ export function NeedsAttentionPage() {
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Needs Attention"
-        plainLanguageDescription="Review appointment SMS reminders Tyvera could not confirm as sent."
+        plainLanguageDescription="Review appointment SMS reminders Suki could not confirm as sent."
         whatThisPageIsFor="Handle appointment reminder follow-ups that need staff judgment before the customer is contacted."
         whatToDoNext={
           tasks.length === 0
@@ -115,17 +115,17 @@ export function NeedsAttentionPage() {
       />
 
       {loading ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <RefreshCw className="size-5 animate-spin" />
             </span>
 
             <div>
-              <h2 className="text-base font-bold text-slate-950">
+              <h2 className="text-base font-bold text-foreground">
                 Loading tasks
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Checking for reminders that need staff review.
               </p>
             </div>
@@ -144,17 +144,17 @@ export function NeedsAttentionPage() {
       ) : null}
 
       {!loading && !error && tasks.length == 0 ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <CheckCircle2 className="size-5" />
             </span>
 
             <div>
-              <h2 className="text-base font-bold text-slate-950">
+              <h2 className="text-base font-bold text-foreground">
                 No reminders need attention
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Failed or unconfirmed appointment SMS reminders will appear here.
               </p>
             </div>
@@ -165,60 +165,60 @@ export function NeedsAttentionPage() {
       {!loading && !error && tasks.length > 0 ? (
         <>
           <section className="grid gap-3 sm:grid-cols-3">
-            <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <article className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
                   <AlertCircle className="size-5" />
                 </span>
 
                 <div>
-                  <p className="text-2xl font-bold tracking-tight text-slate-950">
+                  <p className="text-2xl font-bold tracking-tight text-foreground">
                     {tasks.length}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-rose-600">
                     Needs attention
                   </p>
-                  <p className="mt-2 text-sm leading-5 text-slate-500">
+                  <p className="mt-2 text-sm leading-5 text-muted-foreground">
                     Open reminders requiring staff review
                   </p>
                 </div>
               </div>
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <article className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                   <MessageSquareWarning className="size-5" />
                 </span>
 
                 <div>
-                  <p className="text-2xl font-bold tracking-tight text-slate-950">
+                  <p className="text-2xl font-bold tracking-tight text-foreground">
                     {failedCount}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-blue-600">
                     SMS failed
                   </p>
-                  <p className="mt-2 text-sm leading-5 text-slate-500">
+                  <p className="mt-2 text-sm leading-5 text-muted-foreground">
                     Could not be delivered
                   </p>
                 </div>
               </div>
             </article>
 
-            <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <article className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
                   <Clock3 className="size-5" />
                 </span>
 
                 <div>
-                  <p className="text-2xl font-bold tracking-tight text-slate-950">
+                  <p className="text-2xl font-bold tracking-tight text-foreground">
                     {unconfirmedCount}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-amber-600">
                     Unconfirmed
                   </p>
-                  <p className="mt-2 text-sm leading-5 text-slate-500">
+                  <p className="mt-2 text-sm leading-5 text-muted-foreground">
                     Delivery status is still unknown
                   </p>
                 </div>
@@ -226,13 +226,13 @@ export function NeedsAttentionPage() {
             </article>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-950">
+                <h2 className="text-lg font-bold text-foreground">
                   Reminder review queue
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   Review each reminder, retry SMS when appropriate, or clear it
                   after contacting the customer manually.
                 </p>
@@ -292,9 +292,9 @@ export function NeedsAttentionPage() {
                   />
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
-                  <CheckCircle2 className="mx-auto size-7 text-slate-400" />
-                  <p className="mt-3 text-sm font-medium text-slate-700">
+                <div className="rounded-2xl border border-dashed border-border bg-muted p-5 text-center">
+                  <CheckCircle2 className="mx-auto size-7 text-muted-foreground" />
+                  <p className="mt-3 text-sm font-medium text-muted-foreground">
                     No reminders match this filter.
                   </p>
                 </div>
@@ -308,8 +308,8 @@ export function NeedsAttentionPage() {
                 <Info className="size-5" />
               </span>
 
-              <p className="text-sm leading-6 text-slate-700">
-                <span className="font-semibold text-slate-950">Tip:</span>{" "}
+              <p className="text-sm leading-6 text-muted-foreground">
+                <span className="font-semibold text-foreground">Tip:</span>{" "}
                 Review each item and decide whether to retry the reminder,
                 contact the customer manually, or dismiss it if it is already
                 handled.

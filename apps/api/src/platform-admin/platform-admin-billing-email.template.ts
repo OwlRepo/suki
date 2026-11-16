@@ -31,7 +31,7 @@ interface PaymentAcknowledgmentEmailInput {
 
 export interface ManualBillingProFormaInvoiceContent {
   title: "PRO FORMA INVOICE";
-  sellerName: "Tyvera";
+  sellerName: "Suki";
   customerName: string;
   referenceNumber: string;
   issueDate: string;
@@ -55,7 +55,7 @@ export function buildManualBillingPaymentRequestEmail(
     (item) => item.purchaseKind === "subscription",
   );
   const lines = [
-    "Tyvera Payment Request",
+    "Suki Payment Request",
     "",
     `Organization: ${input.organizationName}`,
     `Reference: ${input.referenceNumber}`,
@@ -75,7 +75,7 @@ export function buildManualBillingPaymentRequestEmail(
   ].filter((line): line is string => line !== null);
 
   return {
-    subject: `Tyvera Payment Request - ${input.referenceNumber}`,
+    subject: `Suki Payment Request - ${input.referenceNumber}`,
     body: lines.join("\n"),
   };
 }
@@ -87,9 +87,9 @@ export function buildManualBillingPaymentAcknowledgmentEmail(
     (item) => item.purchaseKind === "subscription",
   );
   return {
-    subject: `Tyvera Payment Acknowledgment - ${input.referenceNumber}`,
+    subject: `Suki Payment Acknowledgment - ${input.referenceNumber}`,
     body: [
-      "Tyvera Payment Acknowledgment",
+      "Suki Payment Acknowledgment",
       "",
       `Organization: ${input.organizationName}`,
       `Reference: ${input.referenceNumber}`,
@@ -109,7 +109,7 @@ export function buildManualBillingProFormaInvoiceContent(
 ): ManualBillingProFormaInvoiceContent {
   return {
     title: "PRO FORMA INVOICE",
-    sellerName: "Tyvera",
+    sellerName: "Suki",
     customerName: input.organizationName,
     referenceNumber: input.referenceNumber,
     issueDate: formatDate(input.issuedAt),
@@ -117,10 +117,10 @@ export function buildManualBillingProFormaInvoiceContent(
     lines: input.items.map((item) => ({
       description:
         item.purchaseKind === "subscription"
-          ? `Tyvera ${formatLabel(item.planType ?? item.sku)} ${formatLabel(
+          ? `Suki ${formatLabel(item.planType ?? item.sku)} ${formatLabel(
               item.billingInterval ?? "",
             )} subscription`.replace(/\s+/g, " ").trim()
-          : `Tyvera ${item.sku} add-on`,
+          : `Suki ${item.sku} add-on`,
       detail:
         item.purchaseKind === "subscription" &&
         item.coverageStartsAt &&

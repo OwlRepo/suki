@@ -8,7 +8,7 @@ const mockWhere = vi.fn();
 const mockLimit = vi.fn();
 let queuedWhereResults: unknown[] = [];
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     select: mockSelect,
     from: mockFrom,

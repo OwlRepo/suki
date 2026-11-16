@@ -24,7 +24,7 @@ const billingRequest = {
   id: "billing-request-1",
   referenceNumber: "TYV-2026-000001",
   organizationId: "org-1",
-  organizationName: "Tyvera Clinic",
+  organizationName: "Suki Clinic",
   status: "payment_reported",
   totalAmountPhp: 599,
   dueAt: null,
@@ -33,7 +33,7 @@ const billingRequest = {
   manualBillingControlsEnabled: true,
   paymentInstructions: {
     copyText:
-      "Hi Tyvera Clinic,\nYour Tyvera top-up request is ready.\nAmount: ₱599\nReference: TYV-2026-000001",
+      "Hi Suki Clinic,\nYour Suki top-up request is ready.\nAmount: ₱599\nReference: TYV-2026-000001",
   },
   items: [
     {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { ChevronsLeft, ChevronsRight, Menu } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Menu, Plus } from "lucide-react";
 import { AuthButton } from "@/components/auth-button";
 import { WorkspaceDropdown } from "@/components/workspace-dropdown";
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,10 @@ import {
   getMobileBottomNavItems,
 } from "./dashboard-nav-config";
 import { DesktopSidebarNav } from "./desktop-sidebar-nav";
-import { MobileBottomNav, BOTTOM_NAV_HEIGHT } from "./mobile-bottom-nav";
+import { MobileBottomNav } from "./mobile-bottom-nav";
 import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { cn } from "@/lib/utils";
-import { TyveraAssistant } from "@/components/tyvera-assistant";
+import { SukiAssistant } from "@/components/suki-assistant";
 import { getOpenManualFollowUpCount } from "@/components/needs-attention/manual-follow-up.api";
 import { useSidebarCollapsed } from "@/hooks/use-sidebar-collapsed";
 
@@ -70,12 +70,12 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <DashboardOnboardingWrapper>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-muted/30">
         {/* Desktop: sidebar + main */}
         <div className="flex min-h-screen">
           <aside
             className={cn(
-              "hidden border-r border-border bg-card transition-[width] duration-200 ease-out lg:flex lg:flex-col lg:shrink-0"
+              "sticky top-0 hidden h-dvh border-r border-border bg-card transition-[width] duration-200 ease-out lg:flex lg:flex-col lg:shrink-0"
             )}
             style={{
               width: sidebarCollapsed
@@ -98,10 +98,10 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
                     ? "inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-background text-xs font-semibold text-foreground shadow-sm"
                     : "pr-12 text-lg font-semibold text-foreground"
                 )}
-                aria-label="Tyvera dashboard home"
-                title="Tyvera"
+                aria-label="Suki dashboard home"
+                title="Suki"
               >
-                {sidebarCollapsed ? "T" : "Tyvera"}
+                {sidebarCollapsed ? "S" : "Suki"}
               </Link>
               <Button
                 type="button"
@@ -127,7 +127,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
             </div>
             <DesktopSidebarNav
               groups={navGroups}
-              className="flex-1"
+              className="flex-1 overflow-y-auto"
               collapsed={sidebarCollapsed}
             />
             <div className="w-full border-t border-border p-3">
@@ -145,8 +145,8 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           {/* Mobile: top bar with menu + auth */}
-          <div className="flex flex-1 flex-col lg:min-w-0">
-            <header className="flex min-h-[56px] shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 lg:px-6">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <header className="flex min-h-[64px] shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-6">
               <div className="flex min-w-0 shrink-0 items-center gap-3 lg:hidden">
                 <button
                   type="button"
@@ -160,11 +160,18 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
                   href="/dashboard"
                   className="text-lg font-semibold text-foreground"
                 >
-                  Tyvera
+                  Suki
                 </Link>
               </div>
               <div className="hidden lg:flex lg:flex-1" aria-hidden />
               <div className="flex shrink-0 items-center gap-2 lg:gap-3">
+                <Button asChild size="sm">
+                  <Link href="/appointments?new=1" aria-label="Book new appointment">
+                    <Plus className="size-4" aria-hidden />
+                    <span className="sm:hidden">Book</span>
+                    <span className="hidden sm:inline">New appointment</span>
+                  </Link>
+                </Button>
                 <div className="hidden lg:block">
                   <WorkspaceDropdown />
                 </div>
@@ -174,10 +181,8 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
 
             <main
               className={cn(
-                "flex-1 px-4 py-7 sm:px-6 lg:px-8",
-                "pb-[calc(env(safe-area-inset-bottom)+",
-                BOTTOM_NAV_HEIGHT,
-                "px)] lg:pb-6"
+                "mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8",
+                "pb-[calc(env(safe-area-inset-bottom)+88px)] lg:pb-8"
               )}
             >
               <TrialBanner />
@@ -199,7 +204,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
           onOpenChange={setDrawerOpen}
         />
         {planCapabilities.canSeeAssistant ? (
-          <TyveraAssistant />
+          <SukiAssistant />
         ) : null}
       </div>
     </DashboardOnboardingWrapper>

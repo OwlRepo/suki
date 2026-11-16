@@ -10,7 +10,7 @@ import {
 import type {
   ClientBillingRequestKind,
   PlanType,
-} from "@tyvera/types";
+} from "@suki/types";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { OwnerGuard } from "../common/owner.guard";
 import { Tenant } from "../common/tenant.decorator";

@@ -24,7 +24,7 @@ describe("SemaphoreSmsProvider", () => {
 
   it("normalizes Philippine E.164 numbers and sends Semaphore payload", async () => {
     process.env.SEMAPHORE_API_KEY = "sem-key";
-    process.env.SEMAPHORE_SENDER_NAME = "TYVERA";
+    process.env.SEMAPHORE_SENDER_NAME = "SUKI";
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [{ message_id: "sem-1", status: "Queued" }],
@@ -51,7 +51,7 @@ describe("SemaphoreSmsProvider", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(String(init.body)).toContain("apikey=sem-key");
     expect(String(init.body)).toContain("message=hello");
-    expect(String(init.body)).toContain("sendername=TYVERA");
+    expect(String(init.body)).toContain("sendername=SUKI");
   });
 
   it("accepts numeric message IDs returned by Semaphore", async () => {

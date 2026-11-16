@@ -40,7 +40,7 @@ describe("MobileNavDrawer badges", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Needs Attention/ }),
-    ).toHaveClass("flex-col");
-    expect(screen.getByRole("list")).toHaveClass("grid");
+    ).toHaveClass("flex-row");
+    expect(screen.getByRole("list")).toHaveClass("flex-col");
   });
 });

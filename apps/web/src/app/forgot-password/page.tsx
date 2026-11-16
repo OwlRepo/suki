@@ -6,13 +6,8 @@ import { useRouter } from "next/navigation";
 import { startPasswordReset, verifyPasswordReset } from "@/lib/auth-client";
 import { invalidateSessionCache } from "@/hooks/use-session";
 
-function TyveraMark() {
-  return (
-    <span className="relative flex h-10 w-10 items-center justify-center" aria-hidden="true">
-      <span className="absolute top-1 h-3 w-9 rounded-full bg-linear-to-r from-blue-700 via-blue-500 to-sky-300" />
-      <span className="absolute top-2 h-8 w-4 rounded-b-xl rounded-t-md bg-linear-to-b from-blue-600 to-blue-500" />
-    </span>
-  );
+function SukiMark() {
+  return <span className="inline-flex size-10 items-center justify-center rounded-xl bg-primary text-xl font-bold text-primary-foreground" aria-hidden="true">S</span>;
 }
 
 function MailIcon({ className = "h-5 w-5" }: { className?: string }) {
@@ -142,8 +137,8 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-xl">
           <div className="mb-6 flex justify-center">
             <Link href="/" className="flex items-center gap-3 text-2xl font-bold tracking-tight text-slate-950">
-              <TyveraMark />
-              Tyvera
+              <SukiMark />
+              Suki
             </Link>
           </div>
 
