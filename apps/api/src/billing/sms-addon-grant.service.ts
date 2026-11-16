@@ -2,11 +2,13 @@ import { Injectable } from "@nestjs/common";
 import {
   creditReconciliationEvents,
   getDb,
+  organizations,
   smsAddons,
   smsCredits,
 } from "@suki/database";
 import type { AddonFulfillmentSource } from "@suki/types";
 import { and, eq } from "drizzle-orm";
+import { SMS_INCLUDED_BY_PLAN } from "./plan-catalog";
 
 type BillingTx = {
   select: ReturnType<typeof getDb>["select"];
@@ -150,10 +152,15 @@ export class SmsAddonGrantService {
       };
     }
 
+    const [org] = await tx
+      .select({ currentPlan: organizations.currentPlan })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
     const ledger = {
       organizationId,
       month,
-      included: 0,
+      included: SMS_INCLUDED_BY_PLAN[org?.currentPlan ?? "free"],
       addon: 0,
       used: 0,
       pausedReason: "none" as const,

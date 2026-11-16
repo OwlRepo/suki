@@ -48,6 +48,14 @@ export interface ManualSubscriptionCatalogEntry {
 
 export const BILLING_INTERVALS = ["monthly", "annual"] as const satisfies BillingInterval[];
 
+/** SMS segments included per plan per month */
+export const SMS_INCLUDED_BY_PLAN: Record<PlanType, number> = {
+  free: 0,
+  starter: 300,
+  growth: 800,
+  pro: 2000,
+};
+
 const GROWTH_BOOKING_ALLOWANCE_DEFAULT = 80;
 
 function readGrowthBookingAllowance(): number {

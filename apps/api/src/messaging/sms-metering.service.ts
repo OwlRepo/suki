@@ -4,14 +4,7 @@ import { smsCredits, smsUsageEvents } from "@suki/database";
 import { eq, and, sql } from "drizzle-orm";
 import type { PlanType, SmsPausedReason } from "@suki/types";
 import { PlanCapacityService } from "../common/plan-capacity.service";
-
-/** SMS included per plan per month */
-const SMS_INCLUDED_BY_PLAN: Record<PlanType, number> = {
-  free: 0,
-  starter: 300,
-  growth: 800,
-  pro: 2000,
-};
+import { SMS_INCLUDED_BY_PLAN } from "../billing/plan-catalog";
 
 @Injectable()
 export class SmsMeteringService {
