@@ -370,13 +370,13 @@
     "semantic_hash": "0cbbe988eeb293d7018c75b91ab50c95"
   },
   "apps/api/src/billing/billing.service.spec.ts": {
-    "mtime": 1794833785.5899167,
-    "ast_hash": "785f145e5e5a44ee5ecf9e1e61c2e0f1",
+    "mtime": 1794834250.8242102,
+    "ast_hash": "779b0b4c685bfde73b75e0297f051ee5",
     "semantic_hash": ""
   },
   "apps/api/src/billing/billing.service.ts": {
-    "mtime": 1794833884.7200046,
-    "ast_hash": "fb2833dd56e03ed2a2e00b44791c4458",
+    "mtime": 1794834287.0531273,
+    "ast_hash": "d726a05034ff16d10477d98afba98f1c",
     "semantic_hash": ""
   },
   "apps/api/src/billing/client-billing-request.controller.ts": {
@@ -1040,9 +1040,9 @@
     "semantic_hash": "d267aa6e3a60f7700d89b13adb723117"
   },
   "apps/api/src/main.ts": {
-    "mtime": 1794832368.444424,
-    "ast_hash": "546e90667102353e3b1d13f3ed8f56d1",
-    "semantic_hash": "546e90667102353e3b1d13f3ed8f56d1"
+    "mtime": 1794834287.0535285,
+    "ast_hash": "dcad4cfe6c01ddb4dcfd4fa9bdbcbf79",
+    "semantic_hash": ""
   },
   "apps/api/src/messaging/email-metering.service.spec.ts": {
     "mtime": 1794832368.4445782,
