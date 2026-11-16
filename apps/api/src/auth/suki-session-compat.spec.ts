@@ -35,6 +35,24 @@ describe("Suki session compatibility", () => {
     expect(service.validateSession).toHaveBeenCalledWith("legacy");
   });
 
+  it("edge: revokes distinct bearer, canonical, and legacy sessions during sign-out", async () => {
+    const { controller, response, service } = fixture();
+    await controller.signOut("Bearer header-token", { cookies: { suki_session: "current", tyvera_session: "legacy" } } as unknown as Request, response);
+    expect(service.signOut).toHaveBeenCalledTimes(3);
+    expect(service.signOut).toHaveBeenCalledWith("header-token");
+    expect(service.signOut).toHaveBeenCalledWith("current");
+    expect(service.signOut).toHaveBeenCalledWith("legacy");
+    expect(response.clearCookie).toHaveBeenCalledWith("suki_session", { path: "/" });
+    expect(response.clearCookie).toHaveBeenCalledWith("tyvera_session", { path: "/" });
+  });
+
+  it("edge: revokes a repeated session token only once during sign-out", async () => {
+    const { controller, response, service } = fixture();
+    await controller.signOut("Bearer shared", { cookies: { suki_session: "shared", tyvera_session: "shared" } } as unknown as Request, response);
+    expect(service.signOut).toHaveBeenCalledExactlyOnceWith("shared");
+    expect(response.clearCookie).toHaveBeenCalledTimes(2);
+  });
+
   it("regression: canonical cookies win in the guard and account endpoints", async () => {
     const { guard, controller, service } = fixture();
     await guard.canActivate(context("tyvera_session=legacy; suki_session=current"));
