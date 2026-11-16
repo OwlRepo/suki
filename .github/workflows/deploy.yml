@@ -211,7 +211,7 @@ jobs:
             curl \
               -fsS \
               --max-time 15 \
-              https://suki.tyvera.app/sign-up \
+              https://tyvera.app/sign-up \
               -o "$public_web_html"
 
             if grep \
@@ -238,7 +238,7 @@ jobs:
               curl \
                 -fsS \
                 --max-time 15 \
-                "https://suki.tyvera.app$js_path" \
+                "https://tyvera.app$js_path" \
                 -o "$js_file"
 
               if grep \

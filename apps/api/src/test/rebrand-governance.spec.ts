@@ -10,7 +10,7 @@ const compatibilityTerms = /suki\.tyvera\.app|tyvera_session|tyvera-sidebar-coll
 function unexplainedLegacyText(file: string, content: string): boolean {
   let remaining = content.replace(compatibilityTerms, "").replaceAll("suki\\.tyvera\\.app", "");
   // Existing database and server names are intentionally not migrated by an app rename.
-  if (file.startsWith("packages/database/") || file.startsWith("docker-compose") || file === ".env.example" || file === ".github/workflows/deploy.yml") {
+  if (file.startsWith("packages/database/") || file.startsWith("docker-compose") || file === ".env.example" || file === ".github/workflows/deploy.yml" || file === "apps/api/src/test/deploy-workflow-governance.spec.ts") {
     remaining = remaining.replace(/\btyvera\b/g, "");
   }
   remaining = remaining.replace(/~\/apps\/tyvera\b|database `tyvera`/g, "");

@@ -9,7 +9,7 @@ Suki is the app name; `suki.tyvera.app` is its configured application host. Tyve
 - `tyvera-assistant.tsx` and `TyveraAssistant`: legacy module/export compatibility; the implementation and internal callers use `suki-assistant.tsx` and `SukiAssistant`.
 - `auto_tyvera`: existing stored messaging actor identifier and database default. No data/schema migration is included.
 - ` Sent automatically by Tyvera`: recognized for reconciliation of previously sent messages. New sender branding uses Suki.
-- PostgreSQL database `tyvera`, server and backup directories, backup filename patterns, `tyvera-base`, `tyvera-api`, and `tyveraacr.azurecr.io`: existing deployment/infrastructure identities, retained until a separately approved migration.
+- PostgreSQL database `tyvera`, server and backup directories, backup filename patterns, `tyvera-base`, `tyvera-api`, and `tyveraacr.azurecr.io`: existing deployment/infrastructure identities, retained until a separately approved migration. Deployment smoke checks also retain the existing production host until its separately approved cutover.
 - Historical SQL/migration snapshots and approved plans retain their evidence. Graphify contains derived historical evidence from these sources.
 - Tests pin the legacy compatibility behavior. The governance test rejects other unexplained legacy application text and package names.
 

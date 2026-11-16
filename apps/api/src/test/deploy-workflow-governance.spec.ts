@@ -41,9 +41,9 @@ describe("deploy workflow governance", () => {
     const workflow = readDeployWorkflow();
 
     expect(workflow).toMatch(/public_web_html="\$\(mktemp\)"/);
-    expect(workflow).toMatch(/curl -fsS --max-time 15 https:\/\/suki\.tyvera\.app\/sign-up -o "\$public_web_html"/);
+    expect(workflow).toMatch(/curl -fsS --max-time 15 https:\/\/tyvera\.app\/sign-up -o "\$public_web_html"/);
     expect(workflow).toContain("public_web_js_urls");
-    expect(workflow).toContain("https://suki.tyvera.app$js_path");
+    expect(workflow).toContain("https://tyvera.app$js_path");
     expect(workflow).toMatch(/hmr-client/);
     expect(workflow).toMatch(/next-devtools/);
     expect(workflow).toContain(".next/dev");
