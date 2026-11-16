@@ -508,8 +508,16 @@ export class BillingService {
           resourceId,
         },
       })
-      .onConflictDoNothing({
+      // A failed delivery is re-claimable so the provider's retry (same body, same key) reprocesses it;
+      // the status guard keeps concurrent or completed deliveries reported as duplicates.
+      .onConflictDoUpdate({
         target: processedWebhookEvents.eventId,
+        set: {
+          status: "processing",
+          failureReason: null,
+          retryCount: sql`${processedWebhookEvents.retryCount} + 1`,
+        },
+        setWhere: eq(processedWebhookEvents.status, "failed"),
       })
       .returning({
         id: processedWebhookEvents.id,
@@ -616,16 +624,22 @@ export class BillingService {
       eventName,
       this.readString(attributes.status),
     );
+    const renewsAt = this.parseDate(attributes.renews_at);
+    const endsAt = this.parseDate(attributes.ends_at);
+    // LS subscription objects carry no current_period_*; renews_at (or ends_at once cancelled) closes the paid cycle.
+    const providerPeriodEnd = renewsAt ?? endsAt;
     const currentPeriodStart =
       this.parseDate(attributes.current_period_start) ??
+      (providerPeriodEnd
+        ? this.subtractBillingInterval(providerPeriodEnd, billingInterval ?? "monthly")
+        : null) ??
       existingSubscription?.currentPeriodStart ??
       new Date();
     const currentPeriodEnd =
       this.parseDate(attributes.current_period_end) ??
+      providerPeriodEnd ??
       existingSubscription?.currentPeriodEnd ??
       currentPeriodStart;
-    const renewsAt = this.parseDate(attributes.renews_at);
-    const endsAt = this.parseDate(attributes.ends_at);
     const trialEndsAt = this.parseDate(attributes.trial_ends_at);
     const cancelled = this.readBoolean(attributes.cancelled)
       ? "true"
@@ -1251,6 +1265,16 @@ export class BillingService {
     if (!raw) return null;
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private subtractBillingInterval(periodEnd: Date, interval: BillingInterval): Date {
+    const start = new Date(periodEnd);
+    start.setUTCDate(1);
+    start.setUTCMonth(start.getUTCMonth() - (interval === "annual" ? 12 : 1));
+    // clamp so a Mar 31 renewal starts Feb 28/29 instead of rolling into March
+    const lastDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
+    start.setUTCDate(Math.min(periodEnd.getUTCDate(), lastDay));
+    return start;
   }
 
   private getCurrentMonthUtcKey(): string {

@@ -5,6 +5,7 @@ import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
 import { AuthBootstrapService } from "./auth/auth.bootstrap.service";
 import { validateRuntimeConfiguration } from "./billing/billing-env";
+import { FeatureFlagsService } from "./common/feature-flags.service";
 
 function cookieParser(req: { headers: { cookie?: string }; cookies?: Record<string, string> }, _: unknown, next: () => void) {
   const raw = req.headers.cookie;
@@ -40,7 +41,7 @@ function validateEnv() {
   if (process.env.OPENAI_API_KEY?.includes("placeholder")) {
     console.warn("[Tyvera API] OPENAI_API_KEY is placeholder. AI messaging will be disabled.");
   }
-  const selfServeBillingEnabled = process.env.FF_self_serve_billing_enabled === "true";
+  const selfServeBillingEnabled = new FeatureFlagsService().selfServeBillingEnabled();
   if (
     selfServeBillingEnabled &&
     (process.env.LEMONSQUEEZY_API_KEY?.includes("placeholder") ||
