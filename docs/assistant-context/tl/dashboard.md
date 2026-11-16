@@ -6,16 +6,13 @@ intents: ["dashboard", "today tasks", "ano ang next", "home screen"]
 relatedRoutes: ["/dashboard"]
 toolBindings: ["route_guidance"]
 priority: high
-lastUpdated: 2026-05-10
-quickAnswer: Buksan ang Dashboard para makita ang susunod na mahalagang gawain.
+lastUpdated: 2026-11-16
+quickAnswer: Buksan ang Today para sa appointments ngayong araw at reminders na kailangan ng pansin.
 ---
-- Buksan ang Dashboard para makita ang pangunahing gawain ng araw.
-- Basahin ang "What this page is for" para malinaw kung bakit mahalaga ang card.
-- Gamitin ang next-step button (halimbawa: record customer visit) para tuloy ang workflow.
-- Tingnan ang metrics cards para sa mabilis na customer count at recent activity.
-- Kung luma ang nakikita mong data, gawin muna ang linked action at bumalik sa Dashboard.
-- Kung hindi mo alam ang susunod na hakbang, buksan ang Tyvera Assistant at magtanong.
-- Gawing starting page ito araw-araw bago pumunta sa Customers, Appointments, o Insights.
-- Karaniwang mali: diretsong pumunta sa settings at nalalaktawan ang operational tasks.
-- Recovery: kung mukhang mali ang numbers, buksan ang Insights at i-check ang period filters.
-- Recovery: kung walang action buttons, i-check ang role permissions at active workspace.
+- Ang Today sa /dashboard ang home page. Nasa unahan ang daily agenda; nasa ibaba ang monthly metrics at activity.
+- Gamitin ang New appointment para sa iisang form ng customer, petsa, oras, at notes. Maaaring pumili ng customer o magdagdag habang nagbu-book.
+- Pindutin ang Arrived nang isang beses kapag dumating na ang customer. Awtomatikong nire-record ng Suki ang visit matapos ang appointment lifecycle.
+- Ang Reschedule ay may dati nang detalye. Nasa Needs attention ang reminder exceptions na kailangang suriin ng staff.
+- Nananatili ang booking link, QR, monthly metrics, at activity. Tingnan ang period ng bawat metric.
+- May labels ang desktop navigation at naaalala ang dating collapse preference. Sa mobile: Today, Appointments, Attention, at More.
+- Piliin muna ang tamang workspace. Gamitin ang Retry sa error; huwag ulitin ang nasave nang action dahil lamang hindi nag-refresh ang listahan.

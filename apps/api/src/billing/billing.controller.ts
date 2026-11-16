@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
-import type { BillingInterval, PlanType } from "@tyvera/types";
+import type { BillingInterval, PlanType } from "@suki/types";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { OwnerGuard } from "../common/owner.guard";
 import { Tenant } from "../common/tenant.decorator";

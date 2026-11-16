@@ -3,59 +3,40 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { extname } from "node:path";
 
-const legacyLower = String.fromCharCode(115, 117, 107, 105);
-const forbiddenTerms = [
-  legacyLower[0].toUpperCase() + legacyLower.slice(1),
-  legacyLower,
-  legacyLower.toUpperCase(),
-  `@${legacyLower}`,
-];
+const textExtensions = new Set(["", ".css", ".env", ".html", ".json", ".md", ".mjs", ".sh", ".sql", ".ts", ".tsx", ".txt", ".yml", ".lock"]);
+// These tokens keep existing sessions, preferences, records, and infrastructure usable.
+const compatibilityTerms = /suki\.tyvera\.app|tyvera_session|tyvera-sidebar-collapsed-v1|tyvera-onboarding-events|tyvera_dev_|tyvera:intake:|tyvera-assistant(?:-coachmark-dismissed-v1|-header-collapsed-v1)?|TyveraAssistant|auto_tyvera| Sent automatically by Tyvera|legacy Tyvera|tyveraacr\.azurecr\.io|tyvera-api|tyvera-base|tyvera-backups|tyvera-\*\.sql/g;
 
-const textExtensions = new Set([
-  "",
-  ".css",
-  ".env",
-  ".html",
-  ".json",
-  ".md",
-  ".mjs",
-  ".sh",
-  ".sql",
-  ".ts",
-  ".tsx",
-  ".txt",
-  ".yml",
-]);
+function unexplainedLegacyText(file: string, content: string): boolean {
+  let remaining = content.replace(compatibilityTerms, "").replaceAll("suki\\.tyvera\\.app", "");
+  // Existing database and server names are intentionally not migrated by an app rename.
+  if (file.startsWith("packages/database/") || file.startsWith("docker-compose") || file === ".env.example" || file === ".github/workflows/deploy.yml" || file === "apps/api/src/test/deploy-workflow-governance.spec.ts") {
+    remaining = remaining.replace(/\btyvera\b/g, "");
+  }
+  remaining = remaining.replace(/~\/apps\/tyvera\b|database `tyvera`/g, "");
+  return /tyvera/i.test(remaining);
+}
 
 describe("rebrand governance", () => {
-  it("does not leave legacy brand references in tracked paths or text files", () => {
+  it("regression: permits documented compatibility references but rejects legacy app branding", () => {
+    expect(unexplainedLegacyText("page.tsx", "Welcome to Tyvera")).toBe(true);
+    expect(unexplainedLegacyText("page.tsx", "https://tyvera.app")).toBe(true);
+    expect(unexplainedLegacyText("page.tsx", "https://suki.tyvera.app")).toBe(false);
+    expect(unexplainedLegacyText("guard.ts", 'const legacy = "tyvera_session"')).toBe(false);
+  });
+
+  it("regression: keeps tracked application text and paths branded Suki", () => {
     const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
-    const trackedFiles = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
-      encoding: "utf8",
-      cwd: repoRoot,
-    })
-      .split("\n")
-      .filter((file) => file && existsSync(`${repoRoot}/${file}`));
-
+    const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { encoding: "utf8", cwd: repoRoot }).split("\n");
     const violations: string[] = [];
-
-    for (const file of trackedFiles) {
-      for (const term of forbiddenTerms) {
-        if (file.includes(term)) {
-          violations.push(`${file}: path contains ${term}`);
-        }
-      }
-
+    for (const file of new Set(files)) {
+      if (!file || !existsSync(`${repoRoot}/${file}`)) continue;
+      // Historical plans/migrations and their derived graph retain their original evidence.
+      if (file === "apps/api/src/test/rebrand-governance.spec.ts" || file === "docs/ai/suki-rename-compatibility.md" || file.startsWith("docs/plans/") || file.startsWith("packages/database/drizzle/") || file.startsWith("graphify-out/")) continue;
+      if (unexplainedLegacyText(file, file)) violations.push(`${file}: legacy path`);
       if (!textExtensions.has(extname(file))) continue;
-
-      const content = readFileSync(`${repoRoot}/${file}`, "utf8");
-      for (const term of forbiddenTerms) {
-        if (content.includes(term)) {
-          violations.push(`${file}: content contains ${term}`);
-        }
-      }
+      if (unexplainedLegacyText(file, readFileSync(`${repoRoot}/${file}`, "utf8"))) violations.push(`${file}: unexplained legacy text`);
     }
-
     expect(violations).toEqual([]);
   });
 });

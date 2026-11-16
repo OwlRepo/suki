@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ClientBillingRequestKind,
   PlanType,
-} from "@tyvera/types";
+} from "@suki/types";
 import { useAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,9 +29,13 @@ const SMS_PACKS = [
 export function RequestChangeSection({
   currentPlan,
   readOnly,
+  requestedKind,
+  onKindChange,
 }: {
   currentPlan: PlanType;
   readOnly: boolean;
+  requestedKind?: ClientBillingRequestKind;
+  onKindChange?: (kind: ClientBillingRequestKind) => void;
 }) {
   const { getToken } = useAuth();
   const [requests, setRequests] = useState<ClientBillingRequest[]>([]);
@@ -46,6 +50,10 @@ export function RequestChangeSection({
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (requestedKind) setKind(requestedKind);
+  }, [requestedKind]);
 
   const paidPlans = useMemo(
     () =>
@@ -91,7 +99,7 @@ export function RequestChangeSection({
         note: note.trim() || null,
       });
       setNote("");
-      setMessage("Request sent to Tyvera billing.");
+      setMessage("Request sent to Suki billing.");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to send request.");
@@ -128,7 +136,7 @@ export function RequestChangeSection({
           Request billing help
         </h2>
         <p className="mt-1 max-w-[65ch] text-sm text-muted-foreground">
-          Send plan changes, SMS top-ups, or cancellation requests to Tyvera.
+          Send plan changes, SMS top-ups, or cancellation requests to Suki.
           Billing staff will review before any paid request is created.
         </p>
       </div>
@@ -147,7 +155,7 @@ export function RequestChangeSection({
                 value={kind}
                 disabled={submitting}
                 onChange={(event) =>
-                  setKind(event.target.value as ClientBillingRequestKind)
+                  { const next = event.target.value as ClientBillingRequestKind; setKind(next); onKindChange?.(next); }
                 }
               >
                 <option value="plan_change">Change paid plan</option>
@@ -282,7 +290,7 @@ export function RequestChangeSection({
                   ) : null}
                   {request.decisionNote ? (
                     <p className="rounded-lg bg-muted px-3 py-2 text-sm">
-                      Tyvera response: {request.decisionNote}
+                      Suki response: {request.decisionNote}
                     </p>
                   ) : null}
                   {!readOnly && open ? (

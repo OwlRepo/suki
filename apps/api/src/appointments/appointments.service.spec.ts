@@ -27,7 +27,7 @@ const updateWhereMock = vi.fn();
 const returningMock = vi.fn();
 const insertValuesMock = vi.fn();
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => dbMock,
   appointments: {
     id: "appointments.id",

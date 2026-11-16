@@ -50,7 +50,7 @@ export default function PricingPage() {
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Tyvera pricing</p>
+          <p className="text-sm text-muted-foreground">Suki pricing</p>
           <h1 className="text-3xl font-semibold">Plans built around actual usage</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
             Staff-created appointments do not consume verified online-booking credits. SMS reminders and follow-ups use separate prepaid SMS credits.

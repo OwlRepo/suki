@@ -5,7 +5,7 @@ const db = {
   select: vi.fn(),
 };
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => db,
   manualFollowUpTasks: {
     organizationId: "organizationId",
@@ -26,7 +26,7 @@ vi.mock("drizzle-orm", () => ({
 describe("ManualFollowUpDigestService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.FRONTEND_URL = "https://app.tyvera.test";
+    process.env.FRONTEND_URL = "https://suki.example.test";
   });
 
   it("marks notified only after successful owner email", async () => {

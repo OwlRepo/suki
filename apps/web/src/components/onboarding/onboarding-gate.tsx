@@ -1,95 +1,57 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  useOnboardingProgress,
-  ONBOARDING_COMPLETE_STEP,
-} from "@/hooks/use-onboarding-progress";
-import { useAccountSummary } from "@/hooks/use-account-freshness";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useOnboardingProgress, ONBOARDING_COMPLETE_STEP } from "@/hooks/use-onboarding-progress";
 import { useWorkspace } from "@/contexts/workspace-context";
-import { isPathAllowedForStep } from "@/lib/onboarding";
-import { OnboardingBanner } from "./onboarding-banner";
 import { useAuthSync } from "@/hooks/use-auth-sync";
+import { Button } from "@/components/ui/button";
+import { StatusBanner } from "@/components/ui/status-banner";
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { progress, loading, isComplete, markComplete, fetchProgress } = useOnboardingProgress();
-  const { summary } = useAccountSummary();
+  const { replace } = useRouter();
+  const { progress, loading, isComplete, updateProgress, fetchProgress, error: progressError } = useOnboardingProgress();
   const workspace = useWorkspace();
   const { data: syncData, loading: syncLoading, error: syncError, retry: retrySync } = useAuthSync();
-  const backfillAttempted = useRef(false);
-  const hasRetriedProgressRef = useRef(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  const attempted = useRef<string | null>(null);
   const organizationId = syncData?.organization?.id ?? null;
+  const hasBusiness = (workspace?.businesses.length ?? 0) > 0;
 
-  const businesses = workspace?.businesses ?? [];
+  const finishSetup = useCallback(async () => {
+    if (!progress) return;
+    await updateProgress({ currentStep: ONBOARDING_COMPLETE_STEP, completedSteps: [...new Set([...progress.completedSteps, "complete"])] });
+  }, [progress, updateProgress]);
 
-  const isLegacyUser =
-    !loading &&
-    progress &&
-    progress.currentStep < ONBOARDING_COMPLETE_STEP &&
-    progress.completedSteps.length === 0 &&
-    businesses.length > 0 &&
-    (summary ? summary.customers > 2 || summary.appointments > 0 : false);
-
-  useEffect(() => {
-    if (isLegacyUser && !backfillAttempted.current) {
-      backfillAttempted.current = true;
-      markComplete();
-    }
-  }, [isLegacyUser, markComplete]);
+  const retryCompletion = () => {
+    void finishSetup().then(() => setCompletionError(null), (cause: unknown) => {
+      setCompletionError(cause instanceof Error ? cause.message : "Could not save setup progress.");
+    });
+  };
 
   useEffect(() => {
-    if (!syncLoading && organizationId && !loading && !progress && !hasRetriedProgressRef.current) {
-      hasRetriedProgressRef.current = true;
-      fetchProgress();
-    }
-  }, [syncLoading, organizationId, loading, progress, fetchProgress]);
-
-  useEffect(() => {
-    if (syncLoading || !organizationId || loading || isComplete || isLegacyUser) return;
-    if (!progress) {
-      router.replace("/onboarding");
+    if (syncLoading || !organizationId || loading || workspace?.loading || isComplete) return;
+    if (!hasBusiness) {
+      if (!workspace?.error) replace("/onboarding");
       return;
     }
-
-    const step = Math.max(1, Math.min(progress.currentStep, 8));
-    const allowed = isPathAllowedForStep(step, pathname);
-
-    if (!allowed) {
-      router.replace("/onboarding");
+    if (progress && attempted.current !== organizationId) {
+      attempted.current = organizationId;
+      void finishSetup().then(() => setCompletionError(null), (cause: unknown) => {
+        setCompletionError(cause instanceof Error ? cause.message : "Could not save setup progress.");
+      });
     }
-  }, [syncLoading, organizationId, loading, isComplete, isLegacyUser, progress, pathname, router]);
+  }, [finishSetup, hasBusiness, isComplete, loading, organizationId, progress, replace, syncLoading, workspace?.error, workspace?.loading]);
 
-  if (syncLoading || !organizationId || loading) {
-    if (syncError && !syncLoading) {
-      return (
-        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4">
-          <p className="text-base text-foreground">
-            {syncError || "Something went wrong while loading your account."}
-          </p>
-          <button
-            type="button"
-            onClick={retrySync}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Retry
-          </button>
-        </div>
-      );
-    }
-    return (
-      <div className="flex min-h-[60vh] min-w-full items-center justify-center px-4">
-        <p className="text-base text-foreground">Preparing your setup…</p>
-      </div>
-    );
+  if (syncError || workspace?.error || progressError) {
+    return <div className="space-y-4"><StatusBanner variant="error" message={syncError || workspace?.error || progressError?.message || "Could not load your workspace."} /><Button onClick={() => { if (syncError) retrySync(); else if (workspace?.error) void workspace.refetch(); else void fetchProgress(); }}>Retry</Button></div>;
   }
 
-  return (
-    <>
-      {!isComplete && !isLegacyUser && <OnboardingBanner />}
-      {children}
-    </>
-  );
+  if (syncLoading || !organizationId || loading || workspace?.loading) {
+    return <p className="py-12 text-muted-foreground" role="status">Preparing your workspace…</p>;
+  }
+
+  if (!hasBusiness && !isComplete) return null;
+
+  return <>{completionError && <StatusBanner variant="error" message={<span>{completionError} <Button size="sm" variant="outline" onClick={retryCompletion}>Retry</Button></span>} />}{children}</>;
 }

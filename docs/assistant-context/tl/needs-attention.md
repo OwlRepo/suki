@@ -7,7 +7,7 @@ relatedRoutes: ["/needs-attention"]
 toolBindings: ["route_guidance"]
 priority: high
 lastUpdated: 2026-06-05
-quickAnswer: Buksan ang Needs Attention para i-review ang SMS reminders na hindi nakumpirma ni Tyvera na na-send.
+quickAnswer: Buksan ang Needs Attention para i-review ang SMS reminders na hindi nakumpirma ni Suki na na-send.
 ---
 - Buksan ang Needs Attention mula sa dashboard navigation kapag may badge.
 - I-review muna ang bawat task bago kontakin ang customer.

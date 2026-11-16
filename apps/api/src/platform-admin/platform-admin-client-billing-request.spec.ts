@@ -3,13 +3,13 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
-import { getDb, organizations } from "@tyvera/database";
+import { getDb, organizations } from "@suki/database";
 import type { ActivePlatformAdmin } from "./platform-admin.service";
 import { PlatformAdminBillingService } from "./platform-admin-billing.service";
 
-vi.mock("@tyvera/database", async () => {
-  const actual = await vi.importActual<typeof import("@tyvera/database")>(
-    "@tyvera/database",
+vi.mock("@suki/database", async () => {
+  const actual = await vi.importActual<typeof import("@suki/database")>(
+    "@suki/database",
   );
   return { ...actual, getDb: vi.fn() };
 });
@@ -35,7 +35,7 @@ function createService(request: Record<string, unknown>) {
       where: () => ({
         limit: async () =>
           table === organizations
-            ? [{ id: "org-1", name: "Tyvera Clinic" }]
+            ? [{ id: "org-1", name: "Suki Clinic" }]
             : [],
       }),
     }),

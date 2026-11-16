@@ -6,12 +6,12 @@ import {
   getDb,
   platformAdminRoles,
   platformAdmins,
-} from "@tyvera/database";
+} from "@suki/database";
 import { and, eq } from "drizzle-orm";
 import type {
   PlatformAdminPermission,
   PlatformAdminRoleCode,
-} from "@tyvera/types";
+} from "@suki/types";
 
 export interface ActivePlatformAdmin {
   id: string;

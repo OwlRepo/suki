@@ -1,8 +1,8 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
-import { automationSettings, businesses } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { automationSettings, businesses } from "@suki/database";
 import { eq, and } from "drizzle-orm";
-import type { AutomationKey } from "@tyvera/types";
+import type { AutomationKey } from "@suki/types";
 
 type TemplateMap = Partial<Record<AutomationKey, { sms?: string; email?: string }>>;
 

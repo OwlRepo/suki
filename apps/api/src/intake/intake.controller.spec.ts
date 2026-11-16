@@ -10,7 +10,7 @@ const valuesMock = vi.fn();
 const returningMock = vi.fn();
 const insertMock = vi.fn();
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     select: selectMock,
     insert: insertMock,

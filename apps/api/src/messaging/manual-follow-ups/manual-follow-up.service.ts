@@ -6,8 +6,8 @@ import {
   getDb,
   manualFollowUpTasks,
   messageEvents,
-} from "@tyvera/database";
-import type { AutomationKey, MessagePurpose } from "@tyvera/types";
+} from "@suki/database";
+import type { AutomationKey, MessagePurpose } from "@suki/types";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { MANUAL_FOLLOW_UP_AUTOMATION_KEY_SET } from "./manual-follow-up.constants";
 import type {

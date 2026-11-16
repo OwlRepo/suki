@@ -166,6 +166,13 @@ describe("BillingSettingsPage", () => {
     });
   });
 
+  it("regression: gives billing an obvious title and readable subscription status", async () => {
+    render(<BillingSettingsPage />);
+    expect(await screen.findByRole("heading", { name: "Plan & usage" })).toBeInTheDocument();
+    expect(await screen.findByText("Active", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("subscription_active")).not.toBeInTheDocument();
+  });
+
   it("renders real verified booking and sms balances plus paid-plan actions", async () => {
     render(<BillingSettingsPage />);
 
@@ -416,7 +423,7 @@ describe("BillingSettingsPage", () => {
 
     expect(await screen.findByText("FREE")).toBeInTheDocument();
     expect(
-      screen.getByText(/self-serve billing is disabled in this environment/i),
+      screen.getByText(/your current plan and allowances are shown below/i),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /manage billing/i }),

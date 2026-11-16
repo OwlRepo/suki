@@ -25,7 +25,7 @@ import {
   PH_MOBILE_E164_ERROR,
   PH_MOBILE_E164_PLACEHOLDER,
   normalizePhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 import { deriveBrandTheme } from "@/lib/brand-theme";
 
 const OTP_LENGTH = 6;
@@ -296,7 +296,7 @@ function BrandHeaderSkeleton() {
 
 export default function IntakePage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = use(params);
-  const localStorageKey = useMemo(() => `tyvera:intake:${businessId}`, [businessId]);
+  const localStorageKey = useMemo(() => `suki:intake:${businessId}`, [businessId]);
 
   const [step, setStep] = useState<Step>("form");
   const [name, setName] = useState("");
@@ -359,7 +359,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(localStorageKey);
+      const raw = (localStorage.getItem(localStorageKey) ?? localStorage.getItem(`tyvera:intake:${businessId}`));
       if (!raw) return;
       const parsed = JSON.parse(raw) as {
         name?: string;
@@ -376,7 +376,7 @@ export default function IntakePage({ params }: { params: Promise<{ businessId: s
     } catch {
       // ignore malformed cache
     }
-  }, [localStorageKey]);
+  }, [localStorageKey, businessId]);
 
   useEffect(() => {
     if (step !== "schedule") return;

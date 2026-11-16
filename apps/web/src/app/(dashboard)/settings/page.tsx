@@ -301,8 +301,8 @@ function SettingGroupHeader({
       </span>
 
       <div>
-        <p className="font-bold text-slate-950">{title}</p>
-        <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+        <p className="font-bold text-foreground">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
     </div>
   );
@@ -1086,11 +1086,11 @@ function SettingsPageContent() {
   };
 
   const sectionLabels: Record<(typeof SETTINGS_SECTION_IDS)[number], string> = {
-    organization: "Organization",
-    businesses: "Businesses",
-    automation: "Automation",
-    "customer-templates": "Customer Description Templates",
-    messaging: "Messaging & SMS",
+    organization: "Workspace details",
+    businesses: "Business details",
+    automation: "Automated follow-ups",
+    "customer-templates": "Customer descriptions",
+    messaging: "Messaging limits",
     "ai-usage": "AI Usage",
     "dev-tools": "Dev Tools",
   };
@@ -1099,14 +1099,14 @@ function SettingsPageContent() {
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Settings"
-        plainLanguageDescription="Manage your organization, businesses, automations, messaging, and AI limits."
+        plainLanguageDescription="Business details and controls, grouped by what you do."
         whatThisPageIsFor="Change your workspace name, business details, reminders, messaging, and AI settings."
         whatToDoNext="Use the search below to find a setting, or open any section to edit."
         actions={
           <Button asChild className="w-full gap-2 sm:w-auto">
             <Link href="/settings/billing" aria-label="Open billing">
               <CreditCard className="size-4" aria-hidden />
-              Billing
+              Plan & usage
             </Link>
           </Button>
         }
@@ -1114,7 +1114,7 @@ function SettingsPageContent() {
 
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400"
+          className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
           aria-hidden
         />
 
@@ -1124,21 +1124,20 @@ function SettingsPageContent() {
           onChange={(event) => setSettingsSearch(event.target.value)}
           placeholder="Search settings (e.g. reminders, SMS, AI)"
           aria-label="Search settings"
-          className="min-h-12 w-full rounded-xl border-slate-200 bg-white pl-10 pr-4 text-base shadow-sm"
+          className="min-h-12 w-full rounded-xl border-border bg-card pl-10 pr-4 text-base shadow-sm"
         />
       </div>
 
-      {settingsSearch.trim() ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-slate-950">Jump to</p>
+      <nav aria-label="Settings sections" className="rounded-xl border border-border bg-card p-4">
+          <p className="text-sm font-semibold text-foreground">Open a section</p>
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            {SETTINGS_SECTION_IDS.filter((id) => visibleSections.has(id)).map(
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {SETTINGS_SECTION_IDS.filter((id) => visibleSections.has(id) && (id !== "dev-tools" || isDevMode) && (id !== "ai-usage" || (aiUsage && planCapabilities.canSeeAiUsage))).map(
               (id) => (
                 <a
                   key={id}
                   href={`#${id}`}
-                  className="inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm font-medium text-foreground transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                 >
                   {sectionLabels[id]}
                 </a>
@@ -1147,13 +1146,12 @@ function SettingsPageContent() {
           </div>
 
           {visibleSections.size === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-muted-foreground">
               No settings match &quot;{settingsSearch}&quot;. Try a different
               search.
             </p>
           ) : null}
-        </div>
-      ) : null}
+      </nav>
 
       {feedback ? (
         <StatusBanner
@@ -1248,7 +1246,7 @@ function SettingsPageContent() {
                 {businesses.map((business) => (
                   <li
                     key={business.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
+                    className="rounded-2xl border border-border bg-muted/60 p-4"
                   >
                     {editingBiz === business.id ? (
                       <div className="space-y-4">
@@ -1282,19 +1280,19 @@ function SettingsPageContent() {
                               placeholder="Optional one-line promise"
                               className="min-h-12"
                             />
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted-foreground">
                               {editBizTagline.trim().length}/80 characters
                             </p>
                           </div>
                         </div>
 
                         <div className="grid gap-4 xl:grid-cols-2">
-                          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
                             <div>
-                              <p className="text-sm font-semibold text-slate-950">
+                              <p className="text-sm font-semibold text-foreground">
                                 Intake logo
                               </p>
-                              <p className="mt-1 text-sm text-slate-600">
+                              <p className="mt-1 text-sm text-muted-foreground">
                                 Upload PNG, JPEG, or WebP. Stored as resized
                                 data URL for public intake only.
                               </p>
@@ -1309,7 +1307,7 @@ function SettingsPageContent() {
                             />
 
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                              <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+                              <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-xl border border-border bg-muted shadow-sm">
                                 {editBizLogoUrl ? (
                                   <img
                                     src={editBizLogoUrl}
@@ -1321,7 +1319,7 @@ function SettingsPageContent() {
                                 ) : (
                                   <span
                                     aria-hidden="true"
-                                    className="text-lg font-semibold tracking-[0.2em] text-slate-700"
+                                    className="text-lg font-semibold tracking-[0.2em] text-muted-foreground"
                                   >
                                     {buildBusinessMonogram(
                                       editBizName || business.name,
@@ -1364,7 +1362,7 @@ function SettingsPageContent() {
                               className={`text-sm ${
                                 editBizLogoError
                                   ? "text-rose-600"
-                                  : "text-slate-500"
+                                  : "text-muted-foreground"
                               }`}
                               aria-live="polite"
                             >
@@ -1373,12 +1371,12 @@ function SettingsPageContent() {
                             </p>
                           </div>
 
-                          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
                             <div>
-                              <p className="text-sm font-semibold text-slate-950">
+                              <p className="text-sm font-semibold text-foreground">
                                 Brand color
                               </p>
-                              <p className="mt-1 text-sm text-slate-600">
+                              <p className="mt-1 text-sm text-muted-foreground">
                                 We auto-adjust contrast for buttons and focus
                                 rings on public intake.
                               </p>
@@ -1448,7 +1446,7 @@ function SettingsPageContent() {
 
                             <p
                               id={`${business.id}-brand-help`}
-                              className="text-sm text-slate-500"
+                              className="text-sm text-muted-foreground"
                             >
                               Leave blank to keep default intake theme.
                             </p>
@@ -1457,7 +1455,7 @@ function SettingsPageContent() {
                               className={`text-sm ${
                                 editBizBrandError
                                   ? "text-rose-600"
-                                  : "text-slate-500"
+                                  : "text-muted-foreground"
                               }`}
                               aria-live="polite"
                             >
@@ -1467,16 +1465,16 @@ function SettingsPageContent() {
 
                             <div
                               style={editBizPreviewVars}
-                              className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                              className="rounded-xl border border-border bg-muted p-3"
                             >
-                              <p className="text-sm font-medium text-slate-950">
+                              <p className="text-sm font-medium text-foreground">
                                 Live contrast preview
                               </p>
                               <div className="mt-3 flex flex-wrap items-center gap-3">
                                 <Badge className="bg-primary px-3 py-1 text-primary-foreground">
                                   Preview Aa
                                 </Badge>
-                                <span className="text-sm text-slate-600">
+                                <span className="text-sm text-muted-foreground">
                                   Buttons and badges inherit this tone.
                                 </span>
                               </div>
@@ -1507,14 +1505,14 @@ function SettingsPageContent() {
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex min-w-0 flex-wrap items-center gap-3">
                           <div>
-                            <p className="font-semibold text-slate-950">
+                            <p className="font-semibold text-foreground">
                               {business.name}
                             </p>
-                            <p className="mt-1 text-sm capitalize text-slate-500">
+                            <p className="mt-1 text-sm capitalize text-muted-foreground">
                               {business.businessType}
                             </p>
                             {business.tagline ? (
-                              <p className="mt-1 max-w-[65ch] text-sm text-slate-500">
+                              <p className="mt-1 max-w-[65ch] text-sm text-muted-foreground">
                                 {business.tagline}
                               </p>
                             ) : null}
@@ -1556,7 +1554,7 @@ function SettingsPageContent() {
               </ul>
 
               {businesses.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                <p className="rounded-2xl border border-dashed border-border bg-muted p-4 text-sm text-muted-foreground">
                   No businesses yet. Create one in Setup.
                 </p>
               ) : null}
@@ -1585,7 +1583,7 @@ function SettingsPageContent() {
                   return (
                     <li
                       key={business.id}
-                      className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5"
+                      className="space-y-5 rounded-2xl border border-border bg-muted/60 p-4 sm:p-5"
                     >
                       <SettingGroupHeader
                         icon={Settings2}
@@ -1595,7 +1593,7 @@ function SettingsPageContent() {
                       />
 
                       {saving ? (
-                        <p className="text-sm text-slate-500">Saving…</p>
+                        <p className="text-sm text-muted-foreground">Saving…</p>
                       ) : null}
 
                       <div className="space-y-2">
@@ -1603,7 +1601,7 @@ function SettingsPageContent() {
                           Send reminders by SMS or email
                         </Label>
 
-                        <p className="text-sm leading-6 text-slate-600">
+                        <p className="text-sm leading-6 text-muted-foreground">
                           Choose how customers receive appointment reminders.
                         </p>
 
@@ -1634,7 +1632,7 @@ function SettingsPageContent() {
                             {settings.autoSendChannel.toUpperCase()})
                           </Label>
 
-                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                          <p className="mt-1 text-sm leading-6 text-muted-foreground">
                             Edit what gets sent per automation. Keep placeholders
                             like {"{customerName}"}, {"{dateTime}"},{" "}
                             {"{staffName}"}, and {"{link}"}.
@@ -1650,9 +1648,9 @@ function SettingsPageContent() {
                             return (
                               <div
                                 key={key}
-                                className="rounded-2xl border border-slate-200 bg-white p-3"
+                                className="rounded-2xl border border-border bg-card p-3"
                               >
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                                   {key.replaceAll("_", " ")}
                                 </p>
                                 <Input
@@ -1796,7 +1794,7 @@ function SettingsPageContent() {
                         </div>
                       </div>
 
-                      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
                             <Label
@@ -1805,7 +1803,7 @@ function SettingsPageContent() {
                             >
                               Send appointment reminders
                             </Label>
-                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
                               Automatically remind customers 24 hours before
                               their appointment.
                             </p>
@@ -1831,7 +1829,7 @@ function SettingsPageContent() {
                             >
                               Also send 3-day reminder
                             </Label>
-                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
                               {settings.appointmentRemindersEnabled
                                 ? "Sends an extra reminder 3 days before the appointment."
                                 : "Turn on appointment reminders above to use this."}
@@ -1860,7 +1858,7 @@ function SettingsPageContent() {
                             >
                               Reach out to inactive customers
                             </Label>
-                            <p className="mt-1 text-sm leading-6 text-slate-600">
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
                               Automatically send a gentle reminder to customers
                               who haven&apos;t visited in a while.
                             </p>
@@ -1886,7 +1884,7 @@ function SettingsPageContent() {
                             How many days of no visits before outreach?
                           </Label>
 
-                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                          <p className="mt-1 text-sm leading-6 text-muted-foreground">
                             Send a gentle reminder after this many days of
                             inactivity (1–365 days). Enter 60 for about 2
                             months.
@@ -1976,15 +1974,15 @@ function SettingsPageContent() {
                     return (
                       <li
                         key={business.id}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
+                        className="rounded-2xl border border-border bg-muted/60 p-4"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <p className="font-semibold text-slate-950">
+                          <p className="font-semibold text-foreground">
                             {business.name}
                           </p>
 
                           {saving ? (
-                            <span className="text-sm text-slate-500">
+                            <span className="text-sm text-muted-foreground">
                               Saving…
                             </span>
                           ) : null}
@@ -1994,7 +1992,7 @@ function SettingsPageContent() {
                           Default template when adding customers
                         </Label>
 
-                        <p className="mt-1 text-sm leading-6 text-slate-600">
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
                           This template will be selected by default in the Add
                           customer form. You can switch to another template when
                           needed.
@@ -2027,7 +2025,7 @@ function SettingsPageContent() {
                   })}
                 </ul>
 
-                <div className="border-t border-slate-200 pt-4">
+                <div className="border-t border-border pt-4">
                   <Button
                     variant="outline"
                     onClick={() => setCreateTemplateOpen(true)}
@@ -2037,7 +2035,7 @@ function SettingsPageContent() {
                     Create custom template
                   </Button>
 
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     Create a template with custom prompts such as Source or
                     Preferences. It will appear in the dropdown above.
                   </p>
@@ -2098,7 +2096,7 @@ function SettingsPageContent() {
                     <div>
                       <Label>Fields</Label>
 
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-sm text-muted-foreground">
                         Each field becomes a labeled input. Label is required.
                       </p>
 
@@ -2214,12 +2212,12 @@ function SettingsPageContent() {
 
               <div className="grid gap-5 md:grid-cols-2">
                 {smsUsage ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                    <p className="font-semibold text-slate-950">
+                  <div className="rounded-2xl border border-border bg-muted/60 p-4">
+                    <p className="font-semibold text-foreground">
                       SMS usage this month
                     </p>
 
-                    <p className="mt-2 text-sm text-slate-600">
+                    <p className="mt-2 text-sm text-muted-foreground">
                       {smsUsage.used} / {smsUsage.total} used
                       {smsUsage.total > 0
                         ? ` (${smsUsage.included} included${
@@ -2255,12 +2253,12 @@ function SettingsPageContent() {
                 ) : null}
 
                 {emailUsage ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                    <p className="font-semibold text-slate-950">
+                  <div className="rounded-2xl border border-border bg-muted/60 p-4">
+                    <p className="font-semibold text-foreground">
                       Email usage this month
                     </p>
 
-                    <p className="mt-2 text-sm text-slate-600">
+                    <p className="mt-2 text-sm text-muted-foreground">
                       {emailUsage.used} / {emailUsage.total} used (
                       {emailUsage.included} included)
                     </p>
@@ -2309,7 +2307,7 @@ function SettingsPageContent() {
                 />
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm leading-6 text-slate-600">
+                  <div className="rounded-2xl border border-border bg-muted/60 p-4 text-sm leading-6 text-muted-foreground">
                     <p>
                       Daily AI credits:{" "}
                       {(aiUsage.dailyTokensUsed ?? 0).toLocaleString()} /{" "}
@@ -2324,7 +2322,7 @@ function SettingsPageContent() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm leading-6 text-slate-600">
+                  <div className="rounded-2xl border border-border bg-muted/60 p-4 text-sm leading-6 text-muted-foreground">
                     <p>
                       Monthly requests: {aiUsage.requestsUsed} /{" "}
                       {aiUsage.requestsLimit}
@@ -2338,12 +2336,12 @@ function SettingsPageContent() {
                 </div>
 
                 {aiBreakdown?.items?.length ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="font-semibold text-slate-950">
+                  <div className="rounded-2xl border border-border bg-card p-4">
+                    <p className="font-semibold text-foreground">
                       Top features this month
                     </p>
 
-                    <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                    <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                       {aiBreakdown.items.slice(0, 5).map((item) => (
                         <li key={item.key}>
                           {item.key}: {item.tokens.toLocaleString()} tokens,{" "}
@@ -2355,7 +2353,7 @@ function SettingsPageContent() {
                 ) : null}
 
                 {aiUsage.tokensLimit > 0 ? (
-                  <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
                     <div className="flex items-center justify-between gap-4">
                       <Label htmlFor="ai-enabled" className="text-base">
                         AI enabled
@@ -2410,7 +2408,7 @@ function SettingsPageContent() {
                         Soft cap (50–100%)
                       </Label>
 
-                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
                         Show a warning when usage reaches this percentage of your
                         limit.
                       </p>
@@ -2479,12 +2477,12 @@ function SettingsPageContent() {
                   icon={Wrench}
                   title="Development tools"
                   description="Use temporary API overrides and local debugging helpers."
-                  iconClassName="bg-slate-100 text-slate-600"
+                  iconClassName="bg-muted text-muted-foreground"
                 />
 
-                <div className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                <div className="space-y-5 rounded-2xl border border-border bg-muted/60 p-4">
                   <div>
-                    <p className="text-sm font-semibold text-slate-950">
+                    <p className="text-sm font-semibold text-foreground">
                       API base URL override
                     </p>
 
@@ -2503,7 +2501,7 @@ function SettingsPageContent() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-semibold text-slate-950">
+                    <p className="text-sm font-semibold text-foreground">
                       Mock latency (ms)
                     </p>
 
@@ -2521,7 +2519,7 @@ function SettingsPageContent() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-semibold text-slate-950">
+                    <p className="text-sm font-semibold text-foreground">
                       Mock API failure
                     </p>
 
@@ -2539,11 +2537,11 @@ function SettingsPageContent() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-semibold text-slate-950">
+                    <p className="text-sm font-semibold text-foreground">
                       Auth / session inspector
                     </p>
 
-                    <div className="mt-2 space-y-1 rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-500">
+                    <div className="mt-2 space-y-1 rounded-xl border border-border bg-card p-3 font-mono text-xs text-muted-foreground">
                       {syncData ? (
                         <>
                           <p>
@@ -2559,7 +2557,7 @@ function SettingsPageContent() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-semibold text-slate-950">
+                    <p className="text-sm font-semibold text-foreground">
                       Cache reset
                     </p>
 
@@ -2590,7 +2588,7 @@ function SettingsPageContent() {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<p className="text-slate-500">Loading...</p>}>
+    <Suspense fallback={<p className="text-muted-foreground">Loading...</p>}>
       <SettingsPageContent />
     </Suspense>
   );

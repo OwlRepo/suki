@@ -17,13 +17,13 @@ import {
   smsCredits,
   subscriptions,
   verifiedOnlineBookingCredits,
-} from "@tyvera/database";
+} from "@suki/database";
 import type { ActivePlatformAdmin } from "./platform-admin.service";
 import { PlatformAdminBillingService } from "./platform-admin-billing.service";
 
-vi.mock("@tyvera/database", async () => {
-  const actual = await vi.importActual<typeof import("@tyvera/database")>(
-    "@tyvera/database",
+vi.mock("@suki/database", async () => {
+  const actual = await vi.importActual<typeof import("@suki/database")>(
+    "@suki/database",
   );
   return {
     ...actual,
@@ -69,7 +69,7 @@ function createBillingHarness(input?: {
   const state = {
     organization: input?.organization ?? {
       id: "org-1",
-      name: "Tyvera Clinic",
+      name: "Suki Clinic",
       currentPlan: "starter",
       billingStatus: "active_manual",
       accessEndsAt: new Date("2026-07-01T00:00:00.000Z"),
@@ -548,10 +548,10 @@ describe("PlatformAdminBillingService", () => {
     });
 
     expect(result.paymentInstructions.copyText).toContain(
-      "Your Tyvera subscription payment request is ready.",
+      "Your Suki subscription payment request is ready.",
     );
     expect(result.paymentInstructions.copyText).toContain(
-      "activate your Tyvera subscription",
+      "activate your Suki subscription",
     );
     expect(result.paymentInstructions.copyText).not.toContain(
       "top-up request",
@@ -575,7 +575,7 @@ describe("PlatformAdminBillingService", () => {
     });
 
     expect(result.paymentInstructions.copyText).toContain(
-      "Your Tyvera top-up request is ready.",
+      "Your Suki top-up request is ready.",
     );
     expect(result.paymentInstructions.copyText).toContain(
       "apply your credits",
@@ -739,7 +739,7 @@ describe("PlatformAdminBillingService", () => {
     const state = createBillingHarness({
       organization: {
         id: "org-1",
-        name: "Tyvera Clinic",
+        name: "Suki Clinic",
         currentPlan: "free",
         billingStatus: "free_active",
         accessEndsAt: null,
@@ -863,7 +863,7 @@ describe("PlatformAdminBillingService", () => {
     const state = createBillingHarness({
       organization: {
         id: "org-1",
-        name: "Tyvera Clinic",
+        name: "Suki Clinic",
         currentPlan: "starter",
         billingStatus: "past_due_manual",
         accessEndsAt: new Date("2026-06-01T00:00:00.000Z"),
@@ -1042,7 +1042,7 @@ describe("PlatformAdminBillingService", () => {
       const state = createBillingHarness({
         organization: {
           id: "org-1",
-          name: "Tyvera Clinic",
+          name: "Suki Clinic",
           currentPlan: "starter",
           billingStatus,
           accessEndsAt: new Date("2026-07-01T00:00:00.000Z"),
@@ -1072,7 +1072,7 @@ describe("PlatformAdminBillingService", () => {
     createBillingHarness({
       organization: {
         id: "org-1",
-        name: "Tyvera Clinic",
+        name: "Suki Clinic",
         currentPlan: "free",
         billingStatus: "free_active",
         accessEndsAt: null,

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
-import { messageEvents } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { messageEvents } from "@suki/database";
 
 export interface RecordMessageEventInput {
   businessId: string;

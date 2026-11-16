@@ -41,6 +41,7 @@ export function MobileBottomNav({
           <Link
             key={item.href}
             href={item.href}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
               "flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-2 text-xs font-medium transition-colors",
               isActive
@@ -56,12 +57,12 @@ export function MobileBottomNav({
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        className="min-h-[44px] min-w-[44px] shrink-0"
+        className="h-auto min-h-[44px] min-w-[44px] flex-col gap-0.5 px-2 py-2 text-xs"
         onClick={onOpenMenu}
-        aria-label="Open menu"
+        aria-label="More navigation"
       >
         <Menu className="size-5" aria-hidden />
+        <span>More</span>
       </Button>
     </div>
   );

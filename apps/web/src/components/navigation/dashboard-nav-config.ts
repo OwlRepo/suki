@@ -3,11 +3,11 @@ import {
   BarChart3,
   CalendarDays,
   CircleHelp,
+  CreditCard,
   AlertCircle,
   Home,
   Import,
   Settings,
-  Settings2,
   Share2,
 } from "lucide-react";
 import type { PlanCapabilities } from "@/lib/plan-capabilities";
@@ -36,7 +36,7 @@ export function getDashboardNavGroups(
   needsAttentionCount = 0,
 ): NavGroup[] {
   const dailyItems: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: Home },
+    { href: "/dashboard", label: "Today", icon: Home },
     { href: "/appointments", label: "Appointments", icon: CalendarDays },
     { href: "/share-slots", label: "Share slots", icon: Share2 },
     {
@@ -54,6 +54,7 @@ export function getDashboardNavGroups(
       label: "Business growth",
       items: [
         { href: "/insights", label: "Business summary", icon: BarChart3 },
+        { href: "/settings/billing", label: "Plan & usage", icon: CreditCard },
         ...(capabilities.canSeeAiAnalytics
           ? [{ href: "/analytics", label: "Usage analytics", icon: BarChart3 }]
           : []),
@@ -63,10 +64,9 @@ export function getDashboardNavGroups(
       key: "admin",
       label: "Setup and admin",
       items: [
-        { href: "/imports", label: "Import", icon: Import },
-        { href: "/setup", label: "Setup", icon: Settings2 },
+        { href: "/imports", label: "Import customers", icon: Import },
         { href: "/settings", label: "Settings", icon: Settings },
-        { href: "/help", label: "Help Center", icon: CircleHelp },
+        { href: "/help", label: "Help", icon: CircleHelp },
       ],
     },
   ];
@@ -74,10 +74,11 @@ export function getDashboardNavGroups(
 
 /** Top items for mobile bottom nav (most-used flows). */
 export function getMobileBottomNavItems(_showPipeline: boolean): NavItem[] {
+  void _showPipeline;
   const items: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: Home },
+    { href: "/dashboard", label: "Today", icon: Home },
     { href: "/appointments", label: "Appointments", icon: CalendarDays },
-    { href: "/insights", label: "Summary", icon: BarChart3 },
+    { href: "/needs-attention", label: "Attention", icon: AlertCircle },
   ];
   return items;
 }

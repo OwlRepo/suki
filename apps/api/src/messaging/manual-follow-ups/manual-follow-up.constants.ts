@@ -1,4 +1,4 @@
-import type { AutomationKey } from "@tyvera/types";
+import type { AutomationKey } from "@suki/types";
 
 export const MANUAL_FOLLOW_UP_AUTOMATION_KEYS = [
   "appointment_confirmation",

@@ -12,7 +12,7 @@ const mockInsert = vi.fn();
 const mockValues = vi.fn();
 const mockReturning = vi.fn();
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     select: mockSelect,
     from: mockFrom,

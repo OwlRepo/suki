@@ -9,8 +9,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@tyvera/database": path.resolve(__dirname, "../../packages/database/src/index.ts"),
-      "@tyvera/types": path.resolve(__dirname, "../../packages/types/src/index.ts"),
+      "@suki/database": path.resolve(__dirname, "../../packages/database/src/index.ts"),
+      "@suki/types": path.resolve(__dirname, "../../packages/types/src/index.ts"),
     },
   },
 });

@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-const SIDEBAR_COLLAPSED_STORAGE_KEY = "tyvera-sidebar-collapsed-v1";
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "suki-sidebar-collapsed-v1";
+const LEGACY_STORAGE_KEY = "tyvera-sidebar-collapsed-v1";
 
 // Same-tab writes do not fire the `storage` event, so toggle notifies subscribers itself.
 const listeners = new Set<() => void>();
@@ -14,13 +15,15 @@ function subscribe(listener: () => void) {
   };
 }
 
-// Collapsed unless the user expanded it ("0"), matching the server-rendered default.
+// Existing explicit preferences win; new workspaces start with visible labels.
 function getSnapshot() {
-  return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) !== "0";
+  const preference = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY)
+    ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  return preference !== null && preference !== "0";
 }
 
 function getServerSnapshot() {
-  return true;
+  return false;
 }
 
 export function useSidebarCollapsed() {

@@ -1,5 +1,5 @@
 {
-  "name": "@tyvera/database",
+  "name": "@suki/database",
   "version": "0.0.0",
   "private": true,
   "main": "./dist/index.js",
@@ -20,12 +20,12 @@
     "db:reconcile-orphans": "bun run scripts/reconcile-orphans.ts"
   },
   "dependencies": {
-    "@tyvera/types": "workspace:*",
+    "@suki/types": "workspace:*",
     "drizzle-orm": "^0.45.0",
     "postgres": "^3.4.7"
   },
   "devDependencies": {
-    "@tyvera/config": "workspace:*",
+    "@suki/config": "workspace:*",
     "@types/node": "^22.10.2",
     "drizzle-kit": "^0.31.8",
     "dotenv": "^17.2.3",

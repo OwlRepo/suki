@@ -45,14 +45,14 @@ describe("AuthController", () => {
     const body = { email: "x@test.com", code: "123456", password: "secret123" };
     await expect(controller.signUpVerify(body, res)).resolves.toEqual({ ok: true });
     expect(service.verifyOtpAndSignUp).toHaveBeenCalledWith("x@test.com", "123456", "secret123");
-    expect(res.cookie).toHaveBeenCalledWith("tyvera_session", "tok", expect.objectContaining({ httpOnly: true }));
+    expect(res.cookie).toHaveBeenCalledWith("suki_session", "tok", expect.objectContaining({ httpOnly: true }));
   });
 
   it("sets cookie on successful password sign-in endpoint", async () => {
     const { controller } = makeController();
     const res = makeRes();
     await expect(controller.signInPassword({ email: "x@test.com", password: "pw" }, res)).resolves.toEqual({ ok: true, redirectTo: "/onboarding" });
-    expect(res.cookie).toHaveBeenCalledWith("tyvera_session", "tok", expect.objectContaining({ httpOnly: true }));
+    expect(res.cookie).toHaveBeenCalledWith("suki_session", "tok", expect.objectContaining({ httpOnly: true }));
   });
 
   it("forwards password reset start endpoint", async () => {
@@ -69,7 +69,7 @@ describe("AuthController", () => {
     await expect(controller.passwordResetVerify(body, res)).resolves.toEqual({ ok: true, redirectTo: "/dashboard" });
 
     expect(service.verifyPasswordReset).toHaveBeenCalledWith("x@test.com", "123456", "newsecret");
-    expect(res.cookie).toHaveBeenCalledWith("tyvera_session", "reset-tok", expect.objectContaining({ httpOnly: true }));
+    expect(res.cookie).toHaveBeenCalledWith("suki_session", "reset-tok", expect.objectContaining({ httpOnly: true }));
   });
 
   it("does not set cookie on failed password reset verify endpoint", async () => {

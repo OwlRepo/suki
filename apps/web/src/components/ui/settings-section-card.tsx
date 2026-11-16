@@ -30,13 +30,31 @@ export function SettingsSectionCard({
     collapsedByDefault ? false : defaultOpen
   );
 
+  React.useEffect(() => {
+    const openDestination = () => {
+      if (window.location.hash === `#${id}`) setOpen(true);
+    };
+    const openLinkedDestination = (event: MouseEvent) => {
+      const target = event.target;
+      const anchor = target instanceof Element ? target.closest("a") : null;
+      if (anchor && anchor.pathname === window.location.pathname && anchor.hash === `#${id}`) setOpen(true);
+    };
+    openDestination();
+    window.addEventListener("hashchange", openDestination);
+    document.addEventListener("click", openLinkedDestination);
+    return () => {
+      window.removeEventListener("hashchange", openDestination);
+      document.removeEventListener("click", openLinkedDestination);
+    };
+  }, [id]);
+
   if (!visible) return null;
 
   return (
     <section
       id={id}
       className={cn(
-        "rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md",
+        "scroll-mt-6 rounded-xl border border-border bg-card shadow-sm",
         className
       )}
       data-settings-section={id}

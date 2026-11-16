@@ -6,20 +6,13 @@ intents: ["ai usage", "token credits", "message credits", "billing status", "set
 relatedRoutes: ["/settings", "/settings/billing"]
 toolBindings: ["get_ai_usage", "get_billing_status", "route_guidance"]
 priority: high
-lastUpdated: 2026-06-19
-quickAnswer: Open Settings to check usage and billing. In manual billing mode, workspace owners can request plan changes, SMS top-ups, or cancellation.
+lastUpdated: 2026-11-16
+quickAnswer: Open Plan & usage directly for billing and allowances, or Settings for business and messaging controls.
 ---
-- Open Settings to review AI usage, remaining credits, and reset timing.
-- Check both message credits and AI token credits to understand limits.
-- Read reset date text to know when usage renews.
-- Review plan/billing status before requesting limit increases.
-- When self-serve checkout is unavailable, open Settings > Billing and use Request billing help.
-- Paid plan changes and SMS top-ups stay pending until Tyvera approves and creates a billing request.
-- Cancellation approval records the request; Tyvera completes cancellation through the manual subscription workflow.
-- Staff can view request status and decision notes, but only workspace owners can submit or cancel requests.
-- If AI stops responding, verify cap state first before troubleshooting.
-- Use this page to explain to staff why AI is capped or still available.
-- Common mistake: checking only one bar (messages or tokens).
-- Recovery: always review both bars and the reset date line.
-- Common mistake: expecting real-time refill before reset date.
-- Recovery: use Help Center workflows until the reset window or plan upgrade.
+- Plan & usage at /settings/billing shows the current plan, allowances, relevant actions, and billing request history.
+- Workspace owners can request a plan change, SMS top-up, or cancellation when manual billing is enabled. Staff retain their existing viewing permissions.
+- A request is not payment or fulfillment. Follow the displayed pending/approved/payment status; cancellation and scheduled-change dates remain explicit.
+- When checkout is enabled, use the existing checkout/portal flow. Read-only accounts retain their restrictions.
+- Settings groups business details, automated follow-ups, messaging limits, customer descriptions, and usage controls. Linked sections open directly.
+- Monthly allowances and prepaid SMS credits are separate. AI writing remains limited by plan and quotas.
+- Saving settings never changes the active business silently. Check the selected workspace before changing automation controls.

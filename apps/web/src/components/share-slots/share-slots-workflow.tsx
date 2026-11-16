@@ -76,7 +76,7 @@ const BACKGROUND_OPTIONS: Array<{
     value: "photo",
     title: "Upload photo",
     subtitle: "custom background",
-    previewClassName: "bg-slate-50",
+    previewClassName: "bg-muted",
   },
 ];
 
@@ -580,20 +580,21 @@ export function ShareSlotsWorkflow() {
         plainLanguageDescription={SHARE_SLOTS_PAGE_COPY.description}
         whatThisPageIsFor="Build reusable daily slot posts with templates, visuals, and quick copy actions."
         whatToDoNext="Add today’s available times, generate assets, and copy your booking link."
+        actions={<Button type="button" disabled={!shareLink} onClick={() => void copyText(shareLink, "Booking link copied.")}><Copy className="size-4" aria-hidden />Copy booking link</Button>}
       />
 
       <section className="space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <CalendarClock className="size-5" />
             </span>
 
             <div>
-              <h2 className="text-base font-bold text-slate-950">
+              <h2 className="text-base font-bold text-foreground">
                 Step 1: Add available times
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Reuse a saved template or add times one by one. You can save up to
                 3 templates.
               </p>
@@ -689,7 +690,7 @@ export function ShareSlotsWorkflow() {
                 Delete selected template
               </Button>
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Saved templates: {shareTemplates.length}/3
               </p>
             </div>
@@ -730,7 +731,7 @@ export function ShareSlotsWorkflow() {
               ))}
 
               {shareSlots.length === 0 ? (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted-foreground">
                   No slots yet. Add at least one time.
                 </p>
               ) : null}
@@ -738,17 +739,17 @@ export function ShareSlotsWorkflow() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <ImageIcon className="size-5" />
             </span>
 
             <div>
-              <h2 className="text-base font-bold text-slate-950">
+              <h2 className="text-base font-bold text-foreground">
                 Step 2: Choose background
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Pick a ready-made style or upload a shop photo customers already
                 recognize.
               </p>
@@ -766,7 +767,7 @@ export function ShareSlotsWorkflow() {
                   className={`rounded-2xl border p-3 text-left transition ${
                     isSelected
                       ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100"
-                      : "border-slate-200 bg-white hover:border-blue-200"
+                      : "border-border bg-card hover:border-blue-200"
                   }`}
                   onClick={() => setShareBackground(option.value)}
                 >
@@ -775,23 +776,23 @@ export function ShareSlotsWorkflow() {
                       className={`mt-0.5 size-4 shrink-0 rounded-full border ${
                         isSelected
                           ? "border-blue-600 bg-blue-600 ring-2 ring-blue-100"
-                          : "border-slate-300 bg-white"
+                          : "border-slate-300 bg-card"
                       }`}
                     />
 
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">
+                      <p className="text-sm font-semibold text-foreground">
                         {option.title}
                       </p>
-                      <p className="text-xs text-slate-500">{option.subtitle}</p>
+                      <p className="text-xs text-muted-foreground">{option.subtitle}</p>
                     </div>
                   </div>
 
                   <div
-                    className={`mt-3 flex h-20 items-center justify-center rounded-xl border border-slate-200 ${option.previewClassName}`}
+                    className={`mt-3 flex h-20 items-center justify-center rounded-xl border border-border ${option.previewClassName}`}
                   >
                     {option.value === "photo" ? (
-                      <Upload className="size-6 text-slate-400" />
+                      <Upload className="size-6 text-muted-foreground" />
                     ) : null}
                   </div>
                 </button>
@@ -808,24 +809,24 @@ export function ShareSlotsWorkflow() {
               }
             />
 
-            <p className="mt-2 text-xs leading-5 text-slate-500">
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
               Selected style: {selectedBackgroundOption.title}. Uploading a photo
               automatically switches to the custom photo background.
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <Link2 className="size-5" />
             </span>
 
             <div>
-              <h2 className="text-base font-bold text-slate-950">
+              <h2 className="text-base font-bold text-foreground">
                 Step 3: Generate and post
               </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Generate the feed and story images, then copy the booking link or
                 caption.
               </p>
@@ -897,9 +898,9 @@ export function ShareSlotsWorkflow() {
             {shareImageFeedUrl || shareImageStoryUrl ? (
               <div className="mt-5 grid gap-4 lg:grid-cols-2">
                 {shareImageFeedUrl ? (
-                  <article className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-sm font-semibold text-slate-900">
-                      Feed image <span className="text-slate-500">(Square)</span>
+                  <article className="rounded-2xl border border-border bg-muted p-3">
+                    <p className="text-sm font-semibold text-foreground">
+                      Feed image <span className="text-muted-foreground">(Square)</span>
                     </p>
 
                     <Image
@@ -908,15 +909,15 @@ export function ShareSlotsWorkflow() {
                       width={1080}
                       height={1080}
                       unoptimized
-                      className="mt-3 h-auto w-full rounded-xl border border-slate-200"
+                      className="mt-3 h-auto w-full rounded-xl border border-border"
                     />
                   </article>
                 ) : null}
 
                 {shareImageStoryUrl ? (
-                  <article className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-sm font-semibold text-slate-900">
-                      Story image <span className="text-slate-500">(9:16)</span>
+                  <article className="rounded-2xl border border-border bg-muted p-3">
+                    <p className="text-sm font-semibold text-foreground">
+                      Story image <span className="text-muted-foreground">(9:16)</span>
                     </p>
 
                     <div className="mt-3 flex justify-center">
@@ -926,7 +927,7 @@ export function ShareSlotsWorkflow() {
                         width={1080}
                         height={1920}
                         unoptimized
-                        className="h-auto max-h-[44rem] w-full rounded-xl border border-slate-200 object-contain lg:max-w-[24rem]"
+                        className="h-auto max-h-[44rem] w-full rounded-xl border border-border object-contain lg:max-w-[24rem]"
                       />
                     </div>
                   </article>
@@ -942,10 +943,10 @@ export function ShareSlotsWorkflow() {
                   </span>
 
                   <div>
-                    <p className="text-sm font-bold text-slate-950">
+                    <p className="text-sm font-bold text-foreground">
                       Final step: Save and post
                     </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
                       Download both formats, then post wherever customers already
                       follow your business.
                     </p>

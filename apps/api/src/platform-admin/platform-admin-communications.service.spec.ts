@@ -1,13 +1,13 @@
 import { NotFoundException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import { PlatformAdminCommunicationsService } from "./platform-admin-communications.service";
 
 const executeMock = vi.fn();
 
-vi.mock("@tyvera/database", async () => {
-  const actual = await vi.importActual<typeof import("@tyvera/database")>(
-    "@tyvera/database",
+vi.mock("@suki/database", async () => {
+  const actual = await vi.importActual<typeof import("@suki/database")>(
+    "@suki/database",
   );
   return {
     ...actual,
@@ -53,7 +53,7 @@ describe("PlatformAdminCommunicationsService", () => {
         {
           id: "message-1",
           organizationId: "org-1",
-          organizationName: "Tyvera Clinic",
+          organizationName: "Suki Clinic",
           businessId: "business-1",
           businessName: "Main Branch",
           appointmentId: null,
@@ -95,7 +95,7 @@ describe("PlatformAdminCommunicationsService", () => {
     expect(result.items[0]).toMatchObject({
       id: "message-1",
       organizationId: "org-1",
-      organizationName: "Tyvera Clinic",
+      organizationName: "Suki Clinic",
       recipientMasked: "*******4567",
       channel: "sms",
       deliveryStatus: "failed",
@@ -136,7 +136,7 @@ describe("PlatformAdminCommunicationsService", () => {
         {
           id: "message-email",
           organizationId: "org-1",
-          organizationName: "Tyvera Clinic",
+          organizationName: "Suki Clinic",
           businessId: "business-1",
           businessName: "Main Branch",
           appointmentId: null,
@@ -170,7 +170,7 @@ describe("PlatformAdminCommunicationsService", () => {
         {
           id: "message-1",
           organizationId: "org-1",
-          organizationName: "Tyvera Clinic",
+          organizationName: "Suki Clinic",
           businessId: "business-1",
           businessName: "Main Branch",
           customerId: "customer-1",
@@ -205,7 +205,7 @@ describe("PlatformAdminCommunicationsService", () => {
 
     expect(detail).toMatchObject({
       id: "message-1",
-      organization: { id: "org-1", name: "Tyvera Clinic" },
+      organization: { id: "org-1", name: "Suki Clinic" },
       customer: {
         id: "customer-1",
         name: "Romeo Angeles",

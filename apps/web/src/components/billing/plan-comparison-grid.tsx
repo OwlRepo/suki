@@ -60,7 +60,7 @@ export function PlanComparisonGrid({
                 <h2 className="text-lg font-semibold">{plan.displayName}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {plan.planType === "free"
-                    ? "Try Tyvera before you commit."
+                    ? "Try Suki before you commit."
                     : `For ${plan.displayName.toLowerCase()} teams.`}
                 </p>
               </div>

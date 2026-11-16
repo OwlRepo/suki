@@ -1,4 +1,4 @@
-# Tyvera
+# Suki
 
 **Bring customers back automatically. No more forgotten follow-ups.**
 
@@ -15,9 +15,9 @@ It’s just that **everyone forgets**.
 
 ---
 
-## What Tyvera Does
+## What Suki Does
 
-Tyvera helps service businesses **recover lost customers automatically**.
+Suki helps service businesses **recover lost customers automatically**.
 
 It captures or reuses customer records during booking, records completed appointment visits automatically, and sends reminders and follow-ups at the right time—so customers come back without you needing to remember.
 
@@ -61,7 +61,7 @@ You set it once. It runs for you.
 
 ## Who This Is For
 
-Tyvera is built for **service businesses with repeat customers**:
+Suki is built for **service businesses with repeat customers**:
 
 - Salons & barbershops  
 - Clinics & dental clinics  
@@ -76,13 +76,13 @@ Tyvera is built for **service businesses with repeat customers**:
 - Convenience stores  
 - One-time transaction businesses  
 
-If customers don’t come back regularly, Tyvera won’t add much value.
+If customers don’t come back regularly, Suki won’t add much value.
 
 ---
 
 ## 💰 Pricing (Early Access)
 
-Tyvera is currently offered as a **customer follow-up automation service**.
+Suki is currently offered as a **customer follow-up automation service**.
 
 You don’t pay for “software”—you pay for:
 > **customers coming back automatically**
@@ -145,13 +145,13 @@ Billing:
 
 ---
 
-## 🧠 Why Businesses Use Tyvera
+## 🧠 Why Businesses Use Suki
 
 One recovered customer often covers the monthly cost.
 
 Example:
 - Missed appointment = ₱500–₱1,000 lost  
-- Tyvera reminder = brings them back  
+- Suki reminder = brings them back  
 
 That’s already ROI.
 
@@ -159,7 +159,7 @@ That’s already ROI.
 
 ## 🤝 Current Setup (Early Stage)
 
-Tyvera is currently offered with **direct support and setup**.
+Suki is currently offered with **direct support and setup**.
 
 - Setup is handled with you  
 - Billing is sent monthly (GCash / bank transfer)  
@@ -194,7 +194,7 @@ Requires [Docker](https://docs.docker.com/get-docker/)
 
 ## Auth Setup (Local First-Party Auth)
 
-Tyvera now uses first-party auth with Resend email OTP and session cookies.
+Suki now uses first-party auth with Resend email OTP and session cookies.
 
 - Web auth pages: `/sign-in`, `/sign-up`
 - API auth routes: `/auth/*`
@@ -238,8 +238,8 @@ TWILIO_OTP_FAILOVER_ON_ERROR_CODES=
 For Twilio rollback, inbound STOP handling, delivery status callbacks, and transitional OTP, configure Twilio with exact public HTTPS URLs, including the `/api` prefix used by the production reverse proxy:
 
 - Outbound sender: `TWILIO_MESSAGING_SERVICE_SID` preferred, or `TWILIO_PHONE_NUMBER`
-- Status callback: `POST https://tyvera.app/api/messaging/webhooks/twilio/status`
-- Incoming message webhook: `POST https://tyvera.app/api/messaging/inbound/sms`
+- Status callback: `POST https://suki.tyvera.app/api/messaging/webhooks/twilio/status`
+- Incoming message webhook: `POST https://suki.tyvera.app/api/messaging/inbound/sms`
 - Transitional booking OTP: `TWILIO_VERIFY_SERVICE_SID`
 
 Provider env:
@@ -258,15 +258,15 @@ TWILIO_AUTH_TOKEN=
 TWILIO_MESSAGING_SERVICE_SID=
 TWILIO_PHONE_NUMBER=
 TWILIO_VERIFY_SERVICE_SID=
-TWILIO_STATUS_CALLBACK_URL=https://tyvera.app/api/messaging/webhooks/twilio/status
-TWILIO_INBOUND_SMS_WEBHOOK_URL=https://tyvera.app/api/messaging/inbound/sms
+TWILIO_STATUS_CALLBACK_URL=https://suki.tyvera.app/api/messaging/webhooks/twilio/status
+TWILIO_INBOUND_SMS_WEBHOOK_URL=https://suki.tyvera.app/api/messaging/inbound/sms
 ```
 
 Trial Twilio accounts may only send to verified recipients. Confirm this before onboarding real customers.
 
 ## Platform Admin Production Setup
 
-The platform-admin console uses the existing first-party auth session and `tyvera_session` cookie. Runtime authorization comes from database-backed platform-admin RBAC; founder allowlists remain bootstrap bridges only and should not be treated as normal production authorization.
+The platform-admin console uses the first-party auth session and canonical `suki_session` cookie (with `tyvera_session` accepted for legacy sessions). Runtime authorization comes from database-backed platform-admin RBAC; founder allowlists remain bootstrap bridges only and should not be treated as normal production authorization.
 
 Required production-ready platform-admin env keys:
 
@@ -303,7 +303,7 @@ PLATFORM_ADMIN_BOOTSTRAP_EMAIL=<existing-login-email> \
   bun run db:bootstrap-platform-admin
 ```
 
-The bootstrap command promotes an existing Tyvera user to the seeded `FOUNDER` role. It does not create a password, login identity, or production credential.
+The bootstrap command promotes an existing Suki user to the seeded `FOUNDER` role. It does not create a password, login identity, or production credential.
 
 Production rollout order:
 
@@ -330,7 +330,7 @@ Better Stack and Sentry are not integrated in application code. Better Stack sho
 
 ## Mobile Number Format
 
-Tyvera requires Philippine mobile numbers in strict E.164 format anywhere a mobile value is provided:
+Suki requires Philippine mobile numbers in strict E.164 format anywhere a mobile value is provided:
 
 ```text
 +639171234567

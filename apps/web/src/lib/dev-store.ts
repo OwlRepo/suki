@@ -2,7 +2,8 @@
  * Dev-only localStorage keys for API overrides.
  * Only read in development (NODE_ENV=development).
  */
-const PREFIX = "tyvera_dev_";
+const PREFIX = "suki_dev_";
+const LEGACY_PREFIX = "tyvera_dev_";
 
 export const DEV_KEYS = {
   API_URL: `${PREFIX}api_url`,
@@ -12,7 +13,7 @@ export const DEV_KEYS = {
 
 function getItem(key: string): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(key);
+  return localStorage.getItem(key) ?? localStorage.getItem(key.replace(PREFIX, LEGACY_PREFIX));
 }
 
 function setItem(key: string, value: string): void {
@@ -23,6 +24,7 @@ function setItem(key: string, value: string): void {
 function removeItem(key: string): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(key);
+  localStorage.removeItem(key.replace(PREFIX, LEGACY_PREFIX));
 }
 
 export function getDevApiUrl(): string | null {

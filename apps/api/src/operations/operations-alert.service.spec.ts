@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDb, operationsAlerts } from "@tyvera/database";
+import { getDb, operationsAlerts } from "@suki/database";
 import { OperationsAlertService } from "./operations-alert.service";
 
-vi.mock("@tyvera/database", async () => {
-  const actual = await vi.importActual<typeof import("@tyvera/database")>(
-    "@tyvera/database",
+vi.mock("@suki/database", async () => {
+  const actual = await vi.importActual<typeof import("@suki/database")>(
+    "@suki/database",
   );
   return {
     ...actual,

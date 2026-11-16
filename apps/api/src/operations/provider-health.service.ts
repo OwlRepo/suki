@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { getDb, providerHealthSnapshots } from "@tyvera/database";
+import { getDb, providerHealthSnapshots } from "@suki/database";
 import { sql, type SQL } from "drizzle-orm";
 import {
   getSemaphoreCriticalThreshold,

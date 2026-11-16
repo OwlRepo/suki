@@ -4,7 +4,7 @@ import type {
   BillingInterval,
   BillingPurchaseKind,
   PlanType,
-} from "@tyvera/types";
+} from "@suki/types";
 
 const LEMONSQUEEZY_API = "https://api.lemonsqueezy.com/v1";
 
@@ -135,7 +135,7 @@ export class LemonsqueezyService {
             product_options: {
               enabled_variants: [Number(input.variantId)],
               redirect_url: input.successUrl,
-              receipt_button_text: "Back to Tyvera",
+              receipt_button_text: "Back to Suki",
               receipt_link_url: input.successUrl,
             },
           },

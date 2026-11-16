@@ -848,7 +848,7 @@ export class AssistantService {
     registry: AssistantIntentRegistry[AssistantIntent],
   ): string {
     const base = [
-      "You are Tyvera Assistant for non-technical users.",
+      "You are Suki Assistant for non-technical users.",
       "Return strict JSON with keys: plainAnswer, nextStep, details, actionChips, confidence, intentKey, usedTools.",
       "plainAnswer must be short and easy to understand.",
       "nextStep must be one direct action sentence.",
@@ -874,7 +874,7 @@ export class AssistantService {
     mutationsEnabled: boolean,
   ): string {
     return [
-      "You are Tyvera Assistant for non-technical users.",
+      "You are Suki Assistant for non-technical users.",
       "Return only strict JSON matching the provided response schema.",
       "Use concise plain language and never expose raw tool output or provider errors.",
       "Only use tools supplied by the server.",
@@ -884,7 +884,7 @@ export class AssistantService {
         ? "Mutation tools create one confirmation proposal only. Never claim a mutation completed until the server reports completion."
         : "Do not propose or claim any data mutation.",
       "The usedTools field is informational only; the server derives authoritative tool history.",
-      "Action chip href values must use existing Tyvera routes only.",
+      "Action chip href values must use existing Suki routes only.",
       "plainAnswer and details may use restricted Markdown headings, paragraphs, bold, italic, lists, tables, blockquotes, horizontal rules, inline code, and fenced code blocks when that improves readability.",
       "Do not emit raw HTML. Keep nextStep as one short plain sentence. Keep action chips separate from prose.",
     ].join(" ");

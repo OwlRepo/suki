@@ -51,7 +51,7 @@ export class SemaphoreOtpProvider implements IOtpProvider {
     const params = new URLSearchParams();
     params.set("apikey", this.apiKey);
     params.set("number", this.normalizeNumber(input.mobile));
-    params.set("message", "Your TYVERA booking OTP is {otp}. It expires in 5 minutes.");
+    params.set("message", "Your SUKI booking OTP is {otp}. It expires in 5 minutes.");
     params.set("code", code);
     if (this.senderName) {
       params.set("sendername", this.senderName);

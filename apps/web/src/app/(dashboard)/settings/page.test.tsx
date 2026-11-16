@@ -89,7 +89,7 @@ function installDefaultMocks(
   });
   apiRequestMock.mockImplementation(async (path: string, options?: { body?: string }) => {
     if (path === "/organizations/me") {
-      return { organization: { id: "org-1", name: "Tyvera Org" } };
+      return { organization: { id: "org-1", name: "Suki Org" } };
     }
     if (path === "/businesses") {
       return {

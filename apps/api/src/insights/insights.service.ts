@@ -1,12 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import {
   customers,
   businesses,
   appointments,
   aiUsageEvents,
   messageEvents,
-} from "@tyvera/database";
+} from "@suki/database";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 
 @Injectable()

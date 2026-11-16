@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { PlanType } from "@tyvera/types";
+import type { PlanType } from "@suki/types";
 import { FeatureFlagsService } from "./feature-flags.service";
 import { OrgBillingStateService } from "./org-billing-state.service";
 import { getPlanCatalogEntry } from "../billing/plan-catalog";

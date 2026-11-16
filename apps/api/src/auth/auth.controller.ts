@@ -11,7 +11,8 @@ import {
 import type { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 
-const COOKIE_NAME = "tyvera_session";
+const COOKIE_NAME = "suki_session";
+const LEGACY_COOKIE_NAME = "tyvera_session";
 
 @Controller("auth")
 export class AuthController {
@@ -64,7 +65,7 @@ export class AuthController {
   @Get("me")
   async me(@Req() req: Request) {
     const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
-    const token = cookies?.[COOKIE_NAME];
+    const token = (cookies?.[COOKIE_NAME] ?? cookies?.[LEGACY_COOKIE_NAME]);
     if (!token) throw new UnauthorizedException("No active session");
     const session = await this.authService.validateSession(token);
     if (!session) throw new UnauthorizedException("Invalid session");
@@ -86,11 +87,12 @@ export class AuthController {
   ) {
     const bearer = authHeader?.replace(/^Bearer\s+/i, "").trim();
     const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
-    const token = bearer || cookies?.[COOKIE_NAME];
-    if (token) {
+    const tokens = new Set([bearer, cookies?.[COOKIE_NAME], cookies?.[LEGACY_COOKIE_NAME]].filter((token): token is string => !!token));
+    for (const token of tokens) {
       await this.authService.signOut(token);
     }
     res.clearCookie(COOKIE_NAME, { path: "/" });
+    res.clearCookie(LEGACY_COOKIE_NAME, { path: "/" });
     return { ok: true };
   }
 
@@ -98,7 +100,7 @@ export class AuthController {
   async sync(@Headers("authorization") authHeader: string | undefined, @Req() req: Request) {
     const tokenFromHeader = authHeader?.replace(/^Bearer\s+/i, "").trim();
     const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
-    const token = cookies?.[COOKIE_NAME] || tokenFromHeader;
+    const token = (cookies?.[COOKIE_NAME] ?? cookies?.[LEGACY_COOKIE_NAME]) || tokenFromHeader;
     if (!token) {
       throw new UnauthorizedException("Missing Authorization header");
     }

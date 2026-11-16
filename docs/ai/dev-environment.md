@@ -33,7 +33,7 @@ Never point a lifecycle script at a shared or production database from a task.
 
 ## Production
 
-A push to `main` runs `.github/workflows/deploy.yml`: SSH to the VPS (`~/apps/tyvera`), `git pull --ff-only`, `pg_dump` backup to `~/apps/tyvera-backups` (14-day retention), build `api` then `web` with `docker-compose.prod.yml`, start containers, health-check `http://localhost:3001/health` and `http://localhost:3000`, seed platform-admin RBAC, and smoke-check `https://tyvera.app/sign-up` for dev artifacts. The API container applies pending migrations on start (`apps/api/Dockerfile`). There is no staging environment; manual QA happens locally.
+A push to `main` runs `.github/workflows/deploy.yml`: SSH to the VPS (`~/apps/tyvera`), `git pull --ff-only`, `pg_dump` backup to `~/apps/tyvera-backups` (14-day retention), build `api` then `web` with `docker-compose.prod.yml`, start containers, health-check `http://localhost:3001/health` and `http://localhost:3000`, seed platform-admin RBAC, and smoke-check `https://suki.tyvera.app/sign-up` for dev artifacts. The API container applies pending migrations on start (`apps/api/Dockerfile`). There is no staging environment; manual QA happens locally.
 
 ## Git hooks
 
