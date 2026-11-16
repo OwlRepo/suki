@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -59,6 +60,9 @@ export class BillingController {
     @Tenant("userId") userId?: string,
   ) {
     if (!orgId || !userId) throw new UnauthorizedException("Unauthorized");
+    if (body.billingInterval === "annual" && !this.featureFlags.annualBillingCheckoutEnabled()) {
+      throw new BadRequestException({ code: "ANNUAL_BILLING_DISABLED", message: "Annual billing is not available yet." });
+    }
     return this.billingService.createSubscriptionCheckout({
       organizationId: orgId,
       userId,
@@ -114,6 +118,9 @@ export class BillingController {
     @Tenant("organizationId") orgId?: string,
   ) {
     if (!orgId) throw new UnauthorizedException("Unauthorized");
+    if (body.billingInterval === "annual" && !this.featureFlags.annualBillingCheckoutEnabled()) {
+      throw new BadRequestException({ code: "ANNUAL_BILLING_DISABLED", message: "Annual billing is not available yet." });
+    }
     return this.billingService.changePlan(orgId, body);
   }
 

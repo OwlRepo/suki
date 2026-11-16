@@ -33,6 +33,7 @@ import {
   resolveAddonSku,
   resolveSubscriptionVariantEnvKey,
 } from "./plan-catalog";
+import { FeatureFlagsService } from "../common/feature-flags.service";
 import { SmsAddonGrantService } from "./sms-addon-grant.service";
 import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant.service";
 
@@ -65,7 +66,7 @@ export class BillingService {
   ) {}
 
   private isSelfServeBillingEnabled(): boolean {
-    return process.env.FF_self_serve_billing_enabled === "true";
+    return new FeatureFlagsService().selfServeBillingEnabled();
   }
 
   private throwBillingDisabled(): never {
@@ -522,7 +523,8 @@ export class BillingService {
 
     try {
       await db.transaction(async (tx) => {
-        if (eventName.startsWith("subscription_")) {
+        // subscription_payment_* carry an invoice, not a subscription; LS sends subscription_updated with each.
+        if (eventName.startsWith("subscription_") && !eventName.startsWith("subscription_payment_")) {
           await this.reconcileSubscriptionEvent(tx, payload);
         } else if (eventName === "order_created") {
           await this.reconcileOrderCreatedEvent(tx, payload);
@@ -700,6 +702,9 @@ export class BillingService {
         currentPlan: nextOrgPlan,
         billingStatus: this.mapOrgBillingStatus(status, endsAt),
         nextBillingDueAt: renewsAt,
+        // manual-era access dates would otherwise force "suspended" in OrgBillingStateService
+        accessEndsAt: null,
+        billingPausedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(organizations.id, organizationId));
@@ -1208,7 +1213,6 @@ export class BillingService {
       return attributeStatus;
     }
 
-    if (eventName === "subscription_payment_failed") return "past_due";
     if (eventName === "subscription_cancelled") return "cancelled";
     if (eventName === "subscription_expired") return "expired";
     if (eventName === "subscription_paused") return "paused";
