@@ -1,16 +1,16 @@
-# Graph Report - fix-ls-refund-addon-match  (2026-11-16)
+# Graph Report - beautiful-dirac-1256db  (2026-11-17)
 
 ## Corpus Check
-- 858 files · ~523,624 words
+- 861 files · ~532,903 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4972 nodes · 10771 edges · 370 communities (285 shown, 85 thin omitted)
+- 5012 nodes · 10858 edges · 362 communities (282 shown, 80 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 118 edges (avg confidence: 0.79)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `333f43dc`
+- Built from commit: `ce0e6f06`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -22,7 +22,7 @@
 - schema/index.ts
 - operations-alert.service.ts
 - button.tsx
-- platform-admin-billing-request-detail-page.tsx
+- apiRequest
 - platform-admin-automation-runs-page.tsx
 - auth.service.ts
 - app.module.ts
@@ -37,19 +37,19 @@
 - clerk-auth.guard.ts
 - Port Claude Code engineering workflow plan
 - AssistantService
-- types/src/index.ts
-- businesses
-- apiRequest
+- platform-admin.controller.ts
+- crm.module.ts
+- platform-admin-client-request-detail-page.tsx
 - platform-admin-communications.service.ts
-- app/page.tsx
+- PlatformAdminController
 - scripts
 - Tenant
 - AiUsageService
 - PlanCapacityService
 - MessagingService
-- adaptive-app-shell.tsx
-- OrganizationsService
-- SmsMeteringService
+- auth-user-button.test.tsx
+- AdminController
+- types/src/index.ts
 - Tool route_guidance
 - dependencies
 - FeatureFlagsService
@@ -57,15 +57,15 @@
 - assistant-mutation.service.ts
 - IOtpProvider
 - AI Entry Point
-- auth.bootstrap.service.ts
+- LS subscription sync fixes (items 1-11)
 - billing.service.ts
-- BusinessesController
-- admin.controller.ts
+- businesses.controller.ts
+- isFounder
 - PromosService
 - dependencies
 - automation-scheduler.service.spec.ts
-- AutomationController
-- PlanType
+- messaging.controller.ts
+- plan-catalog.ts
 - LemonsqueezyService
 - semaphore-message-reconciliation.service.ts
 - planning.md
@@ -74,24 +74,24 @@
 - needs-attention-page.tsx
 - 0000_tearful_dreadnoughts.sql
 - generate-agent-defs.mjs
-- ai-execution.service.ts
-- .dispatch
+- ai-execution.service.spec.ts
+- AutomationSendService
 - CustomersService
 - messaging.module.ts
 - devDependencies
 - brand-theme.ts
 - devDependencies
-- assistant-openai-tools.service.ts
+- assistant-tool-policy.ts
 - [businessId]/page.tsx
 - ui/src/index.ts
-- IEmailProvider
+- platform-admin-billing-email.template.ts
 - WorkflowsController
 - manual-follow-up-digest.service.ts
 - help-content.ts
 - sign-up/page.tsx
 - test-repo.mjs
-- AdminController
-- feature-flags.service.ts
+- OnboardingController
+- assistant-read-model.service.spec.ts
 - DealsService
 - TasksService
 - TwilioVerifyOtpProvider
@@ -101,7 +101,7 @@
 - org-billing-state.service.ts
 - DealStagesService
 - migration-types.ts
-- normalizePhilippineMobileE164
+- IntakeController
 - EmailMeteringService
 - ui/package.json
 - config/autonomous-engineering.yaml
@@ -110,25 +110,25 @@
 - IntakeBookingService
 - .execute
 - ImportsController
-- inbound-sms.controller.ts
+- .handleInboundSms
 - BillingController
 - PlatformAdminBillingEmailService
-- platform-admin-billing-email.service.ts
+- InsightsController
 - pr-evidence.md
-- automation-send.service.ts
+- database/src/index.ts
 - intake-booking.service.spec.ts
 - PrivacyController
 - web/package.json
-- platform-admin-shell.tsx
-- request-change-section.tsx
-- HealthController
+- otp-provider.ts
+- billing/page.tsx
+- manual-subscription-policy.ts
 - ImportsService
 - assistant-context-loader.ts
 - nav-group-dropdown.tsx
 - date-pickers.tsx
 - compilerOptions
 - compilerOptions
-- appointment-lifecycle-scheduler.service.ts
+- class-transformer
 - Strict TDD
 - Bootstrap Validation Workflow
 - scripts
@@ -144,8 +144,8 @@
 - deploy job (SSH to VPS, push to main)
 - .getActivePlan
 - CustomerTemplatesService
-- assistant.controller.ts
-- InsightsService
+- AssistantController
+- assistant-read-model.service.ts
 - messaging-webhook.service.spec.ts
 - intake-booking.service.ts
 - compilerOptions
@@ -158,8 +158,6 @@
 - 0010_gigantic_eternity.sql
 - 0030_small_spot.sql
 - devDependencies
-- HttpExceptionFilter
-- AiRateLimiterService
 - MigrationEntity
 - migration.service.spec.ts
 - exclude
@@ -183,14 +181,11 @@
 - globalDependencies
 - outputs
 - nest-cli.json
-- .constructor
-- platform-admin/layout.tsx
+- platform-admin-shell.tsx
 - api/package.json
-- platform-admin-billing-email.service.spec.ts
 - types/tsconfig.json
 - compilerOptions
 - ^build
-- @nestjs/platform-express
 - qrcode
 - MessagingWebhookService
 - message-dispatch.service.ts
@@ -199,7 +194,7 @@
 - page.wizard.test.tsx
 - dashboard.loop.test.tsx
 - assistant-usage.ts
-- permissions
+- settings.json
 - Dev Docker Compose
 - "manual_follow_up_tasks"
 - database-architect agent
@@ -211,25 +206,22 @@
 - @nestjs/schedule
 - .getBatch
 - LoyaltyController
-- security.module.ts
+- PiiCryptoService
 - booking-flow.ts
 - use-progressive-assistant-text.ts
 - Plan: fix main red tests and lint, run full unit suite on every PR
 - brand-theme.test.ts
 - protected-routes.ts
-- ai-usage.service.spec.ts
 - "activities"
 - db:seed
 - update-ai-indexes.ts
 - project-manager agent
 - code-reviewer agent
 - test-engineer agent
-- AiIdempotencyService
 - pdf-lib
 - reflect-metadata
 - @suki/database
-- migration.service.ts
-- automation-trigger.service.ts
+- MigrationService
 - lucide-react
 - appointments/wizard-progress.ts
 - next
@@ -257,7 +249,7 @@
 - "public_otp_send_events"
 - 0031_same_shockwave.sql
 - "manual_billing_email_deliveries"
-- database/src/index.ts
+- ClientBillingRequestService
 - Suki README
 - ui-ux-designer agent
 - GitHub Copilot Instructions for Suki
@@ -357,16 +349,16 @@
 - TL: Share Slots public booking
 
 ## God Nodes (most connected - your core abstractions)
-1. `getDb()` - 328 edges
+1. `getDb()` - 332 edges
 2. `Tenant` - 151 edges
 3. `cn()` - 144 edges
 4. `apiRequest()` - 87 edges
-5. `PlatformAdminBillingService` - 61 edges
-6. `BillingService` - 57 edges
+5. `BillingService` - 62 edges
+6. `PlatformAdminBillingService` - 61 edges
 7. `Button()` - 56 edges
 8. `FeatureFlagsService` - 55 edges
-9. `useAuth()` - 49 edges
-10. `PlanType` - 49 edges
+9. `PlanType` - 50 edges
+10. `useAuth()` - 49 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Backwards compatibility is mandatory (principle 3)` --semantically_similar_to--> `Backwards compatibility (canonical rule)`  [INFERRED] [semantically similar]
@@ -398,43 +390,43 @@
 - **Metrics and reporting docs** — docs_assistant_context_en_insights, docs_assistant_context_en_metrics, docs_assistant_context_tl_analytics, docs_assistant_context_tl_insights, docs_assistant_context_tl_metrics [INFERRED 0.85]
 - **Default create-next-app public SVG assets** — apps_web_public_file, apps_web_public_globe, apps_web_public_next, apps_web_public_vercel, apps_web_public_window [INFERRED 0.85]
 
-## Communities (370 total, 85 thin omitted)
+## Communities (362 total, 80 thin omitted)
 
 ### Community 0 - "PlatformAdminBillingService"
-Cohesion: 0.05
-Nodes (28): ClientBillingRequestController, Body, Controller, Get, Param, Post, UseGuards, ClientBillingRequestService (+20 more)
+Cohesion: 0.14
+Nodes (3): PlatformAdminBillingService, Injectable, ActivePlatformAdmin
 
 ### Community 1 - "appointments/page.tsx"
 Cohesion: 0.06
-Nodes (54): Appointment, AppointmentsPageContent(), AppointmentStatus, Availability, buildMonthCells(), Customer, dayKey(), LoadOptions (+46 more)
+Nodes (39): Appointment, AppointmentsPageContent(), AppointmentStatus, Availability, buildMonthCells(), Customer, dayKey(), LoadOptions (+31 more)
 
 ### Community 2 - "cn"
 Cohesion: 0.04
-Nodes (74): Business, DryRunResult, DuplicateMatch, ImportsPage(), ParsedRow, ReconciliationReport, CustomerItemActionsProps, MobileNavDrawer() (+66 more)
+Nodes (72): Business, DryRunResult, DuplicateMatch, ImportsPage(), ParsedRow, ReconciliationReport, AiQuotaBanner(), AiSummary (+64 more)
 
 ### Community 3 - "AppointmentsController"
-Cohesion: 0.13
+Cohesion: 0.15
 Nodes (10): AppointmentsController, Body, Controller, Delete, Get, Param, Patch, Post (+2 more)
 
 ### Community 4 - "schema/index.ts"
 Cohesion: 0.04
-Nodes (47): client, db, findBootstrapUser(), main(), normalizeEmail(), client, db, client (+39 more)
+Nodes (67): CreateClientBillingRequestInput, createHarness(), isPaidManualPlan(), DeliveryMode, BillingTx, CreateBillingRequestInput, RecordManualPaymentInput, SmsAdjustmentInput (+59 more)
 
 ### Community 5 - "operations-alert.service.ts"
 Cohesion: 0.06
 Nodes (40): AlertCondition, buildAlertWhere(), buildAutomationRunWhere(), DbWithExecute, numberFrom(), OperationsAlertService, parsePositiveInt(), parseTimestampParam() (+32 more)
 
 ### Community 6 - "button.tsx"
-Cohesion: 0.06
-Nodes (46): HelpPage(), ROUTE_LABELS, Business, Metrics, BILLING_STATUS_LABELS, BillingSettingsPage(), BillingStatusResponse, { apiRequestMock, getTokenMock, searchParamsGetMock } (+38 more)
+Cohesion: 0.05
+Nodes (54): Activity, DayAppointment, DayCustomer, STATUS_LABELS, Summary, Usage, ROUTE_LABELS, Business (+46 more)
 
-### Community 7 - "platform-admin-billing-request-detail-page.tsx"
-Cohesion: 0.11
-Nodes (29): BillingRequestDetail, BillingRequestListItem, confirmManualPaymentAndFulfill(), getPlatformAdminBillingRequest(), listPlatformAdminBillingRequests(), ManualBillingCatalogItem, ManualBillingEmailDelivery, ManualBillingRequestStatus (+21 more)
+### Community 7 - "apiRequest"
+Cohesion: 0.07
+Nodes (45): BillingRequestDetail, BillingRequestListItem, confirmManualPaymentAndFulfill(), createPlatformAdminBillingRequest(), getPlatformAdminBillingRequest(), getPlatformAdminManualBillingCatalog(), listPlatformAdminBillingRequests(), ManualBillingCatalogItem (+37 more)
 
 ### Community 8 - "platform-admin-automation-runs-page.tsx"
 Cohesion: 0.08
-Nodes (36): formatDateTime(), PlatformAdminAlertsPage(), formatDateTime(), PlatformAdminAutomationRunsPage(), buildQuery(), getPlatformAdminOperationsOverview(), getPlatformAdminProviderHealth(), listPlatformAdminAlerts() (+28 more)
+Nodes (37): CurrentPlanCard(), UsageMeterCard(), formatDateTime(), PlatformAdminAlertsPage(), formatDateTime(), PlatformAdminAutomationRunsPage(), buildQuery(), getPlatformAdminOperationsOverview() (+29 more)
 
 ### Community 9 - "auth.service.ts"
 Cohesion: 0.07
@@ -446,7 +438,7 @@ Nodes (45): AdminModule, Module, AiModule, Module, AppointmentsModule, Module, A
 
 ### Community 11 - "useAuth"
 Cohesion: 0.04
-Nodes (68): AnalyticsPage(), MonitoringResponse, PIE_COLORS, Activity, DashboardPageContent(), DayAppointment, DayCustomer, STATUS_LABELS (+60 more)
+Nodes (67): AnalyticsPage(), MonitoringResponse, PIE_COLORS, DashboardPageContent(), ImportsPageContent(), InsightsPageContent(), SetupPageContent(), OnboardingLayoutContent() (+59 more)
 
 ### Community 12 - "platform-admin-communications-page.tsx"
 Cohesion: 0.08
@@ -461,24 +453,24 @@ Cohesion: 0.10
 Nodes (45): changedEntries(), collectTitles(), GateError, git(), main(), report(), runAgainstBase(), WORKSPACE_DIRS (+37 more)
 
 ### Community 15 - "suki-assistant.tsx"
-Cohesion: 0.16
-Nodes (11): AssistantMessage, AssistantNotice, COACHMARK_STEPS, detectLocale(), isUsableBearerToken(), { apiRequestMock, usePlanCapabilitiesMock }, PROMPTS, SukiAssistant() (+3 more)
+Cohesion: 0.08
+Nodes (29): composeDescription(), CustomerFormModal(), CustomerFormModalProps, CustomerTemplate, TemplateField, CustomerMessageHistoryModalProps, MessageEvent, CustomerVisitAdjustmentModalProps (+21 more)
 
 ### Community 16 - "manual-follow-up.service.ts"
 Cohesion: 0.09
-Nodes (21): ManualFollowUpController, Body, Controller, Get, Param, Patch, Post, Query (+13 more)
+Nodes (22): MANUAL_FOLLOW_UP_AUTOMATION_KEY_SET, ManualFollowUpController, Body, Controller, Get, Param, Patch, Post (+14 more)
 
 ### Community 17 - "BillingService"
-Cohesion: 0.09
-Nodes (9): BillingService, Injectable, addUtcMonthsClamped(), ALLOWED_ACTIONS, assertManualSubscriptionActionAllowed(), isPaidManualPlan(), ManualCoverageInput, resolveManualCoveragePeriod() (+1 more)
+Cohesion: 0.10
+Nodes (8): BillingService, Injectable, CreateCheckoutInput, getPlanCatalogEntry(), resolveAddonSku(), resolveSubscriptionVariantEnvKey(), BillingInterval, PlanType
 
 ### Community 18 - "settings/page.tsx"
-Cohesion: 0.07
-Nodes (37): AUTOMATION_TEMPLATE_KEYS, AutomationSettingsApi, AutomationTemplateKey, BillingStatus, BRAND_SWATCHES, buildBusinessMonogram(), Business, CustomerTemplate (+29 more)
+Cohesion: 0.08
+Nodes (35): AUTOMATION_TEMPLATE_KEYS, AutomationSettingsApi, AutomationTemplateKey, BillingStatus, BRAND_SWATCHES, buildBusinessMonogram(), Business, CustomerTemplate (+27 more)
 
 ### Community 19 - "clerk-auth.guard.ts"
-Cohesion: 0.08
-Nodes (21): ManualAppointmentStatus, ClerkAuthGuard, readCookie(), Injectable, BillingWriteGuard, Injectable, OwnerGuard, Injectable (+13 more)
+Cohesion: 0.12
+Nodes (11): ManualAppointmentStatus, ClerkAuthGuard, readCookie(), Injectable, BillingWriteGuard, Injectable, OwnerGuard, Injectable (+3 more)
 
 ### Community 20 - "Port Claude Code engineering workflow plan"
 Cohesion: 0.08
@@ -488,25 +480,25 @@ Nodes (28): agents/src, docs/ai orchestration and environment docs, docs/ai phas
 Cohesion: 0.11
 Nodes (8): AssistantIntent, AI_CAP_ERROR_CODES, AssistantService, SAFE_ROUTE_WHITELIST, Injectable, AssistantActionChip, AssistantChatResponse, AssistantChatStreamEvent
 
-### Community 22 - "types/src/index.ts"
-Cohesion: 0.05
-Nodes (47): actor, PLATFORM_ADMIN_PERMISSIONS_KEY, PlatformAdminGuard, Injectable, PlatformAdminService, PlatformAdminSession, Injectable, PlatformAdminSession (+39 more)
+### Community 22 - "platform-admin.controller.ts"
+Cohesion: 0.08
+Nodes (28): UpdateManualSubscriptionStatusInput, actor, PLATFORM_ADMIN_PERMISSIONS_KEY, PlatformAdminGuard, Injectable, PlatformAdminService, PlatformAdminSession, Injectable (+20 more)
 
-### Community 23 - "businesses"
+### Community 23 - "crm.module.ts"
 Cohesion: 0.07
-Nodes (23): CrmModeGuard, Injectable, ActivitiesController, Body, Controller, Get, Post, Query (+15 more)
+Nodes (22): CrmModeGuard, Injectable, ActivitiesController, Body, Controller, Get, Post, Query (+14 more)
 
-### Community 24 - "apiRequest"
-Cohesion: 0.06
-Nodes (42): listPlatformAdminAuditLogs(), PlatformAdminAuditLog, formatDate(), PlatformAdminAuditLogsPage(), createPlatformAdminBillingRequest(), getPlatformAdminManualBillingCatalog(), formatDate(), formatPhp() (+34 more)
+### Community 24 - "platform-admin-client-request-detail-page.tsx"
+Cohesion: 0.09
+Nodes (26): listPlatformAdminAuditLogs(), PlatformAdminAuditLog, formatDate(), PlatformAdminAuditLogsPage(), listPlatformAdminBusinesses(), formatStatus(), PlatformAdminBusinessesPage(), formatDate() (+18 more)
 
 ### Community 25 - "platform-admin-communications.service.ts"
 Cohesion: 0.10
 Nodes (20): CommunicationRow, CommunicationsListQuery, CommunicationsRange, CommunicationsSummaryQuery, DbWithExecute, isDeliveryStatus(), numberFrom(), parsePositiveInt() (+12 more)
 
-### Community 26 - "app/page.tsx"
-Cohesion: 0.12
-Nodes (16): BEFORE_AFTER, BUSINESS_TYPES, FAQ, HOW_IT_WORKS, KEY_AUTOMATIONS, OUTCOME_STATS, PROBLEM_POINTS, SukiMarkProps (+8 more)
+### Community 26 - "PlatformAdminController"
+Cohesion: 0.17
+Nodes (12): PlatformAdminController, Body, Controller, Get, Param, Patch, Post, Query (+4 more)
 
 ### Community 27 - "scripts"
 Cohesion: 0.06
@@ -517,28 +509,28 @@ Cohesion: 0.17
 Nodes (11): Tenant, CustomersController, Body, Controller, Delete, Get, Param, Patch (+3 more)
 
 ### Community 29 - "AiUsageService"
-Cohesion: 0.14
-Nodes (12): Body, Get, Patch, Post, Query, AiUsageService, getCurrentMonthUTC(), getDayStartUTC() (+4 more)
+Cohesion: 0.09
+Nodes (20): AiController, Body, Controller, Get, Patch, Post, Query, UseGuards (+12 more)
 
 ### Community 30 - "PlanCapacityService"
 Cohesion: 0.12
-Nodes (16): AiConcurrencyService, Injectable, AiController, Controller, UseGuards, Entry, AI_QUOTAS, AI_SHARED_SAFEGUARDS (+8 more)
+Nodes (16): AiConcurrencyService, Injectable, Entry, AiPolicyService, Injectable, AI_QUOTAS, AI_SHARED_SAFEGUARDS, AiQuotaConfig (+8 more)
 
 ### Community 31 - "MessagingService"
 Cohesion: 0.15
 Nodes (8): AiExecutionService, Injectable, MessagingService, fromMock, limitMock, selectMock, whereMock, Injectable
 
-### Community 32 - "adaptive-app-shell.tsx"
-Cohesion: 0.08
-Nodes (28): Home(), AuthButton(), invalidateSessionCache, mockPush, mockRefresh, signOut, AdaptiveAppShell(), getDashboardNavGroups() (+20 more)
+### Community 32 - "auth-user-button.test.tsx"
+Cohesion: 0.33
+Nodes (5): invalidateSessionCache, mockPush, mockRefresh, signOut, UserButton()
 
-### Community 33 - "OrganizationsService"
-Cohesion: 0.11
-Nodes (12): BUSINESS_TYPE_RECOMMENDATIONS, RecommendationService, Injectable, OrganizationsController, Body, Controller, Get, Patch (+4 more)
+### Community 33 - "AdminController"
+Cohesion: 0.07
+Nodes (24): AdminController, mockFrom, mockSelect, mockWhere, queuedWhereResults, Body, Controller, Get (+16 more)
 
-### Community 34 - "SmsMeteringService"
-Cohesion: 0.13
-Nodes (9): MessagingController, Body, Controller, Get, Post, UseGuards, SmsMeteringService, Injectable (+1 more)
+### Community 34 - "types/src/index.ts"
+Cohesion: 0.07
+Nodes (29): AiCredits, AiFeatureKey, ApiError, Appointment, AuditLog, AutomationJobRunStatus, AutomationSettings, BillingProvider (+21 more)
 
 ### Community 35 - "Tool route_guidance"
 Cohesion: 0.15
@@ -546,10 +538,14 @@ Nodes (29): Tool get_business_summary, Tool get_sms_usage, Tool route_guidance, 
 
 ### Community 36 - "dependencies"
 Cohesion: 0.11
-Nodes (19): dependencies, class-transformer, class-validator, csv-parse, @nestjs/common, @nestjs/config, @nestjs/core, rxjs (+11 more)
+Nodes (19): dependencies, class-validator, csv-parse, @nestjs/common, @nestjs/config, @nestjs/core, @nestjs/platform-express, rxjs (+11 more)
+
+### Community 37 - "FeatureFlagsService"
+Cohesion: 0.05
+Nodes (28): AppModule, Module, AppointmentLifecycleSchedulerService, Cron, Injectable, AuthBootstrapService, makePasswordHash(), normalizeEmail() (+20 more)
 
 ### Community 38 - "answer-source.service.ts"
-Cohesion: 0.10
+Cohesion: 0.11
 Nodes (13): AnswerSourceController, Controller, Get, Query, UseGuards, AnswerSourceService, aiUsage, billing (+5 more)
 
 ### Community 39 - "assistant-mutation.service.ts"
@@ -557,28 +553,28 @@ Cohesion: 0.10
 Nodes (15): AssistantMutationService, AssistantMutationToolName, ConfirmationPayload, CustomerChanges, customerSnapshot(), dateIso(), ExecuteMutationToolInput, MutationAction (+7 more)
 
 ### Community 40 - "IOtpProvider"
-Cohesion: 0.15
-Nodes (8): Inject, Optional, OtpFailoverService, Inject, Injectable, IOtpProvider, OtpProviderSettingsService, Injectable
+Cohesion: 0.18
+Nodes (6): Inject, Optional, OtpFailoverService, Inject, Injectable, IOtpProvider
 
 ### Community 41 - "AI Entry Point"
 Cohesion: 0.19
 Nodes (20): Engineering Plan Template, Task Template, AI Entry Point, Source Verification Rule (source wins; CONTEXT/CONTRACT DRIFT markers), Release flow (PR into main, merge commit, deploy.yml), docs/ai/plan-template.md canonical plan skeleton, Backwards compatibility (canonical rule), Bugfix Plan prompt (+12 more)
 
-### Community 42 - "auth.bootstrap.service.ts"
-Cohesion: 0.29
-Nodes (6): AuthBootstrapService, makePasswordHash(), normalizeEmail(), getDbMock, Injectable, authIdentities
+### Community 42 - "LS subscription sync fixes (items 1-11)"
+Cohesion: 0.12
+Nodes (15): Approved decisions (override the plan text where they differ), Compatibility, Data impact, Decisions for parent (recommended option first), Flowchart (high-level), Hand-over, LS facts (fetched this session), LS subscription sync fixes (items 1-11) (+7 more)
 
 ### Community 43 - "billing.service.ts"
-Cohesion: 0.07
-Nodes (30): LemonWebhookPayload, CreditRow, getDbMock, SubscriptionRow, SubscriptionStatus, applyMonthlyIncludedUpgrade(), computeCreditLedgerRemaining(), BillingAddonCatalogEntry (+22 more)
+Cohesion: 0.06
+Nodes (39): LemonWebhookPayload, LIVE_SUBSCRIPTION_STATUSES, PLAN_TIER_RANK, ReconcileOutcome, CreditRow, getDbMock, SubscriptionRow, SubscriptionStatus (+31 more)
 
-### Community 44 - "BusinessesController"
+### Community 44 - "businesses.controller.ts"
 Cohesion: 0.12
 Nodes (10): BusinessesController, Body, Controller, Get, Param, Patch, Post, UseGuards (+2 more)
 
-### Community 45 - "admin.controller.ts"
-Cohesion: 0.11
-Nodes (15): getFounderAllowlistEmails(), getFounderAllowlistUserIds(), isFounder(), parseList(), FounderGuard, Injectable, Body, Controller (+7 more)
+### Community 45 - "isFounder"
+Cohesion: 0.13
+Nodes (14): getFounderAllowlistEmails(), getFounderAllowlistUserIds(), isFounder(), parseList(), FounderGuard, Injectable, Body, Controller (+6 more)
 
 ### Community 46 - "PromosService"
 Cohesion: 0.15
@@ -592,21 +588,21 @@ Nodes (27): dependencies, class-variance-authority, clsx, next-themes, radix-ui,
 Cohesion: 0.14
 Nodes (12): AutomationSchedulerService, makeDbForAppointmentReminders(), makeDbForInactivityWinback(), Cron, Injectable, AutomationJobRunService, clampCount(), JobWorkResult (+4 more)
 
-### Community 49 - "AutomationController"
-Cohesion: 0.21
-Nodes (7): AutomationController, Body, Controller, Get, Patch, Query, UseGuards
-
-### Community 50 - "PlanType"
+### Community 49 - "messaging.controller.ts"
 Cohesion: 0.13
-Nodes (22): CreditLedgerSnapshot, BILLING_ADDON_CATALOG, BILLING_INTERVALS, BILLING_PLAN_CATALOG, getPlanCatalogEntry(), MANUAL_ADDON_CATALOG, MANUAL_ADDON_PRICE_PHP, MANUAL_BILLING_CATALOG (+14 more)
+Nodes (9): AutomationController, Body, Controller, Get, Patch, Query, UseGuards, PlanAiMessagingGuard (+1 more)
+
+### Community 50 - "plan-catalog.ts"
+Cohesion: 0.14
+Nodes (17): ADDON_SKUS, CHANGE_PLAN_TYPES, PAID_PLAN_TYPES, BILLING_ADDON_CATALOG, BILLING_INTERVALS, BILLING_PLAN_CATALOG, BillingAddonCatalogEntry, MANUAL_ADDON_CATALOG (+9 more)
 
 ### Community 51 - "LemonsqueezyService"
-Cohesion: 0.11
-Nodes (12): BillingWebhookController, LemonWebhookPayload, RawBodyRequest, Controller, Post, Req, CreateCheckoutInput, LemonsqueezyService (+4 more)
+Cohesion: 0.12
+Nodes (10): BillingWebhookController, LemonWebhookPayload, RawBodyRequest, Controller, Post, Req, LemonsqueezyService, LemonSubscriptionResponse (+2 more)
 
 ### Community 52 - "semaphore-message-reconciliation.service.ts"
-Cohesion: 0.13
-Nodes (14): MANUAL_FOLLOW_UP_AUTOMATION_KEY_SET, MANUAL_FOLLOW_UP_AUTOMATION_KEYS, SEMAPHORE_RECONCILIATION_BATCH_SIZE, SEMAPHORE_RECONCILIATION_CRON, SEMAPHORE_RECONCILIATION_LOOKBACK_HOURS, extractSemaphoreMessageId(), getAutomationSentMarkerTarget(), ReconciliationEvent (+6 more)
+Cohesion: 0.15
+Nodes (13): MANUAL_FOLLOW_UP_AUTOMATION_KEYS, SEMAPHORE_RECONCILIATION_BATCH_SIZE, SEMAPHORE_RECONCILIATION_CRON, SEMAPHORE_RECONCILIATION_LOOKBACK_HOURS, extractSemaphoreMessageId(), getAutomationSentMarkerTarget(), ReconciliationEvent, SemaphoreMessageReconciliationService (+5 more)
 
 ### Community 53 - "planning.md"
 Cohesion: 0.10
@@ -632,21 +628,21 @@ Nodes (20): "ai_credits", "appointments", "businesses", "customers", "organizati
 Cohesion: 0.13
 Nodes (19): check(), CLAUDE_DIR, claudeFilePath(), computeTargets(), escapeDoubleQuoted(), findDuplicateOwnedGlobs(), generate(), GLOBAL_POLICY (+11 more)
 
-### Community 59 - "ai-execution.service.ts"
+### Community 59 - "ai-execution.service.spec.ts"
 Cohesion: 0.15
-Nodes (8): ExecuteResponsesToolLoopOptions, MAX_ASSISTANT_TOOL_CALLS, MAX_ASSISTANT_TOOL_ROUNDS, aiService, baseOptions, planCapacity, policy, usage
+Nodes (7): MAX_ASSISTANT_TOOL_CALLS, MAX_ASSISTANT_TOOL_ROUNDS, aiService, baseOptions, planCapacity, policy, usage
 
-### Community 60 - ".dispatch"
-Cohesion: 0.14
-Nodes (8): AutomationSendService, Injectable, AutomationSettingsService, Injectable, getDayStartUTC(), getEnvInt(), MessageDispatchService, Injectable
+### Community 60 - "AutomationSendService"
+Cohesion: 0.24
+Nodes (4): AutomationSendService, Injectable, AutomationSettingsService, Injectable
 
 ### Community 61 - "CustomersService"
-Cohesion: 0.20
-Nodes (3): CustomersService, parseTags(), Injectable
+Cohesion: 0.10
+Nodes (12): CustomersService, parseTags(), executeMock, fromMock, insertMock, limitMock, returningMock, selectMock (+4 more)
 
 ### Community 62 - "messaging.module.ts"
 Cohesion: 0.12
-Nodes (10): PlanAiMessagingGuard, Injectable, SemaphoreSmsProvider, Injectable, ISmsProvider, NoopSmsProvider, SmsSendResult, Injectable (+2 more)
+Nodes (11): AutomationPolicyModule, Global, Module, SemaphoreSmsProvider, Injectable, ISmsProvider, NoopSmsProvider, SmsSendResult (+3 more)
 
 ### Community 63 - "devDependencies"
 Cohesion: 0.07
@@ -660,9 +656,9 @@ Nodes (21): BrandTheme, clamp(), contrastRatio(), DARK_TEXT, DARK_TEXT_OKLCH, da
 Cohesion: 0.22
 Nodes (9): husky, devDependencies, husky, turbo, @types/node, typescript, turbo, @types/node (+1 more)
 
-### Community 66 - "assistant-openai-tools.service.ts"
-Cohesion: 0.09
-Nodes (18): AssistantNativeReadToolName, AssistantOpenAiToolsService, ExecuteAssistantToolInput, functionTool(), objectSchema(), optionalInteger(), optionalString(), parseArguments() (+10 more)
+### Community 66 - "assistant-tool-policy.ts"
+Cohesion: 0.29
+Nodes (5): ASSISTANT_TOOL_POLICIES, AssistantPolicyToolName, AssistantToolPolicy, AssistantToolRisk, EXPECTED_TOOLS
 
 ### Community 67 - "[businessId]/page.tsx"
 Cohesion: 0.12
@@ -672,9 +668,9 @@ Nodes (20): ApiErrorBody, Availability, BrandHeader(), buildBusinessMonogram(), 
 Cohesion: 0.13
 Nodes (15): Button(), ButtonProps, sizes, variants, Card(), CardProps, paddingMap, ConfirmDialog() (+7 more)
 
-### Community 69 - "IEmailProvider"
-Cohesion: 0.16
-Nodes (11): EmailAttachment, EmailSendResult, IEmailProvider, NoopEmailProvider, Injectable, ResendEmailProvider, Injectable, getProviderSmokePreflight() (+3 more)
+### Community 69 - "platform-admin-billing-email.template.ts"
+Cohesion: 0.09
+Nodes (27): EmailAttachment, EmailSendResult, IEmailProvider, NoopEmailProvider, Injectable, ResendEmailProvider, Injectable, getProviderSmokePreflight() (+19 more)
 
 ### Community 70 - "WorkflowsController"
 Cohesion: 0.15
@@ -685,8 +681,8 @@ Cohesion: 0.15
 Nodes (8): MANUAL_FOLLOW_UP_DIGEST_CRON, ManualFollowUpDigestService, db, Cron, Inject, Injectable, buildManualFollowUpDigestEmail(), manualFollowUpTasks
 
 ### Community 72 - "help-content.ts"
-Cohesion: 0.13
-Nodes (16): OnboardingDemoPage(), getGuidedOnboardingModules(), HELP_CONTENT, HelpArticle, HelpLocale, HelpSearchResult, HelpSectionKey, OnboardingGuideModule (+8 more)
+Cohesion: 0.12
+Nodes (17): HelpPage(), OnboardingDemoPage(), getGuidedOnboardingModules(), HELP_CONTENT, HelpArticle, HelpLocale, HelpSearchResult, HelpSectionKey (+9 more)
 
 ### Community 73 - "sign-up/page.tsx"
 Cohesion: 0.10
@@ -696,13 +692,13 @@ Nodes (9): featureItems, IconProps, SignUpPage(), SukiMarkProps, invalidateSessi
 Cohesion: 0.20
 Nodes (11): markerPath(), git(), IVA_BUGGY, IVA_FIXED, IVA_SRC, IVA_TEST, IVA_TEST_PATH, makeRepo() (+3 more)
 
-### Community 75 - "AdminController"
+### Community 75 - "OnboardingController"
 Cohesion: 0.16
-Nodes (12): AdminController, mockFrom, mockSelect, mockWhere, queuedWhereResults, Body, Controller, Get (+4 more)
+Nodes (9): OnboardingController, Body, Controller, Get, Patch, UseGuards, OnboardingService, Injectable (+1 more)
 
-### Community 76 - "feature-flags.service.ts"
-Cohesion: 0.21
-Nodes (9): AppModule, Module, assertConfigured(), isConfigured(), validateRuntimeConfiguration(), FeatureFlag, FLAG_DEFAULTS, bootstrap() (+1 more)
+### Community 76 - "assistant-read-model.service.spec.ts"
+Cohesion: 0.25
+Nodes (6): answerSource, appointments, automationSettings, customers, insights, manualFollowUps
 
 ### Community 77 - "DealsService"
 Cohesion: 0.14
@@ -713,8 +709,8 @@ Cohesion: 0.15
 Nodes (10): TasksController, Body, Controller, Get, Param, Post, Query, UseGuards (+2 more)
 
 ### Community 79 - "TwilioVerifyOtpProvider"
-Cohesion: 0.28
-Nodes (5): SendOtpResult, VerifyOtpInput, Injectable, TwilioPayload, TwilioVerifyOtpProvider
+Cohesion: 0.30
+Nodes (5): SendOtpInput, SendOtpResult, Injectable, TwilioPayload, TwilioVerifyOtpProvider
 
 ### Community 80 - "components.json"
 Cohesion: 0.10
@@ -729,24 +725,24 @@ Cohesion: 0.14
 Nodes (10): dbMock, fromMock, insertValuesMock, limitMock, orderByMock, returningMock, setMock, txMock (+2 more)
 
 ### Community 83 - "org-billing-state.service.ts"
-Cohesion: 0.25
-Nodes (5): CAN_SEND_STATUSES, OrgBillingStateService, READ_ONLY_STATUSES, Injectable, VARIABLE_COST_BLOCKED_STATUSES
+Cohesion: 0.15
+Nodes (10): CAN_SEND_STATUSES, isLemonGraceExpired(), LEMON_PAYMENT_GRACE_MS, OrgBillingState, OrgBillingStateService, READ_ONLY_STATUSES, Injectable, VARIABLE_COST_BLOCKED_STATUSES (+2 more)
 
 ### Community 84 - "DealStagesService"
 Cohesion: 0.17
 Nodes (9): DealStagesController, Body, Controller, Get, Post, Query, UseGuards, DealStagesService (+1 more)
 
 ### Community 85 - "migration-types.ts"
-Cohesion: 0.13
-Nodes (19): CanonicalActivity, CanonicalCompany, CanonicalContact, CanonicalDeal, CanonicalTask, CanonicalTicket, MigrationSource, CSV_PROVIDER (+11 more)
-
-### Community 86 - "normalizePhilippineMobileE164"
 Cohesion: 0.12
-Nodes (15): IntakeController, fromMock, insertMock, limitMock, returningMock, selectMock, valuesMock, whereMock (+7 more)
+Nodes (20): CanonicalActivity, CanonicalCompany, CanonicalContact, CanonicalDeal, CanonicalTask, CanonicalTicket, MigrationSource, ReconciliationReport (+12 more)
+
+### Community 86 - "IntakeController"
+Cohesion: 0.13
+Nodes (14): IntakeController, fromMock, insertMock, limitMock, returningMock, selectMock, valuesMock, whereMock (+6 more)
 
 ### Community 87 - "EmailMeteringService"
-Cohesion: 0.15
-Nodes (10): EmailMeteringService, mockFrom, mockInsert, mockLimit, mockReturning, mockSelect, mockValues, mockWhere (+2 more)
+Cohesion: 0.09
+Nodes (16): EmailMeteringService, mockFrom, mockInsert, mockLimit, mockReturning, mockSelect, mockValues, mockWhere (+8 more)
 
 ### Community 88 - "ui/package.json"
 Cohesion: 0.08
@@ -762,67 +758,67 @@ Nodes (18): Repository-local AI workflow layer (.ai-engineering/), Automatic age
 
 ### Community 91 - "getDb"
 Cohesion: 0.11
-Nodes (19): appointmentLegacySelect, AppointmentsService, DatabaseLikeError, hashOtpSkipPin(), isAppointmentsVerificationCompatibilityError(), isBookingSecurityCompatibilityError(), isValidOtpSkipPin(), Injectable (+11 more)
+Nodes (17): appointmentLegacySelect, AppointmentsService, DatabaseLikeError, hashOtpSkipPin(), isAppointmentsVerificationCompatibilityError(), isBookingSecurityCompatibilityError(), isValidOtpSkipPin(), Injectable (+9 more)
 
 ### Community 93 - ".execute"
-Cohesion: 0.09
-Nodes (18): AppointmentRecord, asAppointmentItems(), AssistantReadModelService, clampInteger(), DRAFT_WARNING, maskMobile(), monthParts(), answerSource (+10 more)
+Cohesion: 0.07
+Nodes (22): AssistantNativeReadToolName, AssistantOpenAiToolsService, ExecuteAssistantToolInput, functionTool(), objectSchema(), optionalInteger(), optionalString(), parseArguments() (+14 more)
 
 ### Community 94 - "ImportsController"
-Cohesion: 0.20
+Cohesion: 0.23
 Nodes (5): ImportsController, Body, Controller, Post, UseGuards
 
-### Community 95 - "inbound-sms.controller.ts"
-Cohesion: 0.14
-Nodes (12): InboundSmsController, isStopMessage(), normalizeMobile(), Body, Controller, Headers, Post, Req (+4 more)
+### Community 95 - ".handleInboundSms"
+Cohesion: 0.18
+Nodes (9): InboundSmsController, isStopMessage(), normalizeMobile(), Body, Controller, Headers, Post, Req (+1 more)
 
 ### Community 96 - "BillingController"
-Cohesion: 0.26
-Nodes (6): BillingController, Body, Controller, Get, Post, UseGuards
+Cohesion: 0.17
+Nodes (13): BillingController, validateBody(), validationPipe, Body, Controller, Get, Post, UseGuards (+5 more)
 
 ### Community 97 - "PlatformAdminBillingEmailService"
-Cohesion: 0.30
-Nodes (4): PlatformAdminBillingEmailService, Inject, Injectable, ManualBillingEmailKind
+Cohesion: 0.38
+Nodes (3): PlatformAdminBillingEmailService, Injectable, ManualBillingEmailKind
 
-### Community 98 - "platform-admin-billing-email.service.ts"
-Cohesion: 0.21
-Nodes (17): DeliveryMode, buildItemSummary(), buildManualBillingPaymentAcknowledgmentEmail(), buildManualBillingPaymentRequestEmail(), buildManualBillingProFormaInvoiceAttachment(), buildManualBillingProFormaInvoiceContent(), formatDate(), formatLabel() (+9 more)
+### Community 98 - "InsightsController"
+Cohesion: 0.32
+Nodes (5): InsightsController, Controller, Get, Query, UseGuards
 
 ### Community 99 - "pr-evidence.md"
 Cohesion: 0.15
 Nodes (16): PR Template Risk and Rollback sections, PR Template Summary section, PR Template TDD evidence section, English only (principle 11), Migrations (canonical rule), Change Type tags, Evidence by Change Type, Infrastructure / CI / workflow evidence (+8 more)
 
-### Community 100 - "automation-send.service.ts"
-Cohesion: 0.08
-Nodes (22): AutomationMessageComposerService, Injectable, installDbHarness(), AutomationSettingsResponse, DEFAULT_MESSAGE_TEMPLATES, createDbHarness(), storedRow, TemplateMap (+14 more)
+### Community 100 - "database/src/index.ts"
+Cohesion: 0.07
+Nodes (31): AutomationMessageComposerService, Injectable, installDbHarness(), AutomationSettingsResponse, DEFAULT_MESSAGE_TEMPLATES, createDbHarness(), storedRow, TemplateMap (+23 more)
 
 ### Community 101 - "intake-booking.service.spec.ts"
 Cohesion: 0.12
 Nodes (16): isBookingHoldsCompatibilityError(), automationSendMock, fromMock, insertMock, insertValuesMock, limitMock, orgBillingStateMock, otpFailoverServiceMock (+8 more)
 
 ### Community 102 - "PrivacyController"
-Cohesion: 0.19
-Nodes (9): PrivacyController, Body, Controller, Delete, Get, Param, Patch, Query (+1 more)
+Cohesion: 0.15
+Nodes (11): AuditLogService, Injectable, PrivacyController, Body, Controller, Delete, Get, Param (+3 more)
 
 ### Community 103 - "web/package.json"
 Cohesion: 0.32
 Nodes (7): ignoreScripts, name, private, trustedDependencies, version, sharp, unrs-resolver
 
-### Community 104 - "platform-admin-shell.tsx"
-Cohesion: 0.38
-Nodes (5): getPlatformAdminNavGroups(), PlatformAdminNavGroup, PlatformAdminNavItem, PlatformAdminNav(), PlatformAdminShell()
+### Community 104 - "otp-provider.ts"
+Cohesion: 0.36
+Nodes (4): OtpProviderName, OtpProviderSettingsService, Injectable, otpProviderSettings
 
-### Community 105 - "request-change-section.tsx"
-Cohesion: 0.35
-Nodes (9): cancelClientBillingRequest(), ClientBillingRequest, createClientBillingRequest(), listClientBillingRequests(), capitalize(), RequestChangeSection(), requestSummary(), SMS_PACKS (+1 more)
+### Community 105 - "billing/page.tsx"
+Cohesion: 0.10
+Nodes (30): BILLING_STATUS_LABELS, BillingSettingsPage(), BillingStatusResponse, isLiveLemonSubscription(), LIVE_SUBSCRIPTION_STATUSES, { apiRequestMock, getTokenMock, searchParamsGetMock }, AddonPackGrid(), BillingIntervalToggle() (+22 more)
 
-### Community 106 - "HealthController"
-Cohesion: 0.24
-Nodes (5): HealthController, Controller, Get, HealthModule, Module
+### Community 106 - "manual-subscription-policy.ts"
+Cohesion: 0.43
+Nodes (5): addUtcMonthsClamped(), ALLOWED_ACTIONS, assertManualSubscriptionActionAllowed(), ManualCoverageInput, resolveManualCoveragePeriod()
 
 ### Community 107 - "ImportsService"
-Cohesion: 0.17
-Nodes (9): xlsx, DuplicateMatch, ImportsService, ParsedRow, makeXlsxBase64(), Injectable, ReconciliationReport, importBatches (+1 more)
+Cohesion: 0.25
+Nodes (5): xlsx, ImportsService, makeXlsxBase64(), Injectable, xlsx
 
 ### Community 108 - "assistant-context-loader.ts"
 Cohesion: 0.14
@@ -843,10 +839,6 @@ Nodes (28): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModu
 ### Community 112 - "compilerOptions"
 Cohesion: 0.12
 Nodes (15): compilerOptions, emitDecoratorMetadata, experimentalDecorators, module, moduleResolution, noEmit, outDir, exclude (+7 more)
-
-### Community 113 - "appointment-lifecycle-scheduler.service.ts"
-Cohesion: 0.33
-Nodes (3): AppointmentLifecycleSchedulerService, Cron, Injectable
 
 ### Community 114 - "Strict TDD"
 Cohesion: 0.12
@@ -877,12 +869,12 @@ Cohesion: 0.15
 Nodes (6): features, SignInPage(), invalidateSessionCache, mockPush, mockRefresh, signInWithPassword
 
 ### Community 121 - "use-session.ts"
-Cohesion: 0.39
-Nodes (6): invalidateSessionCache(), loadSessionOnce(), __resetSessionCacheForTests(), SessionState, getSessionMock, getSession()
+Cohesion: 0.18
+Nodes (12): PricingPage(), { apiRequestMock, useSessionMock }, AuthCta(), invalidateSessionCache(), loadSessionOnce(), __resetSessionCacheForTests(), SessionState, getSessionMock (+4 more)
 
 ### Community 122 - "auth-client.ts"
-Cohesion: 0.36
-Nodes (7): ApiResult, post(), signInWithPassword(), startPasswordReset(), startSignUp(), verifyPasswordReset(), verifySignUp()
+Cohesion: 0.18
+Nodes (13): AuthButton(), invalidateSessionCache, mockPush, mockRefresh, signOut, ApiResult, post(), signInWithPassword() (+5 more)
 
 ### Community 123 - "scripts"
 Cohesion: 0.05
@@ -900,25 +892,29 @@ Nodes (11): Blocked states (BLOCKED_*), SKIPPED_ALREADY_IMPLEMENTED state, Task 
 Cohesion: 0.18
 Nodes (13): deploy.yml (Deploy to VPS), API health check (localhost:3001/health), deploy job (SSH to VPS, push to main), Platform-admin founder bootstrap (bootstrap-platform-admin.ts), Legacy compose project cleanup (octal-encoded legacy project name), PostgreSQL pg_dump backup (14-day retention), Platform-admin RBAC seed (seed-platform-admin-rbac.ts), Public dev-artifact smoke check (tyvera.app/sign-up + JS bundles) (+5 more)
 
+### Community 127 - ".getActivePlan"
+Cohesion: 0.13
+Nodes (5): ExecuteResponsesToolLoopOptions, AiIdempotencyService, Injectable, AiRateLimiterService, Injectable
+
 ### Community 128 - "CustomerTemplatesService"
-Cohesion: 0.15
+Cohesion: 0.17
 Nodes (8): BUILTIN_DEFAULT_FIELDS_BY_TYPE, CustomerTemplatesService, FALLBACK_FIELDS, getBuiltinDefaultFields(), TemplateFieldConfig, Injectable, businessDefaultDescriptionTemplates, customerDescriptionTemplates
 
-### Community 129 - "assistant.controller.ts"
-Cohesion: 0.24
+### Community 129 - "AssistantController"
+Cohesion: 0.23
 Nodes (6): AssistantController, Body, Controller, Post, Res, UseGuards
 
-### Community 130 - "InsightsService"
-Cohesion: 0.13
-Nodes (12): InsightsController, Controller, Get, Query, UseGuards, InsightsService, mockFrom, mockLimit (+4 more)
+### Community 130 - "assistant-read-model.service.ts"
+Cohesion: 0.15
+Nodes (10): AppointmentRecord, DRAFT_WARNING, TenantBusinessInput, InsightsService, mockFrom, mockLimit, mockSelect, mockWhere (+2 more)
 
 ### Community 131 - "messaging-webhook.service.spec.ts"
 Cohesion: 0.15
 Nodes (12): fromMock, insertMock, limitMock, onConflictDoNothingMock, returningMock, selectMock, setMock, updateMock (+4 more)
 
 ### Community 132 - "intake-booking.service.ts"
-Cohesion: 0.38
-Nodes (6): DatabaseLikeError, OtpConfig, OtpMode, OtpProviderName, SEMAPHORE_OTP_PROVIDER, TWILIO_OTP_PROVIDER
+Cohesion: 0.27
+Nodes (8): DatabaseLikeError, OtpConfig, OtpMode, SEMAPHORE_OTP_PROVIDER, TWILIO_OTP_PROVIDER, bookingHolds, publicOtpSendEvents, verifiedOnlineBookingUsageEvents
 
 ### Community 133 - "compilerOptions"
 Cohesion: 0.14
@@ -941,8 +937,8 @@ Cohesion: 0.17
 Nodes (11): Compatibility, risks, scans, Flowchart (high-level), LS store setup (LS dashboard, not code), Phase 1 — RED (Opus 5.5, medium), Phase 2 — API fixes (Opus 5.5, medium), Phase 3 — Web (Opus 5.5, medium), Phase 4 — Config, docs, Graphify (Opus 5.5, medium), Replace manual billing with Lemon Squeezy self-serve (+3 more)
 
 ### Community 138 - "semaphore-otp.provider.ts"
-Cohesion: 0.24
-Nodes (7): SendOtpInput, VerifyOtpResult, hashOtp(), pbkdf2, SemaphoreOtpProvider, Injectable, verifyOtpHash()
+Cohesion: 0.23
+Nodes (7): VerifyOtpInput, VerifyOtpResult, hashOtp(), pbkdf2, SemaphoreOtpProvider, Injectable, verifyOtpHash()
 
 ### Community 139 - "inbound-sms.controller.spec.ts"
 Cohesion: 0.17
@@ -960,12 +956,8 @@ Nodes (11): "manual_billing_fulfillments", "manual_billing_request_items", "manu
 Cohesion: 0.12
 Nodes (17): devDependencies, @nestjs/cli, @nestjs/schematics, @nestjs/testing, @suki/config, @types/express, @types/node, typescript (+9 more)
 
-### Community 143 - "HttpExceptionFilter"
-Cohesion: 0.38
-Nodes (3): HttpExceptionFilter, SafeNestedCause, Catch
-
 ### Community 145 - "MigrationEntity"
-Cohesion: 0.27
+Cohesion: 0.24
 Nodes (7): CANONICAL_ALIASES, CONTACT_TARGETS, DEAL_TARGETS, MappingService, Injectable, FieldMapping, MigrationEntity
 
 ### Community 146 - "migration.service.spec.ts"
@@ -1052,13 +1044,9 @@ Nodes (11): apps/api/dist/**, apps/web/.next/**, NODE_ENV, packages/database/dis
 Cohesion: 0.22
 Nodes (8): collection, compilerOptions, deleteOutDir, tsConfigPath, webpack, entryFile, $schema, sourceRoot
 
-### Community 168 - ".constructor"
-Cohesion: 0.20
-Nodes (7): AutomationPolicyModule, Global, Module, AutomationPolicyService, CanSendResult, Injectable, Inject
-
-### Community 169 - "platform-admin/layout.tsx"
-Cohesion: 0.25
-Nodes (4): DashboardNav(), RequireSession(), mockReplace, sessionState
+### Community 169 - "platform-admin-shell.tsx"
+Cohesion: 0.16
+Nodes (9): DashboardNav(), getPlatformAdminNavGroups(), PlatformAdminNavGroup, PlatformAdminNavItem, PlatformAdminNav(), PlatformAdminShell(), RequireSession(), mockReplace (+1 more)
 
 ### Community 170 - "api/package.json"
 Cohesion: 0.50
@@ -1081,8 +1069,8 @@ Cohesion: 0.39
 Nodes (3): MessagingWebhookService, TERMINAL_STATUSES, Injectable
 
 ### Community 178 - "message-dispatch.service.ts"
-Cohesion: 0.14
-Nodes (13): DispatchResult, MODULE_BY_AUTOMATION, dbState, input, SelectResult, EMAIL_PROVIDER, SMS_PROVIDER, calculateSmsSegments() (+5 more)
+Cohesion: 0.07
+Nodes (23): AutomationPolicyService, CanSendResult, Injectable, DispatchResult, getDayStartUTC(), getEnvInt(), MessageDispatchService, MODULE_BY_AUTOMATION (+15 more)
 
 ### Community 179 - "dependencies"
 Cohesion: 0.29
@@ -1100,9 +1088,9 @@ Nodes (5): apiRequestMock, getTokenMock, syncData, DashboardPage(), mocks
 Cohesion: 0.36
 Nodes (6): AiUsageSummary, buildUsageModel(), formatResetLabel(), stateFromPct(), UsageModel, UsageState
 
-### Community 184 - "permissions"
-Cohesion: 0.25
-Nodes (7): hooks, PreToolUse, permissions, defaultMode, disableAutoMode, disableBypassPermissionsMode, $schema
+### Community 184 - "settings.json"
+Cohesion: 0.29
+Nodes (6): hooks, PreToolUse, permissions, defaultMode, disableBypassPermissionsMode, $schema
 
 ### Community 185 - "Dev Docker Compose"
 Cohesion: 0.39
@@ -1133,7 +1121,7 @@ Cohesion: 0.29
 Nodes (7): Locked HTTP contract, nestjs-api-dev agent, Shared contract types, Transactional writes, Locked HTTP contract, nestjs-api-dev prompt, Transactional writes
 
 ### Community 194 - ".getBatch"
-Cohesion: 0.29
+Cohesion: 0.22
 Nodes (3): Get, Param, Query
 
 ### Community 195 - "LoyaltyController"
@@ -1160,10 +1148,6 @@ Nodes (6): contrastFromOklch(), fromLinear(), oklchToSrgb(), parseOklch(), relat
 Cohesion: 0.57
 Nodes (5): isExactOrNestedPath(), isProtectedPath(), isPublicPath(), PROTECTED_PREFIXES, PUBLIC_PREFIXES
 
-### Community 202 - "ai-usage.service.spec.ts"
-Cohesion: 0.33
-Nodes (5): mockFrom, mockLimit, mockSelect, mockWhere, queuedWhereResults
-
 ### Community 203 - ""activities""
 Cohesion: 0.38
 Nodes (6): "activities", "custom_fields", "deal_stages", "public"."businesses", "public"."customers", "public"."deals"
@@ -1188,13 +1172,9 @@ Nodes (6): Backwards compatibility, code-reviewer agent, Deep-risk required chec
 Cohesion: 0.40
 Nodes (6): Strict TDD RED, Test case order, test-engineer agent, Vitest component tests, Strict TDD RED, test-engineer prompt
 
-### Community 213 - "migration.service.ts"
-Cohesion: 0.25
-Nodes (5): MigrationService, ParsedRowLike, Injectable, DryRunResult, MigrationValidationReport
-
-### Community 214 - "automation-trigger.service.ts"
-Cohesion: 0.40
-Nodes (3): AutomationTriggerService, RecordMessageEventInput, Injectable
+### Community 213 - "MigrationService"
+Cohesion: 0.32
+Nodes (4): MigrationService, Injectable, DryRunResult, MigrationValidationReport
 
 ### Community 216 - "appointments/wizard-progress.ts"
 Cohesion: 0.40
@@ -1280,9 +1260,9 @@ Nodes (4): "automation_job_runs", "operations_alerts", "provider_health_snapshot
 Cohesion: 0.40
 Nodes (4): "manual_billing_email_deliveries", "public"."manual_billing_requests", "public"."manual_payments", "public"."platform_admins"
 
-### Community 242 - "database/src/index.ts"
-Cohesion: 0.07
-Nodes (35): CreateClientBillingRequestInput, createHarness(), SMS_INCLUDED_BY_PLAN, BillingTx, CreateBillingRequestInput, RecordManualPaymentInput, SmsAdjustmentInput, createBillingHarness() (+27 more)
+### Community 242 - "ClientBillingRequestService"
+Cohesion: 0.12
+Nodes (11): ClientBillingRequestController, Body, Controller, Get, Param, Post, UseGuards, ClientBillingRequestService (+3 more)
 
 ### Community 243 - "Suki README"
 Cohesion: 0.40
@@ -1425,24 +1405,24 @@ Nodes (3): Assistant tool bindings (route_guidance, get_ai_usage, get_sms_usage,
   docs/ai/file-index/repository-map.md · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **1204 isolated node(s):** `$schema`, `defaultMode`, `disableBypassPermissionsMode`, `disableAutoMode`, `PreToolUse` (+1199 more)
+- **1224 isolated node(s):** `$schema`, `defaultMode`, `disableBypassPermissionsMode`, `PreToolUse`, `dir` (+1219 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **85 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **80 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `apps/web/src/components` and `CONTEXT DRIFT: apps/web/src/domains removed`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `getDb()` connect `getDb` to `PlatformAdminBillingService`, `CustomerTemplatesService`, `InsightsService`, `intake-booking.service.ts`, `operations-alert.service.ts`, `auth.service.ts`, `licensing.service.ts`, `manual-follow-up.service.ts`, `BillingService`, `clerk-auth.guard.ts`, `AssistantService`, `types/src/index.ts`, `businesses`, `platform-admin-communications.service.ts`, `AiUsageService`, `PlanCapacityService`, `MessagingService`, `OrganizationsService`, `SmsMeteringService`, `answer-source.service.ts`, `assistant-mutation.service.ts`, `IOtpProvider`, `auth.bootstrap.service.ts`, `billing.service.ts`, `BusinessesController`, `admin.controller.ts`, `platform-admin-billing-email.service.spec.ts`, `PromosService`, `automation-scheduler.service.spec.ts`, `MessagingWebhookService`, `PlanType`, `message-dispatch.service.ts`, `semaphore-message-reconciliation.service.ts`, `assistant.service.ts`, `.dispatch`, `CustomersService`, `.getBatch`, `LoyaltyController`, `manual-follow-up-digest.service.ts`, `AdminController`, `DealsService`, `TasksService`, `org-billing-state.service.ts`, `DealStagesService`, `migration.service.ts`, `automation-trigger.service.ts`, `normalizePhilippineMobileE164`, `EmailMeteringService`, `IntakeBookingService`, `.execute`, `ImportsController`, `inbound-sms.controller.ts`, `PlatformAdminBillingEmailService`, `platform-admin-billing-email.service.ts`, `automation-send.service.ts`, `PrivacyController`, `HealthController`, `ImportsService`, `database/src/index.ts`, `.getActivePlan`?**
-  _High betweenness centrality (0.124) - this node is a cross-community bridge._
+- **Why does `getDb()` connect `getDb` to `CustomerTemplatesService`, `PlatformAdminBillingService`, `schema/index.ts`, `intake-booking.service.ts`, `operations-alert.service.ts`, `auth.service.ts`, `licensing.service.ts`, `manual-follow-up.service.ts`, `BillingService`, `clerk-auth.guard.ts`, `AssistantService`, `platform-admin.controller.ts`, `crm.module.ts`, `platform-admin-communications.service.ts`, `PlatformAdminController`, `Tenant`, `AiUsageService`, `PlanCapacityService`, `MessagingService`, `AdminController`, `FeatureFlagsService`, `answer-source.service.ts`, `billing.service.ts`, `businesses.controller.ts`, `isFounder`, `PromosService`, `automation-scheduler.service.spec.ts`, `messaging.controller.ts`, `message-dispatch.service.ts`, `MessagingWebhookService`, `semaphore-message-reconciliation.service.ts`, `assistant.service.ts`, `AutomationSendService`, `CustomersService`, `.getBatch`, `LoyaltyController`, `manual-follow-up-digest.service.ts`, `OnboardingController`, `DealsService`, `TasksService`, `org-billing-state.service.ts`, `DealStagesService`, `MigrationService`, `IntakeController`, `EmailMeteringService`, `IntakeBookingService`, `.execute`, `ImportsController`, `.handleInboundSms`, `PlatformAdminBillingEmailService`, `database/src/index.ts`, `PrivacyController`, `otp-provider.ts`, `ClientBillingRequestService`, `.getActivePlan`?**
+  _High betweenness centrality (0.145) - this node is a cross-community bridge._
 - **Why does `Plan: fix main red tests and lint, run full unit suite on every PR` connect `Plan: fix main red tests and lint, run full unit suite on every PR` to `AI Entry Point`, `Strict TDD`, `deploy job (SSH to VPS, push to main)`, `Project Memory`?**
-  _High betweenness centrality (0.057) - this node is a cross-community bridge._
-- **Why does `useSidebarCollapsed()` connect `Plan: fix main red tests and lint, run full unit suite on every PR` to `adaptive-app-shell.tsx`?**
-  _High betweenness centrality (0.057) - this node is a cross-community bridge._
+  _High betweenness centrality (0.065) - this node is a cross-community bridge._
+- **Why does `useSidebarCollapsed()` connect `Plan: fix main red tests and lint, run full unit suite on every PR` to `useAuth`?**
+  _High betweenness centrality (0.065) - this node is a cross-community bridge._
 - **Are the 14 inferred relationships involving `getDb()` (e.g. with `makeDbForAppointmentReminders()` and `makeDbForInactivityWinback()`) actually correct?**
   _`getDb()` has 14 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `$schema`, `defaultMode`, `disableBypassPermissionsMode` to the rest of the system?**
-  _1204 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1224 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `PlatformAdminBillingService` be split into smaller, more focused modules?**
-  _Cohesion score 0.0531496062992126 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1377551020408163 - nodes in this community are weakly interconnected._
