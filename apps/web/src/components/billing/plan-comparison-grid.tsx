@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { BillingInterval, BillingPlan, BillingPlanCta } from "./types";
 
-function formatPhp(amount: number | null) {
+function formatUsd(amount: number | null) {
   if (amount === null) return "Custom";
-  return `PHP ${amount.toLocaleString("en-PH")}`;
+  return `$${amount.toLocaleString("en-US")}`;
 }
 
 export function PlanComparisonGrid({
@@ -34,9 +34,9 @@ export function PlanComparisonGrid({
     <div className="grid gap-4 lg:grid-cols-4">
       {plans.map((plan) => {
         const price =
-          interval === "annual" && plan.annualPricePhp !== null
-            ? plan.annualPricePhp
-            : plan.monthlyPricePhp;
+          interval === "annual" && plan.annualPriceUsd !== null
+            ? plan.annualPriceUsd
+            : plan.monthlyPriceUsd;
         const annualDisabled =
           interval === "annual" &&
           plan.planType !== "free" &&
@@ -67,7 +67,7 @@ export function PlanComparisonGrid({
               {plan.mostPopular ? <Badge>Most Popular</Badge> : null}
             </div>
             <div className="mt-5">
-              <p className="text-3xl font-semibold">{formatPhp(price)}</p>
+              <p className="text-3xl font-semibold">{formatUsd(price)}</p>
               <p className="text-sm text-muted-foreground">
                 {plan.planType === "free"
                   ? "No card required"

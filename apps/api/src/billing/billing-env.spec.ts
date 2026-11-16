@@ -30,6 +30,14 @@ describe("validateRuntimeConfiguration", () => {
     );
   });
 
+  it("error: FF_self_serve_billing_enabled=\"1\" without LEMONSQUEEZY_API_KEY fails fast", () => {
+    process.env.FF_self_serve_billing_enabled = "1";
+
+    expect(() => validateRuntimeConfiguration()).toThrow(
+      "Missing required configuration: LEMONSQUEEZY_API_KEY",
+    );
+  });
+
   it("fails fast on placeholder values", () => {
     process.env.FF_self_serve_billing_enabled = "true";
     process.env.LEMONSQUEEZY_API_KEY = "placeholder_key";

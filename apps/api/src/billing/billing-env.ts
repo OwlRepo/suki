@@ -1,3 +1,5 @@
+import { FeatureFlagsService } from "../common/feature-flags.service";
+
 function isConfigured(name: string): boolean {
   const value = process.env[name]?.trim();
   return !!value && !value.toLowerCase().includes("placeholder");
@@ -14,7 +16,7 @@ function assertConfigured(name: string): void {
 }
 
 export function validateRuntimeConfiguration(): void {
-  const selfServeEnabled = process.env.FF_self_serve_billing_enabled === "true";
+  const selfServeEnabled = new FeatureFlagsService().selfServeBillingEnabled();
 
   if (selfServeEnabled) {
     assertConfigured("LEMONSQUEEZY_API_KEY");

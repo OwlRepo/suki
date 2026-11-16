@@ -9,10 +9,12 @@ priority: high
 lastUpdated: 2026-11-16
 quickAnswer: Open Plan & usage directly for billing and allowances, or Settings for business and messaging controls.
 ---
-- Plan & usage at /settings/billing shows the current plan, allowances, relevant actions, and billing request history.
-- Workspace owners can request a plan change, SMS top-up, or cancellation when manual billing is enabled. Staff retain their existing viewing permissions.
-- A request is not payment or fulfillment. Follow the displayed pending/approved/payment status; cancellation and scheduled-change dates remain explicit.
-- When checkout is enabled, use the existing checkout/portal flow. Read-only accounts retain their restrictions.
+- Plan & usage at /settings/billing shows the current plan, allowances, and billing actions.
+- Workspace owners upgrade, change plan, buy top-ups, cancel, or resume there; payment runs on Lemon Squeezy checkout. Staff retain their existing viewing permissions.
+- Use Manage billing to update the card or download invoices in the Lemon Squeezy customer portal.
+- A new plan becomes active after Lemon Squeezy confirms the payment.
+- Self-serve plan and top-up prices are shown and charged in USD.
+- When self-serve checkout is unavailable and manual billing is enabled, owners request a plan change, SMS top-up, or cancellation instead. A request is not payment or fulfillment; follow the displayed status.
 - Settings groups business details, automated follow-ups, messaging limits, customer descriptions, and usage controls. Linked sections open directly.
 - Monthly allowances and prepaid SMS credits are separate. AI writing remains limited by plan and quotas.
 - Saving settings never changes the active business silently. Check the selected workspace before changing automation controls.

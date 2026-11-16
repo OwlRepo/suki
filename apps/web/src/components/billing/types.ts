@@ -5,8 +5,8 @@ export type BillingInterval = "monthly" | "annual";
 export interface BillingPlan {
   planType: "free" | "starter" | "growth" | "pro";
   displayName: string;
-  monthlyPricePhp: number;
-  annualPricePhp: number | null;
+  monthlyPriceUsd: number;
+  annualPriceUsd: number | null;
   mostPopular?: boolean;
   limits: {
     branches: number;

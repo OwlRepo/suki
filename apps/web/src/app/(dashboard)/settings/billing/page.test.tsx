@@ -70,6 +70,7 @@ describe("BillingSettingsPage", () => {
           },
           subscription: {
             id: "sub-local",
+            provider: "lemonsqueezy",
             planType: "starter",
             status: "active",
           },
@@ -84,8 +85,8 @@ describe("BillingSettingsPage", () => {
             {
               planType: "free",
               displayName: "Free",
-              monthlyPricePhp: 0,
-              annualPricePhp: null,
+              monthlyPriceUsd: 0,
+              annualPriceUsd: null,
               limits: {
                 branches: 1,
                 staffAccounts: 1,
@@ -100,8 +101,8 @@ describe("BillingSettingsPage", () => {
             {
               planType: "starter",
               displayName: "Starter",
-              monthlyPricePhp: 999,
-              annualPricePhp: 9990,
+              monthlyPriceUsd: 19,
+              annualPriceUsd: 190,
               limits: {
                 branches: 1,
                 staffAccounts: 3,
@@ -116,8 +117,8 @@ describe("BillingSettingsPage", () => {
             {
               planType: "growth",
               displayName: "Growth",
-              monthlyPricePhp: 2499,
-              annualPricePhp: 24990,
+              monthlyPriceUsd: 45,
+              annualPriceUsd: 450,
               mostPopular: true,
               limits: {
                 branches: 3,
@@ -133,8 +134,8 @@ describe("BillingSettingsPage", () => {
             {
               planType: "pro",
               displayName: "Pro",
-              monthlyPricePhp: 5999,
-              annualPricePhp: 59990,
+              monthlyPriceUsd: 99,
+              annualPriceUsd: 990,
               limits: {
                 branches: 10,
                 staffAccounts: 30,
@@ -183,6 +184,51 @@ describe("BillingSettingsPage", () => {
     expect(screen.getByText(/1,100 remaining/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /manage billing/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /cancel subscription/i })).toBeInTheDocument();
+  });
+
+  it("happy: shows self-serve add-on prices in USD", async () => {
+    render(<BillingSettingsPage />);
+
+    expect(await screen.findByText("STARTER")).toBeInTheDocument();
+    expect(screen.getAllByText("$5")).toHaveLength(2);
+    expect(screen.getByText("$11")).toBeInTheDocument();
+    expect(screen.getByText("$3")).toBeInTheDocument();
+    expect(screen.queryByText(/PHP/)).not.toBeInTheDocument();
+  });
+
+  it("regression: starts a Lemon Squeezy checkout for a sign-up trial subscription instead of a plan change", async () => {
+    const baseImpl = apiRequestMock.getMockImplementation();
+    apiRequestMock.mockImplementation(async (path: string, init?: unknown) => {
+      if (path === "/billing/status") {
+        const base = (await baseImpl?.(path, init)) as Record<string, unknown>;
+        return {
+          ...base,
+          renewsAt: null,
+          subscription: { id: "trial-sub", provider: null, planType: "starter", status: "trialing" },
+        };
+      }
+      if (path === "/billing/checkout") {
+        return { checkoutUrl: "https://checkout.example/growth" };
+      }
+      return baseImpl?.(path, init);
+    });
+
+    render(<BillingSettingsPage />);
+
+    const upgrade = await screen.findByRole("button", { name: /upgrade to growth/i });
+    expect(screen.getByRole("button", { name: /upgrade to starter/i })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /manage billing/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /cancel subscription/i })).not.toBeInTheDocument();
+
+    fireEvent.click(upgrade);
+
+    await waitFor(() =>
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/billing/checkout",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(apiRequestMock).not.toHaveBeenCalledWith("/billing/change-plan", expect.anything());
   });
 
   it("uses change-plan for paid plan changes instead of starting a new checkout", async () => {
@@ -273,6 +319,7 @@ describe("BillingSettingsPage", () => {
           },
           subscription: {
             id: "sub-local",
+            provider: "lemonsqueezy",
             planType: "growth",
             status: "past_due",
           },
@@ -347,6 +394,7 @@ describe("BillingSettingsPage", () => {
           },
           subscription: {
             id: "sub-local",
+            provider: "lemonsqueezy",
             planType: "growth",
             status: "paused",
           },
@@ -365,6 +413,9 @@ describe("BillingSettingsPage", () => {
     expect(await screen.findByText(/temporarily paused/i)).toBeInTheDocument();
     expect(screen.getByText(/scheduled to move to starter/i)).toBeInTheDocument();
     expect(screen.getByText(/waiting for webhook reconciliation/i)).toBeInTheDocument();
+    // edge: annualCheckoutEnabled false hides the Monthly/Annual toggle
+    expect(screen.getByText(/upgrade or change plan/i)).toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: /billing interval/i })).not.toBeInTheDocument();
   });
 
   it("hides Lemon-backed billing actions when self-serve billing is off", async () => {

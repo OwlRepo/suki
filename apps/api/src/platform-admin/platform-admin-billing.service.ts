@@ -43,7 +43,7 @@ import {
 import { and, desc, eq, ilike } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import {
-  BILLING_ADDON_CATALOG,
+  MANUAL_ADDON_CATALOG,
   MANUAL_BILLING_CATALOG,
   getPlanCatalogEntry,
   resolveManualBillingSku,
@@ -341,7 +341,7 @@ export class PlatformAdminBillingService {
   }
 
   listAddons() {
-    return { addons: BILLING_ADDON_CATALOG };
+    return { addons: MANUAL_ADDON_CATALOG };
   }
 
   listManualBillingCatalog() {

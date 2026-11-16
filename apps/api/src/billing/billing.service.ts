@@ -33,6 +33,7 @@ import {
   resolveAddonSku,
   resolveSubscriptionVariantEnvKey,
 } from "./plan-catalog";
+import { FeatureFlagsService } from "../common/feature-flags.service";
 import { SmsAddonGrantService } from "./sms-addon-grant.service";
 import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant.service";
 
@@ -65,7 +66,7 @@ export class BillingService {
   ) {}
 
   private isSelfServeBillingEnabled(): boolean {
-    return process.env.FF_self_serve_billing_enabled === "true";
+    return new FeatureFlagsService().selfServeBillingEnabled();
   }
 
   private throwBillingDisabled(): never {
@@ -507,8 +508,16 @@ export class BillingService {
           resourceId,
         },
       })
-      .onConflictDoNothing({
+      // A failed delivery is re-claimable so the provider's retry (same body, same key) reprocesses it;
+      // the status guard keeps concurrent or completed deliveries reported as duplicates.
+      .onConflictDoUpdate({
         target: processedWebhookEvents.eventId,
+        set: {
+          status: "processing",
+          failureReason: null,
+          retryCount: sql`${processedWebhookEvents.retryCount} + 1`,
+        },
+        setWhere: eq(processedWebhookEvents.status, "failed"),
       })
       .returning({
         id: processedWebhookEvents.id,
@@ -522,7 +531,8 @@ export class BillingService {
 
     try {
       await db.transaction(async (tx) => {
-        if (eventName.startsWith("subscription_")) {
+        // subscription_payment_* carry an invoice, not a subscription; LS sends subscription_updated with each.
+        if (eventName.startsWith("subscription_") && !eventName.startsWith("subscription_payment_")) {
           await this.reconcileSubscriptionEvent(tx, payload);
         } else if (eventName === "order_created") {
           await this.reconcileOrderCreatedEvent(tx, payload);
@@ -614,16 +624,22 @@ export class BillingService {
       eventName,
       this.readString(attributes.status),
     );
+    const renewsAt = this.parseDate(attributes.renews_at);
+    const endsAt = this.parseDate(attributes.ends_at);
+    // LS subscription objects carry no current_period_*; renews_at (or ends_at once cancelled) closes the paid cycle.
+    const providerPeriodEnd = renewsAt ?? endsAt;
     const currentPeriodStart =
       this.parseDate(attributes.current_period_start) ??
+      (providerPeriodEnd
+        ? this.subtractBillingInterval(providerPeriodEnd, billingInterval ?? "monthly")
+        : null) ??
       existingSubscription?.currentPeriodStart ??
       new Date();
     const currentPeriodEnd =
       this.parseDate(attributes.current_period_end) ??
+      providerPeriodEnd ??
       existingSubscription?.currentPeriodEnd ??
       currentPeriodStart;
-    const renewsAt = this.parseDate(attributes.renews_at);
-    const endsAt = this.parseDate(attributes.ends_at);
     const trialEndsAt = this.parseDate(attributes.trial_ends_at);
     const cancelled = this.readBoolean(attributes.cancelled)
       ? "true"
@@ -646,10 +662,6 @@ export class BillingService {
       ? existingSubscription?.planType
       : planType;
     const nextOrgPlan = status === "expired" ? "free" : appliedPlanType;
-    const planPricePhp = this.priceForPlan(
-      status === "expired" ? "free" : planType,
-      billingInterval,
-    );
 
     const subscriptionValues = {
       organizationId,
@@ -676,7 +688,8 @@ export class BillingService {
       updatePaymentMethodUrl: this.readString(urls.update_payment_method),
       customerPortalUrl: this.readString(urls.customer_portal),
       lastProviderEventId: eventId,
-      planPricePhp,
+      // plan_price_php is NOT NULL and PHP-denominated; Lemon Squeezy charges USD, so no PHP amount applies.
+      planPricePhp: 0,
       scheduledPlanType: scheduledDowngrade ? planType : null,
       scheduledBillingInterval: scheduledDowngrade ? billingInterval : null,
       scheduledChangeEffectiveAt: scheduledDowngrade
@@ -700,6 +713,9 @@ export class BillingService {
         currentPlan: nextOrgPlan,
         billingStatus: this.mapOrgBillingStatus(status, endsAt),
         nextBillingDueAt: renewsAt,
+        // manual-era access dates would otherwise force "suspended" in OrgBillingStateService
+        accessEndsAt: null,
+        billingPausedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(organizations.id, organizationId));
@@ -711,6 +727,7 @@ export class BillingService {
         planType: nextOrgPlan,
         currentPeriodStart,
       });
+      await this.syncIncludedEmailCredits(tx, organizationId, nextOrgPlan);
     }
   }
 
@@ -737,11 +754,13 @@ export class BillingService {
       await this.verifiedBookingAddonGrant.grant({
         organizationId,
         units: addon.units,
-        pricePhp: addon.pricePhp,
+        // price_php is NOT NULL and PHP-denominated; the USD charge is kept in reconciliation metadata.
+        pricePhp: 0,
         sku: addon.sku,
         source: "lemonsqueezy",
         sourceReference: eventId ?? `order_created:${organizationId}:${sku}`,
         purchasedByUserId: userId,
+        metadata: { priceUsd: addon.priceUsd },
       }, tx);
       return;
     }
@@ -750,10 +769,12 @@ export class BillingService {
       await this.smsAddonGrant.grant({
         organizationId,
         units: addon.units,
-        pricePhp: addon.pricePhp,
+        // pack_price_php is NOT NULL and PHP-denominated; the USD charge is kept in reconciliation metadata.
+        pricePhp: 0,
         source: "lemonsqueezy",
         sourceReference: eventId ?? `order_created:${organizationId}:${sku}`,
         purchasedByUserId: userId,
+        metadata: { priceUsd: addon.priceUsd },
       }, tx);
     }
   }
@@ -881,6 +902,36 @@ export class BillingService {
         providerEventId: eventId,
         metadata: { sku: addon.sku, refundedUnits: addon.units },
       });
+    }
+  }
+
+  // The email ledger row is created with the plan active at first send; a plan change must update it or the old allowance sticks for the month.
+  private async syncIncludedEmailCredits(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      insert: ReturnType<typeof getDb>["insert"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    organizationId: string,
+    planType: Exclude<PlanType, "free">,
+  ): Promise<void> {
+    const month = this.getCurrentMonthUtcKey();
+    const included = getPlanCatalogEntry(planType).limits.emailMessagesPerMonth;
+    const [existing] = await tx
+      .select({ id: emailCredits.id, included: emailCredits.included })
+      .from(emailCredits)
+      .where(and(eq(emailCredits.organizationId, organizationId), eq(emailCredits.month, month)))
+      .limit(1);
+
+    if (!existing) {
+      await tx.insert(emailCredits).values({ organizationId, month, included, used: 0 });
+      return;
+    }
+    if (existing.included !== included) {
+      await tx
+        .update(emailCredits)
+        .set({ included, updatedAt: new Date() })
+        .where(eq(emailCredits.id, existing.id));
     }
   }
 
@@ -1208,7 +1259,6 @@ export class BillingService {
       return attributeStatus;
     }
 
-    if (eventName === "subscription_payment_failed") return "past_due";
     if (eventName === "subscription_cancelled") return "cancelled";
     if (eventName === "subscription_expired") return "expired";
     if (eventName === "subscription_paused") return "paused";
@@ -1246,6 +1296,16 @@ export class BillingService {
     if (!raw) return null;
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private subtractBillingInterval(periodEnd: Date, interval: BillingInterval): Date {
+    const start = new Date(periodEnd);
+    start.setUTCDate(1);
+    start.setUTCMonth(start.getUTCMonth() - (interval === "annual" ? 12 : 1));
+    // clamp so a Mar 31 renewal starts Feb 28/29 instead of rolling into March
+    const lastDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
+    start.setUTCDate(Math.min(periodEnd.getUTCDate(), lastDay));
+    return start;
   }
 
   private getCurrentMonthUtcKey(): string {
@@ -1363,8 +1423,8 @@ export class BillingService {
     if (planType === "free") return 0;
     const plan = getPlanCatalogEntry(planType);
     if (interval === "annual") {
-      return plan.annualPricePhp ?? plan.monthlyPricePhp;
+      return plan.annualPriceUsd ?? plan.monthlyPriceUsd;
     }
-    return plan.monthlyPricePhp;
+    return plan.monthlyPriceUsd;
   }
 }

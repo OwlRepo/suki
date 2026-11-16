@@ -81,6 +81,7 @@ export default function BillingSettingsPage() {
   const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [checkoutEnabled, setCheckoutEnabled] = useState(false);
+  const [annualCheckoutEnabled, setAnnualCheckoutEnabled] = useState(false);
   const [manualRequestEnabled, setManualRequestEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,12 +95,12 @@ export default function BillingSettingsPage() {
   const addonGroups = useMemo(
     () => ({
       otp: [
-        { sku: "online-booking-topup-10", label: "10 verified bookings", pricePhp: 299 },
-        { sku: "online-booking-topup-25", label: "25 verified bookings", pricePhp: 699 },
+        { sku: "online-booking-topup-10", label: "10 verified bookings", priceUsd: 5 },
+        { sku: "online-booking-topup-25", label: "25 verified bookings", priceUsd: 11 },
       ],
       sms: [
-        { sku: "sms-segment-topup-25", label: "25 SMS segments", pricePhp: 599 },
-        { sku: "sms-segment-topup-50", label: "50 SMS segments", pricePhp: 1099 },
+        { sku: "sms-segment-topup-25", label: "25 SMS segments", priceUsd: 3 },
+        { sku: "sms-segment-topup-50", label: "50 SMS segments", priceUsd: 5 },
       ],
     }),
     [],
@@ -117,6 +118,7 @@ export default function BillingSettingsPage() {
           apiRequest<{
             checkoutEnabled: boolean;
             manualRequestEnabled: boolean;
+            annualCheckoutEnabled?: boolean;
             plans: BillingPlan[];
           }>("/billing/plans"),
         ]);
@@ -125,7 +127,10 @@ export default function BillingSettingsPage() {
         setPlans(plansData.plans);
         setCheckoutEnabled(plansData.checkoutEnabled ?? false);
         setManualRequestEnabled(plansData.manualRequestEnabled ?? false);
-        setBillingInterval(billingData.billingInterval ?? "monthly");
+        setAnnualCheckoutEnabled(plansData.annualCheckoutEnabled ?? false);
+        setBillingInterval(
+          plansData.annualCheckoutEnabled ? billingData.billingInterval ?? "monthly" : "monthly",
+        );
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load billing.");
@@ -180,6 +185,9 @@ export default function BillingSettingsPage() {
     };
   }, [getToken, searchParams]);
 
+  // Sign-up creates a trial subscription row with no provider; only a Lemon Squeezy row can be changed, cancelled, or managed.
+  const hasLemonSubscription = billing?.subscription?.provider === "lemonsqueezy";
+
   async function startPlanCheckout(planType: "starter" | "growth" | "pro") {
     setActionLoading(planType);
     setError(null);
@@ -187,7 +195,7 @@ export default function BillingSettingsPage() {
     try {
       const token = await getToken();
       if (!token) return;
-      const isPaid = !!billing?.subscription && billing.planType !== "free";
+      const isPaid = hasLemonSubscription && billing?.planType !== "free";
 
       if (isPaid) {
         await apiRequest("/billing/change-plan", {
@@ -377,7 +385,7 @@ export default function BillingSettingsPage() {
       ) : null}
       {billing && !billing.readOnly && checkoutEnabled ? (
         <div className="flex flex-wrap gap-3">
-          {billing.subscription ? (
+          {hasLemonSubscription ? (
             <>
               <Button
                 type="button"
@@ -471,11 +479,14 @@ export default function BillingSettingsPage() {
               Your plan updates after payment is confirmed.
             </p>
           </div>
-          <BillingIntervalToggle value={interval} onChange={setBillingInterval} />
+          {annualCheckoutEnabled ? (
+            <BillingIntervalToggle value={interval} onChange={setBillingInterval} />
+          ) : null}
         </div>
         <PlanComparisonGrid
           plans={plans}
           interval={interval}
+          annualCheckoutEnabled={annualCheckoutEnabled}
           ctaHref="/settings/billing"
         />
         {billing?.readOnly ? null : (
@@ -484,9 +495,9 @@ export default function BillingSettingsPage() {
               <Button
                 key={planType}
                 type="button"
-                disabled={actionLoading === planType || billing?.planType === planType}
+                disabled={actionLoading === planType || (hasLemonSubscription && billing?.planType === planType)}
                 aria-label={
-                  billing?.subscription
+                  hasLemonSubscription
                     ? billing?.planType === planType
                       ? `${planType} current plan`
                       : `Switch to ${planType}`
@@ -495,12 +506,12 @@ export default function BillingSettingsPage() {
                 onClick={() => startPlanCheckout(planType)}
               >
                 {actionLoading === planType
-                  ? billing?.subscription
+                  ? hasLemonSubscription
                     ? "Submitting..."
                     : "Preparing checkout..."
-                  : billing?.planType === planType
+                  : hasLemonSubscription && billing?.planType === planType
                     ? `${planType} current`
-                    : billing?.subscription
+                    : hasLemonSubscription
                       ? `Switch to ${planType}`
                       : `Upgrade to ${planType}`}
               </Button>
