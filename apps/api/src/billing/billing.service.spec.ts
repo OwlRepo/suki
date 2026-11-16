@@ -768,6 +768,53 @@ describe("BillingService", () => {
     expect(state.updated.subscriptions[0]).not.toHaveProperty("renewsAt");
   });
 
+  function growthCreatedPayload() {
+    return {
+      meta: {
+        event_name: "subscription_created",
+        custom_data: { organization_id: "org-1", plan_type: "growth", billing_interval: "monthly" },
+      },
+      data: {
+        id: "sub_email",
+        attributes: {
+          status: "active",
+          variant_id: 222,
+          renews_at: "2026-12-16T00:00:00.000Z",
+          ends_at: null,
+          cancelled: false,
+          urls: {},
+        },
+      },
+    };
+  }
+
+  it("regression: raises this month's included email allowance to the new plan without resetting usage", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      emailCredits: [{ organizationId: "org-1", month: "2026-11", included: 100, used: 7 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent(growthCreatedPayload());
+
+    expect(state.emailCredits[0]).toMatchObject({ included: 5_000, used: 7 });
+  });
+
+  it("edge: creates this month's email allowance for the new plan when no email ledger exists yet", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent(growthCreatedPayload());
+
+    expect(state.inserted.emailCredits[0]).toMatchObject({
+      organizationId: "org-1",
+      included: 5_000,
+      used: 0,
+    });
+  });
+
   it("reconciles subscription_created into subscription, org state, and included booking credits", async () => {
     const { state } = createDbHarness({
       organizations: [
