@@ -727,6 +727,7 @@ export class BillingService {
         planType: nextOrgPlan,
         currentPeriodStart,
       });
+      await this.syncIncludedEmailCredits(tx, organizationId, nextOrgPlan);
     }
   }
 
@@ -901,6 +902,36 @@ export class BillingService {
         providerEventId: eventId,
         metadata: { sku: addon.sku, refundedUnits: addon.units },
       });
+    }
+  }
+
+  // The email ledger row is created with the plan active at first send; a plan change must update it or the old allowance sticks for the month.
+  private async syncIncludedEmailCredits(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      insert: ReturnType<typeof getDb>["insert"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    organizationId: string,
+    planType: Exclude<PlanType, "free">,
+  ): Promise<void> {
+    const month = this.getCurrentMonthUtcKey();
+    const included = getPlanCatalogEntry(planType).limits.emailMessagesPerMonth;
+    const [existing] = await tx
+      .select({ id: emailCredits.id, included: emailCredits.included })
+      .from(emailCredits)
+      .where(and(eq(emailCredits.organizationId, organizationId), eq(emailCredits.month, month)))
+      .limit(1);
+
+    if (!existing) {
+      await tx.insert(emailCredits).values({ organizationId, month, included, used: 0 });
+      return;
+    }
+    if (existing.included !== included) {
+      await tx
+        .update(emailCredits)
+        .set({ included, updatedAt: new Date() })
+        .where(eq(emailCredits.id, existing.id));
     }
   }
 
