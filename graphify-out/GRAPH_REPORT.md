@@ -1,16 +1,16 @@
-# Graph Report - feat-lemonsqueezy-cutover  (2026-11-16)
+# Graph Report - fix-ls-refund-addon-match  (2026-11-16)
 
 ## Corpus Check
-- 858 files · ~523,200 words
+- 858 files · ~523,624 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4972 nodes · 10771 edges · 367 communities (282 shown, 85 thin omitted)
+- 4972 nodes · 10771 edges · 370 communities (285 shown, 85 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 118 edges (avg confidence: 0.79)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `af850661`
+- Built from commit: `333f43dc`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -44,7 +44,7 @@
 - app/page.tsx
 - scripts
 - Tenant
-- ai-usage.service.ts
+- AiUsageService
 - PlanCapacityService
 - MessagingService
 - adaptive-app-shell.tsx
@@ -53,7 +53,7 @@
 - Tool route_guidance
 - dependencies
 - FeatureFlagsService
-- AnswerSourceController
+- answer-source.service.ts
 - assistant-mutation.service.ts
 - IOtpProvider
 - AI Entry Point
@@ -145,7 +145,7 @@
 - .getActivePlan
 - CustomerTemplatesService
 - assistant.controller.ts
-- answer-source.service.ts
+- InsightsService
 - messaging-webhook.service.spec.ts
 - intake-booking.service.ts
 - compilerOptions
@@ -174,7 +174,7 @@
 - PaymongoService
 - buildApiUrl
 - assistant-context-governance.ts
-- Core principles
+- infra-workflow-gap-close.md (plan)
 - MessagingWebhooksController
 - .next/**
 - Help Center Guided Support (English)
@@ -217,6 +217,7 @@
 - Plan: fix main red tests and lint, run full unit suite on every PR
 - brand-theme.test.ts
 - protected-routes.ts
+- ai-usage.service.spec.ts
 - "activities"
 - db:seed
 - update-ai-indexes.ts
@@ -228,6 +229,7 @@
 - reflect-metadata
 - @suki/database
 - migration.service.ts
+- automation-trigger.service.ts
 - lucide-react
 - appointments/wizard-progress.ts
 - next
@@ -241,6 +243,7 @@
 - PR Report Template
 - @testing-library/jest-dom
 - @vitejs/plugin-react
+- Planning Standards
 - proxy.test.ts
 - Database Contracts Map
 - Suki rename compatibility audit
@@ -395,7 +398,7 @@
 - **Metrics and reporting docs** — docs_assistant_context_en_insights, docs_assistant_context_en_metrics, docs_assistant_context_tl_analytics, docs_assistant_context_tl_insights, docs_assistant_context_tl_metrics [INFERRED 0.85]
 - **Default create-next-app public SVG assets** — apps_web_public_file, apps_web_public_globe, apps_web_public_next, apps_web_public_vercel, apps_web_public_window [INFERRED 0.85]
 
-## Communities (367 total, 85 thin omitted)
+## Communities (370 total, 85 thin omitted)
 
 ### Community 0 - "PlatformAdminBillingService"
 Cohesion: 0.05
@@ -463,7 +466,7 @@ Nodes (11): AssistantMessage, AssistantNotice, COACHMARK_STEPS, detectLocale(), 
 
 ### Community 16 - "manual-follow-up.service.ts"
 Cohesion: 0.09
-Nodes (22): MANUAL_FOLLOW_UP_AUTOMATION_KEY_SET, ManualFollowUpController, Body, Controller, Get, Param, Patch, Post (+14 more)
+Nodes (21): ManualFollowUpController, Body, Controller, Get, Param, Patch, Post, Query (+13 more)
 
 ### Community 17 - "BillingService"
 Cohesion: 0.09
@@ -513,9 +516,9 @@ Nodes (35): scripts, agents:generate, agents:lint, build, build:api, build:web, 
 Cohesion: 0.17
 Nodes (11): Tenant, CustomersController, Body, Controller, Delete, Get, Param, Patch (+3 more)
 
-### Community 29 - "ai-usage.service.ts"
-Cohesion: 0.11
-Nodes (17): Body, Get, Patch, Post, Query, AiUsageService, getCurrentMonthUTC(), getDayStartUTC() (+9 more)
+### Community 29 - "AiUsageService"
+Cohesion: 0.14
+Nodes (12): Body, Get, Patch, Post, Query, AiUsageService, getCurrentMonthUTC(), getDayStartUTC() (+4 more)
 
 ### Community 30 - "PlanCapacityService"
 Cohesion: 0.12
@@ -545,9 +548,9 @@ Nodes (29): Tool get_business_summary, Tool get_sms_usage, Tool route_guidance, 
 Cohesion: 0.11
 Nodes (19): dependencies, class-transformer, class-validator, csv-parse, @nestjs/common, @nestjs/config, @nestjs/core, rxjs (+11 more)
 
-### Community 38 - "AnswerSourceController"
-Cohesion: 0.24
-Nodes (5): AnswerSourceController, Controller, Get, Query, UseGuards
+### Community 38 - "answer-source.service.ts"
+Cohesion: 0.10
+Nodes (13): AnswerSourceController, Controller, Get, Query, UseGuards, AnswerSourceService, aiUsage, billing (+5 more)
 
 ### Community 39 - "assistant-mutation.service.ts"
 Cohesion: 0.10
@@ -602,12 +605,12 @@ Cohesion: 0.11
 Nodes (12): BillingWebhookController, LemonWebhookPayload, RawBodyRequest, Controller, Post, Req, CreateCheckoutInput, LemonsqueezyService (+4 more)
 
 ### Community 52 - "semaphore-message-reconciliation.service.ts"
-Cohesion: 0.14
-Nodes (14): MANUAL_FOLLOW_UP_AUTOMATION_KEYS, MANUAL_FOLLOW_UP_DIGEST_CRON, SEMAPHORE_RECONCILIATION_BATCH_SIZE, SEMAPHORE_RECONCILIATION_CRON, SEMAPHORE_RECONCILIATION_LOOKBACK_HOURS, extractSemaphoreMessageId(), getAutomationSentMarkerTarget(), ReconciliationEvent (+6 more)
+Cohesion: 0.13
+Nodes (14): MANUAL_FOLLOW_UP_AUTOMATION_KEY_SET, MANUAL_FOLLOW_UP_AUTOMATION_KEYS, SEMAPHORE_RECONCILIATION_BATCH_SIZE, SEMAPHORE_RECONCILIATION_CRON, SEMAPHORE_RECONCILIATION_LOOKBACK_HOURS, extractSemaphoreMessageId(), getAutomationSentMarkerTarget(), ReconciliationEvent (+6 more)
 
 ### Community 53 - "planning.md"
-Cohesion: 0.09
-Nodes (27): Canonical Task Flow (A-Z mermaid), Node K: Graphify is the discovery tool, Node S: fresh worktree from origin/main, Node U: model tier / reasoning switch stop, Node W: handoff completion gate, Node Z: stop conditions, Execution Rules, Review mode and QA mode (+19 more)
+Cohesion: 0.10
+Nodes (26): Backwards compatibility is mandatory (principle 3), Canonical Task Flow (A-Z mermaid), Node K: Graphify is the discovery tool, Node L: write plan rules, Node S: fresh worktree from origin/main, Node U: model tier / reasoning switch stop, Node W: handoff completion gate, Node Z: stop conditions (+18 more)
 
 ### Community 54 - "assistant.service.ts"
 Cohesion: 0.06
@@ -634,11 +637,11 @@ Cohesion: 0.15
 Nodes (8): ExecuteResponsesToolLoopOptions, MAX_ASSISTANT_TOOL_CALLS, MAX_ASSISTANT_TOOL_ROUNDS, aiService, baseOptions, planCapacity, policy, usage
 
 ### Community 60 - ".dispatch"
-Cohesion: 0.10
-Nodes (11): AutomationMessageComposerService, Injectable, AutomationSendService, installDbHarness(), Injectable, AutomationSettingsService, Injectable, getDayStartUTC() (+3 more)
+Cohesion: 0.14
+Nodes (8): AutomationSendService, Injectable, AutomationSettingsService, Injectable, getDayStartUTC(), getEnvInt(), MessageDispatchService, Injectable
 
 ### Community 61 - "CustomersService"
-Cohesion: 0.21
+Cohesion: 0.20
 Nodes (3): CustomersService, parseTags(), Injectable
 
 ### Community 62 - "messaging.module.ts"
@@ -678,8 +681,8 @@ Cohesion: 0.15
 Nodes (12): WORKFLOW_TEMPLATES, WorkflowProfile, WorkflowTemplate, Controller, Get, Param, UseGuards, WorkflowsController (+4 more)
 
 ### Community 71 - "manual-follow-up-digest.service.ts"
-Cohesion: 0.17
-Nodes (7): ManualFollowUpDigestService, db, Cron, Inject, Injectable, buildManualFollowUpDigestEmail(), manualFollowUpTasks
+Cohesion: 0.15
+Nodes (8): MANUAL_FOLLOW_UP_DIGEST_CRON, ManualFollowUpDigestService, db, Cron, Inject, Injectable, buildManualFollowUpDigestEmail(), manualFollowUpTasks
 
 ### Community 72 - "help-content.ts"
 Cohesion: 0.13
@@ -754,8 +757,8 @@ Cohesion: 0.18
 Nodes (4): Manual schedule (no scheduler configured), Autonomy Level 2 (implement and open PRs, never merge), Evidence required for completion, ADR: single-agent flow replaces planner/executor split
 
 ### Community 90 - "AGENTS.md"
-Cohesion: 0.14
-Nodes (16): Repository-local AI workflow layer (.ai-engineering/), Automatic agent routing default (project-manager first), Communication default: caveman ultra, Repository context load order, Session persona (Senior Staff Full Stack AI Engineer), AI_WORKFLOW.md (moved pointer), Codex instructions, database-architect persona (+8 more)
+Cohesion: 0.12
+Nodes (18): Repository-local AI workflow layer (.ai-engineering/), Automatic agent routing default (project-manager first), Communication default: caveman ultra, Core principles, Repository context load order, Session persona (Senior Staff Full Stack AI Engineer), Strict TDD (principle 8), AI_WORKFLOW.md (moved pointer) (+10 more)
 
 ### Community 91 - "getDb"
 Cohesion: 0.11
@@ -791,7 +794,7 @@ Nodes (16): PR Template Risk and Rollback sections, PR Template Summary section,
 
 ### Community 100 - "automation-send.service.ts"
 Cohesion: 0.08
-Nodes (22): AutomationSettingsResponse, DEFAULT_MESSAGE_TEMPLATES, createDbHarness(), storedRow, TemplateMap, AutomationTriggerService, RecordMessageEventInput, Injectable (+14 more)
+Nodes (22): AutomationMessageComposerService, Injectable, installDbHarness(), AutomationSettingsResponse, DEFAULT_MESSAGE_TEMPLATES, createDbHarness(), storedRow, TemplateMap (+14 more)
 
 ### Community 101 - "intake-booking.service.spec.ts"
 Cohesion: 0.12
@@ -846,8 +849,8 @@ Cohesion: 0.33
 Nodes (3): AppointmentLifecycleSchedulerService, Cron, Injectable
 
 ### Community 114 - "Strict TDD"
-Cohesion: 0.09
-Nodes (26): PR Template Gates checklist, ci.yml (PR CI workflow), Lint changed files step, TDD gate step (bun run tdd:gate), Unit tests step (CI=true bun run test), workflow-gates job, Round 4 QA fan-out, Round 1b RED (test-engineer) (+18 more)
+Cohesion: 0.12
+Nodes (19): PR Template Gates checklist, ci.yml (PR CI workflow), Lint changed files step, TDD gate step (bun run tdd:gate), Unit tests step (CI=true bun run test), workflow-gates job, Round 4 QA fan-out, Round 1b RED (test-engineer) (+11 more)
 
 ### Community 115 - "Bootstrap Validation Workflow"
 Cohesion: 0.15
@@ -898,16 +901,16 @@ Cohesion: 0.18
 Nodes (13): deploy.yml (Deploy to VPS), API health check (localhost:3001/health), deploy job (SSH to VPS, push to main), Platform-admin founder bootstrap (bootstrap-platform-admin.ts), Legacy compose project cleanup (octal-encoded legacy project name), PostgreSQL pg_dump backup (14-day retention), Platform-admin RBAC seed (seed-platform-admin-rbac.ts), Public dev-artifact smoke check (tyvera.app/sign-up + JS bundles) (+5 more)
 
 ### Community 128 - "CustomerTemplatesService"
-Cohesion: 0.16
+Cohesion: 0.15
 Nodes (8): BUILTIN_DEFAULT_FIELDS_BY_TYPE, CustomerTemplatesService, FALLBACK_FIELDS, getBuiltinDefaultFields(), TemplateFieldConfig, Injectable, businessDefaultDescriptionTemplates, customerDescriptionTemplates
 
 ### Community 129 - "assistant.controller.ts"
 Cohesion: 0.24
 Nodes (6): AssistantController, Body, Controller, Post, Res, UseGuards
 
-### Community 130 - "answer-source.service.ts"
-Cohesion: 0.08
-Nodes (20): AnswerSourceService, aiUsage, billing, insights, smsMetering, Injectable, AnswerSourceDomain, AnswerSourceResponse (+12 more)
+### Community 130 - "InsightsService"
+Cohesion: 0.13
+Nodes (12): InsightsController, Controller, Get, Query, UseGuards, InsightsService, mockFrom, mockLimit (+4 more)
 
 ### Community 131 - "messaging-webhook.service.spec.ts"
 Cohesion: 0.15
@@ -1017,9 +1020,9 @@ Nodes (3): buildApiUrl(), getApiBaseUrl(), trimTrailingSlash()
 Cohesion: 0.38
 Nodes (7): AssistantDocCoverageReport, evaluateAssistantContextGovernance(), isBehaviorImpactingApiFile(), isBehaviorImpactingWebFile(), needsAssistantContextUpdate(), getChangedFiles(), main()
 
-### Community 159 - "Core principles"
-Cohesion: 0.50
-Nodes (4): Backwards compatibility is mandatory (principle 3), Core principles, Node L: write plan rules, Strict TDD (principle 8)
+### Community 159 - "infra-workflow-gap-close.md (plan)"
+Cohesion: 0.33
+Nodes (7): infra-workflow-gap-close.md (plan), Gap matrix (REF artifact -> here), Phase 0 - Setup + baseline, PR #5 workflow port (63be5b7), tarraula-command-center (REF source of truth), TDD_GATE_HEAD_REF skip removal (kept stricter than REF), verified-tree.mjs not ported
 
 ### Community 160 - "MessagingWebhooksController"
 Cohesion: 0.27
@@ -1157,6 +1160,10 @@ Nodes (6): contrastFromOklch(), fromLinear(), oklchToSrgb(), parseOklch(), relat
 Cohesion: 0.57
 Nodes (5): isExactOrNestedPath(), isProtectedPath(), isPublicPath(), PROTECTED_PREFIXES, PUBLIC_PREFIXES
 
+### Community 202 - "ai-usage.service.spec.ts"
+Cohesion: 0.33
+Nodes (5): mockFrom, mockLimit, mockSelect, mockWhere, queuedWhereResults
+
 ### Community 203 - ""activities""
 Cohesion: 0.38
 Nodes (6): "activities", "custom_fields", "deal_stages", "public"."businesses", "public"."customers", "public"."deals"
@@ -1184,6 +1191,10 @@ Nodes (6): Strict TDD RED, Test case order, test-engineer agent, Vitest componen
 ### Community 213 - "migration.service.ts"
 Cohesion: 0.25
 Nodes (5): MigrationService, ParsedRowLike, Injectable, DryRunResult, MigrationValidationReport
+
+### Community 214 - "automation-trigger.service.ts"
+Cohesion: 0.40
+Nodes (3): AutomationTriggerService, RecordMessageEventInput, Injectable
 
 ### Community 216 - "appointments/wizard-progress.ts"
 Cohesion: 0.40
@@ -1216,6 +1227,10 @@ Nodes (5): "client_billing_requests", "public"."manual_billing_requests", "publi
 ### Community 225 - "PR Report Template"
 Cohesion: 0.50
 Nodes (5): EOD Report Template, Execution Report Template, PR Report Template, QA Report Template, Review Report Template
+
+### Community 228 - "Planning Standards"
+Cohesion: 0.67
+Nodes (3): Planning Standards, Non-bypassable evidence gate, Non-bypassable Graphify gate
 
 ### Community 230 - "Database Contracts Map"
 Cohesion: 0.40
@@ -1419,7 +1434,7 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `apps/web/src/components` and `CONTEXT DRIFT: apps/web/src/domains removed`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `getDb()` connect `getDb` to `PlatformAdminBillingService`, `CustomerTemplatesService`, `answer-source.service.ts`, `intake-booking.service.ts`, `operations-alert.service.ts`, `auth.service.ts`, `licensing.service.ts`, `manual-follow-up.service.ts`, `BillingService`, `clerk-auth.guard.ts`, `AssistantService`, `types/src/index.ts`, `businesses`, `platform-admin-communications.service.ts`, `ai-usage.service.ts`, `PlanCapacityService`, `MessagingService`, `OrganizationsService`, `SmsMeteringService`, `assistant-mutation.service.ts`, `IOtpProvider`, `auth.bootstrap.service.ts`, `billing.service.ts`, `BusinessesController`, `admin.controller.ts`, `platform-admin-billing-email.service.spec.ts`, `PromosService`, `automation-scheduler.service.spec.ts`, `MessagingWebhookService`, `PlanType`, `message-dispatch.service.ts`, `semaphore-message-reconciliation.service.ts`, `assistant.service.ts`, `.dispatch`, `CustomersService`, `.getBatch`, `LoyaltyController`, `manual-follow-up-digest.service.ts`, `AdminController`, `DealsService`, `TasksService`, `org-billing-state.service.ts`, `DealStagesService`, `migration.service.ts`, `normalizePhilippineMobileE164`, `EmailMeteringService`, `IntakeBookingService`, `.execute`, `ImportsController`, `inbound-sms.controller.ts`, `PlatformAdminBillingEmailService`, `platform-admin-billing-email.service.ts`, `automation-send.service.ts`, `PrivacyController`, `HealthController`, `ImportsService`, `database/src/index.ts`, `.getActivePlan`?**
+- **Why does `getDb()` connect `getDb` to `PlatformAdminBillingService`, `CustomerTemplatesService`, `InsightsService`, `intake-booking.service.ts`, `operations-alert.service.ts`, `auth.service.ts`, `licensing.service.ts`, `manual-follow-up.service.ts`, `BillingService`, `clerk-auth.guard.ts`, `AssistantService`, `types/src/index.ts`, `businesses`, `platform-admin-communications.service.ts`, `AiUsageService`, `PlanCapacityService`, `MessagingService`, `OrganizationsService`, `SmsMeteringService`, `answer-source.service.ts`, `assistant-mutation.service.ts`, `IOtpProvider`, `auth.bootstrap.service.ts`, `billing.service.ts`, `BusinessesController`, `admin.controller.ts`, `platform-admin-billing-email.service.spec.ts`, `PromosService`, `automation-scheduler.service.spec.ts`, `MessagingWebhookService`, `PlanType`, `message-dispatch.service.ts`, `semaphore-message-reconciliation.service.ts`, `assistant.service.ts`, `.dispatch`, `CustomersService`, `.getBatch`, `LoyaltyController`, `manual-follow-up-digest.service.ts`, `AdminController`, `DealsService`, `TasksService`, `org-billing-state.service.ts`, `DealStagesService`, `migration.service.ts`, `automation-trigger.service.ts`, `normalizePhilippineMobileE164`, `EmailMeteringService`, `IntakeBookingService`, `.execute`, `ImportsController`, `inbound-sms.controller.ts`, `PlatformAdminBillingEmailService`, `platform-admin-billing-email.service.ts`, `automation-send.service.ts`, `PrivacyController`, `HealthController`, `ImportsService`, `database/src/index.ts`, `.getActivePlan`?**
   _High betweenness centrality (0.124) - this node is a cross-community bridge._
 - **Why does `Plan: fix main red tests and lint, run full unit suite on every PR` connect `Plan: fix main red tests and lint, run full unit suite on every PR` to `AI Entry Point`, `Strict TDD`, `deploy job (SSH to VPS, push to main)`, `Project Memory`?**
   _High betweenness centrality (0.057) - this node is a cross-community bridge._
