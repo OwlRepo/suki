@@ -70,6 +70,7 @@ export default function BillingSettingsPage() {
   const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [checkoutEnabled, setCheckoutEnabled] = useState(false);
+  const [annualCheckoutEnabled, setAnnualCheckoutEnabled] = useState(false);
   const [manualRequestEnabled, setManualRequestEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +106,7 @@ export default function BillingSettingsPage() {
           apiRequest<{
             checkoutEnabled: boolean;
             manualRequestEnabled: boolean;
+            annualCheckoutEnabled?: boolean;
             plans: BillingPlan[];
           }>("/billing/plans"),
         ]);
@@ -113,7 +115,10 @@ export default function BillingSettingsPage() {
         setPlans(plansData.plans);
         setCheckoutEnabled(plansData.checkoutEnabled ?? false);
         setManualRequestEnabled(plansData.manualRequestEnabled ?? false);
-        setBillingInterval(billingData.billingInterval ?? "monthly");
+        setAnnualCheckoutEnabled(plansData.annualCheckoutEnabled ?? false);
+        setBillingInterval(
+          plansData.annualCheckoutEnabled ? billingData.billingInterval ?? "monthly" : "monthly",
+        );
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load billing.");
@@ -460,11 +465,14 @@ export default function BillingSettingsPage() {
               We activate paid access only after the signed Lemon Squeezy webhook has been reconciled.
             </p>
           </div>
-          <BillingIntervalToggle value={interval} onChange={setBillingInterval} />
+          {annualCheckoutEnabled ? (
+            <BillingIntervalToggle value={interval} onChange={setBillingInterval} />
+          ) : null}
         </div>
         <PlanComparisonGrid
           plans={plans}
           interval={interval}
+          annualCheckoutEnabled={annualCheckoutEnabled}
           ctaHref="/settings/billing"
         />
         {billing?.readOnly ? null : (
