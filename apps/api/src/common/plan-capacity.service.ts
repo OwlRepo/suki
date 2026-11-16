@@ -74,6 +74,12 @@ export class PlanCapacityService {
     return "free";
   }
 
+  // Sizes included monthly credits; free while a Lemon Squeezy payment is failing even though modules stay on.
+  async getIncludedCreditsPlan(organizationId: string): Promise<PlanType> {
+    const state = await this.orgBillingState.getOrgBillingState(organizationId);
+    return state?.includedCreditsPlan ?? "free";
+  }
+
   hasModuleAccess(plan: PlanType, module: string): boolean {
     return MODULES_BY_PLAN[plan]?.includes(module) ?? false;
   }

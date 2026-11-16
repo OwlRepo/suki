@@ -1,12 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { organizations, subscriptions } from "@suki/database";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { OrgBillingStatus, PlanType } from "@suki/types";
 
 export interface OrgBillingState {
   billingStatus: OrgBillingStatus;
   currentPlan: PlanType;
+  // Plan that sizes included monthly credits; free while a Lemon Squeezy payment is failing.
+  includedCreditsPlan: PlanType;
   trialStartsAt: Date | null;
   trialEndsAt: Date | null;
   daysRemaining: number | null;
@@ -32,6 +34,25 @@ const VARIABLE_COST_BLOCKED_STATUSES: OrgBillingStatus[] = [
   "suspended",
 ];
 
+// unpaid stays live: LS can still recover it, so a new checkout would double-bill (D2).
+export const LIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due", "unpaid", "paused"] as const;
+
+// orderBy term: a live LS subscription outranks ended rows whose currentPeriodEnd is later.
+export const LIVE_LEMON_SUBSCRIPTION_FIRST = sql`CASE WHEN ${and(
+  eq(subscriptions.provider, "lemonsqueezy"),
+  or(
+    inArray(subscriptions.status, [...LIVE_SUBSCRIPTION_STATUSES]),
+    and(eq(subscriptions.status, "cancelled"), sql`${subscriptions.endsAt} > now()`),
+  ),
+)} THEN 0 ELSE 1 END`;
+
+export const LEMON_PAYMENT_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Null graceUntil = row written before the grace policy; keep the paid plan until the next webhook sets one.
+export function isLemonGraceExpired(status: string, graceUntil: Date | null, now: Date): boolean {
+  return (status === "past_due" || status === "unpaid") && graceUntil instanceof Date && graceUntil.getTime() <= now.getTime();
+}
+
 @Injectable()
 export class OrgBillingStateService {
   async getOrgBillingState(orgId: string): Promise<OrgBillingState | null> {
@@ -46,7 +67,7 @@ export class OrgBillingStateService {
       .select()
       .from(subscriptions)
       .where(eq(subscriptions.organizationId, orgId))
-      .orderBy(desc(subscriptions.currentPeriodEnd))
+      .orderBy(LIVE_LEMON_SUBSCRIPTION_FIRST, desc(subscriptions.currentPeriodEnd))
       .limit(1);
     return this.deriveState({
       ...org,
@@ -77,10 +98,15 @@ export class OrgBillingStateService {
     const now = new Date();
     let effectiveStatus = (org.billingStatus ?? "free_active") as OrgBillingStatus;
 
-    const plan = (org.currentPlan ?? "free") as PlanType;
+    const manualSubscription = org.subscriptionProvider === "manual";
+    const lemonPaymentFailing =
+      !manualSubscription && (org.subscriptionStatus === "past_due" || org.subscriptionStatus === "unpaid");
+    const plan =
+      lemonPaymentFailing && isLemonGraceExpired(org.subscriptionStatus ?? "", org.subscriptionGraceUntil ?? null, now)
+        ? "free"
+        : ((org.currentPlan ?? "free") as PlanType);
     const subscriptionStatus = org.subscriptionStatus ?? null;
     const subscriptionEndsAt = org.subscriptionEndsAt ?? null;
-    const manualSubscription = org.subscriptionProvider === "manual";
 
     if (!manualSubscription && subscriptionStatus === "active") {
       effectiveStatus = "subscription_active";
@@ -139,6 +165,7 @@ export class OrgBillingStateService {
     return {
       billingStatus: effectiveStatus,
       currentPlan: plan,
+      includedCreditsPlan: lemonPaymentFailing ? "free" : plan,
       trialStartsAt: org.trialStartsAt ?? null,
       trialEndsAt: org.trialEndsAt ?? null,
       daysRemaining,

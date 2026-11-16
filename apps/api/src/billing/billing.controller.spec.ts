@@ -1,6 +1,50 @@
-import { BadRequestException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, UnauthorizedException, ValidationPipe } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { BillingController } from "./billing.controller";
+import { ChangePlanDto, CreateAddonCheckoutDto, CreateCheckoutDto } from "./billing.dto";
+
+// Same options as the global pipe in main.ts.
+const validationPipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true });
+const validateBody = (metatype: new () => object, body: unknown) =>
+  validationPipe.transform(body, { type: "body", metatype });
+
+describe("billing request DTOs", () => {
+  it("error: checkout rejects planType free", async () => {
+    await expect(
+      validateBody(CreateCheckoutDto, { planType: "free", billingInterval: "monthly" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("error: checkout rejects an unknown interval", async () => {
+    await expect(
+      validateBody(CreateCheckoutDto, { planType: "growth", billingInterval: "weekly" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("error: addon checkout rejects an unknown sku", async () => {
+    await expect(
+      validateBody(CreateAddonCheckoutDto, { sku: "sms-segment-topup-9999" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("error: change-plan rejects an unknown planType", async () => {
+    await expect(
+      validateBody(ChangePlanDto, { planType: "enterprise", billingInterval: "monthly" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("happy: valid bodies pass", async () => {
+    await expect(
+      validateBody(CreateCheckoutDto, { planType: "growth", billingInterval: "annual" }),
+    ).resolves.toMatchObject({ planType: "growth", billingInterval: "annual" });
+    await expect(
+      validateBody(CreateAddonCheckoutDto, { sku: "online-booking-topup-25" }),
+    ).resolves.toMatchObject({ sku: "online-booking-topup-25" });
+    await expect(validateBody(ChangePlanDto, { planType: "free" })).resolves.toMatchObject({
+      planType: "free",
+    });
+  });
+});
 
 describe("BillingController", () => {
   const billingService = {

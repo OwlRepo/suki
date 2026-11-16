@@ -1,5 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { ServiceUnavailableException } from "@nestjs/common";
+import { ConflictException, ServiceUnavailableException } from "@nestjs/common";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import {
   aiUsageEvents,
   emailCredits,
@@ -54,6 +56,8 @@ type SubscriptionRow = {
   pendingSyncStartedAt?: Date | null;
   pendingSyncTargetPlanType?: "free" | "starter" | "growth" | "pro" | null;
   pendingSyncTargetBillingInterval?: "monthly" | "annual" | null;
+  provider?: "lemonsqueezy" | "manual" | null;
+  graceUntil?: Date | null;
 };
 
 type CreditRow = {
@@ -94,6 +98,8 @@ function createDbHarness(input?: {
   reconciliation?: Array<Record<string, unknown>>;
   // opt-in: keep one verified-credit row per month and resolve selects/updates by the month in the where clause
   creditsByMonth?: boolean;
+  // opt-in: keep every subscription row and resolve selects/updates by the rendered where clause
+  subscriptionsBySql?: boolean;
 }) {
   const state = {
     subscriptions: [...(input?.subscriptions ?? [])],
@@ -164,19 +170,88 @@ function createDbHarness(input?: {
     return values;
   };
 
+  const dialect = new PgDialect();
+  const render = (condition: unknown) => dialect.sqlToQuery(condition as SQL);
+  const liveStatuses = ["active", "trialing", "past_due", "unpaid", "paused"];
+
+  const isLiveLemonRow = (row: SubscriptionRow) =>
+    row.provider === "lemonsqueezy" &&
+    (liveStatuses.includes(row.status) ||
+      (row.status === "cancelled" && !!row.endsAt && row.endsAt.getTime() > Date.now()));
+
+  // Mirrors the where clauses BillingService builds on subscriptions; the live-subscription
+  // lookup is always evaluated because it is new and has no legacy single-row behaviour.
+  const matchSubscriptions = (condition: unknown): SubscriptionRow[] | null => {
+    const { sql: text, params } = render(condition);
+    const isLiveLookup = text.includes('"subscriptions"."status" in');
+    if (!input?.subscriptionsBySql && !isLiveLookup) return null;
+    const has = (fragment: string) => text.includes(`"subscriptions"."${fragment}`);
+    return state.subscriptions.filter((row) => {
+      if (has("organization_id\" =") && !params.includes(row.organizationId)) return false;
+      if (has("id\" =") && !params.includes(row.id)) return false;
+      if (has("provider\" =") && !params.includes(row.provider)) return false;
+      if (has("provider\" is null") && row.provider) return false;
+      if (has("provider_order_id\" =") && !params.includes(row.providerOrderId)) return false;
+      if (has("provider_subscription_id\" is null") && row.providerSubscriptionId) return false;
+      if (has("provider_subscription_id\" =") && !params.includes(row.providerSubscriptionId)) return false;
+      if (has("provider_subscription_id\" <>") && params.includes(row.providerSubscriptionId)) return false;
+      if (isLiveLookup) {
+        const live =
+          liveStatuses.includes(row.status) ||
+          (row.status === "cancelled" && !!row.endsAt && row.endsAt.getTime() > Date.now());
+        if (!live) return false;
+      }
+      return true;
+    });
+  };
+
+  // Newest processed delivery for the subscription named in the where clause.
+  const matchProcessedBySubscription = (condition: unknown) => {
+    const { params } = render(condition);
+    return state.processedEvents
+      .filter((event) => event.status === "processed")
+      .filter((event) =>
+        params.includes((event.metadata as Record<string, unknown> | undefined)?.subscriptionId),
+      )
+      .sort(
+        (a, b) =>
+          ((b.processedAt as Date | undefined)?.getTime() ?? 0) -
+          ((a.processedAt as Date | undefined)?.getTime() ?? 0),
+      );
+  };
+
   const select = vi.fn(() => ({
     from: (table: unknown) => ({
       where: (condition: unknown) => {
         state.whereConditions.push({ table, condition });
         return {
-        orderBy: () => ({
+        orderBy: (...ordering: unknown[]) => ({
           limit: async () => {
-            if (table === subscriptions) return state.subscriptions.slice(0, 1);
+            if (table === subscriptions) {
+              const matched = matchSubscriptions(condition);
+              if (!matched) return state.subscriptions.slice(0, 1);
+              // opt-in with subscriptionsBySql: honour a liveness-first CASE ordering ahead of currentPeriodEnd
+              const liveFirst =
+                !!input?.subscriptionsBySql && ordering.some((term) => render(term).sql.toLowerCase().includes("case when"));
+              const rank = (row: SubscriptionRow) =>
+                liveFirst && isLiveLemonRow(row) ? 0 : 1;
+              return [...matched]
+                .sort(
+                  (a, b) =>
+                    rank(a) - rank(b) || b.currentPeriodEnd.getTime() - a.currentPeriodEnd.getTime(),
+                )
+                .slice(0, 1);
+            }
+            if (table === processedWebhookEvents) {
+              return matchProcessedBySubscription(condition).slice(0, 1);
+            }
             return [];
           },
         }),
         limit: async () => {
-          if (table === subscriptions) return state.subscriptions.slice(0, 1);
+          if (table === subscriptions) {
+            return (matchSubscriptions(condition) ?? state.subscriptions).slice(0, 1);
+          }
           if (table === verifiedOnlineBookingCredits) {
             if (!input?.creditsByMonth) return state.verifiedCredits.slice(0, 1);
             const values = sqlValues(condition);
@@ -205,7 +280,9 @@ function createDbHarness(input?: {
       const persistValue = () => {
         if (table === subscriptions) {
           state.inserted.subscriptions.push(value);
-          state.subscriptions = [value as unknown as SubscriptionRow];
+          state.subscriptions = input?.subscriptionsBySql
+            ? [...state.subscriptions, value as unknown as SubscriptionRow]
+            : [value as unknown as SubscriptionRow];
         } else if (table === verifiedOnlineBookingCredits) {
           state.inserted.credits.push(value);
           state.verifiedCredits = input?.creditsByMonth
@@ -254,6 +331,7 @@ function createDbHarness(input?: {
           },
         }),
         // mirrors ON CONFLICT (event_id) DO UPDATE ... WHERE status = 'failed'
+        // OR (status = 'processing' AND processed_at < now - 10 minutes)
         onConflictDoUpdate: () => ({
           returning: async () => {
             const existing =
@@ -264,9 +342,14 @@ function createDbHarness(input?: {
               persistValue();
               return [{ id: "processed-webhook-event-id" }];
             }
-            if (existing.status !== "failed") return [];
+            const claimedAt = existing.processedAt as Date | undefined;
+            const abandoned =
+              existing.status === "processing" &&
+              !!claimedAt &&
+              claimedAt.getTime() < Date.now() - 10 * 60 * 1000;
+            if (existing.status !== "failed" && !abandoned) return [];
             state.processedEvents = state.processedEvents.map((event) =>
-              event === existing ? { ...event, status: "processing" } : event,
+              event === existing ? { ...event, status: "processing", processedAt: new Date() } : event,
             );
             return [{ id: "processed-webhook-event-id" }];
           },
@@ -286,7 +369,12 @@ function createDbHarness(input?: {
       where: async (condition: unknown) => {
         if (table === subscriptions) {
           state.updated.subscriptions.push(value);
-          if (state.subscriptions[0]) {
+          const matched = matchSubscriptions(condition);
+          if (matched) {
+            state.subscriptions = state.subscriptions.map((row) =>
+              matched.includes(row) ? ({ ...row, ...value } as SubscriptionRow) : row,
+            );
+          } else if (state.subscriptions[0]) {
             state.subscriptions[0] = { ...state.subscriptions[0], ...value };
           }
         } else if (table === verifiedOnlineBookingCredits) {
@@ -431,6 +519,7 @@ describe("BillingService", () => {
   it("edge: FF_self_serve_billing_enabled=\"1\" enables checkout like the FeatureFlagsService", async () => {
     process.env.FF_self_serve_billing_enabled = "1";
     process.env.LEMONSQUEEZY_VARIANT_GROWTH_MONTHLY = "variant-growth-monthly";
+    createDbHarness();
     const provider = {
       createCheckout: vi.fn().mockResolvedValue({ checkoutUrl: "https://checkout.example/x" }),
     };
@@ -1749,12 +1838,12 @@ describe("BillingService", () => {
     });
   });
 
-  it("ignores webhook reconciliation entirely when self-serve billing is disabled", async () => {
+  it("error: webhook reconciliation throws 503 BILLING_DISABLED when self-serve billing is off", async () => {
     process.env.FF_self_serve_billing_enabled = "false";
     const { state } = createDbHarness();
     const service = new BillingService({} as never);
 
-    await expect(
+    await expectBillingDisabled(() =>
       service.reconcileWebhookEvent({
         meta: {
           event_name: "subscription_created",
@@ -1767,7 +1856,7 @@ describe("BillingService", () => {
           attributes: {},
         },
       }),
-    ).resolves.toBe("ignored");
+    );
 
     expect(state.inserted.processedEvents).toHaveLength(0);
     expect(state.updated.processedEvents).toHaveLength(0);
@@ -1816,7 +1905,7 @@ describe("BillingService", () => {
     });
   });
 
-  it("schedules lower-plan downgrades for the billing boundary and stores the scheduled target locally", async () => {
+  it("regression: schedules lower-plan downgrades for the billing boundary and stores the scheduled target locally", async () => {
     const { state } = createDbHarness({
       subscriptions: [
         {
@@ -2148,6 +2237,688 @@ describe("BillingService", () => {
       await expect(service.reconcileWebhookEvent(subscriptionPayload)).resolves.toBe("processed");
       await expect(service.reconcileWebhookEvent(subscriptionPayload)).resolves.toBe("duplicate");
       expect(reconcile).toHaveBeenCalledTimes(1);
+    });
+  });
+  describe("Lemon Squeezy subscription sync", () => {
+    const NOW = new Date("2026-11-16T00:00:00.000Z");
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    beforeEach(() => {
+      vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const lsRow = (overrides: Partial<SubscriptionRow> = {}): SubscriptionRow => ({
+      id: "row-a",
+      organizationId: "org-1",
+      planType: "growth",
+      status: "active",
+      billingInterval: "monthly",
+      currentPeriodStart: new Date("2026-11-01T00:00:00.000Z"),
+      currentPeriodEnd: new Date("2026-12-01T00:00:00.000Z"),
+      renewsAt: new Date("2026-12-01T00:00:00.000Z"),
+      cancelled: "false",
+      provider: "lemonsqueezy",
+      providerSubscriptionId: "sub_a",
+      providerOrderId: "order_a",
+      ...overrides,
+    });
+
+    const subscriptionEvent = (
+      eventName: string,
+      attributes: Record<string, unknown> = {},
+      options: { id?: string; customData?: Record<string, unknown> } = {},
+    ) => ({
+      meta: {
+        event_name: eventName,
+        custom_data: {
+          organization_id: "org-1",
+          plan_type: "growth",
+          billing_interval: "monthly",
+          ...options.customData,
+        },
+      },
+      data: {
+        id: options.id ?? "sub_a",
+        attributes: {
+          status: "active",
+          renews_at: "2026-12-16T00:00:00.000Z",
+          ends_at: null,
+          cancelled: false,
+          urls: {},
+          updated_at: "2026-11-16T00:00:00.000Z",
+          ...attributes,
+        },
+      },
+    });
+
+    const orderRefundedEvent = (attributes: Record<string, unknown>) => ({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "subscription", plan_type: "growth" },
+      },
+      data: { id: "order_a", attributes },
+    });
+
+    const subscriptionPaymentRefundedEvent = (attributes: Record<string, unknown>) => ({
+      meta: {
+        event_name: "subscription_payment_refunded",
+        custom_data: { organization_id: "org-1" },
+      },
+      data: { id: "inv_1", attributes: { subscription_id: "sub_a", ...attributes } },
+    });
+
+    const lemonProvider = (providerAttributes: Record<string, unknown> = { status: "active", cancelled: false }) => ({
+      createCheckout: vi.fn().mockResolvedValue({ checkoutUrl: "https://checkout.example/x" }),
+      updateSubscription: vi.fn().mockResolvedValue({ data: { attributes: { status: "active" } } }),
+      getSubscription: vi.fn().mockResolvedValue({ data: { id: "sub_a", attributes: providerAttributes } }),
+      cancelSubscription: vi.fn().mockResolvedValue({ data: { attributes: { status: "cancelled" } } }),
+    });
+
+    const expectConflict = async (action: Promise<unknown>, code: string) => {
+      const error = await action.then(
+        () => null,
+        (err: unknown) => err,
+      );
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({ code });
+    };
+
+    const lastProcessedMetadata = (state: ReturnType<typeof createDbHarness>["state"]) =>
+      state.processedEvents[state.processedEvents.length - 1]?.metadata as Record<string, unknown> | undefined;
+
+    it("error: createSubscriptionCheckout rejects with 409 when the org has an active Lemon Squeezy subscription", async () => {
+      process.env.LEMONSQUEEZY_VARIANT_PRO_MONTHLY = "333";
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expectConflict(
+        service.createSubscriptionCheckout({ organizationId: "org-1", userId: "user-1", planType: "pro", billingInterval: "monthly" }),
+        "SUBSCRIPTION_EXISTS",
+      );
+      expect(provider.createCheckout).not.toHaveBeenCalled();
+    });
+
+    it("error: createSubscriptionCheckout rejects with 409 when a cancelled subscription still runs until ends_at", async () => {
+      process.env.LEMONSQUEEZY_VARIANT_PRO_MONTHLY = "333";
+      createDbHarness({
+        subscriptionsBySql: true,
+        subscriptions: [lsRow({ status: "cancelled", cancelled: "true", endsAt: new Date(NOW.getTime() + 5 * DAY_MS) })],
+      });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expectConflict(
+        service.createSubscriptionCheckout({ organizationId: "org-1", userId: "user-1", planType: "pro", billingInterval: "monthly" }),
+        "SUBSCRIPTION_EXISTS",
+      );
+      expect(provider.createCheckout).not.toHaveBeenCalled();
+    });
+
+    it("error: changePlan rejects an expired subscription with 409 SUBSCRIPTION_NOT_ACTIVE", async () => {
+      process.env.LEMONSQUEEZY_VARIANT_PRO_MONTHLY = "333";
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow({ status: "expired", cancelled: "true" })] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expectConflict(
+        service.changePlan("org-1", { planType: "pro", billingInterval: "monthly" }),
+        "SUBSCRIPTION_NOT_ACTIVE",
+      );
+      expect(provider.updateSubscription).not.toHaveBeenCalled();
+    });
+
+    it("error: changePlan rejects a cancelled subscription whose ends_at has passed", async () => {
+      process.env.LEMONSQUEEZY_VARIANT_PRO_MONTHLY = "333";
+      createDbHarness({
+        subscriptionsBySql: true,
+        subscriptions: [lsRow({ status: "cancelled", cancelled: "true", endsAt: new Date(NOW.getTime() - DAY_MS) })],
+      });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expectConflict(
+        service.changePlan("org-1", { planType: "pro", billingInterval: "monthly" }),
+        "SUBSCRIPTION_NOT_ACTIVE",
+      );
+      expect(provider.updateSubscription).not.toHaveBeenCalled();
+    });
+
+    it("error: subscription event without organization_id is stored ignored with reason missing_organization_id", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true });
+      const service = new BillingService({} as never);
+
+      const result = await service.reconcileWebhookEvent(
+        subscriptionEvent("subscription_updated", {}, { customData: { organization_id: undefined } }),
+      );
+
+      expect(result).toBe("ignored");
+      expect(state.processedEvents[0]).toMatchObject({
+        status: "ignored",
+        metadata: expect.objectContaining({ reason: "missing_organization_id" }),
+      });
+      expect(state.inserted.subscriptions).toHaveLength(0);
+    });
+
+    it("error: a stale subscription event (updated_at older than the last processed one) is ignored and writes nothing", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+        subscriptions: [lsRow()],
+        processedEvents: [
+          {
+            provider: "lemonsqueezy",
+            eventId: "lemonsqueezy:newer-delivery",
+            status: "processed",
+            processedAt: new Date(NOW.getTime() - 60_000),
+            metadata: { resourceId: "sub_a", subscriptionId: "sub_a", providerUpdatedAt: "2026-11-15T12:00:00.000Z" },
+          },
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      const result = await service.reconcileWebhookEvent(
+        subscriptionEvent("subscription_updated", { status: "past_due", updated_at: "2026-11-15T00:00:00.000Z" }),
+      );
+
+      expect(result).toBe("ignored");
+      expect(state.updated.subscriptions).toHaveLength(0);
+      expect(state.inserted.subscriptions).toHaveLength(0);
+      expect(state.updated.organizations).toHaveLength(0);
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "stale_provider_event" });
+    });
+
+    it("edge: an event with the same updated_at as the last processed one is still applied", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+        subscriptions: [lsRow()],
+        processedEvents: [
+          {
+            provider: "lemonsqueezy",
+            eventId: "lemonsqueezy:same-time",
+            status: "processed",
+            processedAt: new Date(NOW.getTime() - 60_000),
+            metadata: { subscriptionId: "sub_a", providerUpdatedAt: "2026-11-16T00:00:00.000Z" },
+          },
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      await expect(service.reconcileWebhookEvent(subscriptionEvent("subscription_updated"))).resolves.toBe("processed");
+      expect(state.updated.subscriptions).toHaveLength(1);
+      expect(lastProcessedMetadata(state)).toMatchObject({
+        subscriptionId: "sub_a",
+        providerUpdatedAt: "2026-11-16T00:00:00.000Z",
+      });
+    });
+
+    it("edge: a delivery stuck in processing for over 10 minutes is re-claimed and reprocessed", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+        subscriptions: [lsRow()],
+        processedEvents: [
+          {
+            provider: "lemonsqueezy",
+            eventId: "lemonsqueezy:stuck",
+            status: "processing",
+            processedAt: new Date(NOW.getTime() - 11 * 60 * 1000),
+          },
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      await expect(
+        service.reconcileWebhookEvent(subscriptionEvent("subscription_updated"), "lemonsqueezy:stuck"),
+      ).resolves.toBe("processed");
+      expect(state.processedEvents).toHaveLength(1);
+      expect(state.processedEvents[0]).toMatchObject({ status: "processed" });
+      expect(state.updated.subscriptions).toHaveLength(1);
+    });
+
+    it("edge: an event for subscription B creates a new row and never overwrites the row tracking subscription A", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+        subscriptions: [lsRow()],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_created", {}, { id: "sub_b" }));
+
+      expect(state.inserted.subscriptions).toHaveLength(1);
+      expect(state.inserted.subscriptions[0]).toMatchObject({ providerSubscriptionId: "sub_b" });
+      expect(state.updated.subscriptions).toHaveLength(0);
+      expect(state.subscriptions.find((row) => row.id === "row-a")).toMatchObject({
+        providerSubscriptionId: "sub_a",
+        status: "active",
+      });
+    });
+
+    it("edge: an event for an ended subscription does not change the org plan while another live subscription exists", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "pro", billingStatus: "subscription_active" }],
+        subscriptions: [
+          lsRow({ id: "row-a", planType: "pro" }),
+          lsRow({ id: "row-b", providerSubscriptionId: "sub_b", providerOrderId: "order_b" }),
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      await expect(
+        service.reconcileWebhookEvent(
+          subscriptionEvent("subscription_expired", { status: "expired", cancelled: true, ends_at: "2026-11-15T00:00:00.000Z" }, { id: "sub_b" }),
+        ),
+      ).resolves.toBe("processed");
+
+      expect(state.subscriptions.find((row) => row.id === "row-b")).toMatchObject({ status: "expired" });
+      expect(state.subscriptions.find((row) => row.id === "row-a")).toMatchObject({ status: "active", planType: "pro" });
+      expect(state.updated.organizations).toHaveLength(0);
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "superseded_subscription" });
+    });
+
+    it("edge: first event for an org with only a provider-less trial row adopts that row", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "starter", billingStatus: "trial_active" }],
+        subscriptions: [
+          lsRow({ id: "trial-row", planType: "starter", status: "trialing", provider: null, providerSubscriptionId: null, providerOrderId: null }),
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_created"));
+
+      expect(state.inserted.subscriptions).toHaveLength(0);
+      expect(state.subscriptions).toHaveLength(1);
+      expect(state.subscriptions[0]).toMatchObject({
+        id: "trial-row",
+        provider: "lemonsqueezy",
+        providerSubscriptionId: "sub_a",
+        planType: "growth",
+      });
+    });
+
+    it("edge: past_due keeps the paid plan, sets graceUntil = now+7d and grants no included credits", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+        subscriptions: [lsRow()],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_updated", { status: "past_due" }));
+
+      expect(state.subscriptions[0]).toMatchObject({
+        status: "past_due",
+        planType: "growth",
+        graceUntil: new Date(NOW.getTime() + 7 * DAY_MS),
+      });
+      expect(state.updated.organizations[0]).toMatchObject({
+        currentPlan: "growth",
+        billingStatus: "subscription_past_due",
+      });
+      expect(state.inserted.credits).toHaveLength(0);
+      expect(state.updated.credits).toHaveLength(0);
+      expect(state.inserted.emailCredits).toHaveLength(0);
+    });
+
+    it("edge: a second past_due event keeps the original graceUntil", async () => {
+      const firstGrace = new Date(NOW.getTime() + 3 * DAY_MS);
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_past_due" }],
+        subscriptions: [lsRow({ status: "past_due", graceUntil: firstGrace })],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_updated", { status: "past_due" }));
+
+      expect(state.subscriptions[0]).toMatchObject({ status: "past_due", graceUntil: firstGrace });
+      expect(state.updated.organizations[0]).toMatchObject({ currentPlan: "growth" });
+    });
+
+    it("edge: past_due arriving after graceUntil sets the org plan to free", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_past_due" }],
+        subscriptions: [lsRow({ status: "past_due", graceUntil: new Date(NOW.getTime() - DAY_MS) })],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_updated", { status: "unpaid" }));
+
+      expect(state.updated.organizations[0]).toMatchObject({
+        currentPlan: "free",
+        billingStatus: "subscription_past_due",
+      });
+    });
+
+    it("edge: subscription refund replay does not call cancelSubscription again when the row is already cancelled", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        subscriptions: [lsRow({ status: "cancelled", cancelled: "true", endsAt: new Date(NOW.getTime() + 10 * DAY_MS) })],
+      });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expect(service.reconcileWebhookEvent(orderRefundedEvent({ status: "refunded" }))).resolves.toBe("processed");
+
+      expect(provider.getSubscription).not.toHaveBeenCalled();
+      expect(provider.cancelSubscription).not.toHaveBeenCalled();
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "subscription_already_cancelled" });
+    });
+
+    it("edge: subscription refund skips cancelSubscription when Lemon Squeezy already reports it cancelled", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider({ status: "cancelled", cancelled: true });
+      const service = new BillingService(provider as never);
+
+      await service.reconcileWebhookEvent(orderRefundedEvent({ status: "refunded" }));
+
+      expect(provider.getSubscription).toHaveBeenCalledWith("sub_a");
+      expect(provider.cancelSubscription).not.toHaveBeenCalled();
+      expect(state.subscriptions[0]).toMatchObject({ pendingSyncAction: "refund_cancel" });
+    });
+
+    it("edge: a partial order_refunded on a subscription order cancels nothing and records the refunded amount", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expect(
+        service.reconcileWebhookEvent(orderRefundedEvent({ status: "partial_refund", refunded_amount: 1500 })),
+      ).resolves.toBe("processed");
+
+      expect(provider.getSubscription).not.toHaveBeenCalled();
+      expect(provider.cancelSubscription).not.toHaveBeenCalled();
+      expect(state.updated.subscriptions).toHaveLength(0);
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "partial_refund_review", refundedAmount: 1500 });
+    });
+
+    it("edge: a partial subscription_payment_refunded cancels nothing and records the refunded amount", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expect(
+        service.reconcileWebhookEvent(subscriptionPaymentRefundedEvent({ status: "partial_refund", refunded_amount: 900 })),
+      ).resolves.toBe("processed");
+
+      expect(provider.getSubscription).not.toHaveBeenCalled();
+      expect(provider.cancelSubscription).not.toHaveBeenCalled();
+      expect(state.updated.subscriptions).toHaveLength(0);
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "partial_refund_review", refundedAmount: 900 });
+    });
+
+    it("error: a subscription refund event with an unrecognized status is ignored without cancelling", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expect(
+        service.reconcileWebhookEvent(subscriptionPaymentRefundedEvent({ status: "paid" })),
+      ).resolves.toBe("ignored");
+      await expect(service.reconcileWebhookEvent(orderRefundedEvent({ status: "paid" }))).resolves.toBe("ignored");
+
+      expect(provider.cancelSubscription).not.toHaveBeenCalled();
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "refund_status_unrecognized" });
+    });
+
+    it("regression: subscription_updated takes plan and interval from variant_id over stale custom_data", async () => {
+      process.env.LEMONSQUEEZY_VARIANT_PRO_ANNUAL = "444";
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+        subscriptions: [lsRow()],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_updated", { variant_id: 444 }));
+
+      expect(state.subscriptions[0]).toMatchObject({ planType: "pro", billingInterval: "annual" });
+      expect(state.updated.organizations[0]).toMatchObject({ currentPlan: "pro" });
+    });
+
+    it("regression: a scheduled downgrade is applied once scheduledChangeEffectiveAt has passed", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+        subscriptions: [
+          lsRow({
+            scheduledPlanType: "starter",
+            scheduledBillingInterval: "monthly",
+            scheduledChangeEffectiveAt: new Date(NOW.getTime() - DAY_MS),
+          }),
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        subscriptionEvent("subscription_updated", {}, { customData: { plan_type: "starter" } }),
+      );
+
+      expect(state.subscriptions[0]).toMatchObject({
+        planType: "starter",
+        scheduledPlanType: null,
+        scheduledChangeEffectiveAt: null,
+      });
+      expect(state.updated.organizations[0]).toMatchObject({ currentPlan: "starter" });
+    });
+
+    it("regression: annual growth → monthly pro is an immediate upgrade; monthly pro → annual growth is scheduled", async () => {
+      process.env.LEMONSQUEEZY_VARIANT_PRO_MONTHLY = "333";
+      process.env.LEMONSQUEEZY_VARIANT_GROWTH_ANNUAL = "555";
+
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow({ billingInterval: "annual" })] });
+      const upgradeProvider = lemonProvider();
+      await expect(
+        new BillingService(upgradeProvider as never).changePlan("org-1", { planType: "pro", billingInterval: "monthly" }),
+      ).resolves.toMatchObject({ scheduled: false });
+      expect(upgradeProvider.updateSubscription).toHaveBeenCalledWith("sub_a", { variantId: "333", invoiceImmediately: true });
+
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow({ planType: "pro" })] });
+      const downgradeProvider = lemonProvider();
+      await expect(
+        new BillingService(downgradeProvider as never).changePlan("org-1", { planType: "growth", billingInterval: "annual" }),
+      ).resolves.toMatchObject({ scheduled: true });
+      expect(downgradeProvider.updateSubscription).toHaveBeenCalledWith("sub_a", { variantId: "555", disableProrations: true });
+    });
+
+    it("regression: same-tier monthly → annual is an immediate upgrade; annual → monthly is scheduled", async () => {
+      process.env.LEMONSQUEEZY_VARIANT_GROWTH_ANNUAL = "555";
+      process.env.LEMONSQUEEZY_VARIANT_GROWTH_MONTHLY = "222";
+
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const upgradeProvider = lemonProvider();
+      await expect(
+        new BillingService(upgradeProvider as never).changePlan("org-1", { planType: "growth", billingInterval: "annual" }),
+      ).resolves.toMatchObject({ scheduled: false });
+      expect(upgradeProvider.updateSubscription).toHaveBeenCalledWith("sub_a", { variantId: "555", invoiceImmediately: true });
+
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow({ billingInterval: "annual" })] });
+      const downgradeProvider = lemonProvider();
+      await expect(
+        new BillingService(downgradeProvider as never).changePlan("org-1", { planType: "growth", billingInterval: "monthly" }),
+      ).resolves.toMatchObject({ scheduled: true });
+      expect(downgradeProvider.updateSubscription).toHaveBeenCalledWith("sub_a", { variantId: "222", disableProrations: true });
+    });
+
+    it("regression: returning to active clears graceUntil", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_past_due" }],
+        subscriptions: [lsRow({ status: "past_due", graceUntil: new Date(NOW.getTime() + 2 * DAY_MS) })],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_updated", { status: "active" }));
+
+      expect(state.subscriptions[0]).toMatchObject({ status: "active", graceUntil: null });
+      expect(state.updated.organizations[0]).toMatchObject({ billingStatus: "subscription_active" });
+    });
+
+    it("regression: getBillingStatus reports unpaid as subscription_past_due and trialing as trial_active", async () => {
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow({ status: "unpaid", graceUntil: new Date(NOW.getTime() + DAY_MS) })] });
+      await expect(new BillingService({} as never).getBillingStatus("org-1")).resolves.toMatchObject({
+        billingStatus: "subscription_past_due",
+        planType: "growth",
+      });
+
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow({ status: "trialing" })] });
+      await expect(new BillingService({} as never).getBillingStatus("org-1")).resolves.toMatchObject({
+        billingStatus: "trial_active",
+      });
+    });
+
+    it("regression: getBillingStatus reports the free plan once the grace period has ended", async () => {
+      createDbHarness({
+        subscriptionsBySql: true,
+        subscriptions: [lsRow({ status: "past_due", graceUntil: new Date(NOW.getTime() - DAY_MS) })],
+      });
+
+      await expect(new BillingService({} as never).getBillingStatus("org-1")).resolves.toMatchObject({
+        planType: "free",
+        billingStatus: "subscription_past_due",
+      });
+    });
+
+    it("regression: a full order_refunded for a subscription order cancels the LS subscription and marks pending sync refund_cancel", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expect(service.reconcileWebhookEvent(orderRefundedEvent({ status: "refunded" }))).resolves.toBe("processed");
+
+      expect(provider.cancelSubscription).toHaveBeenCalledWith("sub_a");
+      expect(state.subscriptions[0]).toMatchObject({
+        pendingSyncAction: "refund_cancel",
+        pendingSyncTargetPlanType: "free",
+        pendingSyncTargetBillingInterval: "monthly",
+      });
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "refund_cancelled_subscription" });
+    });
+
+    it("regression: a full subscription_payment_refunded cancels the invoice's subscription", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        subscriptions: [lsRow({ providerSubscriptionId: "456" })],
+      });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expect(
+        service.reconcileWebhookEvent(subscriptionPaymentRefundedEvent({ subscription_id: 456, status: "refunded" })),
+      ).resolves.toBe("processed");
+
+      expect(provider.cancelSubscription).toHaveBeenCalledWith("456");
+      expect(state.subscriptions[0]).toMatchObject({ pendingSyncAction: "refund_cancel" });
+    });
+
+    it("error: a full subscription_payment_refunded without custom_data still cancels the matched subscription", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+      const event = subscriptionPaymentRefundedEvent({ status: "refunded" });
+      delete (event.meta as { custom_data?: unknown }).custom_data;
+
+      await expect(service.reconcileWebhookEvent(event)).resolves.toBe("processed");
+
+      expect(provider.cancelSubscription).toHaveBeenCalledWith("sub_a");
+      expect(state.subscriptions[0]).toMatchObject({ pendingSyncAction: "refund_cancel" });
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "refund_cancelled_subscription" });
+    });
+
+    it("error: a subscription_payment_refunded whose organization_id differs from the matched row is ignored", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+      const event = subscriptionPaymentRefundedEvent({ status: "refunded" });
+      event.meta.custom_data = { organization_id: "org-other" };
+
+      await expect(service.reconcileWebhookEvent(event)).resolves.toBe("ignored");
+
+      expect(provider.getSubscription).not.toHaveBeenCalled();
+      expect(provider.cancelSubscription).not.toHaveBeenCalled();
+      expect(state.updated.subscriptions).toHaveLength(0);
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "organization_mismatch" });
+    });
+
+    it("edge: first LS event for an org whose only row is provider manual inserts a new row and leaves the manual row untouched", async () => {
+      const manualRow = lsRow({
+        id: "manual-row",
+        planType: "starter",
+        status: "active",
+        provider: "manual",
+        providerSubscriptionId: null,
+        providerOrderId: null,
+      });
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "starter", billingStatus: "active_manual" }],
+        subscriptions: [{ ...manualRow }],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_created"));
+
+      expect(state.inserted.subscriptions).toHaveLength(1);
+      expect(state.inserted.subscriptions[0]).toMatchObject({ provider: "lemonsqueezy", providerSubscriptionId: "sub_a" });
+      expect(state.subscriptions.find((row) => row.id === "manual-row")).toEqual(manualRow);
+    });
+
+    it("regression: getSubscription prefers the live LS subscription over an ended one with a later currentPeriodEnd", async () => {
+      createDbHarness({
+        subscriptionsBySql: true,
+        subscriptions: [
+          lsRow({
+            id: "ended-a",
+            status: "expired",
+            cancelled: "true",
+            providerSubscriptionId: "sub_old",
+            currentPeriodEnd: new Date("2027-06-01T00:00:00.000Z"),
+          }),
+          lsRow({ id: "live-b", status: "active", currentPeriodEnd: new Date("2026-12-01T00:00:00.000Z") }),
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      await expect(service.getSubscription("org-1")).resolves.toMatchObject({ id: "live-b" });
+    });
+
+    it("regression: billing configuration errors name no env key", async () => {
+      delete process.env.LEMONSQUEEZY_VARIANT_SMS_SEGMENT_TOPUP_25;
+      const service = new BillingService(lemonProvider() as never);
+
+      const error = await service
+        .createAddonCheckout({ organizationId: "org-1", userId: "user-1", sku: "sms-segment-topup-25" })
+        .then(
+          () => null,
+          (err: unknown) => err,
+        );
+
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      const response = (error as ServiceUnavailableException).getResponse();
+      expect(response).toMatchObject({ code: "BILLING_MISCONFIGURED" });
+      expect(JSON.stringify(response)).not.toContain("LEMONSQUEEZY_");
+    });
+
+    it("happy: createSubscriptionCheckout proceeds when the only subscription is expired", async () => {
+      process.env.LEMONSQUEEZY_VARIANT_PRO_MONTHLY = "333";
+      createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow({ status: "expired", cancelled: "true" })] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+
+      await expect(
+        service.createSubscriptionCheckout({ organizationId: "org-1", userId: "user-1", planType: "pro", billingInterval: "monthly" }),
+      ).resolves.toMatchObject({ checkoutUrl: "https://checkout.example/x" });
+      expect(provider.createCheckout).toHaveBeenCalledWith(expect.objectContaining({ variantId: "333" }));
     });
   });
 });

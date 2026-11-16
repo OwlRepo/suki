@@ -44,4 +44,19 @@ describe("PlanCapacityService", () => {
 
     await expect(service.isReadOnly("org-1")).resolves.toBe(true);
   });
+
+  it("edge: getIncludedCreditsPlan returns the state's included-credits plan, free when no state exists", async () => {
+    const getOrgBillingState = vi
+      .fn()
+      .mockResolvedValueOnce({ currentPlan: "growth", includedCreditsPlan: "free" })
+      .mockResolvedValueOnce(null);
+    const service = new PlanCapacityService(
+      { founderLedModeEnabled: vi.fn().mockReturnValue(false) } as never,
+      { getOrgBillingState } as never,
+    );
+
+    await expect(service.getIncludedCreditsPlan("org-1")).resolves.toBe("free");
+    await expect(service.getIncludedCreditsPlan("org-1")).resolves.toBe("free");
+    await expect(service.getActivePlan("org-1")).resolves.toBe("free");
+  });
 });
