@@ -69,7 +69,7 @@ Verify all conclusions against real source code, tests, types, schemas, routes, 
 
 - Clerk: auth
 - OpenAI: AI and assistant flows
-- PayMongo and LemonSqueezy: billing/payment paths
+- LemonSqueezy: live billing path (checkout, portal, signed webhook `POST /billing/webhook/lemonsqueezy`); manual billing stays behind `FF_manual_billing_controls_enabled` (off in production); `apps/api/src/billing/paymongo.service.ts` is not wired into any module
 - Twilio and Semaphore: SMS and webhook paths
 - Resend: email
 - PostgreSQL: primary persistence

@@ -13,9 +13,10 @@ quickAnswer: Open Settings to check usage and billing. In manual billing mode, w
 - Check both message credits and AI token credits to understand limits.
 - Read reset date text to know when usage renews.
 - Review plan/billing status before requesting limit increases.
-- When self-serve checkout is unavailable, open Settings > Billing and use Request billing help.
-- Paid plan changes and SMS top-ups stay pending until Tyvera approves and creates a billing request.
-- Cancellation approval records the request; Tyvera completes cancellation through the manual subscription workflow.
+- Owners upgrade, change plan, buy top-ups, cancel, or resume in Settings > Billing; payment runs on Lemon Squeezy checkout.
+- Use Manage billing to update the card or download invoices in the Lemon Squeezy customer portal.
+- A new plan becomes active after Lemon Squeezy confirms the payment.
+- When self-serve checkout is unavailable, Settings > Billing shows Request billing help instead.
 - Staff can view request status and decision notes, but only workspace owners can submit or cancel requests.
 - If AI stops responding, verify cap state first before troubleshooting.
 - Use this page to explain to staff why AI is capped or still available.

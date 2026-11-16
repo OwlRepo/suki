@@ -271,8 +271,9 @@ The platform-admin console uses the existing first-party auth session and `tyver
 Required production-ready platform-admin env keys:
 
 ```bash
-FF_self_serve_billing_enabled=false
-FF_manual_billing_controls_enabled=true
+FF_self_serve_billing_enabled=true
+FF_manual_billing_controls_enabled=false
+FF_annual_billing_checkout_enabled=false
 FF_founder_led_mode_enabled=true
 
 PLATFORM_ADMIN_BOOTSTRAP_EMAIL=
@@ -291,7 +292,7 @@ SEMAPHORE_CREDIT_CRITICAL_THRESHOLD=200
 
 Leave payment account values blank in committed files. Set real GCash and bank details only in production environment storage; these values are rendered only inside platform-admin manual billing responses.
 
-Founder-led manual billing through GCash or bank transfer is used during validation. Self-serve billing remains disabled until rollout approval.
+Billing is self-serve through Lemon Squeezy: checkout, customer portal, plan changes, cancel/resume, and add-on top-ups, all activated by the signed webhook at `POST /billing/webhook/lemonsqueezy`. Production also needs `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`, `LEMONSQUEEZY_WEBHOOK_SECRET`, and the `LEMONSQUEEZY_VARIANT_*` IDs (see `.env.example`). Founder-led manual billing (GCash or bank transfer) stays in the code behind `FF_manual_billing_controls_enabled` and is off in production. Annual plans stay off until `FF_annual_billing_checkout_enabled=true`.
 
 One-time production bootstrap:
 

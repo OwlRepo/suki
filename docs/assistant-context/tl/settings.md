@@ -13,9 +13,10 @@ quickAnswer: Buksan ang Settings para sa usage at billing. Sa manual billing mod
 - Tingnan parehong message credits at AI token credits para malinaw ang limit.
 - Basahin ang reset date para alam kung kailan magre-renew.
 - I-check ang plan/billing status bago humiling ng mas mataas na limits.
-- Kapag walang self-serve checkout, buksan ang Settings > Billing at gamitin ang Request billing help.
-- Pending ang paid plan change at SMS top-up hanggang ma-approve ng Tyvera at magawa ang billing request.
-- Ang cancellation approval ay nagre-record ng request; kinukumpleto ng Tyvera ang cancellation sa manual subscription workflow.
+- Sa Settings > Billing mag-upgrade, magpalit ng plan, bumili ng top-up, mag-cancel, o mag-resume ang owner; sa Lemon Squeezy checkout ang bayad.
+- Gamitin ang Manage billing para palitan ang card o i-download ang invoices sa Lemon Squeezy customer portal.
+- Nagiging active ang bagong plan pagkatapos kumpirmahin ng Lemon Squeezy ang bayad.
+- Kapag walang self-serve checkout, Request billing help ang makikita sa Settings > Billing.
 - Makikita ng staff ang status at decision note, pero workspace owner lang ang puwedeng magsumite o magkansela ng request.
 - Kung hindi sumasagot ang AI, i-check muna kung capped ang usage.
 - Gamitin ito para maipaliwanag sa team kung bakit capped o available pa ang AI.
