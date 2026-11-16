@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import { AutomationSchedulerService } from "./automation-scheduler.service";
 import type { AutomationSendService } from "./automation-send.service";
 import type { FeatureFlagsService } from "../common/feature-flags.service";
 import type { AutomationJobRunService } from "../operations/automation-job-run.service";
 
-vi.mock("@tyvera/database", async () => {
-  const actual = await vi.importActual<typeof import("@tyvera/database")>(
-    "@tyvera/database",
+vi.mock("@suki/database", async () => {
+  const actual = await vi.importActual<typeof import("@suki/database")>(
+    "@suki/database",
   );
   return {
     ...actual,

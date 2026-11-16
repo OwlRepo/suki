@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { signInWithPassword } from "@/lib/auth-client";
 import { invalidateSessionCache } from "@/hooks/use-session";
 
-function TyveraMark() {
+function SukiMark() {
   return (
     <span className="relative flex h-10 w-10 items-center justify-center" aria-hidden="true">
       <span className="absolute top-1 h-3 w-9 rounded-full bg-linear-to-r from-blue-700 via-blue-500 to-sky-300" />
@@ -141,8 +141,8 @@ export default function SignInPage() {
           <div className="pointer-events-none absolute bottom-24 right-[-9rem] h-[10rem] w-[26rem] -rotate-[14deg] bg-blue-200/35 blur-3xl" />
 
           <Link href="/" className="relative z-10 flex items-center gap-3 text-2xl font-bold tracking-tight text-slate-950">
-            <TyveraMark />
-            Tyvera
+            <SukiMark />
+            Suki
           </Link>
 
           <div className="relative z-10 my-auto max-w-md">
@@ -168,7 +168,7 @@ export default function SignInPage() {
             </div>
           </div>
 
-          <p className="relative z-10 text-sm text-slate-500">© {new Date().getFullYear()} Tyvera. All rights reserved.</p>
+          <p className="relative z-10 text-sm text-slate-500">© {new Date().getFullYear()} Suki. All rights reserved.</p>
         </section>
 
         <section className="relative flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-12">
@@ -181,8 +181,8 @@ export default function SignInPage() {
           <div className="w-full max-w-xl">
             <div className="mb-6 flex justify-center lg:hidden">
               <Link href="/" className="flex items-center gap-3 text-2xl font-bold tracking-tight text-slate-950">
-                <TyveraMark />
-                Tyvera
+                <SukiMark />
+                Suki
               </Link>
             </div>
 
@@ -266,7 +266,7 @@ export default function SignInPage() {
             </form>
 
             <p className="mt-8 text-center text-sm text-slate-600">
-              New to Tyvera?{" "}
+              New to Suki?{" "}
               <Link href="/sign-up" className="font-medium text-blue-600 transition hover:text-blue-700">
                 Create an account
               </Link>

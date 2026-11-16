@@ -14,8 +14,8 @@ quickAnswer: Open Settings to check usage and billing. In manual billing mode, w
 - Read reset date text to know when usage renews.
 - Review plan/billing status before requesting limit increases.
 - When self-serve checkout is unavailable, open Settings > Billing and use Request billing help.
-- Paid plan changes and SMS top-ups stay pending until Tyvera approves and creates a billing request.
-- Cancellation approval records the request; Tyvera completes cancellation through the manual subscription workflow.
+- Paid plan changes and SMS top-ups stay pending until Suki approves and creates a billing request.
+- Cancellation approval records the request; Suki completes cancellation through the manual subscription workflow.
 - Staff can view request status and decision notes, but only workspace owners can submit or cancel requests.
 - If AI stops responding, verify cap state first before troubleshooting.
 - Use this page to explain to staff why AI is capped or still available.

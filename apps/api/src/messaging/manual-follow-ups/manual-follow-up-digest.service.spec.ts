@@ -5,7 +5,7 @@ const db = {
   select: vi.fn(),
 };
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => db,
   manualFollowUpTasks: {
     organizationId: "organizationId",

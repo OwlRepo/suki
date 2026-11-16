@@ -19,7 +19,7 @@ describe("PlatformAdminClientRequestsPage", () => {
           {
             id: "client-request-1",
             organizationId: "org-1",
-            organizationName: "Tyvera Clinic",
+            organizationName: "Suki Clinic",
             kind: "plan_change",
             status: "submitted",
             requestedPlanType: "growth",
@@ -39,7 +39,7 @@ describe("PlatformAdminClientRequestsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /submitted/i }));
     await waitFor(() =>
-      expect(screen.getByText("Tyvera Clinic")).toBeInTheDocument(),
+      expect(screen.getByText("Suki Clinic")).toBeInTheDocument(),
     );
     expect(listPlatformAdminClientBillingRequests).toHaveBeenLastCalledWith(
       "submitted",

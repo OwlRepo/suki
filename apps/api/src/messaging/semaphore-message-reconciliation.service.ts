@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import { sql } from "drizzle-orm";
 import {
   MANUAL_FOLLOW_UP_AUTOMATION_KEYS,
@@ -84,8 +84,8 @@ export function getAutomationSentMarkerTarget(
 }
 
 export function stripKnownAutomationFooter(body: string): string {
-  const footer = " Sent automatically by Tyvera";
-  return body.endsWith(footer) ? body.slice(0, -footer.length) : body;
+  const footer = [" Sent automatically by Suki", " Sent automatically by Tyvera"].find((value) => body.endsWith(value));
+  return footer ? body.slice(0, -footer.length) : body;
 }
 
 export function extractSemaphoreMessageId(

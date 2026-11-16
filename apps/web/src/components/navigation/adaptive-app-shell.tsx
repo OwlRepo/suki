@@ -18,7 +18,7 @@ import { DesktopSidebarNav } from "./desktop-sidebar-nav";
 import { MobileBottomNav, BOTTOM_NAV_HEIGHT } from "./mobile-bottom-nav";
 import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { cn } from "@/lib/utils";
-import { TyveraAssistant } from "@/components/tyvera-assistant";
+import { SukiAssistant } from "@/components/suki-assistant";
 import { getOpenManualFollowUpCount } from "@/components/needs-attention/manual-follow-up.api";
 import { useSidebarCollapsed } from "@/hooks/use-sidebar-collapsed";
 
@@ -98,10 +98,10 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
                     ? "inline-flex size-8 items-center justify-center rounded-lg border border-border/70 bg-background text-xs font-semibold text-foreground shadow-sm"
                     : "pr-12 text-lg font-semibold text-foreground"
                 )}
-                aria-label="Tyvera dashboard home"
-                title="Tyvera"
+                aria-label="Suki dashboard home"
+                title="Suki"
               >
-                {sidebarCollapsed ? "T" : "Tyvera"}
+                {sidebarCollapsed ? "T" : "Suki"}
               </Link>
               <Button
                 type="button"
@@ -160,7 +160,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
                   href="/dashboard"
                   className="text-lg font-semibold text-foreground"
                 >
-                  Tyvera
+                  Suki
                 </Link>
               </div>
               <div className="hidden lg:flex lg:flex-1" aria-hidden />
@@ -199,7 +199,7 @@ export function AdaptiveAppShell({ children }: { children: React.ReactNode }) {
           onOpenChange={setDrawerOpen}
         />
         {planCapabilities.canSeeAssistant ? (
-          <TyveraAssistant />
+          <SukiAssistant />
         ) : null}
       </div>
     </DashboardOnboardingWrapper>

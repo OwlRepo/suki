@@ -30,7 +30,7 @@ export function PlatformAdminShell({ children }: { children: React.ReactNode }) 
               href="/platform-admin"
               className="text-lg font-semibold text-foreground"
             >
-              Tyvera Internal
+              Suki Internal
             </Link>
           </div>
           <PlatformAdminNav pathname={pathname} navGroups={navGroups} />
@@ -51,7 +51,7 @@ export function PlatformAdminShell({ children }: { children: React.ReactNode }) 
                 href="/platform-admin"
                 className="text-lg font-semibold text-foreground"
               >
-                Tyvera Internal
+                Suki Internal
               </Link>
             </div>
             <div className="hidden lg:flex lg:flex-1" aria-hidden />

@@ -11,7 +11,7 @@ import {
 import type {
   PlatformAdminPermission,
   PlatformAdminRoleCode,
-} from "@tyvera/types";
+} from "@suki/types";
 
 config({ path: resolve(import.meta.dir, "../../../.env"), override: false });
 
@@ -23,7 +23,7 @@ const ROLE_DEFINITIONS: Array<{
   {
     code: "FOUNDER",
     name: "Founder",
-    description: "Full internal Tyvera platform administration access.",
+    description: "Full internal Suki platform administration access.",
   },
   {
     code: "OPERATIONS",

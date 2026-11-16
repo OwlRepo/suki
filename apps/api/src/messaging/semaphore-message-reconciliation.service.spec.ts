@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { MANUAL_FOLLOW_UP_AUTOMATION_KEYS } from "./manual-follow-ups/manual-follow-up.constants";
 import {
@@ -9,9 +9,9 @@ import {
   stripKnownAutomationFooter,
 } from "./semaphore-message-reconciliation.service";
 
-vi.mock("@tyvera/database", async () => {
-  const actual = await vi.importActual<typeof import("@tyvera/database")>(
-    "@tyvera/database",
+vi.mock("@suki/database", async () => {
+  const actual = await vi.importActual<typeof import("@suki/database")>(
+    "@suki/database",
   );
   return {
     ...actual,
@@ -113,7 +113,7 @@ describe("SemaphoreMessageReconciliationService", () => {
           id: "event-1",
           businessId: "business-1",
           organizationId: "org-1",
-          content: "Confirmation Sent automatically by Tyvera",
+          content: "Confirmation Sent automatically by Suki",
           providerMessageId: null,
           providerMetadata: {
             message_id: 12345,
@@ -195,7 +195,7 @@ describe("SemaphoreMessageReconciliationService", () => {
           id: "event-1",
           businessId: "business-1",
           organizationId: "org-1",
-          content: "Confirmation Sent automatically by Tyvera",
+          content: "Confirmation Sent automatically by Suki",
           providerMessageId: null,
           providerMetadata: { message_id: 12345 },
         },

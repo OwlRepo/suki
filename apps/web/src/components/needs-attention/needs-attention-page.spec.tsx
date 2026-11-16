@@ -18,7 +18,7 @@ vi.mock("./manual-follow-up.api", () => ({
       failureReason: "provider_rejected",
       createdAt: "2026-06-05T00:00:00.000Z",
       customerName: "Ana Santos",
-      businessName: "Tyvera Clinic",
+      businessName: "Suki Clinic",
       appointmentScheduledAt: null,
       duplicateRisk: false,
     },

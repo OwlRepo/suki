@@ -58,7 +58,7 @@ describe("TwilioWebhookValidationService", () => {
 
   it("accepts a valid signature for the configured public URL", () => {
     process.env.TWILIO_AUTH_TOKEN = "auth-token";
-    process.env.TWILIO_INBOUND_SMS_WEBHOOK_URL = "https://tyvera.app/api/messaging/inbound/sms";
+    process.env.TWILIO_INBOUND_SMS_WEBHOOK_URL = "https://suki.tyvera.app/api/messaging/inbound/sms";
     const params = { From: "+639171234567", Body: "STOP", Unexpected: "ok" };
     const signature = sign(process.env.TWILIO_INBOUND_SMS_WEBHOOK_URL, params);
 
@@ -76,10 +76,10 @@ describe("TwilioWebhookValidationService", () => {
 
   it("rejects signatures for the wrong host or missing external api prefix", () => {
     process.env.TWILIO_AUTH_TOKEN = "auth-token";
-    process.env.TWILIO_INBOUND_SMS_WEBHOOK_URL = "https://tyvera.app/api/messaging/inbound/sms";
+    process.env.TWILIO_INBOUND_SMS_WEBHOOK_URL = "https://suki.tyvera.app/api/messaging/inbound/sms";
     const params = { From: "+639171234567", Body: "STOP" };
     const wrongHost = sign("https://attacker.example/api/messaging/inbound/sms", params);
-    const missingApi = sign("https://tyvera.app/messaging/inbound/sms", params);
+    const missingApi = sign("https://suki.tyvera.app/messaging/inbound/sms", params);
     const service = new TwilioWebhookValidationService();
 
     for (const signature of [wrongHost, missingApi]) {
@@ -96,7 +96,7 @@ describe("TwilioWebhookValidationService", () => {
 
   it("ignores spoofed forwarded headers when an explicit public URL is configured", () => {
     process.env.TWILIO_AUTH_TOKEN = "auth-token";
-    process.env.TWILIO_INBOUND_SMS_WEBHOOK_URL = "https://tyvera.app/api/messaging/inbound/sms";
+    process.env.TWILIO_INBOUND_SMS_WEBHOOK_URL = "https://suki.tyvera.app/api/messaging/inbound/sms";
     const params = { From: "+639171234567", Body: "STOP" };
     const spoofed = sign("https://evil.example/messaging/inbound/sms", params);
     const service = new TwilioWebhookValidationService();

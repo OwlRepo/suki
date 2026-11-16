@@ -51,7 +51,7 @@ import {
   PH_MOBILE_E164_ERROR,
   PH_MOBILE_E164_PLACEHOLDER,
   normalizePhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 
 interface Customer {
   id: string;
@@ -772,7 +772,7 @@ function AppointmentsPageContent() {
         <PageHeader
           title="Appointments"
           plainLanguageDescription="Appointments are your daily workspace."
-          whatThisPageIsFor="Mark a customer as Arrived once. Tyvera records the visit automatically after the appointment."
+          whatThisPageIsFor="Mark a customer as Arrived once. Suki records the visit automatically after the appointment."
           whatToDoNext="Create a business in Setup first, then add customers and appointments."
         />
       </div>
@@ -784,7 +784,7 @@ function AppointmentsPageContent() {
       <PageHeader
         title="Appointments"
         plainLanguageDescription="Appointments are your daily workspace."
-        whatThisPageIsFor="Mark a customer as Arrived once. Tyvera records the visit automatically after the appointment."
+        whatThisPageIsFor="Mark a customer as Arrived once. Suki records the visit automatically after the appointment."
         whatToDoNext={
           appointments.length === 0
             ? "Create your first appointment."
@@ -1776,7 +1776,7 @@ function AppointmentsPageContent() {
             </p>
 
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Mark the customer once when they arrive. Tyvera completes the
+              Mark the customer once when they arrive. Suki completes the
               visit after the expected duration and grace period.
             </p>
           </div>

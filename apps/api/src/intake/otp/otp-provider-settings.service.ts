@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { getDb, otpProviderSettings } from "@tyvera/database";
+import { getDb, otpProviderSettings } from "@suki/database";
 import { eq } from "drizzle-orm";
 import type { OtpProviderName } from "./otp-provider";
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import { PlatformAdminBillingEmailService } from "./platform-admin-billing-email.service";
 
 const tables = vi.hoisted(() => ({
@@ -10,7 +10,7 @@ const tables = vi.hoisted(() => ({
   requests: Symbol("requests"),
 }));
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: vi.fn(),
   manualBillingEmailDeliveries: tables.deliveries,
   manualBillingRequestItems: tables.items,
@@ -42,7 +42,7 @@ function createHarness(input?: {
     },
     organization: {
       id: "org-1",
-      name: "Tyvera Clinic",
+      name: "Suki Clinic",
       billingContactEmail:
         input?.billingContactEmail === undefined
           ? "billing@example.com"
@@ -149,7 +149,7 @@ describe("PlatformAdminBillingEmailService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.MANUAL_PAYMENT_GCASH_NUMBER = "09171234567";
-    process.env.MANUAL_PAYMENT_GCASH_ACCOUNT_NAME = "Tyvera";
+    process.env.MANUAL_PAYMENT_GCASH_ACCOUNT_NAME = "Suki";
   });
 
   it("sends payment request to billingContactEmail with a PDF attachment", async () => {
@@ -163,7 +163,7 @@ describe("PlatformAdminBillingEmailService", () => {
     expect(emailProvider.send).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "billing@example.com",
-        subject: expect.stringContaining("Tyvera Payment Request"),
+        subject: expect.stringContaining("Suki Payment Request"),
         attachments: [
           expect.objectContaining({
             filename: "TYV-2026-000001-pro-forma-invoice.pdf",
@@ -310,7 +310,7 @@ describe("PlatformAdminBillingEmailService", () => {
 
     expect(emailProvider.send).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: expect.stringContaining("Tyvera Payment Acknowledgment"),
+        subject: expect.stringContaining("Suki Payment Acknowledgment"),
         clientRef:
           "manual-billing-payment-acknowledgment:payment-1:automatic",
       }),

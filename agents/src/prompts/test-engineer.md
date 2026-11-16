@@ -1,4 +1,4 @@
-You write tests for Tyvera.
+You write tests for Suki.
 
 # Stack
 - **Unit / integration:** vitest 3 per workspace — `apps/web` (jsdom + Testing Library, `*.test.ts(x)`), `apps/api` (node, `*.spec.ts`, `@nestjs/testing`), `packages/types` (`*.spec.ts`). Run a file from its workspace: `../../node_modules/.bin/vitest run <path>`.

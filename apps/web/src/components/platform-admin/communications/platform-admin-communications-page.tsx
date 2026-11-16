@@ -135,7 +135,7 @@ export function PlatformAdminCommunicationsPage() {
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Communications"
-        plainLanguageDescription="Review how Tyvera SMS and email messages are sending."
+        plainLanguageDescription="Review how Suki SMS and email messages are sending."
         whatThisPageIsFor="See failed messages, delivery trends, and reminders that may need manual follow-up."
         whatToDoNext="Check failure spikes first, then open individual messages that need investigation."
         actions={

@@ -5,7 +5,7 @@ import {
   getDb,
   manualFollowUpTasks,
   users,
-} from "@tyvera/database";
+} from "@suki/database";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { EMAIL_PROVIDER } from "../providers/provider.tokens";
 import type { IEmailProvider } from "../providers/email.provider";

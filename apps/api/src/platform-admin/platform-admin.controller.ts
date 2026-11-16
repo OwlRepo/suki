@@ -16,7 +16,7 @@ import type {
   ManualBillingRequestStatus,
   ManualPaymentMethod,
   ManualSubscriptionAction,
-} from "@tyvera/types";
+} from "@suki/types";
 import { ClerkAuthGuard } from "../auth/clerk-auth.guard";
 import { PlatformAdminGuard, type PlatformAdminRequest } from "./platform-admin.guard";
 import { RequirePlatformAdminPermissions } from "./platform-admin.decorator";

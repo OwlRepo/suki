@@ -4,8 +4,8 @@ import {
   getDb,
   verifiedOnlineBookingAddons,
   verifiedOnlineBookingCredits,
-} from "@tyvera/database";
-import type { AddonFulfillmentSource, BillingAddonSku } from "@tyvera/types";
+} from "@suki/database";
+import type { AddonFulfillmentSource, BillingAddonSku } from "@suki/types";
 import { and, eq } from "drizzle-orm";
 
 type BillingTx = {

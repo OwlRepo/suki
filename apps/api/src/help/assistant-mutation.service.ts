@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type OpenAI from "openai";
-import { normalizePhilippineMobileE164 } from "@tyvera/types";
+import { normalizePhilippineMobileE164 } from "@suki/types";
 import { CustomersService } from "../customers/customers.service";
 import { AppointmentsService } from "../appointments/appointments.service";
 import { PlanCapacityService } from "../common/plan-capacity.service";

@@ -4,8 +4,8 @@ import {
   BadRequestException,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
-import { aiCredits, businesses } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { aiCredits, businesses } from "@suki/database";
 import { eq, and } from "drizzle-orm";
 import { AiExecutionService } from "../ai/ai-execution.service";
 

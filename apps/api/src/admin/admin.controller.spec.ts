@@ -6,7 +6,7 @@ const mockFrom = vi.fn();
 const mockWhere = vi.fn();
 let queuedWhereResults: unknown[] = [];
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     select: mockSelect,
     from: mockFrom,

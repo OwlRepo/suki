@@ -15,7 +15,7 @@ export function buildManualFollowUpDigestEmail(input: {
       "",
       `${count} reminder${count === 1 ? "" : "s"} need attention.`,
       "",
-      `Review them securely in Tyvera: ${url}`,
+      `Review them securely in Suki: ${url}`,
     ].join("\n"),
   };
 }

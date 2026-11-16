@@ -313,7 +313,7 @@ export default function BillingSettingsPage() {
           variant="info"
           message={
             manualRequestEnabled
-              ? "Self-serve checkout is disabled. Workspace owners can send billing requests to Tyvera below."
+              ? "Self-serve checkout is disabled. Workspace owners can send billing requests to Suki below."
               : "Self-serve billing is disabled in this environment. You can keep using the free plan with caps and usage meters."
           }
         />

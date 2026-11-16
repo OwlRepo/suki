@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { automationJobRuns, getDb } from "@tyvera/database";
+import { automationJobRuns, getDb } from "@suki/database";
 import { eq } from "drizzle-orm";
 
 type JobWorkResult<T> = {

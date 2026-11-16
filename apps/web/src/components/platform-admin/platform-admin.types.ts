@@ -1,7 +1,7 @@
 import type {
   PlatformAdminPermission,
   PlatformAdminRoleCode,
-} from "@tyvera/types";
+} from "@suki/types";
 
 export interface PlatformAdminSession {
   platformAdmin: {

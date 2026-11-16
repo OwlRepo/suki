@@ -38,7 +38,7 @@ const twilioOtpProviderMock = {
   verify: vi.fn(),
 };
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     select: selectMock,
     from: fromMock,

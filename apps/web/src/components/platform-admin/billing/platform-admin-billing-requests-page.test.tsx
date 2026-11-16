@@ -23,7 +23,7 @@ describe("PlatformAdminBillingRequestsPage", () => {
             id: "billing-request-1",
             referenceNumber: "TYV-2026-000001",
             organizationId: "org-1",
-            organizationName: "Tyvera Clinic",
+            organizationName: "Suki Clinic",
             status: "awaiting_payment",
             totalAmountPhp: 599,
             dueAt: null,
@@ -49,6 +49,6 @@ describe("PlatformAdminBillingRequestsPage", () => {
     await waitFor(() =>
       expect(screen.getByText("TYV-2026-000001")).toBeInTheDocument(),
     );
-    expect(screen.getByText("Tyvera Clinic")).toBeInTheDocument();
+    expect(screen.getByText("Suki Clinic")).toBeInTheDocument();
   });
 });

@@ -4,8 +4,8 @@ import {
   getDb,
   smsAddons,
   smsCredits,
-} from "@tyvera/database";
-import type { AddonFulfillmentSource } from "@tyvera/types";
+} from "@suki/database";
+import type { AddonFulfillmentSource } from "@suki/types";
 import { and, eq } from "drizzle-orm";
 
 type BillingTx = {

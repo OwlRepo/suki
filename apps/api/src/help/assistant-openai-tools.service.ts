@@ -140,7 +140,7 @@ export class AssistantOpenAiToolsService {
       ),
       functionTool(
         "route_guidance",
-        "Read the fixed safe Tyvera application routes.",
+        "Read the fixed safe Suki application routes.",
       ),
       functionTool(
         "get_owner_daily_briefing",

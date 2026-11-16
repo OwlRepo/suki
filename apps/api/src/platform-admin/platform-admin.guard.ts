@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
-import type { PlatformAdminPermission } from "@tyvera/types";
+import type { PlatformAdminPermission } from "@suki/types";
 import type { TenantContext } from "../common/tenant.decorator";
 import {
   PLATFORM_ADMIN_PERMISSIONS_KEY,

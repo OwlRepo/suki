@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import {
   authIdentities,
   authOtpChallenges,
@@ -8,7 +8,7 @@ import {
   organizations,
   subscriptions,
   users,
-} from "@tyvera/database";
+} from "@suki/database";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { FeatureFlagsService } from "../common/feature-flags.service";
@@ -51,11 +51,11 @@ export class AuthService {
 
     const subject =
       purpose === "password_reset"
-        ? "Reset your Tyvera password"
-        : "Your Tyvera verification code";
+        ? "Reset your Suki password"
+        : "Your Suki verification code";
     const intro =
       purpose === "password_reset"
-        ? "Use this code to reset your Tyvera password"
+        ? "Use this code to reset your Suki password"
         : "Your verification code is";
 
     await fetch("https://api.resend.com/emails", {

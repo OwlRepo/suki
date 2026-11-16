@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { TyveraAssistant } from "./tyvera-assistant";
+import { SukiAssistant } from "./suki-assistant";
 
 const { apiRequestMock, usePlanCapabilitiesMock } = vi.hoisted(() => ({
   apiRequestMock: vi.fn(async (path: string) => {
@@ -89,13 +89,13 @@ function stubReducedMotion(matches: boolean) {
   );
 }
 
-describe("TyveraAssistant orchestration UI", () => {
+describe("SukiAssistant orchestration UI", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED", "true");
+    vi.stubEnv("NEXT_PUBLIC_FF_SUKI_ASSISTANT_ENABLED", "true");
     // Content assertions should not wait out the real-timer reveal animation;
     // tests that exercise the animation opt back in with stubReducedMotion(false).
     stubReducedMotion(true);
@@ -149,9 +149,9 @@ describe("TyveraAssistant orchestration UI", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
     apiRequestMock.mockClear();
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -170,9 +170,9 @@ describe("TyveraAssistant orchestration UI", () => {
     vi.stubGlobal("fetch", fetchMock);
     apiRequestMock.mockClear();
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -209,9 +209,9 @@ describe("TyveraAssistant orchestration UI", () => {
     vi.stubGlobal("fetch", fetchMock);
     apiRequestMock.mockClear();
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -233,10 +233,10 @@ describe("TyveraAssistant orchestration UI", () => {
 
   it("renders action chips from orchestrated response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, body: null }));
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -272,10 +272,10 @@ describe("TyveraAssistant orchestration UI", () => {
     );
     apiRequestMock.mockClear();
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -340,9 +340,9 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -364,9 +364,9 @@ describe("TyveraAssistant orchestration UI", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
     apiRequestMock.mockClear();
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -392,9 +392,9 @@ describe("TyveraAssistant orchestration UI", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, body: stream });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -419,9 +419,9 @@ describe("TyveraAssistant orchestration UI", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
     apiRequestMock.mockClear();
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "How do I add a customer?" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -456,9 +456,9 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Help" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -486,9 +486,9 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Help" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -519,9 +519,9 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Help" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -564,9 +564,9 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Change Ana name" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -602,9 +602,9 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Draft a reminder" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -624,9 +624,9 @@ describe("TyveraAssistant orchestration UI", () => {
     );
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Show usage" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -670,9 +670,9 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Stream this" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -701,9 +701,9 @@ describe("TyveraAssistant orchestration UI", () => {
     );
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Show summary" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -730,9 +730,9 @@ describe("TyveraAssistant orchestration UI", () => {
     );
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "No animation" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -750,9 +750,9 @@ describe("TyveraAssistant orchestration UI", () => {
     );
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Draft a reminder" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -767,9 +767,9 @@ describe("TyveraAssistant orchestration UI", () => {
     );
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Draft a reminder" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -787,9 +787,9 @@ describe("TyveraAssistant orchestration UI", () => {
     );
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
-    const input = await screen.findByPlaceholderText(/ask tyvera assistant/i);
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
+    const input = await screen.findByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "**User text**" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
@@ -827,8 +827,8 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, body: stream }));
 
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
     const viewport = await screen.findByTestId("assistant-messages-viewport");
     const scrollTo = vi.fn();
     Object.defineProperties(viewport, {
@@ -839,7 +839,7 @@ describe("TyveraAssistant orchestration UI", () => {
     });
     fireEvent.scroll(viewport);
 
-    const input = screen.getByPlaceholderText(/ask tyvera assistant/i);
+    const input = screen.getByPlaceholderText(/ask suki assistant/i);
     fireEvent.change(input, { target: { value: "Stream while I read" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));

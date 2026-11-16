@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
-import { emailCredits, emailUsageEvents } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { emailCredits, emailUsageEvents } from "@suki/database";
 import { eq, and, sql } from "drizzle-orm";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { getPlanCatalogEntry } from "../billing/plan-catalog";

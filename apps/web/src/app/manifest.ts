@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Tyvera",
-    short_name: "Tyvera",
+    name: "Suki",
+    short_name: "Suki",
     description:
       "Automated appointment reminders and customer follow-ups for service businesses.",
     start_url: "/",

@@ -22,7 +22,7 @@ describe("SemaphoreOtpProvider", () => {
 
   it("generates a code, sends it to Semaphore, and returns only a hash for storage", async () => {
     process.env.SEMAPHORE_API_KEY = "sem-key";
-    process.env.SEMAPHORE_SENDER_NAME = "TYVERA";
+    process.env.SEMAPHORE_SENDER_NAME = "SUKI";
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ message_id: "otp-1", status: "Queued" }),

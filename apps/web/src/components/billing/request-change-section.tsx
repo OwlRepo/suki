@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ClientBillingRequestKind,
   PlanType,
-} from "@tyvera/types";
+} from "@suki/types";
 import { useAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,7 +91,7 @@ export function RequestChangeSection({
         note: note.trim() || null,
       });
       setNote("");
-      setMessage("Request sent to Tyvera billing.");
+      setMessage("Request sent to Suki billing.");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to send request.");
@@ -128,7 +128,7 @@ export function RequestChangeSection({
           Request billing help
         </h2>
         <p className="mt-1 max-w-[65ch] text-sm text-muted-foreground">
-          Send plan changes, SMS top-ups, or cancellation requests to Tyvera.
+          Send plan changes, SMS top-ups, or cancellation requests to Suki.
           Billing staff will review before any paid request is created.
         </p>
       </div>
@@ -282,7 +282,7 @@ export function RequestChangeSection({
                   ) : null}
                   {request.decisionNote ? (
                     <p className="rounded-lg bg-muted px-3 py-2 text-sm">
-                      Tyvera response: {request.decisionNote}
+                      Suki response: {request.decisionNote}
                     </p>
                   ) : null}
                   {!readOnly && open ? (

@@ -28,7 +28,7 @@ vi.mock("../billing/platform-admin-billing.api", () => ({
 const detail = {
   organization: {
     id: "org-1",
-    name: "Tyvera Clinic",
+    name: "Suki Clinic",
     currentPlan: "starter",
     billingStatus: "active_manual",
     accessEndsAt: "2026-07-12T04:30:00.000Z",

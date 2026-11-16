@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { startSignUp, verifySignUp } from "@/lib/auth-client";
 import { invalidateSessionCache } from "@/hooks/use-session";
 
-type TyveraMarkProps = {
+type SukiMarkProps = {
   className?: string;
 };
 
-function TyveraMark({ className = "h-8 w-8" }: TyveraMarkProps) {
+function SukiMark({ className = "h-8 w-8" }: SukiMarkProps) {
   return (
     <svg
       aria-hidden="true"
@@ -326,8 +326,8 @@ export default function SignUpPage() {
               href="/"
               className="flex items-center gap-3 text-2xl font-bold tracking-tight text-slate-950"
             >
-              <TyveraMark />
-              Tyvera
+              <SukiMark />
+              Suki
             </Link>
           </div>
 
@@ -335,7 +335,7 @@ export default function SignUpPage() {
             <p className="text-4xl font-bold leading-tight tracking-tight text-slate-950 xl:text-5xl">
               Create your
               <span className="block">
-                <span className="text-blue-600">Tyvera</span> account
+                <span className="text-blue-600">Suki</span> account
               </span>
             </p>
 
@@ -366,7 +366,7 @@ export default function SignUpPage() {
           <div className="relative flex items-center gap-2 text-sm text-slate-500">
             <ShieldIcon />
             <span>
-              © {new Date().getFullYear()} Tyvera. All rights reserved.
+              © {new Date().getFullYear()} Suki. All rights reserved.
             </span>
           </div>
         </section>
@@ -383,9 +383,9 @@ export default function SignUpPage() {
 
           <div className="w-full max-w-xl">
             <div className="mb-8 flex items-center justify-center gap-3 text-blue-600 lg:hidden">
-              <TyveraMark className="h-9 w-9" />
+              <SukiMark className="h-9 w-9" />
               <span className="text-3xl font-bold tracking-tight text-slate-950">
-                Tyvera
+                Suki
               </span>
             </div>
 
@@ -405,7 +405,7 @@ export default function SignUpPage() {
                 <p className="mt-2 text-base text-slate-600">
                   {codeSent
                     ? "Enter the verification code we sent to your email."
-                    : "Get started with Tyvera in a few steps."}
+                    : "Get started with Suki in a few steps."}
                 </p>
               </div>
 

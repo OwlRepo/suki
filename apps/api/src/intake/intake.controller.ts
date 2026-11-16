@@ -9,8 +9,8 @@ import {
   Req,
 } from "@nestjs/common";
 import type { Request } from "express";
-import { getDb } from "@tyvera/database";
-import { businesses } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { businesses } from "@suki/database";
 import { eq } from "drizzle-orm";
 import { CustomerTemplatesService } from "../customers/customer-templates.service";
 import { CustomersService } from "../customers/customers.service";
@@ -18,7 +18,7 @@ import { IntakeBookingService } from "./intake-booking.service";
 import {
   PH_MOBILE_E164_ERROR,
   normalizePhilippineMobileE164,
-} from "@tyvera/types";
+} from "@suki/types";
 
 @Controller("intake")
 export class IntakeController {

@@ -21,7 +21,7 @@ function makeTask(overrides: Partial<ManualFollowUpTask> = {}): ManualFollowUpTa
     failureReason: "provider_rejected",
     createdAt: "2026-06-05T00:00:00.000Z",
     customerName: "Ana Santos",
-    businessName: "Tyvera Clinic",
+    businessName: "Suki Clinic",
     appointmentScheduledAt: null,
     duplicateRisk: false,
     ...overrides,

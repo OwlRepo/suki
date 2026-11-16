@@ -4,7 +4,7 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
-import { getDb } from "@tyvera/database";
+import { getDb } from "@suki/database";
 import {
   appointments,
   businesses,
@@ -13,7 +13,7 @@ import {
   bookingHolds,
   bookingSecuritySettings,
   bookingPinAttemptLogs,
-} from "@tyvera/database";
+} from "@suki/database";
 import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import { AutomationSendService } from "../automation/automation-send.service";
 import { IntakeBookingService } from "../intake/intake-booking.service";

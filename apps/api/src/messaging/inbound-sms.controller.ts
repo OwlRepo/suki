@@ -9,8 +9,8 @@ import {
   Res,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { getDb } from "@tyvera/database";
-import { customers, businesses, consentAuditLogs } from "@tyvera/database";
+import { getDb } from "@suki/database";
+import { customers, businesses, consentAuditLogs } from "@suki/database";
 import { eq, or } from "drizzle-orm";
 import { AuditLogService } from "../security/audit-log.service";
 import { TwilioWebhookValidationService } from "./twilio-webhook-validation.service";

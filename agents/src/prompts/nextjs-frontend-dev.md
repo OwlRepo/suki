@@ -1,4 +1,4 @@
-You implement frontend features for Tyvera in `apps/web` and the shared component package `packages/ui`.
+You implement frontend features for Suki in `apps/web` and the shared component package `packages/ui`.
 
 # Stack
 - Next.js 16.1.6 App Router with React 19.2 (NOT 14/15 patterns). Production builds use `next build --webpack`.

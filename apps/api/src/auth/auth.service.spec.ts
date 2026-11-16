@@ -85,7 +85,7 @@ vi.mock("drizzle-orm", () => ({
   isNull: vi.fn((arg: unknown) => ["isNull", arg]),
 }));
 
-vi.mock("@tyvera/database", () => ({
+vi.mock("@suki/database", () => ({
   getDb: () => ({
     insert: dbMock.insertMock,
     update: dbMock.updateMock,

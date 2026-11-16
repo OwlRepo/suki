@@ -56,7 +56,7 @@ const listResponse: PlatformAdminCommunicationListResponse = {
     {
       id: "message-1",
       organizationId: "org-1",
-      organizationName: "Tyvera Clinic",
+      organizationName: "Suki Clinic",
       businessId: "business-1",
       businessName: "Main Branch",
       appointmentId: null,
@@ -86,7 +86,7 @@ const listResponse: PlatformAdminCommunicationListResponse = {
 
 const detail: PlatformAdminCommunicationDetail = {
   id: "message-1",
-  organization: { id: "org-1", name: "Tyvera Clinic" },
+  organization: { id: "org-1", name: "Suki Clinic" },
   business: { id: "business-1", name: "Main Branch" },
   customer: {
     id: "customer-1",

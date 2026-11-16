@@ -105,7 +105,7 @@ export function NeedsAttentionPage() {
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHeader
         title="Needs Attention"
-        plainLanguageDescription="Review appointment SMS reminders Tyvera could not confirm as sent."
+        plainLanguageDescription="Review appointment SMS reminders Suki could not confirm as sent."
         whatThisPageIsFor="Handle appointment reminder follow-ups that need staff judgment before the customer is contacted."
         whatToDoNext={
           tasks.length === 0

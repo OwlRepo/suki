@@ -19,7 +19,7 @@ vi.mock("./platform-admin-client-requests.api", () => ({
 const request = {
   id: "client-request-1",
   organizationId: "org-1",
-  organizationName: "Tyvera Clinic",
+  organizationName: "Suki Clinic",
   kind: "plan_change" as const,
   status: "submitted" as const,
   requestedPlanType: "growth" as const,
@@ -56,7 +56,7 @@ describe("PlatformAdminClientRequestDetailPage", () => {
     render(
       <PlatformAdminClientRequestDetailPage clientRequestId="client-request-1" />,
     );
-    await screen.findByText("Tyvera Clinic");
+    await screen.findByText("Suki Clinic");
 
     fireEvent.click(screen.getByRole("button", { name: /start review/i }));
     await waitFor(() =>
@@ -80,7 +80,7 @@ describe("PlatformAdminClientRequestDetailPage", () => {
     render(
       <PlatformAdminClientRequestDetailPage clientRequestId="client-request-1" />,
     );
-    await screen.findAllByText("Tyvera Clinic");
+    await screen.findAllByText("Suki Clinic");
     fireEvent.change(screen.getByLabelText(/decision note/i), {
       target: { value: "Not eligible" },
     });

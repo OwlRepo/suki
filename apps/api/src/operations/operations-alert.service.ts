@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { getDb, operationsAlerts } from "@tyvera/database";
+import { getDb, operationsAlerts } from "@suki/database";
 import type {
   OperationsAlertSeverity,
   OperationsAlertStatus,
-} from "@tyvera/types";
+} from "@suki/types";
 import { and, desc, eq, gte, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import {
   EXPECTED_JOB_INTERVALS,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { TyveraAssistant } from "./tyvera-assistant";
+import { SukiAssistant } from "./suki-assistant";
 
 const { usePlanCapabilitiesMock } = vi.hoisted(() => ({
   usePlanCapabilitiesMock: vi.fn(),
@@ -39,9 +39,9 @@ vi.mock("@/contexts/workspace-context", () => ({
   useWorkspace: () => ({ activeBusinessId: "biz-1" }),
 }));
 
-describe("TyveraAssistant", () => {
+describe("SukiAssistant", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_FF_TYVERA_ASSISTANT_ENABLED", "true");
+    vi.stubEnv("NEXT_PUBLIC_FF_SUKI_ASSISTANT_ENABLED", "true");
     usePlanCapabilitiesMock.mockReturnValue({
       planType: "growth",
       canUseAi: true,
@@ -72,14 +72,14 @@ describe("TyveraAssistant", () => {
       daysRemaining: null,
     });
 
-    render(<TyveraAssistant />);
+    render(<SukiAssistant />);
 
-    expect(screen.queryByRole("button", { name: /open tyvera assistant/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /open suki assistant/i })).not.toBeInTheDocument();
   });
 
   it("opens panel, shows usage strip, and suggested prompts", async () => {
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/daily ai limit/i)).toBeInTheDocument();
@@ -90,16 +90,16 @@ describe("TyveraAssistant", () => {
   });
 
   it("shows helper drawer content", async () => {
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /what can i ask\?/i }));
     expect(await screen.findByText(/daily tasks/i)).toBeInTheDocument();
   });
 
   it("supports collapsing and expanding the header snapshot block", async () => {
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
     expect(await screen.findByText(/ai usage snapshot/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /collapse assistant header/i }));
@@ -111,8 +111,8 @@ describe("TyveraAssistant", () => {
   });
 
   it("renders suggestion chips in a horizontal scroll row", async () => {
-    render(<TyveraAssistant />);
-    fireEvent.click(screen.getByRole("button", { name: /open tyvera assistant/i }));
+    render(<SukiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
     const chipRow = await screen.findByTestId("assistant-prompt-row");
     expect(chipRow.className).toContain("overflow-x-auto");

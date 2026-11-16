@@ -45,7 +45,7 @@ If preflight is incomplete, the suite is skipped with explicit missing-env diagn
 Do not run real sends without explicit approval. Use redacted secrets in commands and logs.
 
 1. Send one normal outbound SMS and confirm Twilio returns a Message SID.
-2. Send one intentionally multi-segment outbound SMS and confirm Tyvera consumes the expected segment count.
+2. Send one intentionally multi-segment outbound SMS and confirm Suki consumes the expected segment count.
 3. Confirm `sms_usage_events.units` and monthly `sms_credits.used` match the estimated segment count.
 4. Confirm `message_events.provider_message_id` stores the Twilio Message SID.
 5. Confirm status callbacks transition delivery state from queued/sent to delivered or failed.
@@ -61,11 +61,11 @@ Do not run real sends without explicit approval. Use redacted secrets in command
 Example forged webhook checks:
 
 ```bash
-curl -i -X POST https://tyvera.app/api/messaging/inbound/sms \
+curl -i -X POST https://suki.tyvera.app/api/messaging/inbound/sms \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data 'From=%2B639171234567&Body=STOP'
 
-curl -i -X POST https://tyvera.app/api/messaging/webhooks/twilio/status \
+curl -i -X POST https://suki.tyvera.app/api/messaging/webhooks/twilio/status \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   -H 'X-Twilio-Signature: invalid' \
   --data 'MessageSid=SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX&MessageStatus=delivered'

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { startPasswordReset, verifyPasswordReset } from "@/lib/auth-client";
 import { invalidateSessionCache } from "@/hooks/use-session";
 
-function TyveraMark() {
+function SukiMark() {
   return (
     <span className="relative flex h-10 w-10 items-center justify-center" aria-hidden="true">
       <span className="absolute top-1 h-3 w-9 rounded-full bg-linear-to-r from-blue-700 via-blue-500 to-sky-300" />
@@ -142,8 +142,8 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-xl">
           <div className="mb-6 flex justify-center">
             <Link href="/" className="flex items-center gap-3 text-2xl font-bold tracking-tight text-slate-950">
-              <TyveraMark />
-              Tyvera
+              <SukiMark />
+              Suki
             </Link>
           </div>
 

@@ -6,11 +6,11 @@ import {
   manualBillingRequests,
   manualPayments,
   organizations,
-} from "@tyvera/database";
+} from "@suki/database";
 import type {
   ManualBillingEmailDeliveryStatus,
   ManualBillingEmailKind,
-} from "@tyvera/types";
+} from "@suki/types";
 import { desc, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { FeatureFlagsService } from "../common/feature-flags.service";
@@ -357,6 +357,6 @@ export class PlatformAdminBillingEmailService {
         : null,
     ]
       .filter(Boolean)
-      .join("\n") || "Use the payment account shared by Tyvera support.";
+      .join("\n") || "Use the payment account shared by Suki support.";
   }
 }

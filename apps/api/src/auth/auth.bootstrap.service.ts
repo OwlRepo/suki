@@ -5,7 +5,7 @@ import {
   subscriptions,
   users,
   getDb,
-} from "@tyvera/database";
+} from "@suki/database";
 import { eq } from "drizzle-orm";
 import { randomBytes, randomUUID, scryptSync } from "crypto";
 

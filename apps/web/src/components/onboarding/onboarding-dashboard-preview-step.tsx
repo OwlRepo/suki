@@ -13,7 +13,7 @@ const PREVIEW_ACTIONS = [
     description: "Tap Arrived once when a customer physically comes in.",
   },
   {
-    title: "Let Tyvera record the visit",
+    title: "Let Suki record the visit",
     description: "Checked-in appointments complete automatically after the expected duration.",
   },
 ] as const;
