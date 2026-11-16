@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import type { ReactNode } from "react";
 
 export function UsageMeterCard({
   label,
@@ -11,6 +12,7 @@ export function UsageMeterCard({
   remaining,
   helper,
   pausedReason,
+  action,
 }: {
   label: string;
   included: number;
@@ -19,18 +21,19 @@ export function UsageMeterCard({
   remaining: number;
   helper: string;
   pausedReason?: string | null;
+  action?: ReactNode;
 }) {
   const total = included + addon;
   const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const warning = percent >= 80;
-  const exhausted = remaining <= 0;
+  const exhausted = total > 0 && remaining <= 0;
 
   return (
     <Card className="border border-border p-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-medium">{label}</h3>
-          <p className="mt-1 text-2xl font-semibold">{remaining.toLocaleString("en-PH")} remaining</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{remaining.toLocaleString("en-PH")} remaining</p>
         </div>
         {exhausted ? (
           <Badge variant="destructive">Exhausted</Badge>
@@ -53,6 +56,7 @@ export function UsageMeterCard({
         <p className="mt-1 text-xs text-amber-700">Usage is currently paused because billing is not active.</p>
       ) : null}
       <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
+      {action ? <div className="mt-3">{action}</div> : null}
     </Card>
   );
 }

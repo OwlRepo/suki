@@ -29,9 +29,13 @@ const SMS_PACKS = [
 export function RequestChangeSection({
   currentPlan,
   readOnly,
+  requestedKind,
+  onKindChange,
 }: {
   currentPlan: PlanType;
   readOnly: boolean;
+  requestedKind?: ClientBillingRequestKind;
+  onKindChange?: (kind: ClientBillingRequestKind) => void;
 }) {
   const { getToken } = useAuth();
   const [requests, setRequests] = useState<ClientBillingRequest[]>([]);
@@ -46,6 +50,10 @@ export function RequestChangeSection({
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (requestedKind) setKind(requestedKind);
+  }, [requestedKind]);
 
   const paidPlans = useMemo(
     () =>
@@ -147,7 +155,7 @@ export function RequestChangeSection({
                 value={kind}
                 disabled={submitting}
                 onChange={(event) =>
-                  setKind(event.target.value as ClientBillingRequestKind)
+                  { const next = event.target.value as ClientBillingRequestKind; setKind(next); onKindChange?.(next); }
                 }
               >
                 <option value="plan_change">Change paid plan</option>

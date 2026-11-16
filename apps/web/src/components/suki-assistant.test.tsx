@@ -91,7 +91,7 @@ describe("SukiAssistant", () => {
     expect(screen.getByRole("button", { name: /collapse assistant header/i })).toBeInTheDocument();
   });
 
-  it("hides the assistant launcher on plans without AI access", () => {
+  it("regression: hides the assistant launcher on plans without AI access", () => {
     usePlanCapabilitiesMock.mockReturnValue({
       planType: "free",
       canUseAi: false,
@@ -111,7 +111,7 @@ describe("SukiAssistant", () => {
     expect(screen.queryByRole("button", { name: /open suki assistant/i })).not.toBeInTheDocument();
   });
 
-  it("opens panel, shows usage strip, and suggested prompts", async () => {
+  it("regression: opens panel, shows usage strip, and suggested prompts", async () => {
     render(<SukiAssistant />);
     fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
@@ -123,7 +123,7 @@ describe("SukiAssistant", () => {
     expect(screen.getByRole("button", { name: /how do i add a customer/i })).toBeInTheDocument();
   });
 
-  it("shows helper drawer content", async () => {
+  it("regression: shows helper drawer content", async () => {
     render(<SukiAssistant />);
     fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
@@ -131,7 +131,7 @@ describe("SukiAssistant", () => {
     expect(await screen.findByText(/daily tasks/i)).toBeInTheDocument();
   });
 
-  it("supports collapsing and expanding the header snapshot block", async () => {
+  it("regression: supports collapsing and expanding the header snapshot block", async () => {
     render(<SukiAssistant />);
     fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 
@@ -144,7 +144,7 @@ describe("SukiAssistant", () => {
     expect(await screen.findByText(/ai usage snapshot/i)).toBeInTheDocument();
   });
 
-  it("renders suggestion chips in a horizontal scroll row", async () => {
+  it("regression: renders suggestion chips in a horizontal scroll row", async () => {
     render(<SukiAssistant />);
     fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
 

@@ -42,7 +42,7 @@ describe("Today daily workspace", () => {
 
   it("regression: loads a bounded day and makes arrival and rescheduling direct", async () => {
     render(<DashboardPage />);
-    expect(await screen.findByRole("heading", { name: "Today", exact: true })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Today" })).toBeInTheDocument();
     expect(await screen.findByText("Mia Santos")).toBeInTheDocument();
     const agendaCall = mocks.api.mock.calls.find(([path]) => String(path).startsWith("/appointments?"));
     const url = new URL(String(agendaCall?.[0]), "https://example.test");

@@ -2,14 +2,15 @@ import { render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import AnalyticsPage from "./page";
 
-const { apiRequestMock, usePlanCapabilitiesMock, useWorkspaceMock } = vi.hoisted(() => ({
+const { apiRequestMock, usePlanCapabilitiesMock, useWorkspaceMock, getTokenMock } = vi.hoisted(() => ({
   apiRequestMock: vi.fn(),
   usePlanCapabilitiesMock: vi.fn(),
   useWorkspaceMock: vi.fn(),
+  getTokenMock: vi.fn(async () => "token"),
 }));
 
 vi.mock("@/lib/auth", () => ({
-  useAuth: () => ({ getToken: vi.fn().mockResolvedValue("token") }),
+  useAuth: () => ({ getToken: getTokenMock }),
 }));
 
 vi.mock("@/hooks/use-plan-capabilities", () => ({

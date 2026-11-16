@@ -38,8 +38,8 @@ describe("NeedsAttentionPage", () => {
       expect(screen.getByText("Ana Santos")).toBeInTheDocument();
     });
     expect(screen.getByRole("heading", { name: /needs attention/i })).toBeInTheDocument();
-    expect(screen.getByText(/what this page is for/i)).toBeInTheDocument();
-    expect(screen.getByText(/what to do next/i)).toBeInTheDocument();
+    expect(screen.getByText(/review appointment sms reminders suki could not confirm as sent/i)).toBeInTheDocument();
+    expect(screen.queryByText(/what this page is for/i)).not.toBeInTheDocument();
     expect(container.querySelector(".space-y-6.sm\\:space-y-8")).toBeTruthy();
   });
 });

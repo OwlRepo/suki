@@ -16,6 +16,17 @@ import { PlanComparisonGrid } from "@/components/billing/plan-comparison-grid";
 import { BillingIntervalToggle } from "@/components/billing/billing-interval-toggle";
 import type { BillingInterval, BillingPlan } from "@/components/billing/types";
 import { RequestChangeSection } from "@/components/billing/request-change-section";
+import { PageHeader } from "@/components/ui/page-header";
+import type { ClientBillingRequestKind } from "@suki/types";
+
+const BILLING_STATUS_LABELS: Record<string, string> = {
+  free_active: "Free plan",
+  subscription_active: "Active",
+  subscription_past_due: "Payment overdue",
+  subscription_paused: "Paused",
+  subscription_cancelled: "Cancellation scheduled",
+  subscription_expired: "Expired",
+};
 
 type BillingStatusResponse = {
   planType: string;
@@ -78,6 +89,7 @@ export default function BillingSettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncTimedOut, setSyncTimedOut] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [requestedKind, setRequestedKind] = useState<ClientBillingRequestKind>("plan_change");
 
   const addonGroups = useMemo(
     () => ({
@@ -300,6 +312,7 @@ export default function BillingSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader title="Plan & usage" plainLanguageDescription="Your plan, remaining allowances, and billing requests." />
       {checkoutEnabled ? (
         <CheckoutSyncBanner
           syncing={syncing}
@@ -313,8 +326,8 @@ export default function BillingSettingsPage() {
           variant="info"
           message={
             manualRequestEnabled
-              ? "Self-serve checkout is disabled. Workspace owners can send billing requests to Suki below."
-              : "Self-serve billing is disabled in this environment. You can keep using the free plan with caps and usage meters."
+              ? "Need a plan change or more SMS credits? Send a request for Suki to review."
+              : "Your current plan and allowances are shown below."
           }
         />
       )}
@@ -324,14 +337,6 @@ export default function BillingSettingsPage() {
           cancellationPending={billing.cancellationPending}
           scheduledPlanType={billing.scheduledPlanType}
           scheduledChangeEffectiveAt={billing.scheduledChangeEffectiveAt}
-        />
-      ) : null}
-      {billing?.scheduledPlanType ? (
-        <StatusBanner
-          variant="info"
-          message={`Your plan is scheduled to move to ${billing.scheduledPlanType} on ${new Date(
-            billing.scheduledChangeEffectiveAt ?? billing.renewsAt ?? Date.now(),
-          ).toLocaleDateString("en-PH")}.`}
         />
       ) : null}
       {billing?.readOnly ? (
@@ -354,7 +359,7 @@ export default function BillingSettingsPage() {
 
       <CurrentPlanCard
         planLabel={billing?.planType ? billing.planType.toUpperCase() : "FREE"}
-        statusLabel={billing?.billingStatus ?? "free_active"}
+        statusLabel={BILLING_STATUS_LABELS[billing?.billingStatus ?? "free_active"] ?? "Account status unavailable"}
         renewalLabel={
           billing?.renewsAt
             ? `Renews on ${new Date(billing.renewsAt).toLocaleDateString("en-PH")}`
@@ -366,7 +371,7 @@ export default function BillingSettingsPage() {
       {billing && !billing.readOnly && manualRequestEnabled ? (
         <div className="flex flex-wrap gap-3">
           <Button asChild>
-            <a href="#billing-request-section">Request billing help</a>
+            <a href="#billing-request-section" onClick={() => setRequestedKind("plan_change")}>Request billing help</a>
           </Button>
         </div>
       ) : null}
@@ -409,7 +414,7 @@ export default function BillingSettingsPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-4">
+      <section aria-label="Remaining allowances" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <UsageMeterCard
           label="Verified online bookings"
           included={billing?.verifiedOnlineBookingCredits?.included ?? 0}
@@ -427,6 +432,10 @@ export default function BillingSettingsPage() {
           remaining={billing?.smsSegmentCredits?.remaining ?? 0}
           pausedReason={billing?.smsSegmentCredits?.pausedReason ?? null}
           helper="SMS reminders and follow-ups use separate prepaid segment credits."
+          action={billing && !billing.readOnly ? (
+            checkoutEnabled ? <Button asChild variant="outline" size="sm"><a href="#sms-topups">Buy SMS credits</a></Button>
+              : manualRequestEnabled ? <Button asChild variant="outline" size="sm"><a href="#billing-request-section" onClick={() => setRequestedKind("sms_topup")}>Request SMS top-up</a></Button> : null
+          ) : null}
         />
         <UsageMeterCard
           label="Email messages"
@@ -442,12 +451,14 @@ export default function BillingSettingsPage() {
           remaining={billing?.aiRequests?.remaining ?? 0}
           helper="AI-assisted writing is only included on Growth and Pro."
         />
-      </div>
+      </section>
 
       {manualRequestEnabled && billing ? (
         <RequestChangeSection
           currentPlan={billing.planType as "free" | "starter" | "growth" | "pro"}
           readOnly={Boolean(billing.readOnly)}
+          requestedKind={requestedKind}
+          onKindChange={setRequestedKind}
         />
       ) : null}
 
@@ -457,7 +468,7 @@ export default function BillingSettingsPage() {
           <div>
             <h2 className="text-xl font-semibold">Upgrade or change plan</h2>
             <p className="text-sm text-muted-foreground">
-              We activate paid access only after the signed Lemon Squeezy webhook has been reconciled.
+              Your plan updates after payment is confirmed.
             </p>
           </div>
           <BillingIntervalToggle value={interval} onChange={setBillingInterval} />
@@ -509,12 +520,12 @@ export default function BillingSettingsPage() {
       ) : null}
 
       {checkoutEnabled && !billing?.readOnly ? (
-        <AddonPackGrid
+        <div id="sms-topups" className="scroll-mt-6"><AddonPackGrid
           title="SMS segment top-ups"
           items={addonGroups.sms}
           loadingKey={actionLoading}
           onCheckout={startAddonCheckout}
-        />
+        /></div>
       ) : null}
     </div>
   );

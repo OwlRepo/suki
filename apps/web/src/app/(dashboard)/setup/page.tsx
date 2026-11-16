@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { apiRequest } from "@/lib/api";
 import { useAuthSync } from "@/hooks/use-auth-sync";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
+import { PageHeader } from "@/components/ui/page-header";
 
 const BUSINESS_TYPES = [
   { value: "salon", label: "Salon / Hair & Beauty" },
@@ -91,7 +93,7 @@ function SetupPageContent() {
       return;
     }
     setError(null);
-    setStep("recommendations");
+    void handleCreateBusiness();
   };
 
   const handleCreateBusiness = async () => {
@@ -148,17 +150,10 @@ function SetupPageContent() {
 
   if (step === "questions") {
     return (
-      <div className="mx-auto max-w-md">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Step 1 of 2
-        </p>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Business setup
-        </h1>
-        <p className="mt-2 text-base text-muted-foreground">
-          This helps us adjust the app for how you work. You can change this anytime.
-        </p>
-        <form onSubmit={handleQuestionsSubmit} className="mt-6 space-y-5">
+      <div className="mx-auto max-w-2xl space-y-6">
+        <PageHeader title="Business setup" plainLanguageDescription="Add your business name and type. You can change these later."
+          actions={<Button asChild variant="outline"><Link href="/settings#businesses">Business details</Link></Button>} />
+        <form onSubmit={handleQuestionsSubmit} className="space-y-5 rounded-xl border border-border bg-card p-5 sm:p-6">
           <div>
             <Label
               htmlFor="business-name"
@@ -204,8 +199,11 @@ function SetupPageContent() {
               {error}
             </p>
           )}
-          <Button type="submit" size="lg" className="min-h-[44px] w-full text-base">
-            Continue
+          <Button type="submit" size="lg" disabled={submitting} className="min-h-[44px] w-full text-base">
+            {submitting ? "Creating…" : "Create business"}
+          </Button>
+          <Button type="button" variant="ghost" disabled={!name.trim() || !businessType || submitting} className="w-full" onClick={() => setStep("recommendations")}>
+            See recommended features (optional)
           </Button>
         </form>
       </div>
@@ -217,16 +215,8 @@ function SetupPageContent() {
       BUSINESS_TYPES.find((t) => t.value === businessType)?.label ?? businessType;
 
     return (
-      <div className="mx-auto max-w-md">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Step 2 of 2
-        </p>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Recommended for {name.trim()}
-        </h1>
-        <p className="mt-2 text-base text-muted-foreground">
-          For a {typeLabel}, these features will help most. Others are optional — you can enable them later.
-        </p>
+      <div className="mx-auto max-w-2xl rounded-xl border border-border bg-card p-5 sm:p-6">
+        <PageHeader title={`Recommended for ${name.trim()}`} plainLanguageDescription={`Optional suggestions for a ${typeLabel}. You can explore these after setup.`} />
 
         {recommendationsLoading ? (
           <p className="mt-6 text-base text-muted-foreground">Loading recommendations…</p>

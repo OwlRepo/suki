@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { SettingsSectionCard } from "./settings-section-card";
 
@@ -24,6 +24,14 @@ describe("direct settings access", () => {
       window.history.replaceState(null, "", "/settings#automation");
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
+    expect(screen.getByRole("button", { name: /automated follow-ups/i })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("regression: reopens the destination when its unchanged hash link is clicked", () => {
+    window.history.replaceState(null, "", "/settings#automation");
+    render(<><a href="#automation">Open automation</a><SettingsSectionCard id="automation" title="Automated follow-ups" description="Reminders" collapsedByDefault><p>Reminder controls</p></SettingsSectionCard></>);
+    fireEvent.click(screen.getByRole("button", { name: /automated follow-ups/i }));
+    fireEvent.click(screen.getByRole("link", { name: "Open automation" }));
     expect(screen.getByRole("button", { name: /automated follow-ups/i })).toHaveAttribute("aria-expanded", "true");
   });
 });

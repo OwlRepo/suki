@@ -55,7 +55,7 @@ describe("dashboard navigation UX", () => {
   it("includes help center in setup and admin navigation", () => {
     const adminItems = getDashboardNavGroups(false).find((g) => g.key === "admin")?.items ?? [];
     expect(adminItems).toEqual(
-      expect.arrayContaining([expect.objectContaining({ href: "/help", label: "Help Center" })]),
+      expect.arrayContaining([expect.objectContaining({ href: "/help", label: "Help" })]),
     );
   });
 

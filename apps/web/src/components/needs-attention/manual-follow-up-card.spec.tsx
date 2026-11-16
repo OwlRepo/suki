@@ -49,7 +49,7 @@ describe("ManualFollowUpCard", () => {
     expect(writeText).toHaveBeenCalledWith("Reminder body");
     expect(screen.getByText(/copy fallback is available/i)).toBeInTheDocument();
     expect(
-      container.querySelector("article.rounded-2xl.border-slate-200.bg-white"),
+      container.querySelector("article.rounded-2xl.border-border.bg-card"),
     ).toBeTruthy();
   });
 

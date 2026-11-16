@@ -266,7 +266,7 @@ Trial Twilio accounts may only send to verified recipients. Confirm this before 
 
 ## Platform Admin Production Setup
 
-The platform-admin console uses the existing first-party auth session and `tyvera_session` cookie. Runtime authorization comes from database-backed platform-admin RBAC; founder allowlists remain bootstrap bridges only and should not be treated as normal production authorization.
+The platform-admin console uses the first-party auth session and canonical `suki_session` cookie (with `tyvera_session` accepted for legacy sessions). Runtime authorization comes from database-backed platform-admin RBAC; founder allowlists remain bootstrap bridges only and should not be treated as normal production authorization.
 
 Required production-ready platform-admin env keys:
 

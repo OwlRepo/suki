@@ -131,7 +131,7 @@ describe("SukiAssistant orchestration UI", () => {
     });
   });
 
-  it("uses stream endpoint as normal path and does not call /chat fallback", async () => {
+  it("regression: uses stream endpoint as normal path and does not call /chat fallback", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_API_URL", "");
     const streamBody = [
@@ -165,7 +165,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/api/help/assistant/chat/stream");
   });
 
-  it("falls back to /chat only when stream transport fails", async () => {
+  it("regression: falls back to /chat only when stream transport fails", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, body: null });
     vi.stubGlobal("fetch", fetchMock);
     apiRequestMock.mockClear();
@@ -192,7 +192,7 @@ describe("SukiAssistant orchestration UI", () => {
     });
   });
 
-  it("falls back to /chat once when SSE frame sequence is malformed", async () => {
+  it("regression: falls back to /chat once when SSE frame sequence is malformed", async () => {
     const encoder = new TextEncoder();
     const malformedStream = new ReadableStream({
       start(controller) {
@@ -231,7 +231,7 @@ describe("SukiAssistant orchestration UI", () => {
     });
   });
 
-  it("renders action chips from orchestrated response", async () => {
+  it("regression: renders action chips from orchestrated response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, body: null }));
     render(<SukiAssistant />);
     fireEvent.click(screen.getByRole("button", { name: /open suki assistant/i }));
@@ -246,7 +246,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(screen.getByRole("button", { name: /show details/i })).toBeInTheDocument();
   });
 
-  it("shows streaming state and final assistant response from SSE endpoint", async () => {
+  it("regression: shows streaming state and final assistant response from SSE endpoint", async () => {
     const streamBody = [
       'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
       'event: state\ndata: {"type":"state","state":"streaming"}\n\n',
@@ -290,7 +290,7 @@ describe("SukiAssistant orchestration UI", () => {
     );
   });
 
-  it("applies usage event immediately before usage refetch resolves", async () => {
+  it("regression: applies usage event immediately before usage refetch resolves", async () => {
     let usageCall = 0;
     apiRequestMock.mockImplementation(async (path: string) => {
       if (path.startsWith("/ai/usage/summary")) {
@@ -349,7 +349,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(await screen.findByText("180/200")).toBeInTheDocument();
   });
 
-  it("refetches usage summary after successful streamed reply", async () => {
+  it("regression: refetches usage summary after successful streamed reply", async () => {
     const streamBody = [
       'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
       'event: done\ndata: {"type":"done","response":{"threadId":"thread-1","plainAnswer":"Open Customers.","nextStep":"Tap Add customer now.","actionChips":[{"label":"Add customer now","href":"/customers","kind":"primary"}],"confidence":0.95}}\n\n',
@@ -377,7 +377,7 @@ describe("SukiAssistant orchestration UI", () => {
     });
   });
 
-  it("omits placeholder bearer token from stream headers (cookie-first auth)", async () => {
+  it("regression: omits placeholder bearer token from stream headers (cookie-first auth)", async () => {
     const streamBody = [
       'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
       'event: done\ndata: {"type":"done","response":{"threadId":"thread-1","plainAnswer":"Open Customers.","nextStep":"Tap Add customer now.","actionChips":[{"label":"Add customer now","href":"/customers","kind":"primary"}],"confidence":0.95}}\n\n',
@@ -404,7 +404,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(headers.Authorization).toBeUndefined();
   });
 
-  it("does not fallback to /chat when stream returns assistant error event", async () => {
+  it("regression: does not fallback to /chat when stream returns assistant error event", async () => {
     const streamBody = [
       'event: meta\ndata: {"type":"meta","threadId":"thread-1","intent":"how_to"}\n\n',
       'event: error\ndata: {"type":"error","message":"You reached today\\u2019s AI limit.","code":"AI_DAILY_CAP_EXCEEDED","actionChips":[{"label":"View AI Usage","href":"/settings","kind":"primary"}]}\n\n',
@@ -431,7 +431,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(chatCalls).toHaveLength(0);
   });
 
-  it("renders deltas arriving in separate reader reads before done", async () => {
+  it("regression: renders deltas arriving in separate reader reads before done", async () => {
     const encoder = new TextEncoder();
     let releaseDone: (() => void) | undefined;
     const waitForDone = new Promise<void>((resolve) => {
@@ -472,7 +472,7 @@ describe("SukiAssistant orchestration UI", () => {
     });
   });
 
-  it("renders AI_DISABLED distinctly without opening the cap dialog", async () => {
+  it("regression: renders AI_DISABLED distinctly without opening the cap dialog", async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
@@ -504,7 +504,7 @@ describe("SukiAssistant orchestration UI", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("applies usage aiEnabled false from SSE", async () => {
+  it("regression: applies usage aiEnabled false from SSE", async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
@@ -528,7 +528,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(await screen.findByText(/ai assistant is disabled/i)).toBeInTheDocument();
   });
 
-  it("requires explicit confirmation before applying a proposed mutation", async () => {
+  it("regression: requires explicit confirmation before applying a proposed mutation", async () => {
     apiRequestMock.mockImplementation(async (path: string) => {
       if (path === "/help/assistant/actions/confirm") {
         return { status: "ok", action: "update_customer" };
@@ -588,7 +588,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(await screen.findByText(/change applied/i)).toBeInTheDocument();
   });
 
-  it("renders the needs-attention action chip and immutable draft warning", async () => {
+  it("regression: renders the needs-attention action chip and immutable draft warning", async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
@@ -618,7 +618,7 @@ describe("SukiAssistant orchestration UI", () => {
     ).toHaveAttribute("href", "/needs-attention");
   });
 
-  it("renders assistant Markdown headings, bold text, lists, and tables", async () => {
+  it("regression: renders assistant Markdown headings, bold text, lists, and tables", async () => {
     const stream = createStream(
       'event: done\ndata: {"type":"done","response":{"plainAnswer":"## **SMS Usage**\\n\\n- Used: 10\\n- Left: 90\\n\\n| Type | Count |\\n| --- | ---: |\\n| Left | 90 |","nextStep":"Open settings.","actionChips":[],"confidence":0.95}}\n\n',
     );
@@ -645,7 +645,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(screen.queryByText(/\*\*SMS Usage\*\*/)).not.toBeInTheDocument();
   });
 
-  it("reveals streamed target text progressively", async () => {
+  it("regression: reveals streamed target text progressively", async () => {
     stubReducedMotion(false);
     let releaseDone: (() => void) | undefined;
     const waitForDone = new Promise<void>((resolve) => {
@@ -694,7 +694,7 @@ describe("SukiAssistant orchestration UI", () => {
     );
   });
 
-  it("drains the final next step progressively and keeps status streaming", async () => {
+  it("regression: drains the final next step progressively and keeps status streaming", async () => {
     stubReducedMotion(false);
     const stream = createStream(
       'event: done\ndata: {"type":"done","response":{"plainAnswer":"The monthly summary is ready with several useful details.","nextStep":"Open insights to review everything.","actionChips":[{"label":"Open insights","href":"/insights","kind":"primary"}],"confidence":0.95}}\n\n',
@@ -723,7 +723,7 @@ describe("SukiAssistant orchestration UI", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders completed streamed text immediately for reduced motion", async () => {
+  it("regression: renders completed streamed text immediately for reduced motion", async () => {
     stubReducedMotion(true);
     const stream = createStream(
       'event: done\ndata: {"type":"done","response":{"plainAnswer":"Immediate answer.","nextStep":"Open settings.","actionChips":[],"confidence":0.95}}\n\n',
@@ -744,7 +744,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(screen.getByText(/status:\s*read/i)).toBeInTheDocument();
   });
 
-  it("renders trusted draft notices only from typed response notices", async () => {
+  it("regression: renders trusted draft notices only from typed response notices", async () => {
     const stream = createStream(
       'event: done\ndata: {"type":"done","response":{"plainAnswer":"Your reminder is ready.","nextStep":"Review it.","notices":[{"kind":"draft_only","text":"Draft only. Nothing was saved or sent."}],"actionChips":[],"confidence":0.95}}\n\n',
     );
@@ -761,7 +761,7 @@ describe("SukiAssistant orchestration UI", () => {
     );
   });
 
-  it("does not infer a trusted notice from narrative wording", async () => {
+  it("regression: does not infer a trusted notice from narrative wording", async () => {
     const stream = createStream(
       'event: done\ndata: {"type":"done","response":{"plainAnswer":"Draft only. Nothing was saved or sent.","nextStep":"Review it.","actionChips":[],"confidence":0.95}}\n\n',
     );
@@ -781,7 +781,7 @@ describe("SukiAssistant orchestration UI", () => {
     expect(screen.queryByTestId("assistant-draft-notice")).not.toBeInTheDocument();
   });
 
-  it("keeps user messages as plain text and assistant unsafe links non-clickable", async () => {
+  it("regression: keeps user messages as plain text and assistant unsafe links non-clickable", async () => {
     const stream = createStream(
       'event: done\ndata: {"type":"done","response":{"plainAnswer":"[Unsafe](https://attacker.example)","nextStep":"Done.","actionChips":[],"confidence":0.95}}\n\n',
     );
@@ -802,7 +802,7 @@ describe("SukiAssistant orchestration UI", () => {
     });
   });
 
-  it("does not force bottom-follow after the owner scrolls upward", async () => {
+  it("regression: does not force bottom-follow after the owner scrolls upward", async () => {
     stubReducedMotion(false);
     let releaseDone: (() => void) | undefined;
     const waitForDone = new Promise<void>((resolve) => {

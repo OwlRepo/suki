@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { CalendarDays } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 import { MobileNavDrawer } from "./mobile-nav-drawer";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }));
+vi.mock("next/link", () => ({ default: ({ children, onClick, ...props }: ComponentProps<"a">) => <a {...props} onClick={(event) => { onClick?.(event); event.preventDefault(); }}>{children}</a> }));
 vi.mock("@/components/workspace-dropdown", () => ({ WorkspaceDropdown: () => <button>Workspace</button> }));
 
 function MenuHarness() {
@@ -24,7 +25,6 @@ describe("external mobile menu launcher", () => {
     render(<MenuHarness />);
     const { opener } = await openMenu();
     const destination = screen.getByRole("link", { name: "Appointments" });
-    destination.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(destination);
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(opener).not.toHaveFocus();

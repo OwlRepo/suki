@@ -31,7 +31,7 @@ export type OnboardingGuideModule = {
 
 export type HelpSearchResult = HelpArticle & { score: number };
 
-const TODAY = "2026-05-10";
+const TODAY = "2026-11-16";
 
 export const HELP_CONTENT: HelpArticle[] = [
   {
@@ -42,7 +42,7 @@ export const HELP_CONTENT: HelpArticle[] = [
     intents: ["setup", "start", "onboarding", "create business"],
     steps: ["Open Setup", "Add business name", "Select business type", "Save"],
     relatedRoutes: ["/setup", "/onboarding"],
-    quickAnswer: "Open Setup, enter business name and type, then save to continue onboarding.",
+    quickAnswer: "Enter your business name and type, then save to unlock your workspace. Booking and sharing are optional.",
     lastUpdated: TODAY,
   },
   {
@@ -62,9 +62,9 @@ export const HELP_CONTENT: HelpArticle[] = [
     locale: "en",
     sectionKey: "daily-tasks",
     intents: ["add customer", "new customer", "customer list"],
-    steps: ["Go to Customers", "Tap Add customer", "Fill details", "Save"],
-    relatedRoutes: ["/customers"],
-    quickAnswer: "Go to Customers, tap Add customer, then save name and phone.",
+    steps: ["Open New appointment", "Choose New customer", "Enter customer details and an available time", "Save appointment"],
+    relatedRoutes: ["/appointments?new=1"],
+    quickAnswer: "Open New appointment and choose New customer. Add their details and an available time, then save the appointment.",
     lastUpdated: TODAY,
   },
   {
@@ -73,9 +73,9 @@ export const HELP_CONTENT: HelpArticle[] = [
     locale: "tl",
     sectionKey: "daily-tasks",
     intents: ["paano mag add ng customer", "dagdag customer", "customer list"],
-    steps: ["Pumunta sa Customers", "Pindutin ang Add customer", "Ilagay ang detalye", "I-save"],
-    relatedRoutes: ["/customers"],
-    quickAnswer: "Sa Customers, pindutin ang Add customer, ilagay ang pangalan at mobile, saka i-save.",
+    steps: ["Buksan ang New appointment", "Piliin ang New customer", "Ilagay ang detalye at oras", "I-save ang appointment"],
+    relatedRoutes: ["/appointments?new=1"],
+    quickAnswer: "Buksan ang New appointment at piliin ang New customer. Ilagay ang detalye at oras, saka i-save ang appointment.",
     lastUpdated: TODAY,
   },
   {
@@ -84,9 +84,9 @@ export const HELP_CONTENT: HelpArticle[] = [
     locale: "en",
     sectionKey: "billing-usage",
     intents: ["sms left", "sms remaining", "credits", "usage"],
-    steps: ["Open Settings", "Open usage section", "View SMS remaining"],
-    relatedRoutes: ["/settings", "/analytics"],
-    quickAnswer: "Open usage pages to view SMS used, total credits, and remaining balance.",
+    steps: ["Open Plan & usage", "View SMS segments remaining"],
+    relatedRoutes: ["/settings/billing"],
+    quickAnswer: "Open Plan & usage to see SMS used, purchased credits, and the remaining balance.",
     lastUpdated: TODAY,
   },
   {
@@ -95,9 +95,9 @@ export const HELP_CONTENT: HelpArticle[] = [
     locale: "tl",
     sectionKey: "billing-usage",
     intents: ["ilang sms pa", "natitirang sms", "usage"],
-    steps: ["Buksan ang Settings", "Pumunta sa usage", "Tingnan ang natitira"],
-    relatedRoutes: ["/settings", "/analytics"],
-    quickAnswer: "Makikita sa usage ang nagamit na SMS, total credits, at natitirang SMS.",
+    steps: ["Buksan ang Plan & usage", "Tingnan ang natitirang SMS segments"],
+    relatedRoutes: ["/settings/billing"],
+    quickAnswer: "Sa Plan & usage makikita ang nagamit na SMS, biniling credits, at natitirang SMS.",
     lastUpdated: TODAY,
   },
 ];

@@ -1,17 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import {
-  CalendarCheck,
-  ChevronRight,
-  ClipboardCheck,
-  PlusCircle,
-  Tag,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { CalendarDays, Plus, Share2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
@@ -19,466 +11,210 @@ import { useAuthSync } from "@/hooks/use-auth-sync";
 import { IntakeQRBlock } from "@/components/intake-qr-block";
 import { ListSkeleton, MetricGridSkeleton } from "@/components/ui/skeleton";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { PrimaryPageAction } from "@/components/ui/primary-page-action";
+import { PageHeader } from "@/components/ui/page-header";
+import { MetricCard } from "@/components/ui/metric-card";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { recordOnboardingEvent } from "@/lib/onboarding-metrics";
+import { getOpenManualFollowUpCount } from "@/components/needs-attention/manual-follow-up.api";
 
-interface Summary {
-  businesses: number;
-  customers: number;
-  appointments: number;
-  promos: number;
+interface Summary { businesses: number; customers: number; appointments: number; promos: number }
+interface Usage { visitsThisMonth: number; month: string; upcomingAppointments?: number }
+interface Activity { type: string; description: string; at: string; businessName?: string }
+interface DayAppointment {
+  id: string;
+  customerId: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: "scheduled" | "checked_in" | "needs_review" | "completed" | "missed" | "cancelled";
 }
+interface DayCustomer { id: string; name: string }
 
-interface Metrics {
-  year: number;
-  month: number;
-  newCustomers: number;
-  repeatCustomers: number;
-  repeatVisits: number;
-}
-
-interface Usage {
-  activeCustomers: number;
-  newCustomersThisMonth: number;
-  visitsThisMonth: number;
-  promosSentThisMonth: number;
-  month: string;
-  upcomingAppointments?: number;
-}
-
-interface Activity {
-  type: string;
-  description: string;
-  at: string;
-  businessName?: string;
-}
-
-type MetricItem = {
-  label: string;
-  value: string | number;
-  suffix: string;
-  icon: typeof Users;
-  iconClassName: string;
-  iconBgClassName: string;
+const STATUS_LABELS: Record<DayAppointment["status"], string> = {
+  scheduled: "Scheduled", checked_in: "Arrived", needs_review: "Needs review",
+  completed: "Completed", missed: "Missed", cancelled: "Cancelled",
 };
-
-function getActivityIcon(type: string) {
-  const normalizedType = type.toLowerCase();
-
-  if (normalizedType.includes("appointment")) {
-    return {
-      icon: CalendarCheck,
-      iconClassName: "text-emerald-600",
-      iconBgClassName: "bg-emerald-50",
-    };
-  }
-
-  if (normalizedType.includes("promo")) {
-    return {
-      icon: Tag,
-      iconClassName: "text-violet-600",
-      iconBgClassName: "bg-violet-50",
-    };
-  }
-
-  return {
-    icon: UserPlus,
-    iconClassName: "text-blue-600",
-    iconBgClassName: "bg-blue-50",
-  };
-}
 
 function DashboardPageContent() {
   const searchParams = useSearchParams();
   const { getToken } = useAuth();
   const { data: syncData } = useAuthSync();
   const workspace = useWorkspace();
-
-  const showWelcome = searchParams?.get("welcome") === "1";
-
+  const businessId = workspace?.activeBusinessId ?? "";
+  const business = workspace?.businesses.find((item) => item.id === businessId);
+  const organizationId = syncData?.organization?.id ?? null;
+  const activeBusiness = useRef(businessId);
+  const agendaRequest = useRef(0);
+  const [appointments, setAppointments] = useState<DayAppointment[]>([]);
+  const [customers, setCustomers] = useState<DayCustomer[]>([]);
+  const [agendaLoading, setAgendaLoading] = useState(true);
+  const [agendaError, setAgendaError] = useState<string | null>(null);
+  const [pendingArrival, setPendingArrival] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [upcomingAppointments, setUpcomingAppointments] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  const businessId = workspace?.activeBusinessId ?? "";
-  const businesses = workspace?.businesses ?? [];
-  const organizationId = syncData?.organization?.id ?? null;
+  const [attentionCount, setAttentionCount] = useState<number | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState(false);
+  const [overviewRetry, setOverviewRetry] = useState(0);
 
   useEffect(() => {
-    if (organizationId) {
-      recordOnboardingEvent("dashboard_viewed", organizationId);
-    }
+    if (organizationId) recordOnboardingEvent("dashboard_viewed", organizationId);
   }, [organizationId]);
 
-  useEffect(() => {
-    if (!organizationId) return;
-
-    (async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
-
-        const summaryRes = await apiRequest<Summary>("/admin/summary", {
-          token,
-        });
-
-        setSummary(summaryRes);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [organizationId, getToken]);
-
-  useEffect(() => {
-    if (!businessId) return;
-
-    (async () => {
+  const loadAgenda = useCallback(async () => {
+    const request = ++agendaRequest.current;
+    setAgendaError(null);
+    if (!businessId) {
+      setAppointments([]);
+      setCustomers([]);
+      setAgendaLoading(false);
+      return false;
+    }
+    setAgendaLoading(true);
+    try {
       const token = await getToken();
-      if (!token) return;
-
-      const now = new Date();
-
-      try {
-        const res = await apiRequest<{ metrics: Metrics }>(
-          `/insights/monthly?businessId=${businessId}&year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
-          { token },
-        );
-
-        setMetrics(res.metrics);
-      } catch {
-        setMetrics(null);
-      }
-    })();
+      if (!token) throw new Error("Your session is unavailable.");
+      const from = new Date();
+      from.setHours(0, 0, 0, 0);
+      const to = new Date(from);
+      to.setHours(23, 59, 59, 999);
+      const query = new URLSearchParams({ businessId, from: from.toISOString(), to: to.toISOString() });
+      const [day, people] = await Promise.all([
+        apiRequest<{ appointments: DayAppointment[] }>(`/appointments?${query}`, { token }),
+        apiRequest<{ customers: DayCustomer[] }>(`/customers?businessId=${encodeURIComponent(businessId)}&limit=500`, { token }),
+      ]);
+      if (request !== agendaRequest.current) return false;
+      setAppointments((day.appointments ?? []).slice().sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)));
+      setCustomers(people.customers ?? []);
+      return true;
+    } catch {
+      if (request === agendaRequest.current) setAgendaError("Unable to load today's appointments.");
+      return false;
+    } finally {
+      if (request === agendaRequest.current) setAgendaLoading(false);
+    }
   }, [businessId, getToken]);
 
   useEffect(() => {
-    if (!organizationId) return;
-
-    (async () => {
-      const token = await getToken();
-      if (!token) return;
-
-      try {
-        const [usageRes, activityRes] = await Promise.all([
-          apiRequest<Usage>(
-            `/admin/usage${
-              businessId ? `?businessId=${encodeURIComponent(businessId)}` : ""
-            }`,
-            { token },
-          ),
-          apiRequest<{ activities: Activity[] }>("/admin/activity?limit=15", {
-            token,
-          }),
-        ]);
-
-        setUsage(usageRes);
-        setActivities(activityRes.activities ?? []);
-      } catch {
-        setUsage(null);
-        setActivities([]);
-      }
-    })();
-  }, [organizationId, businessId, getToken]);
+    activeBusiness.current = businessId;
+    setAppointments([]);
+    setCustomers([]);
+    setFeedback(null);
+    void loadAgenda();
+    return () => { agendaRequest.current += 1; };
+  }, [businessId, loadAgenda]);
 
   useEffect(() => {
-    if (usage?.upcomingAppointments !== undefined) {
-      setUpcomingAppointments(usage.upcomingAppointments);
-      return;
-    }
-
-    if (!businessId) return;
-
-    (async () => {
-      const token = await getToken();
-      if (!token) return;
-
+    let cancelled = false;
+    setSummary(null);
+    setUsage(null);
+    setActivities([]);
+    setAttentionCount(null);
+    if (!organizationId) return;
+    setOverviewLoading(true);
+    setOverviewError(false);
+    void (async () => {
       try {
-        const from = new Date();
-        from.setHours(0, 0, 0, 0);
-
-        const res = await apiRequest<{ appointments: unknown[] }>(
-          `/appointments?businessId=${businessId}&from=${from.toISOString()}`,
-          { token },
-        );
-
-        setUpcomingAppointments(res.appointments?.length ?? 0);
+        const token = await getToken();
+        if (!token) throw new Error("Your session is unavailable.");
+        const results = await Promise.allSettled([
+          apiRequest<Summary>("/admin/summary", { token }),
+          apiRequest<Usage>(`/admin/usage${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ""}`, { token }),
+          apiRequest<{ activities: Activity[] }>("/admin/activity?limit=15", { token }),
+          getOpenManualFollowUpCount(),
+        ]);
+        if (cancelled) return;
+        if (results[0].status === "fulfilled") setSummary(results[0].value);
+        if (results[1].status === "fulfilled") setUsage(results[1].value);
+        if (results[2].status === "fulfilled") setActivities(results[2].value.activities ?? []);
+        if (results[3].status === "fulfilled") setAttentionCount(results[3].value.count);
+        setOverviewError(results.some((result) => result.status === "rejected"));
       } catch {
-        setUpcomingAppointments(0);
+        if (!cancelled) setOverviewError(true);
+      } finally {
+        if (!cancelled) setOverviewLoading(false);
       }
     })();
-  }, [businessId, getToken, usage?.upcomingAppointments]);
+    return () => { cancelled = true; };
+  }, [organizationId, businessId, getToken, overviewRetry]);
 
-  const summaryDisplay = summary ?? {
-    businesses: 0,
-    customers: 0,
-    appointments: 0,
-    promos: 0,
-  };
-
-  const nextStep = useMemo(() => {
-    if (summaryDisplay.appointments === 0) {
-      return {
-        description:
-          "Schedule your first appointment. Add customer details while booking.",
-        href: "/appointments",
-        buttonLabel: "Schedule your first appointment",
-      };
+  async function markArrived(id: string) {
+    if (pendingArrival) return;
+    setPendingArrival(id);
+    setFeedback(null);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Your session is unavailable.");
+      await apiRequest(`/appointments/${id}/arrive`, { method: "PATCH", token });
+      if (activeBusiness.current !== businessId) return;
+      setAppointments((items) => items.map((item) => item.id === id ? { ...item, status: "checked_in" } : item));
+      const refreshed = await loadAgenda();
+      if (activeBusiness.current !== businessId) return;
+      setFeedback(refreshed
+        ? { type: "success", message: "Arrival recorded. Suki will record the visit automatically." }
+        : { type: "error", message: "Arrival recorded, but the list could not refresh. Retry the list; do not mark Arrived again." });
+    } catch (error) {
+      if (activeBusiness.current === businessId) setFeedback({ type: "error", message: error instanceof Error ? error.message : "Unable to record arrival. Please retry." });
+    } finally {
+      setPendingArrival(null);
     }
-
-    return {
-      description:
-        "Open today's appointments and mark arriving customers with one tap.",
-      href: "/appointments",
-      buttonLabel: "Open appointments",
-    };
-  }, [summaryDisplay.appointments]);
-
-  const metricItems: MetricItem[] = [
-    {
-      label: "Total customers",
-      value: summaryDisplay.customers,
-      suffix: "People currently saved in your customer list.",
-      icon: Users,
-      iconClassName: "text-blue-600",
-      iconBgClassName: "bg-blue-50",
-    },
-    {
-      label: "Visits this month",
-      value: usage?.visitsThisMonth ?? metrics?.repeatVisits ?? "—",
-      suffix: "How many customer visits were recorded this month.",
-      icon: CalendarCheck,
-      iconClassName: "text-emerald-600",
-      iconBgClassName: "bg-emerald-50",
-    },
-    {
-      label: "Upcoming appointments",
-      value: upcomingAppointments,
-      suffix: "Scheduled appointments still ahead.",
-      icon: ClipboardCheck,
-      iconClassName: "text-violet-600",
-      iconBgClassName: "bg-violet-50",
-    },
-  ];
+  }
 
   return (
-    <div className="w-full space-y-6 sm:space-y-8">
-      <section>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-          Dashboard
-        </h1>
-
-        <p className="mt-3 text-base leading-7 text-slate-600 sm:text-lg">
-          Welcome back. Here&apos;s what needs your attention today.
-        </p>
-
-        <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="space-y-3 text-sm leading-6 text-slate-600 sm:text-base">
-            <p>
-              <span className="font-semibold text-slate-900">
-                What this page is for:
-              </span>{" "}
-              Check today&apos;s priorities, then take one clear next step.
-            </p>
-
-            <p>
-              <span className="font-semibold text-slate-900">
-                What to do next:
-              </span>{" "}
-              {nextStep.buttonLabel}.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {showWelcome ? (
-        <StatusBanner
-          variant="success"
-          message="You're ready. Start by scheduling your first appointment."
-          onDismiss={() => window.history.replaceState({}, "", "/dashboard")}
-        />
-      ) : null}
-
-      {!workspace?.loading && businessId && businesses.length > 0 ? (
-        <section className="rounded-2xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-white to-blue-50/60 p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 gap-4">
-              <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
-                <ClipboardCheck className="size-7" />
-              </span>
-
-              <div className="min-w-0">
-                <h2 className="text-lg font-bold text-slate-950">Next step</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600 sm:text-base">
-                  {nextStep.description}
-                </p>
-              </div>
-            </div>
-
-            <ChevronRight className="hidden size-6 shrink-0 text-slate-400 sm:block" />
-          </div>
-
-          <PrimaryPageAction className="mt-5 w-full sm:w-auto">
-            <Link href={nextStep.href} className="block w-full sm:w-auto">
-              <Button size="lg" className="w-full gap-2 sm:w-auto">
-                <PlusCircle className="size-5" />
-                {nextStep.buttonLabel}
-              </Button>
-            </Link>
-          </PrimaryPageAction>
+    <div className="space-y-6">
+      <PageHeader title="Today" plainLanguageDescription="Your appointments and the reminders that need you."
+        actions={<Button asChild variant="outline"><Link href="/share-slots"><Share2 className="size-4" aria-hidden />Share booking link</Link></Button>} />
+      {searchParams?.get("welcome") === "1" ? <StatusBanner variant="success" message="Your workspace is ready. Book an appointment or share your booking link whenever you are ready." /> : null}
+      {feedback ? <StatusBanner variant={feedback.type} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <MetricCard label="Appointments" value={agendaLoading || agendaError ? "—" : appointments.length} suffix="Today" />
+        <MetricCard label="Needs attention" value={attentionCount ?? "—"} suffix="Open reminders" />
+        <MetricCard label="Completed" value={agendaLoading || agendaError ? "—" : appointments.filter((item) => item.status === "completed").length} suffix="Today" />
+      </div>
+      {attentionCount != null && attentionCount > 0 ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <div><h2 className="font-semibold">{attentionCount} reminder{attentionCount === 1 ? "" : "s"} need attention</h2><p className="text-sm text-muted-foreground">Review delivery before contacting customers.</p></div>
+          <Button asChild variant="outline"><Link href="/needs-attention">Review reminders</Link></Button>
         </section>
       ) : null}
-
-      {businessId && businesses.length > 0 ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <IntakeQRBlock
-            businessId={businessId}
-            businessName={
-              businesses.find((business) => business.id === businessId)?.name ??
-              ""
-            }
-            heading="Let customers add themselves"
-            helperText="Share this QR or link so customers can register without paperwork."
-            showPrintButton
-          />
-        </section>
-      ) : null}
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-slate-950">Metrics</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
-              {usage?.month
-                ? `Data for ${usage.month}. Each number includes a plain-language explanation.`
-                : "Each number includes a plain-language explanation."}
-            </p>
-          </div>
-
-          {usage?.month ? (
-            <span className="text-sm font-medium text-slate-500">
-              {usage.month}
-            </span>
-          ) : null}
+      <section className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+          <div><h2 className="font-semibold">Today&apos;s appointments</h2><p className="text-sm text-muted-foreground">{new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" })}</p></div>
+          <Button asChild variant="ghost" size="sm"><Link href="/appointments">View all</Link></Button>
         </div>
-
-        <div className="mt-5">
-          {loading || workspace?.loading ? (
-            <MetricGridSkeleton count={3} />
-          ) : (
-            <div className="grid gap-4 md:grid-cols-3">
-              {metricItems.map(
-                ({
-                  label,
-                  value,
-                  suffix,
-                  icon: Icon,
-                  iconClassName,
-                  iconBgClassName,
-                }) => (
-                  <article
-                    key={label}
-                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                  >
-                    <span
-                      className={`flex size-11 items-center justify-center rounded-2xl ${iconBgClassName} ${iconClassName}`}
-                    >
-                      <Icon className="size-5" />
-                    </span>
-
-                    <p className="mt-4 text-sm font-medium text-slate-600">
-                      {label}
-                    </p>
-                    <p className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
-                      {value}
-                    </p>
-                    <p className="mt-2 text-sm leading-5 text-slate-600">
-                      {suffix}
-                    </p>
-                  </article>
-                ),
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {loading || workspace?.loading ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="text-xl font-bold text-slate-950">Recent activity</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
-            Latest customer, appointment, and promo changes
-          </p>
-
-          <ListSkeleton rowCount={5} className="mt-4" />
-        </section>
-      ) : activities.length > 0 ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="text-xl font-bold text-slate-950">Recent activity</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
-            Latest customer, appointment, and promo changes
-          </p>
-
-          <ul
-            className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200"
-            role="list"
-          >
-            {activities.slice(0, 15).map((activity, index) => {
-              const {
-                icon: ActivityIcon,
-                iconClassName,
-                iconBgClassName,
-              } = getActivityIcon(activity.type);
-
-              return (
-                <li
-                  key={`${activity.type}-${activity.at}-${index}`}
-                  className="flex min-w-0 items-start gap-3 bg-white px-3 py-3 sm:items-center sm:px-4"
-                >
-                  <span
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-full ${iconBgClassName} ${iconClassName}`}
-                  >
-                    <ActivityIcon className="size-5" />
-                  </span>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium leading-5 text-slate-900 sm:text-base">
-                      {activity.description}
-                    </p>
-
-                    {activity.businessName ? (
-                      <p className="mt-0.5 text-sm text-slate-500">
-                        {activity.businessName}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <time className="shrink-0 text-xs text-slate-500 sm:text-sm">
-                    {activity.at.slice(0, 10)}
-                  </time>
-                </li>
-              );
-            })}
+        {workspace?.loading || agendaLoading ? <ListSkeleton rowCount={3} className="p-5" /> : !businessId ? (
+          <div className="space-y-3 p-5"><p className="text-muted-foreground">Add your business to start taking bookings.</p><Button asChild><Link href="/setup">Set up business</Link></Button></div>
+        ) : agendaError ? (
+          <div className="space-y-3 p-5"><StatusBanner variant="error" message={agendaError} /><Button variant="outline" onClick={() => void loadAgenda()}>Retry</Button></div>
+        ) : appointments.length === 0 ? (
+          <div className="space-y-3 p-5"><CalendarDays className="size-6 text-muted-foreground" aria-hidden /><h3 className="font-medium">No appointments today</h3><p className="text-sm text-muted-foreground">Your next booking will appear here.</p><Button asChild><Link href="/appointments?new=1"><Plus className="size-4" aria-hidden />New appointment</Link></Button></div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {appointments.map((appointment) => (
+              <li key={appointment.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
+                <div className="flex min-w-0 items-center gap-3"><time className="w-20 shrink-0 text-sm font-medium tabular-nums">{new Date(appointment.scheduledAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time><div className="min-w-0"><p className="break-words font-medium">{customers.find((customer) => customer.id === appointment.customerId)?.name ?? "Customer"}</p><p className="text-sm text-muted-foreground">{STATUS_LABELS[appointment.status]} · {appointment.durationMinutes} min</p></div></div>
+                <div className="flex flex-wrap gap-2">
+                  {appointment.status === "scheduled" ? <Button size="sm" disabled={pendingArrival != null} onClick={() => void markArrived(appointment.id)}>{pendingArrival === appointment.id ? "Recording…" : "Arrived"}</Button> : null}
+                  {appointment.status === "scheduled" || appointment.status === "needs_review" ? <Button asChild size="sm" variant="outline"><Link href={`/appointments?reschedule=${encodeURIComponent(appointment.id)}`}>Reschedule</Link></Button> : null}
+                </div>
+              </li>
+            ))}
           </ul>
-        </section>
-      ) : null}
-
-      {!loading && !workspace?.loading && summaryDisplay.businesses === 0 ? (
-        <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600 shadow-sm">
-          Set up your first business to see metrics and manage customers.
-        </p>
-      ) : null}
+        )}
+      </section>
+      <div className="flex flex-wrap gap-3"><Button asChild variant="outline"><Link href="/appointments?new=1">New appointment</Link></Button><Button asChild variant="ghost"><Link href="/settings#automation">Automation settings</Link></Button></div>
+      {businessId ? <section className="rounded-xl border border-border bg-card p-4"><h2 className="font-semibold">Getting started</h2><p className="mt-1 text-sm text-muted-foreground">Your business is set up. These next steps are optional.</p><div className="mt-3 flex flex-wrap gap-3"><Button asChild variant="outline" size="sm"><Link href="/appointments?new=1">Book an appointment</Link></Button><Button asChild variant="outline" size="sm"><Link href="/share-slots">Share your booking link</Link></Button></div></section> : null}
+      {overviewError ? <StatusBanner variant="error" message={<span>Some workspace numbers could not load. <Button variant="link" size="sm" onClick={() => setOverviewRetry((value) => value + 1)}>Retry workspace numbers</Button></span>} /> : null}
+      <section className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Business overview</h2><span className="text-sm text-muted-foreground">{usage?.month ? `Month: ${usage.month}` : "Monthly activity"}</span></div>
+        {overviewLoading ? <MetricGridSkeleton count={3} /> : <div className="grid gap-3 sm:grid-cols-3"><MetricCard label="Total customers" value={summary?.customers ?? "—"} suffix="Saved customer records" /><MetricCard label="Visits this month" value={usage?.visitsThisMonth ?? "—"} suffix="Recorded visits" /><MetricCard label="Upcoming appointments" value={usage?.upcomingAppointments ?? "—"} suffix="All future bookings" /></div>}
+      </section>
+      {businessId ? <section className="rounded-xl border border-border bg-card p-4 sm:p-5"><IntakeQRBlock businessId={businessId} businessName={business?.name ?? ""} heading="Your booking link and QR" helperText="Share with customers or print for your counter." showPrintButton /></section> : null}
+      {activities.length > 0 ? <section className="rounded-xl border border-border bg-card p-4 sm:p-5"><h2 className="font-semibold">Recent activity</h2><ul className="mt-3 divide-y divide-border">{activities.slice(0, 15).map((activity, index) => <li key={`${activity.type}-${activity.at}-${index}`} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><div><p>{activity.description}</p>{activity.businessName ? <p className="text-muted-foreground">{activity.businessName}</p> : null}</div><time className="text-muted-foreground">{activity.at.slice(0, 10)}</time></li>)}</ul></section> : null}
     </div>
   );
 }
 
 export default function DashboardPage() {
-  return (
-    <Suspense fallback={<p className="text-slate-500">Loading...</p>}>
-      <DashboardPageContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<p className="text-muted-foreground">Loading today…</p>}><DashboardPageContent /></Suspense>;
 }

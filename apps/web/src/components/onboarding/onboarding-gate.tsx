@@ -20,13 +20,14 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   const finishSetup = useCallback(async () => {
     if (!progress) return;
-    setCompletionError(null);
-    try {
-      await updateProgress({ currentStep: ONBOARDING_COMPLETE_STEP, completedSteps: [...new Set([...progress.completedSteps, "complete"])] });
-    } catch (cause) {
-      setCompletionError(cause instanceof Error ? cause.message : "Could not save setup progress.");
-    }
+    await updateProgress({ currentStep: ONBOARDING_COMPLETE_STEP, completedSteps: [...new Set([...progress.completedSteps, "complete"])] });
   }, [progress, updateProgress]);
+
+  const retryCompletion = () => {
+    void finishSetup().then(() => setCompletionError(null), (cause: unknown) => {
+      setCompletionError(cause instanceof Error ? cause.message : "Could not save setup progress.");
+    });
+  };
 
   useEffect(() => {
     if (syncLoading || !organizationId || loading || workspace?.loading || isComplete) return;
@@ -36,7 +37,9 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     }
     if (progress && attempted.current !== organizationId) {
       attempted.current = organizationId;
-      void finishSetup();
+      void finishSetup().then(() => setCompletionError(null), (cause: unknown) => {
+        setCompletionError(cause instanceof Error ? cause.message : "Could not save setup progress.");
+      });
     }
   }, [finishSetup, hasBusiness, isComplete, loading, organizationId, progress, replace, syncLoading, workspace?.error, workspace?.loading]);
 
@@ -50,5 +53,5 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   if (!hasBusiness && !isComplete) return null;
 
-  return <>{completionError && <StatusBanner variant="error" message={<span>{completionError} <Button size="sm" variant="outline" onClick={() => void finishSetup()}>Retry</Button></span>} />}{children}</>;
+  return <>{completionError && <StatusBanner variant="error" message={<span>{completionError} <Button size="sm" variant="outline" onClick={retryCompletion}>Retry</Button></span>} />}{children}</>;
 }
