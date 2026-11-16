@@ -70,6 +70,7 @@ describe("BillingSettingsPage", () => {
           },
           subscription: {
             id: "sub-local",
+            provider: "lemonsqueezy",
             planType: "starter",
             status: "active",
           },
@@ -195,6 +196,41 @@ describe("BillingSettingsPage", () => {
     expect(screen.queryByText(/PHP/)).not.toBeInTheDocument();
   });
 
+  it("regression: starts a Lemon Squeezy checkout for a sign-up trial subscription instead of a plan change", async () => {
+    const baseImpl = apiRequestMock.getMockImplementation();
+    apiRequestMock.mockImplementation(async (path: string, init?: unknown) => {
+      if (path === "/billing/status") {
+        const base = (await baseImpl?.(path, init)) as Record<string, unknown>;
+        return {
+          ...base,
+          renewsAt: null,
+          subscription: { id: "trial-sub", provider: null, planType: "starter", status: "trialing" },
+        };
+      }
+      if (path === "/billing/checkout") {
+        return { checkoutUrl: "https://checkout.example/growth" };
+      }
+      return baseImpl?.(path, init);
+    });
+
+    render(<BillingSettingsPage />);
+
+    const upgrade = await screen.findByRole("button", { name: /upgrade to growth/i });
+    expect(screen.getByRole("button", { name: /upgrade to starter/i })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /manage billing/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /cancel subscription/i })).not.toBeInTheDocument();
+
+    fireEvent.click(upgrade);
+
+    await waitFor(() =>
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/billing/checkout",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(apiRequestMock).not.toHaveBeenCalledWith("/billing/change-plan", expect.anything());
+  });
+
   it("uses change-plan for paid plan changes instead of starting a new checkout", async () => {
     render(<BillingSettingsPage />);
 
@@ -283,6 +319,7 @@ describe("BillingSettingsPage", () => {
           },
           subscription: {
             id: "sub-local",
+            provider: "lemonsqueezy",
             planType: "growth",
             status: "past_due",
           },
@@ -357,6 +394,7 @@ describe("BillingSettingsPage", () => {
           },
           subscription: {
             id: "sub-local",
+            provider: "lemonsqueezy",
             planType: "growth",
             status: "paused",
           },
