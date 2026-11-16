@@ -163,9 +163,17 @@ function AppointmentsPageContent() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const submitPending = useRef(false);
-  const resolvedCustomerId = useRef<string | null>(null);
+  const submissionGeneration = useRef(0);
+  const activeBusiness = useRef(selectedBiz);
+  const resolvedCustomerId = useRef<{ businessId: string; customerKey: string; id: string } | null>(null);
   const openedEntry = useRef<string | null>(null);
   const activeEntryParameter = useRef<"new" | "reschedule" | null>(null);
+  const bookingHeading = useRef<HTMLHeadingElement>(null);
+  const bookingOpener = useRef<HTMLElement | null>(null);
+  const newAppointmentButton = useRef<HTMLButtonElement>(null);
+  const restoreBookingFocus = useRef(false);
+
+  activeBusiness.current = selectedBiz;
 
   const [formData, setFormData] = useState({
     customerId: "",
@@ -219,10 +227,10 @@ function AppointmentsPageContent() {
     (!action || pendingAppointmentAction.action === action);
 
   const loadCustomers = async (options?: LoadOptions) => {
-    if (!selectedBiz) return;
+    if (!selectedBiz || activeBusiness.current !== selectedBiz) return;
 
     const token = await getToken();
-    if (!token) return;
+    if (!token || activeBusiness.current !== selectedBiz) return;
 
     if (!options?.preserveExisting) {
       setCustomers([]);
@@ -237,9 +245,11 @@ function AppointmentsPageContent() {
         { token },
       );
 
+      if (activeBusiness.current !== selectedBiz) return;
       setCustomers(response.customers);
       setCustomersLoadState("success");
     } catch (loadError) {
+      if (activeBusiness.current !== selectedBiz) return;
       setCustomersLoadState("error");
       setCustomersLoadError(
         fromError(loadError, "Failed to load customers."),
@@ -249,10 +259,10 @@ function AppointmentsPageContent() {
   };
 
   const loadAppointments = async (options?: LoadOptions) => {
-    if (!selectedBiz) return;
+    if (!selectedBiz || activeBusiness.current !== selectedBiz) return;
 
     const token = await getToken();
-    if (!token) return;
+    if (!token || activeBusiness.current !== selectedBiz) return;
 
     if (!options?.preserveExisting) {
       setAppointments([]);
@@ -275,6 +285,7 @@ function AppointmentsPageContent() {
         token,
       });
 
+      if (activeBusiness.current !== selectedBiz) return;
       setAppointments(response.appointments.filter((appointment) => appointment.businessId === selectedBiz));
       setAppointmentsLoadState("success");
 
@@ -292,6 +303,7 @@ function AppointmentsPageContent() {
           : firstDay,
       );
     } catch (loadError) {
+      if (activeBusiness.current !== selectedBiz) return;
       setAppointmentsLoadState("error");
       setAppointmentsLoadError("Failed to load appointments.");
       if (options?.rethrow) throw loadError;
@@ -299,10 +311,10 @@ function AppointmentsPageContent() {
   };
 
   const loadNeedsReview = async (options?: LoadOptions) => {
-    if (!selectedBiz) return;
+    if (!selectedBiz || activeBusiness.current !== selectedBiz) return;
 
     const token = await getToken();
-    if (!token) return;
+    if (!token || activeBusiness.current !== selectedBiz) return;
 
     if (!options?.preserveExisting) {
       setNeedsReviewAppointments([]);
@@ -317,9 +329,11 @@ function AppointmentsPageContent() {
         { token },
       );
 
+      if (activeBusiness.current !== selectedBiz) return;
       setNeedsReviewAppointments(response.appointments);
       setNeedsReviewLoadState("success");
     } catch (loadError) {
+      if (activeBusiness.current !== selectedBiz) return;
       setNeedsReviewLoadState("error");
       setNeedsReviewLoadError("Failed to load appointments that need review.");
 
@@ -333,6 +347,12 @@ function AppointmentsPageContent() {
   }, [syncData]);
 
   useEffect(() => {
+    submissionGeneration.current += 1;
+    submitPending.current = false;
+    setSubmitting(false);
+    setPendingAppointmentAction(null);
+    setError(null);
+    setFeedback(null);
     setCustomers([]);
     setAppointments([]);
     setNeedsReviewAppointments([]);
@@ -340,6 +360,8 @@ function AppointmentsPageContent() {
     setShowForm(false);
     setEditingId(null);
     setFormData({ customerId: "", scheduledAt: "", notes: "", remindersOn: true });
+    setEntryMode("existing");
+    setNewCustomer({ name: "", mobile: "", email: "", notes: "" });
     resolvedCustomerId.current = null;
     openedEntry.current = null;
     if (!selectedBiz) return;
@@ -374,10 +396,16 @@ function AppointmentsPageContent() {
           { token },
         );
         if (cancelled) return;
-        setAvailability(data);
-        const day = Object.keys(data.byDay ?? {}).filter((key) => data.byDay[key]?.length).sort()[0] ?? null;
+        // Offered instants are authoritative; server day keys can use a different timezone.
+        const byDay: Record<string, string[]> = {};
+        for (const slot of Object.values(data.byDay ?? {}).flat()) {
+          const localDay = dayKey(slot);
+          (byDay[localDay] ??= []).push(slot);
+        }
+        setAvailability({ ...data, byDay });
+        const day = Object.keys(byDay).sort()[0] ?? null;
         setSelectedDay(day);
-        setFormData((previous) => ({ ...previous, scheduledAt: day ? data.byDay[day]?.[0] ?? "" : "" }));
+        setFormData((previous) => ({ ...previous, scheduledAt: day ? byDay[day]?.[0] ?? "" : "" }));
       } catch (loadError) {
         if (!cancelled) setAvailabilityError(fromError(loadError, "Failed to load availability."));
       } finally {
@@ -387,6 +415,24 @@ function AppointmentsPageContent() {
     void run();
     return () => { cancelled = true; };
   }, [showForm, selectedBiz, editingId, month, availabilityRetryNonce, getToken]);
+
+  useEffect(() => {
+    if (showForm) {
+      if (!bookingOpener.current || !bookingOpener.current.isConnected) {
+        bookingOpener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+          ? document.activeElement
+          : newAppointmentButton.current;
+      }
+      restoreBookingFocus.current = false;
+      bookingHeading.current?.focus({ preventScroll: true });
+      bookingHeading.current?.scrollIntoView?.({ block: "start" });
+    } else if (restoreBookingFocus.current) {
+      restoreBookingFocus.current = false;
+      const opener = bookingOpener.current?.isConnected ? bookingOpener.current : newAppointmentButton.current;
+      bookingOpener.current = null;
+      opener?.focus({ preventScroll: true });
+    }
+  }, [showForm, editingId]);
 
   const consumeEntryParameter = () => {
     const parameter = activeEntryParameter.current;
@@ -399,6 +445,7 @@ function AppointmentsPageContent() {
   };
 
   const resetForm = () => {
+    restoreBookingFocus.current = showForm;
     setFormData({ customerId: "", scheduledAt: "", notes: "", remindersOn: true });
     setEditingId(null);
     setShowForm(false);
@@ -414,6 +461,9 @@ function AppointmentsPageContent() {
   };
 
   const handleEdit = (appointment: Appointment) => {
+    bookingOpener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement
+      : newAppointmentButton.current;
     setEditingId(appointment.id);
     setError(null);
     setFormData({
@@ -463,16 +513,20 @@ function AppointmentsPageContent() {
       return;
     }
     submitPending.current = true;
+    const generation = ++submissionGeneration.current;
+    const isCurrentSubmission = () => submissionGeneration.current === generation && activeBusiness.current === selectedBiz;
     setSubmitting(true);
     const savedEditingId = editingId;
     if (savedEditingId) setPendingAppointmentAction({ id: savedEditingId, action: "reschedule" });
 
     try {
       const token = await getToken();
+      if (!isCurrentSubmission()) return;
       if (!token) throw new Error("Sign in again before saving the appointment.");
       let customerId = formData.customerId;
       if (!savedEditingId && entryMode === "new") {
-        if (!resolvedCustomerId.current) {
+        const customerKey = JSON.stringify([newCustomer.name.trim(), newCustomer.mobile.trim(), newCustomer.email.trim(), newCustomer.notes.trim()]);
+        if (resolvedCustomerId.current?.businessId !== selectedBiz || resolvedCustomerId.current.customerKey !== customerKey) {
           const response = await apiRequest<{ customer: { id: string } }>("/customers/resolve-for-booking", {
             method: "POST", token,
             body: JSON.stringify({
@@ -481,16 +535,18 @@ function AppointmentsPageContent() {
               email: newCustomer.email.trim() || undefined, notes: newCustomer.notes.trim() || undefined,
             }),
           });
+          if (!isCurrentSubmission()) return;
           // Keep the resolved identity when a booking retry follows a failed save.
-          resolvedCustomerId.current = response.customer.id;
+          resolvedCustomerId.current = { businessId: selectedBiz, customerKey, id: response.customer.id };
         }
-        customerId = resolvedCustomerId.current;
+        customerId = resolvedCustomerId.current.id;
       }
       const body = { scheduledAt: new Date(formData.scheduledAt).toISOString(), notes: formData.notes.trim() || undefined };
       await apiRequest(savedEditingId ? `/appointments/${savedEditingId}` : "/appointments", {
         method: savedEditingId ? "PATCH" : "POST", token,
         body: JSON.stringify(savedEditingId ? body : { businessId: selectedBiz, customerId, ...body }),
       });
+      if (!isCurrentSubmission()) return;
       resetForm();
       if (!savedEditingId) recordOnboardingEvent("appointment_created", orgId);
       const refreshResults = await Promise.allSettled([
@@ -498,17 +554,20 @@ function AppointmentsPageContent() {
         loadNeedsReview({ preserveExisting: true, rethrow: true }),
         loadCustomers({ preserveExisting: true, rethrow: true }),
       ]);
+      if (!isCurrentSubmission()) return;
       const refreshFailed = refreshResults.some((result) => result.status === "rejected");
       setFeedback({
         type: refreshFailed ? "error" : "success",
         message: refreshFailed ? "The update was saved, but the list could not refresh. Retry." : savedEditingId ? "Appointment rescheduled." : "Appointment booked successfully.",
       });
     } catch (saveError) {
-      setError(normalizeBookingError(fromError(saveError, "Failed to save appointment. Please try again.")));
+      if (isCurrentSubmission()) setError(normalizeBookingError(fromError(saveError, "Failed to save appointment. Please try again.")));
     } finally {
-      submitPending.current = false;
-      setSubmitting(false);
-      setPendingAppointmentAction(null);
+      if (isCurrentSubmission()) {
+        submitPending.current = false;
+        setSubmitting(false);
+        setPendingAppointmentAction(null);
+      }
     }
   };
 
@@ -698,7 +757,7 @@ function AppointmentsPageContent() {
       <PageHeader
         title="Appointments"
         plainLanguageDescription="Find a customer, manage the day, or book a time."
-        actions={<Button disabled={submitting} onClick={() => { resetForm(); setShowForm(true); }} className="w-full gap-2 sm:w-auto"><PlusCircle className="size-4" aria-hidden />New appointment</Button>}
+        actions={<Button ref={newAppointmentButton} disabled={submitting} onClick={(event) => { bookingOpener.current = event.currentTarget; resetForm(); setShowForm(true); }} className="w-full gap-2 sm:w-auto"><PlusCircle className="size-4" aria-hidden />New appointment</Button>}
       />
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-40 flex-1 space-y-2"><Label htmlFor="appointment-search">Find appointments</Label><Input id="appointment-search" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer name this month" /></div>
@@ -764,7 +823,7 @@ function AppointmentsPageContent() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 id="booking-form-title" className="text-lg font-semibold text-foreground">
+                <h2 id="booking-form-title" ref={bookingHeading} tabIndex={-1} className="text-lg font-semibold text-foreground">
                   {editingId ? "Reschedule appointment" : "Book appointment"}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -780,7 +839,7 @@ function AppointmentsPageContent() {
                 <DateTimePicker key={editingId} value={formData.scheduledAt} onChange={(value) => setFormData((previous) => ({ ...previous, scheduledAt: value }))} aria-label="Reschedule date and time" />
               </div>
             ) : (
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
                 <div className="min-w-0 space-y-4">
                   <div className="flex flex-wrap gap-2" role="group" aria-label="Customer type">
                     <Button type="button" variant={entryMode === "existing" ? "default" : "outline"} aria-pressed={entryMode === "existing"} onClick={() => setEntryMode("existing")} disabled={submitting}>Existing customer</Button>
@@ -937,7 +996,7 @@ function AppointmentsPageContent() {
           </div>
         ) : (
           <>
-            <div className={showCalendar ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]" : "space-y-4"}>
+            <div className={showCalendar ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]" : "space-y-4"}>
               {showCalendar ? <article className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
