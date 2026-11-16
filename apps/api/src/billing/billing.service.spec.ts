@@ -92,6 +92,8 @@ function createDbHarness(input?: {
   organizations?: Array<Record<string, unknown>>;
   processedEvents?: Array<Record<string, unknown>>;
   reconciliation?: Array<Record<string, unknown>>;
+  // opt-in: keep one verified-credit row per month and resolve selects/updates by the month in the where clause
+  creditsByMonth?: boolean;
 }) {
   const state = {
     subscriptions: [...(input?.subscriptions ?? [])],
@@ -144,6 +146,24 @@ function createDbHarness(input?: {
     return visit(condition);
   };
 
+  const sqlValues = (condition: unknown): unknown[] => {
+    const seen = new Set<unknown>();
+    const values: unknown[] = [];
+    const visit = (value: unknown): void => {
+      if (!value || typeof value !== "object" || seen.has(value)) return;
+      seen.add(value);
+      if ("value" in value && !("name" in value) && !Array.isArray(value.value)) {
+        values.push(value.value);
+      }
+      for (const nested of Object.values(value as Record<string, unknown>)) {
+        if (Array.isArray(nested)) nested.forEach(visit);
+        else visit(nested);
+      }
+    };
+    visit(condition);
+    return values;
+  };
+
   const select = vi.fn(() => ({
     from: (table: unknown) => ({
       where: (condition: unknown) => {
@@ -157,7 +177,11 @@ function createDbHarness(input?: {
         }),
         limit: async () => {
           if (table === subscriptions) return state.subscriptions.slice(0, 1);
-          if (table === verifiedOnlineBookingCredits) return state.verifiedCredits.slice(0, 1);
+          if (table === verifiedOnlineBookingCredits) {
+            if (!input?.creditsByMonth) return state.verifiedCredits.slice(0, 1);
+            const values = sqlValues(condition);
+            return state.verifiedCredits.filter((row) => values.includes(row.month)).slice(0, 1);
+          }
           if (table === smsCredits) return state.smsCredits.slice(0, 1);
           if (table === emailCredits) return state.emailCredits.slice(0, 1);
           if (table === aiUsageEvents) return state.aiUsageSummary.slice(0, 1);
@@ -181,7 +205,9 @@ function createDbHarness(input?: {
           state.subscriptions = [value as unknown as SubscriptionRow];
         } else if (table === verifiedOnlineBookingCredits) {
           state.inserted.credits.push(value);
-          state.verifiedCredits = [value as unknown as CreditRow];
+          state.verifiedCredits = input?.creditsByMonth
+            ? [...state.verifiedCredits, value as unknown as CreditRow]
+            : [value as unknown as CreditRow];
         } else if (table === smsCredits) {
           state.inserted.smsCredits.push(value);
           state.smsCredits = [value as never];
@@ -224,6 +250,24 @@ function createDbHarness(input?: {
             ];
           },
         }),
+        // mirrors ON CONFLICT (event_id) DO UPDATE ... WHERE status = 'failed'
+        onConflictDoUpdate: () => ({
+          returning: async () => {
+            const existing =
+              table === processedWebhookEvents
+                ? state.processedEvents.find((event) => event.eventId === value.eventId)
+                : undefined;
+            if (!existing) {
+              persistValue();
+              return [{ id: "processed-webhook-event-id" }];
+            }
+            if (existing.status !== "failed") return [];
+            state.processedEvents = state.processedEvents.map((event) =>
+              event === existing ? { ...event, status: "processing" } : event,
+            );
+            return [{ id: "processed-webhook-event-id" }];
+          },
+        }),
         then: (
           resolve: (value?: unknown) => unknown,
           reject: (reason?: unknown) => unknown,
@@ -236,7 +280,7 @@ function createDbHarness(input?: {
 
   const update = vi.fn((table: unknown) => ({
     set: (value: Record<string, unknown>) => ({
-      where: async () => {
+      where: async (condition: unknown) => {
         if (table === subscriptions) {
           state.updated.subscriptions.push(value);
           if (state.subscriptions[0]) {
@@ -244,7 +288,12 @@ function createDbHarness(input?: {
           }
         } else if (table === verifiedOnlineBookingCredits) {
           state.updated.credits.push(value);
-          if (state.verifiedCredits[0]) {
+          if (input?.creditsByMonth) {
+            const values = sqlValues(condition);
+            state.verifiedCredits = state.verifiedCredits.map((row) =>
+              values.includes(row.month) ? ({ ...row, ...value } as CreditRow) : row,
+            );
+          } else if (state.verifiedCredits[0]) {
             state.verifiedCredits[0] = { ...state.verifiedCredits[0], ...value } as CreditRow;
           }
         } else if (table === smsCredits) {
@@ -262,6 +311,10 @@ function createDbHarness(input?: {
           }
         } else if (table === processedWebhookEvents) {
           state.updated.processedEvents.push(value);
+          const values = sqlValues(condition);
+          state.processedEvents = state.processedEvents.map((event) =>
+            values.includes(event.eventId) ? { ...event, ...value } : event,
+          );
         } else if (table === verifiedOnlineBookingAddons) {
           state.updated.bookingAddons.push(value);
           if (state.bookingAddons[0]) {
@@ -1712,5 +1765,190 @@ describe("BillingService", () => {
     expect(state.updated.subscriptions[0]).not.toHaveProperty("cancelled");
     expect(state.updated.subscriptions[0]).not.toHaveProperty("status");
     expect(state.updated.subscriptions[0]).not.toHaveProperty("endsAt");
+  });
+  describe("Lemon Squeezy subscription payloads without current_period_* fields", () => {
+    const lsSubscriptionEvent = (
+      eventName: string,
+      attributes: Record<string, unknown>,
+      billingInterval: "monthly" | "annual" = "monthly",
+    ) => ({
+      meta: {
+        event_name: eventName,
+        custom_data: {
+          organization_id: "org-1",
+          plan_type: "starter",
+          billing_interval: billingInterval,
+        },
+      },
+      data: {
+        id: "sub_ls_1",
+        attributes: {
+          status: "active",
+          customer_id: 654,
+          order_id: 987,
+          product_id: 321,
+          variant_id: 111,
+          created_at: "2026-06-15T10:00:00.000000Z",
+          trial_ends_at: null,
+          ends_at: null,
+          cancelled: false,
+          ...attributes,
+        },
+      },
+    });
+
+    it("edge: derives a cancelled subscription's period end from ends_at when renews_at is absent", async () => {
+      const { state } = createDbHarness({ creditsByMonth: true });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        lsSubscriptionEvent("subscription_cancelled", {
+          status: "cancelled",
+          cancelled: true,
+          renews_at: null,
+          ends_at: "2026-07-15T10:00:00.000000Z",
+          updated_at: "2026-06-20T10:00:00.000000Z",
+        }),
+      );
+
+      expect(state.inserted.subscriptions[0]).toMatchObject({
+        currentPeriodStart: new Date("2026-06-15T10:00:00.000Z"),
+        currentPeriodEnd: new Date("2026-07-15T10:00:00.000Z"),
+      });
+    });
+
+    it("edge: clamps a month-end renewal to the last day of the previous month", async () => {
+      const { state } = createDbHarness({ creditsByMonth: true });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        lsSubscriptionEvent("subscription_created", {
+          renews_at: "2026-03-31T10:00:00.000000Z",
+          updated_at: "2026-02-28T10:00:00.000000Z",
+        }),
+      );
+
+      expect(state.inserted.subscriptions[0]).toMatchObject({
+        currentPeriodStart: new Date("2026-02-28T10:00:00.000Z"),
+        currentPeriodEnd: new Date("2026-03-31T10:00:00.000Z"),
+      });
+      expect(state.inserted.credits.map((row) => row.month)).toEqual(["2026-02"]);
+    });
+
+    it("edge: derives a one-year period for annual subscriptions from renews_at", async () => {
+      const { state } = createDbHarness({ creditsByMonth: true });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        lsSubscriptionEvent(
+          "subscription_created",
+          {
+            renews_at: "2027-06-15T10:00:00.000000Z",
+            updated_at: "2026-06-15T10:00:00.000000Z",
+          },
+          "annual",
+        ),
+      );
+
+      expect(state.inserted.subscriptions[0]).toMatchObject({
+        currentPeriodStart: new Date("2026-06-15T10:00:00.000Z"),
+        currentPeriodEnd: new Date("2027-06-15T10:00:00.000Z"),
+      });
+    });
+
+    it("regression: a renewal subscription_updated grants the new month's included credits exactly once", async () => {
+      const { state } = createDbHarness({ creditsByMonth: true });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        lsSubscriptionEvent("subscription_created", {
+          renews_at: "2026-07-15T10:00:00.000000Z",
+          updated_at: "2026-06-15T10:00:00.000000Z",
+        }),
+      );
+      const renewal = lsSubscriptionEvent("subscription_updated", {
+        renews_at: "2026-08-15T10:00:00.000000Z",
+        updated_at: "2026-07-15T10:00:05.000000Z",
+      });
+      await service.reconcileWebhookEvent(renewal, "lemonsqueezy:renewal-delivery-1");
+      // a second delivery for the same billing period (distinct key) must not grant again
+      await service.reconcileWebhookEvent(renewal, "lemonsqueezy:renewal-delivery-2");
+
+      expect(state.subscriptions[0]).toMatchObject({
+        currentPeriodStart: new Date("2026-07-15T10:00:00.000Z"),
+        currentPeriodEnd: new Date("2026-08-15T10:00:00.000Z"),
+      });
+      expect(state.inserted.credits.map((row) => row.month)).toEqual(["2026-06", "2026-07"]);
+      expect(state.inserted.credits[1]).toMatchObject({
+        organizationId: "org-1",
+        includedGranted: 30,
+        used: 0,
+        sourcePlan: "starter",
+      });
+    });
+  });
+
+  describe("webhook delivery retries", () => {
+    const subscriptionPayload = {
+      meta: {
+        event_name: "subscription_updated",
+        custom_data: { organization_id: "org-1", plan_type: "starter", billing_interval: "monthly" },
+      },
+      data: {
+        id: "sub_retry_1",
+        attributes: {
+          status: "active",
+          renews_at: "2026-07-15T10:00:00.000000Z",
+          updated_at: "2026-06-15T10:00:00.000000Z",
+        },
+      },
+    };
+
+    const spyOnSubscriptionReconcile = (service: BillingService) =>
+      vi.spyOn(
+        service as unknown as { reconcileSubscriptionEvent: (...args: unknown[]) => Promise<void> },
+        "reconcileSubscriptionEvent",
+      );
+
+    it("error: a retried delivery of a failed event is reprocessed instead of reported as duplicate", async () => {
+      const { state } = createDbHarness();
+      const service = new BillingService({} as never);
+      const reconcile = spyOnSubscriptionReconcile(service).mockRejectedValueOnce(
+        new Error("database unavailable"),
+      );
+
+      await expect(service.reconcileWebhookEvent(subscriptionPayload)).rejects.toThrow(
+        "database unavailable",
+      );
+      expect(state.processedEvents[0]).toMatchObject({ status: "failed" });
+
+      await expect(service.reconcileWebhookEvent(subscriptionPayload)).resolves.toBe("processed");
+      expect(reconcile).toHaveBeenCalledTimes(2);
+      expect(state.processedEvents).toHaveLength(1);
+      expect(state.processedEvents[0]).toMatchObject({ status: "processed" });
+    });
+
+    it("edge: a delivery still processing is reported as duplicate and not reprocessed", async () => {
+      createDbHarness({
+        processedEvents: [{ eventId: "lemonsqueezy:in-flight", status: "processing" }],
+      });
+      const service = new BillingService({} as never);
+      const reconcile = spyOnSubscriptionReconcile(service);
+
+      await expect(
+        service.reconcileWebhookEvent(subscriptionPayload, "lemonsqueezy:in-flight"),
+      ).resolves.toBe("duplicate");
+      expect(reconcile).not.toHaveBeenCalled();
+    });
+
+    it("regression: a retried delivery of a processed event stays duplicate", async () => {
+      createDbHarness();
+      const service = new BillingService({} as never);
+      const reconcile = spyOnSubscriptionReconcile(service);
+
+      await expect(service.reconcileWebhookEvent(subscriptionPayload)).resolves.toBe("processed");
+      await expect(service.reconcileWebhookEvent(subscriptionPayload)).resolves.toBe("duplicate");
+      expect(reconcile).toHaveBeenCalledTimes(1);
+    });
   });
 });
