@@ -174,6 +174,11 @@ function createDbHarness(input?: {
   const render = (condition: unknown) => dialect.sqlToQuery(condition as SQL);
   const liveStatuses = ["active", "trialing", "past_due", "unpaid", "paused"];
 
+  const isLiveLemonRow = (row: SubscriptionRow) =>
+    row.provider === "lemonsqueezy" &&
+    (liveStatuses.includes(row.status) ||
+      (row.status === "cancelled" && !!row.endsAt && row.endsAt.getTime() > Date.now()));
+
   // Mirrors the where clauses BillingService builds on subscriptions; the live-subscription
   // lookup is always evaluated because it is new and has no legacy single-row behaviour.
   const matchSubscriptions = (condition: unknown): SubscriptionRow[] | null => {
@@ -185,6 +190,7 @@ function createDbHarness(input?: {
       if (has("organization_id\" =") && !params.includes(row.organizationId)) return false;
       if (has("id\" =") && !params.includes(row.id)) return false;
       if (has("provider\" =") && !params.includes(row.provider)) return false;
+      if (has("provider\" is null") && row.provider) return false;
       if (has("provider_order_id\" =") && !params.includes(row.providerOrderId)) return false;
       if (has("provider_subscription_id\" is null") && row.providerSubscriptionId) return false;
       if (has("provider_subscription_id\" =") && !params.includes(row.providerSubscriptionId)) return false;
@@ -219,13 +225,21 @@ function createDbHarness(input?: {
       where: (condition: unknown) => {
         state.whereConditions.push({ table, condition });
         return {
-        orderBy: () => ({
+        orderBy: (...ordering: unknown[]) => ({
           limit: async () => {
             if (table === subscriptions) {
               const matched = matchSubscriptions(condition);
               if (!matched) return state.subscriptions.slice(0, 1);
+              // opt-in with subscriptionsBySql: honour a liveness-first CASE ordering ahead of currentPeriodEnd
+              const liveFirst =
+                !!input?.subscriptionsBySql && ordering.some((term) => render(term).sql.toLowerCase().includes("case when"));
+              const rank = (row: SubscriptionRow) =>
+                liveFirst && isLiveLemonRow(row) ? 0 : 1;
               return [...matched]
-                .sort((a, b) => b.currentPeriodEnd.getTime() - a.currentPeriodEnd.getTime())
+                .sort(
+                  (a, b) =>
+                    rank(a) - rank(b) || b.currentPeriodEnd.getTime() - a.currentPeriodEnd.getTime(),
+                )
                 .slice(0, 1);
             }
             if (table === processedWebhookEvents) {
@@ -2805,6 +2819,77 @@ describe("BillingService", () => {
 
       expect(provider.cancelSubscription).toHaveBeenCalledWith("456");
       expect(state.subscriptions[0]).toMatchObject({ pendingSyncAction: "refund_cancel" });
+    });
+
+    it("error: a full subscription_payment_refunded without custom_data still cancels the matched subscription", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+      const event = subscriptionPaymentRefundedEvent({ status: "refunded" });
+      delete (event.meta as { custom_data?: unknown }).custom_data;
+
+      await expect(service.reconcileWebhookEvent(event)).resolves.toBe("processed");
+
+      expect(provider.cancelSubscription).toHaveBeenCalledWith("sub_a");
+      expect(state.subscriptions[0]).toMatchObject({ pendingSyncAction: "refund_cancel" });
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "refund_cancelled_subscription" });
+    });
+
+    it("error: a subscription_payment_refunded whose organization_id differs from the matched row is ignored", async () => {
+      const { state } = createDbHarness({ subscriptionsBySql: true, subscriptions: [lsRow()] });
+      const provider = lemonProvider();
+      const service = new BillingService(provider as never);
+      const event = subscriptionPaymentRefundedEvent({ status: "refunded" });
+      event.meta.custom_data = { organization_id: "org-other" };
+
+      await expect(service.reconcileWebhookEvent(event)).resolves.toBe("ignored");
+
+      expect(provider.getSubscription).not.toHaveBeenCalled();
+      expect(provider.cancelSubscription).not.toHaveBeenCalled();
+      expect(state.updated.subscriptions).toHaveLength(0);
+      expect(lastProcessedMetadata(state)).toMatchObject({ reason: "organization_mismatch" });
+    });
+
+    it("edge: first LS event for an org whose only row is provider manual inserts a new row and leaves the manual row untouched", async () => {
+      const manualRow = lsRow({
+        id: "manual-row",
+        planType: "starter",
+        status: "active",
+        provider: "manual",
+        providerSubscriptionId: null,
+        providerOrderId: null,
+      });
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "starter", billingStatus: "active_manual" }],
+        subscriptions: [{ ...manualRow }],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_created"));
+
+      expect(state.inserted.subscriptions).toHaveLength(1);
+      expect(state.inserted.subscriptions[0]).toMatchObject({ provider: "lemonsqueezy", providerSubscriptionId: "sub_a" });
+      expect(state.subscriptions.find((row) => row.id === "manual-row")).toEqual(manualRow);
+    });
+
+    it("regression: getSubscription prefers the live LS subscription over an ended one with a later currentPeriodEnd", async () => {
+      createDbHarness({
+        subscriptionsBySql: true,
+        subscriptions: [
+          lsRow({
+            id: "ended-a",
+            status: "expired",
+            cancelled: "true",
+            providerSubscriptionId: "sub_old",
+            currentPeriodEnd: new Date("2027-06-01T00:00:00.000Z"),
+          }),
+          lsRow({ id: "live-b", status: "active", currentPeriodEnd: new Date("2026-12-01T00:00:00.000Z") }),
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      await expect(service.getSubscription("org-1")).resolves.toMatchObject({ id: "live-b" });
     });
 
     it("regression: billing configuration errors name no env key", async () => {
