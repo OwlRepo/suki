@@ -45,6 +45,8 @@ import {
 } from "../common/org-billing-state.service";
 import { SmsAddonGrantService } from "./sms-addon-grant.service";
 import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant.service";
+import { smsAddonCarryover, verifiedBookingAddonCarryover } from "./addon-carryover";
+import { billingMonthKey } from "../common/billing-month";
 
 type SubscriptionStatus =
   | "active"
@@ -1141,7 +1143,7 @@ export class BillingService {
     organizationId: string,
     planType: Exclude<PlanType, "free">,
   ): Promise<void> {
-    const month = this.getCurrentMonthUtcKey();
+    const month = billingMonthKey();
     const included = getPlanCatalogEntry(planType).limits.emailMessagesPerMonth;
     const [existing] = await tx
       .select({ id: emailCredits.id, included: emailCredits.included })
@@ -1179,7 +1181,13 @@ export class BillingService {
       .limit(1);
 
     if (!existing) {
-      await tx.insert(smsCredits).values({ organizationId, month, included, addon: 0, used: 0 });
+      await tx.insert(smsCredits).values({
+        organizationId,
+        month,
+        included,
+        addon: await smsAddonCarryover(tx, organizationId, month),
+        used: 0,
+      });
       return;
     }
     if (existing.included !== included) {
@@ -1203,7 +1211,7 @@ export class BillingService {
       currentPeriodStart: Date;
     },
   ): Promise<void> {
-    const month = this.toMonthKey(input.currentPeriodStart);
+    const month = billingMonthKey(input.currentPeriodStart);
     const includedTarget = getPlanCatalogEntry(input.planType).limits.verifiedOnlineBookingsPerMonth;
     const [existingCredits] = await tx
       .select()
@@ -1221,7 +1229,7 @@ export class BillingService {
         organizationId: input.organizationId,
         month,
         includedGranted: includedTarget,
-        addonGranted: 0,
+        addonGranted: await verifiedBookingAddonCarryover(tx, input.organizationId, month),
         used: 0,
         sourcePlan: input.planType,
         lastReconciledAt: new Date(),
@@ -1286,7 +1294,7 @@ export class BillingService {
 
   private async getVerifiedBookingLedger(organizationId: string) {
     const db = getDb();
-    const month = this.getCurrentMonthUtcKey();
+    const month = billingMonthKey();
     const [ledger] = await db
       .select()
       .from(verifiedOnlineBookingCredits)
@@ -1302,7 +1310,7 @@ export class BillingService {
 
   private async getSmsLedger(organizationId: string) {
     const db = getDb();
-    const month = this.getCurrentMonthUtcKey();
+    const month = billingMonthKey();
     const [ledger] = await db
       .select()
       .from(smsCredits)
@@ -1318,7 +1326,7 @@ export class BillingService {
 
   private async getEmailLedger(organizationId: string) {
     const db = getDb();
-    const month = this.getCurrentMonthUtcKey();
+    const month = billingMonthKey();
     const [ledger] = await db
       .select()
       .from(emailCredits)
@@ -1409,13 +1417,14 @@ export class BillingService {
     },
     organizationId: string,
   ) {
+    const month = billingMonthKey();
     const [ledger] = await tx
       .select()
       .from(verifiedOnlineBookingCredits)
       .where(
         and(
           eq(verifiedOnlineBookingCredits.organizationId, organizationId),
-          eq(verifiedOnlineBookingCredits.month, this.getCurrentMonthUtcKey()),
+          eq(verifiedOnlineBookingCredits.month, month),
         ),
       )
       .limit(1);
@@ -1423,9 +1432,9 @@ export class BillingService {
 
     const nextLedger = {
       organizationId,
-      month: this.getCurrentMonthUtcKey(),
+      month,
       includedGranted: 0,
-      addonGranted: 0,
+      addonGranted: await verifiedBookingAddonCarryover(tx, organizationId, month),
       used: 0,
       sourcePlan: "free" as const,
       lastReconciledAt: new Date(),
@@ -1441,13 +1450,14 @@ export class BillingService {
     },
     organizationId: string,
   ) {
+    const month = billingMonthKey();
     const [ledger] = await tx
       .select()
       .from(smsCredits)
       .where(
         and(
           eq(smsCredits.organizationId, organizationId),
-          eq(smsCredits.month, this.getCurrentMonthUtcKey()),
+          eq(smsCredits.month, month),
         ),
       )
       .limit(1);
@@ -1460,9 +1470,9 @@ export class BillingService {
       .limit(1);
     const nextLedger = {
       organizationId,
-      month: this.getCurrentMonthUtcKey(),
+      month,
       included: SMS_INCLUDED_BY_PLAN[org?.currentPlan ?? "free"],
-      addon: 0,
+      addon: await smsAddonCarryover(tx, organizationId, month),
       used: 0,
       pausedReason: "none" as const,
     };
@@ -1597,14 +1607,6 @@ export class BillingService {
     const lastDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
     start.setUTCDate(Math.min(periodEnd.getUTCDate(), lastDay));
     return start;
-  }
-
-  private getCurrentMonthUtcKey(): string {
-    return this.toMonthKey(new Date());
-  }
-
-  private toMonthKey(date: Date): string {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   }
 
   private clearPendingSync() {

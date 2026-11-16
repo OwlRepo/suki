@@ -183,78 +183,58 @@ export class MessageDispatchService {
       }
     }
 
-    const clientRef = `suki-${input.automationKey}-${input.customerId}-${Date.now()}`;
-
-    const [evt] = await db
-      .insert(messageEvents)
-      .values({
-        businessId: input.businessId,
-        customerId: input.customerId,
-        appointmentId: input.appointmentId ?? null,
-        automationKey: input.automationKey,
-        purpose: input.purpose,
-        channel: input.channel,
-        content: body,
-        status: "queued",
-        sentBy,
-        retryCount: 0,
-      })
-      .returning();
-
-    const messageEventId = evt!.id;
+    const releaseSmsReservation = async () => {
+      if (!smsReservedMonth) return;
+      const month = smsReservedMonth;
+      smsReservedMonth = null;
+      await this.smsMetering.release(input.organizationId, month, meteringUnits);
+    };
 
     let result: DispatchResult;
-    if (input.channel === "sms") {
-      const to = cust.mobile!.trim();
-      const smsResult = await this.smsProvider.send({
-        to,
-        body,
-        clientRef,
-      });
+    try {
+      const clientRef = `suki-${input.automationKey}-${input.customerId}-${Date.now()}`;
 
-      if (smsResult.ok) {
-        const providerMetadata = this.buildSmsProviderMetadata(
-          smsSegmentEstimate,
-          smsResult.providerMetadata,
-        );
-        await db
-          .update(messageEvents)
-          .set({
-            status: "sent",
-            providerMessageId: smsResult.providerMessageId ?? null,
-            sentAt: new Date(),
-            deliveryStatus: "sent",
-            provider: smsResult.provider ?? "unknown",
-            providerMetadata,
-          })
-          .where(eq(messageEvents.id, messageEventId));
-        await this.smsMetering.recordUsage(
-          input.organizationId,
-          input.businessId,
-          messageEventId,
-          meteringUnits,
-        );
-        result = {
-          status: "sent",
-          providerMessageId: smsResult.providerMessageId,
-          messageEventId,
-        };
-      } else if (smsResult.transient && smsResult.safeToRetry) {
-        const retried = await this.retrySms(to, body, clientRef);
-        if (retried.ok) {
+      const [evt] = await db
+        .insert(messageEvents)
+        .values({
+          businessId: input.businessId,
+          customerId: input.customerId,
+          appointmentId: input.appointmentId ?? null,
+          automationKey: input.automationKey,
+          purpose: input.purpose,
+          channel: input.channel,
+          content: body,
+          status: "queued",
+          sentBy,
+          retryCount: 0,
+        })
+        .returning();
+
+      const messageEventId = evt!.id;
+
+      if (input.channel === "sms") {
+        const to = cust.mobile!.trim();
+        const smsResult = await this.smsProvider.send({
+          to,
+          body,
+          clientRef,
+        });
+
+        if (smsResult.ok) {
+          // The provider accepted the send, so the reservation is spent.
+          smsReservedMonth = null;
           const providerMetadata = this.buildSmsProviderMetadata(
             smsSegmentEstimate,
-            retried.providerMetadata,
+            smsResult.providerMetadata,
           );
           await db
             .update(messageEvents)
             .set({
               status: "sent",
-              providerMessageId: retried.providerMessageId ?? null,
+              providerMessageId: smsResult.providerMessageId ?? null,
               sentAt: new Date(),
-              retryCount: 1,
               deliveryStatus: "sent",
-              provider: retried.provider ?? "unknown",
+              provider: smsResult.provider ?? "unknown",
               providerMetadata,
             })
             .where(eq(messageEvents.id, messageEventId));
@@ -266,128 +246,161 @@ export class MessageDispatchService {
           );
           result = {
             status: "sent",
-            providerMessageId: retried.providerMessageId,
+            providerMessageId: smsResult.providerMessageId,
             messageEventId,
           };
+        } else if (smsResult.transient && smsResult.safeToRetry) {
+          const retried = await this.retrySms(to, body, clientRef);
+          if (retried.ok) {
+            smsReservedMonth = null;
+            const providerMetadata = this.buildSmsProviderMetadata(
+              smsSegmentEstimate,
+              retried.providerMetadata,
+            );
+            await db
+              .update(messageEvents)
+              .set({
+                status: "sent",
+                providerMessageId: retried.providerMessageId ?? null,
+                sentAt: new Date(),
+                retryCount: 1,
+                deliveryStatus: "sent",
+                provider: retried.provider ?? "unknown",
+                providerMetadata,
+              })
+              .where(eq(messageEvents.id, messageEventId));
+            await this.smsMetering.recordUsage(
+              input.organizationId,
+              input.businessId,
+              messageEventId,
+              meteringUnits,
+            );
+            result = {
+              status: "sent",
+              providerMessageId: retried.providerMessageId,
+              messageEventId,
+            };
+          } else {
+            await db
+              .update(messageEvents)
+              .set({
+                status: "failed",
+                failureReason: retried.errorCode ?? "provider_error",
+                retryCount: 1,
+                provider: retried.provider ?? "unknown",
+                providerMessageId: retried.providerMessageId ?? null,
+                providerMetadata: this.buildSmsProviderMetadata(
+                  smsSegmentEstimate,
+                  retried.providerMetadata,
+                ),
+              })
+              .where(eq(messageEvents.id, messageEventId));
+            await releaseSmsReservation();
+            await this.manualFollowUps.createFromMessageEvent({
+              organizationId: input.organizationId,
+              businessId: input.businessId,
+              originalMessageEventId: messageEventId,
+              manualRetryRawMessage: input.rawMessage.trim(),
+              fallbackFailureReason: retried.errorCode ?? "provider_error",
+            });
+            result = {
+              status: "failed",
+              reason: retried.errorCode ?? "provider_error",
+              messageEventId,
+            };
+          }
         } else {
           await db
             .update(messageEvents)
             .set({
               status: "failed",
-              failureReason: retried.errorCode ?? "provider_error",
-              retryCount: 1,
-              provider: retried.provider ?? "unknown",
-              providerMessageId: retried.providerMessageId ?? null,
+              failureReason: smsResult.errorCode ?? "provider_error",
+              provider: smsResult.provider ?? "unknown",
+              providerMessageId: smsResult.providerMessageId ?? null,
               providerMetadata: this.buildSmsProviderMetadata(
                 smsSegmentEstimate,
-                retried.providerMetadata,
+                smsResult.providerMetadata,
               ),
             })
             .where(eq(messageEvents.id, messageEventId));
-          if (smsReservedMonth) {
-            await this.smsMetering.release(input.organizationId, smsReservedMonth, meteringUnits);
-          }
+          await releaseSmsReservation();
           await this.manualFollowUps.createFromMessageEvent({
             organizationId: input.organizationId,
             businessId: input.businessId,
             originalMessageEventId: messageEventId,
             manualRetryRawMessage: input.rawMessage.trim(),
-            fallbackFailureReason: retried.errorCode ?? "provider_error",
+            fallbackFailureReason: smsResult.errorCode ?? "provider_error",
           });
           result = {
             status: "failed",
-            reason: retried.errorCode ?? "provider_error",
+            reason: smsResult.errorCode ?? "provider_not_configured",
             messageEventId,
           };
         }
       } else {
-        await db
-          .update(messageEvents)
-          .set({
-            status: "failed",
-            failureReason: smsResult.errorCode ?? "provider_error",
-            provider: smsResult.provider ?? "unknown",
-            providerMessageId: smsResult.providerMessageId ?? null,
-            providerMetadata: this.buildSmsProviderMetadata(
-              smsSegmentEstimate,
-              smsResult.providerMetadata,
-            ),
-          })
-          .where(eq(messageEvents.id, messageEventId));
-        if (smsReservedMonth) {
-          await this.smsMetering.release(input.organizationId, smsReservedMonth, meteringUnits);
-        }
-        await this.manualFollowUps.createFromMessageEvent({
-          organizationId: input.organizationId,
-          businessId: input.businessId,
-          originalMessageEventId: messageEventId,
-          manualRetryRawMessage: input.rawMessage.trim(),
-          fallbackFailureReason: smsResult.errorCode ?? "provider_error",
-        });
-        result = {
-          status: "failed",
-          reason: smsResult.errorCode ?? "provider_not_configured",
-          messageEventId,
-        };
-      }
-    } else {
-      const to = cust.email?.trim();
-      if (!to) {
-        await db
-          .update(messageEvents)
-          .set({
+        const to = cust.email?.trim();
+        if (!to) {
+          await db
+            .update(messageEvents)
+            .set({
+              status: "skipped",
+              failureReason: "missing_email",
+            })
+            .where(eq(messageEvents.id, messageEventId));
+          return {
             status: "skipped",
-            failureReason: "missing_email",
-          })
-          .where(eq(messageEvents.id, messageEventId));
-        return {
-          status: "skipped",
-          reason: "missing_email",
-          messageEventId,
-        };
-      }
-      const emailResult = await this.emailProvider.send({
-        to,
-        subject: input.subject ?? "Message from Suki",
-        body,
-        clientRef,
-      });
-      if (emailResult.ok) {
-        await db
-          .update(messageEvents)
-          .set({
+            reason: "missing_email",
+            messageEventId,
+          };
+        }
+        const emailResult = await this.emailProvider.send({
+          to,
+          subject: input.subject ?? "Message from Suki",
+          body,
+          clientRef,
+        });
+        if (emailResult.ok) {
+          await db
+            .update(messageEvents)
+            .set({
+              status: "sent",
+              providerMessageId: emailResult.providerMessageId ?? null,
+              sentAt: new Date(),
+              deliveryStatus: "sent",
+              provider: "resend",
+            })
+            .where(eq(messageEvents.id, messageEventId));
+          result = {
             status: "sent",
-            providerMessageId: emailResult.providerMessageId ?? null,
-            sentAt: new Date(),
-            deliveryStatus: "sent",
-            provider: "resend",
-          })
-          .where(eq(messageEvents.id, messageEventId));
-        result = {
-          status: "sent",
-          providerMessageId: emailResult.providerMessageId,
-          messageEventId,
-        };
-        await this.emailMetering.consume(
-          input.organizationId,
-          input.businessId,
-          messageEventId,
-          1,
-        );
-      } else {
-        await db
-          .update(messageEvents)
-          .set({
+            providerMessageId: emailResult.providerMessageId,
+            messageEventId,
+          };
+          await this.emailMetering.consume(
+            input.organizationId,
+            input.businessId,
+            messageEventId,
+            1,
+          );
+        } else {
+          await db
+            .update(messageEvents)
+            .set({
+              status: "failed",
+              failureReason: emailResult.errorCode ?? "provider_error",
+            })
+            .where(eq(messageEvents.id, messageEventId));
+          result = {
             status: "failed",
-            failureReason: emailResult.errorCode ?? "provider_error",
-          })
-          .where(eq(messageEvents.id, messageEventId));
-        result = {
-          status: "failed",
-          reason: emailResult.errorCode ?? "provider_not_configured",
-          messageEventId,
-        };
+            reason: emailResult.errorCode ?? "provider_not_configured",
+            messageEventId,
+          };
+        }
       }
+
+    } catch (err) {
+      // Any throw before the provider accepted the send gives the reserved units back.
+      await releaseSmsReservation();
+      throw err;
     }
 
     return result;

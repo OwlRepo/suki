@@ -474,7 +474,17 @@ export class IntakeBookingService {
         mobile: hold.mobile,
       });
     } catch (err) {
-      await this.releaseBookingCharge(charge, business.organizationId);
+      try {
+        await this.releaseBookingCharge(charge, business.organizationId);
+      } catch (releaseErr) {
+        // The send failure is the error the caller must see; a failed release only loses this one credit.
+        this.logger.error({
+          message: "Failed to release verified booking credit after OTP send error",
+          organizationId: business.organizationId,
+          bookingHoldId: hold.id,
+          error: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
+        });
+      }
       throw err;
     }
 
