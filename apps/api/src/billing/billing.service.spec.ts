@@ -815,7 +815,7 @@ describe("BillingService", () => {
     });
   });
 
-  it("reconciles subscription_created into subscription, org state, and included booking credits", async () => {
+  it("regression: reconciles subscription_created into subscription, org state, and included booking credits", async () => {
     const { state } = createDbHarness({
       organizations: [
         {
