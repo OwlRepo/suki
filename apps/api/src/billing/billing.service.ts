@@ -37,7 +37,12 @@ import {
   SMS_INCLUDED_BY_PLAN,
 } from "./plan-catalog";
 import { FeatureFlagsService } from "../common/feature-flags.service";
-import { isLemonGraceExpired, LEMON_PAYMENT_GRACE_MS } from "../common/org-billing-state.service";
+import {
+  isLemonGraceExpired,
+  LEMON_PAYMENT_GRACE_MS,
+  LIVE_LEMON_SUBSCRIPTION_FIRST,
+  LIVE_SUBSCRIPTION_STATUSES,
+} from "../common/org-billing-state.service";
 import { SmsAddonGrantService } from "./sms-addon-grant.service";
 import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant.service";
 
@@ -61,8 +66,6 @@ type LemonWebhookPayload = {
   };
 };
 
-// unpaid stays live: LS can still recover it, so a new checkout would double-bill (D2).
-const LIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due", "unpaid", "paused"] as const;
 const PLAN_TIER_RANK: Record<PlanType, number> = { free: 0, starter: 1, growth: 2, pro: 3 };
 const WEBHOOK_PROCESSING_STALE_MS = 10 * 60 * 1000;
 
@@ -99,7 +102,7 @@ export class BillingService {
       .select()
       .from(subscriptions)
       .where(eq(subscriptions.organizationId, organizationId))
-      .orderBy(desc(subscriptions.currentPeriodEnd))
+      .orderBy(LIVE_LEMON_SUBSCRIPTION_FIRST, desc(subscriptions.currentPeriodEnd))
       .limit(1);
     return sub ?? null;
   }
@@ -688,13 +691,14 @@ export class BillingService {
       : [];
     let existingSubscription = rowForSubscription;
     if (!existingSubscription) {
-      // First event: adopt the org's provider-less row (sign-up trial / manual era) instead of duplicating it.
+      // First event: adopt only the provider-less sign-up trial row; manual-era rows stay intact and a new row is inserted.
       const [unclaimed] = await tx
         .select()
         .from(subscriptions)
         .where(
           and(
             eq(subscriptions.organizationId, organizationId),
+            isNull(subscriptions.provider),
             isNull(subscriptions.providerSubscriptionId),
           ),
         )
@@ -1043,14 +1047,26 @@ export class BillingService {
     },
     payload: LemonWebhookPayload,
   ): Promise<ReconcileOutcome> {
-    const organizationId = this.readString(payload.meta?.custom_data?.organization_id);
     const subscriptionId = this.readString(payload.data?.attributes?.subscription_id);
-    if (!organizationId || !subscriptionId) {
+    if (!subscriptionId) {
       return { status: "ignored", reason: "missing_refund_metadata" };
+    }
+    // LS does not guarantee custom_data on invoice events; the subscription row owns the org.
+    const [row] = await tx
+      .select({ organizationId: subscriptions.organizationId })
+      .from(subscriptions)
+      .where(and(eq(subscriptions.provider, "lemonsqueezy"), eq(subscriptions.providerSubscriptionId, subscriptionId)))
+      .limit(1);
+    if (!row) {
+      return { status: "ignored", reason: "refunded_subscription_not_found" };
+    }
+    const claimedOrganizationId = this.readString(payload.meta?.custom_data?.organization_id);
+    if (claimedOrganizationId && claimedOrganizationId !== row.organizationId) {
+      return { status: "ignored", reason: "organization_mismatch" };
     }
     const notFullRefund = this.classifySubscriptionRefund(payload.data?.attributes ?? {});
     if (notFullRefund) return notFullRefund;
-    return this.cancelRefundedSubscription(tx, organizationId, eq(subscriptions.providerSubscriptionId, subscriptionId));
+    return this.cancelRefundedSubscription(tx, row.organizationId, eq(subscriptions.providerSubscriptionId, subscriptionId));
   }
 
   // Order and subscription-invoice status: "refunded" = full, "partial_refund" = partial. Only a full refund cancels.

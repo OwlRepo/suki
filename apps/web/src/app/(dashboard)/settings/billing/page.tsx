@@ -21,6 +21,7 @@ import type { ClientBillingRequestKind } from "@suki/types";
 
 const BILLING_STATUS_LABELS: Record<string, string> = {
   free_active: "Free plan",
+  trial_active: "Trial",
   subscription_active: "Active",
   subscription_past_due: "Payment overdue",
   subscription_paused: "Paused",

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { getDb } from "@suki/database";
 import { organizations, subscriptions } from "@suki/database";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { OrgBillingStatus, PlanType } from "@suki/types";
 
 export interface OrgBillingState {
@@ -34,6 +34,18 @@ const VARIABLE_COST_BLOCKED_STATUSES: OrgBillingStatus[] = [
   "suspended",
 ];
 
+// unpaid stays live: LS can still recover it, so a new checkout would double-bill (D2).
+export const LIVE_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due", "unpaid", "paused"] as const;
+
+// orderBy term: a live LS subscription outranks ended rows whose currentPeriodEnd is later.
+export const LIVE_LEMON_SUBSCRIPTION_FIRST = sql`CASE WHEN ${and(
+  eq(subscriptions.provider, "lemonsqueezy"),
+  or(
+    inArray(subscriptions.status, [...LIVE_SUBSCRIPTION_STATUSES]),
+    and(eq(subscriptions.status, "cancelled"), sql`${subscriptions.endsAt} > now()`),
+  ),
+)} THEN 0 ELSE 1 END`;
+
 export const LEMON_PAYMENT_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Null graceUntil = row written before the grace policy; keep the paid plan until the next webhook sets one.
@@ -55,7 +67,7 @@ export class OrgBillingStateService {
       .select()
       .from(subscriptions)
       .where(eq(subscriptions.organizationId, orgId))
-      .orderBy(desc(subscriptions.currentPeriodEnd))
+      .orderBy(LIVE_LEMON_SUBSCRIPTION_FIRST, desc(subscriptions.currentPeriodEnd))
       .limit(1);
     return this.deriveState({
       ...org,
