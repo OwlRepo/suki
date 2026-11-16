@@ -5,17 +5,12 @@ import { eq, and, sql } from "drizzle-orm";
 import type { PlanType, SmsPausedReason } from "@suki/types";
 import { PlanCapacityService } from "../common/plan-capacity.service";
 import { SMS_INCLUDED_BY_PLAN } from "../billing/plan-catalog";
+import { smsAddonCarryover } from "../billing/addon-carryover";
+import { billingMonthKey } from "../common/billing-month";
 
 @Injectable()
 export class SmsMeteringService {
   constructor(private readonly planCapacity: PlanCapacityService) {}
-
-  private currentMonth(): string {
-    const now = new Date();
-    const y = now.getUTCFullYear();
-    const m = String(now.getUTCMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
-  }
 
   async getOrCreateCredits(
     organizationId: string,
@@ -30,8 +25,8 @@ export class SmsMeteringService {
     at80Pct: boolean;
     at100Pct: boolean;
   }> {
-    const m = month ?? this.currentMonth();
-    const plan = await this.planCapacity.getActivePlan(organizationId);
+    const m = month ?? billingMonthKey();
+    const plan = await this.planCapacity.getIncludedCreditsPlan(organizationId);
     const included = SMS_INCLUDED_BY_PLAN[plan] ?? 0;
 
     const db = getDb();
@@ -62,71 +57,74 @@ export class SmsMeteringService {
       };
     }
 
+    const addon = await smsAddonCarryover(db, organizationId, m);
     const [created] = await db
       .insert(smsCredits)
       .values({
         organizationId,
         month: m,
         included,
-        addon: 0,
+        addon,
         used: 0,
       })
       .returning();
 
-    const total = included;
+    const total = included + addon;
     return {
       included,
-      addon: 0,
+      addon,
       used: 0,
       total,
       remaining: total,
       pausedReason: (created?.pausedReason ?? "none") as SmsPausedReason,
       at80Pct: false,
-      at100Pct: false,
+      at100Pct: total <= 0,
     };
   }
 
-  async canConsume(
+  async reserve(
     organizationId: string,
     units: number = 1,
-  ): Promise<{ allowed: boolean; reason?: string }> {
-    const credits = await this.getOrCreateCredits(organizationId);
+  ): Promise<{ allowed: true; month: string } | { allowed: false; reason: string }> {
+    const month = billingMonthKey();
+    const credits = await this.getOrCreateCredits(organizationId, month);
     if (credits.pausedReason !== "none") {
       return {
         allowed: false,
         reason: credits.pausedReason === "cap_reached" ? "sms_cap_reached" : credits.pausedReason,
       };
     }
-    if (credits.remaining < units) {
-      return { allowed: false, reason: "sms_cap_reached" };
-    }
-    return { allowed: true };
+    // Conditional increment so concurrent sends cannot overdraw the month's pool.
+    const [reserved] = await getDb()
+      .update(smsCredits)
+      .set({ used: sql`${smsCredits.used} + ${units}`, updatedAt: new Date() })
+      .where(
+        and(
+          eq(smsCredits.organizationId, organizationId),
+          eq(smsCredits.month, month),
+          sql`${smsCredits.used} + ${units} <= ${smsCredits.included} + ${smsCredits.addon}`,
+        ),
+      )
+      .returning({ id: smsCredits.id });
+    return reserved ? { allowed: true, month } : { allowed: false, reason: "sms_cap_reached" };
   }
 
-  async consume(
+  async release(organizationId: string, month: string, units: number = 1): Promise<void> {
+    await getDb()
+      .update(smsCredits)
+      .set({ used: sql`GREATEST(${smsCredits.used} - ${units}, 0)`, updatedAt: new Date() })
+      .where(and(eq(smsCredits.organizationId, organizationId), eq(smsCredits.month, month)));
+  }
+
+  // Units were already taken by reserve(); this only records the usage event.
+  async recordUsage(
     organizationId: string,
     businessId: string,
     messageEventId: string,
     units: number = 1,
     costMicros?: number,
   ): Promise<void> {
-    const month = this.currentMonth();
-    const db = getDb();
-
-    await db
-      .update(smsCredits)
-      .set({
-        used: sql`${smsCredits.used} + ${units}`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(smsCredits.organizationId, organizationId),
-          eq(smsCredits.month, month),
-        ),
-      );
-
-    await db.insert(smsUsageEvents).values({
+    await getDb().insert(smsUsageEvents).values({
       messageEventId,
       organizationId,
       businessId,

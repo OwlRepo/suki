@@ -70,8 +70,9 @@ function makeService(smsProviderResult: Record<string, unknown>) {
     canSend: vi.fn(() => ({ allowed: true })),
   };
   const smsMetering = {
-    canConsume: vi.fn(async () => ({ allowed: true })),
-    consume: vi.fn(async () => undefined),
+    reserve: vi.fn(async () => ({ allowed: true, month: "2026-11" })),
+    release: vi.fn(async () => undefined),
+    recordUsage: vi.fn(async () => undefined),
   };
   const emailMetering = {
     canConsume: vi.fn(async () => ({ allowed: true })),
@@ -141,30 +142,13 @@ describe("MessageDispatchService SMS hardening", () => {
     dbState.updates = [];
   });
 
-  it("finalizes the SMS body before checking segment credits", async () => {
+  it("error: skips sending when credits cannot be reserved for the finalized segment count", async () => {
     seedDb();
     const { service, smsMetering, smsProvider } = makeService({
       ok: true,
       providerMessageId: "SM1",
     });
-
-    await service.dispatch(input);
-
-    expect(smsMetering.canConsume).toHaveBeenCalledWith("org-1", 2);
-    expect(smsProvider.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.stringContaining("Reply STOP to opt out."),
-      }),
-    );
-  });
-
-  it("skips sending when credits cannot cover the finalized segment count", async () => {
-    seedDb();
-    const { service, smsMetering, smsProvider } = makeService({
-      ok: true,
-      providerMessageId: "SM1",
-    });
-    smsMetering.canConsume.mockResolvedValueOnce({
+    smsMetering.reserve.mockResolvedValueOnce({
       allowed: false,
       reason: "sms_cap_reached",
     } as never);
@@ -173,39 +157,11 @@ describe("MessageDispatchService SMS hardening", () => {
       expect.objectContaining({ status: "skipped", reason: "sms_cap_reached" }),
     );
 
-    expect(smsMetering.canConsume).toHaveBeenCalledWith("org-1", 2);
+    expect(smsMetering.reserve).toHaveBeenCalledWith("org-1", 2);
     expect(smsProvider.send).not.toHaveBeenCalled();
   });
 
-  it("consumes calculated segments once after a successful send and stores provider metadata", async () => {
-    seedDb();
-    const { service, smsMetering } = makeService({
-      ok: true,
-      provider: "semaphore",
-      providerMessageId: "SM1",
-      providerMetadata: { num_segments: "3", status: "queued" },
-    });
-
-    await service.dispatch(input);
-
-    expect(smsMetering.consume).toHaveBeenCalledWith(
-      "org-1",
-      "biz-1",
-      "evt-1",
-      2,
-    );
-    expect(dbState.updates).toContainEqual(
-      expect.objectContaining({
-        provider: "semaphore",
-        providerMetadata: expect.objectContaining({
-          estimatedSegments: 2,
-          providerNumSegments: 3,
-        }),
-      }),
-    );
-  });
-
-  it("does not retry ambiguous unknown-outcome provider failures", async () => {
+  it("regression: releases reserved units and does not retry ambiguous unknown-outcome provider failures", async () => {
     seedDb();
     const { service, smsMetering, smsProvider, manualFollowUps } = makeService({
       ok: false,
@@ -223,7 +179,8 @@ describe("MessageDispatchService SMS hardening", () => {
     );
 
     expect(smsProvider.send).toHaveBeenCalledTimes(1);
-    expect(smsMetering.consume).not.toHaveBeenCalled();
+    expect(smsMetering.recordUsage).not.toHaveBeenCalled();
+    expect(smsMetering.release).toHaveBeenCalledWith("org-1", "2026-11", 2);
     expect(dbState.updates).toContainEqual(
       expect.objectContaining({
         failureReason: "provider_outcome_unknown",
@@ -240,9 +197,9 @@ describe("MessageDispatchService SMS hardening", () => {
     );
   });
 
-  it("retry-failed branch persists provider and creates one task", async () => {
+  it("regression: retry-failed branch releases reserved units, persists provider and creates one task", async () => {
     seedDb();
-    const { service, smsProvider, manualFollowUps } = makeService({
+    const { service, smsMetering, smsProvider, manualFollowUps } = makeService({
       ok: false,
       provider: "semaphore",
       transient: true,
@@ -275,22 +232,80 @@ describe("MessageDispatchService SMS hardening", () => {
       }),
     );
     expect(manualFollowUps.createFromMessageEvent).toHaveBeenCalledTimes(1);
+    expect(smsMetering.release).toHaveBeenCalledWith("org-1", "2026-11", 2);
+    expect(smsMetering.recordUsage).not.toHaveBeenCalled();
   });
 
-  it("sent SMS creates no manual task", async () => {
+  it("error: releases reserved units and rethrows when the provider send throws", async () => {
     seedDb();
-    const { service, manualFollowUps } = makeService({
+    const { service, smsMetering, smsProvider } = makeService({ ok: true, providerMessageId: "SM1" });
+    smsProvider.send.mockRejectedValueOnce(new Error("socket hang up"));
+
+    await expect(service.dispatch(input)).rejects.toThrow("socket hang up");
+
+    expect(smsMetering.release).toHaveBeenCalledTimes(1);
+    expect(smsMetering.release).toHaveBeenCalledWith("org-1", "2026-11", 2);
+    expect(smsMetering.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it("edge: keeps the reservation when a write fails after the provider accepted the send", async () => {
+    seedDb();
+    const { service, smsMetering, manualFollowUps } = makeService({ ok: true, providerMessageId: "SM1" });
+    smsMetering.recordUsage.mockRejectedValueOnce(new Error("db down"));
+
+    await expect(service.dispatch(input)).rejects.toThrow("db down");
+
+    expect(smsMetering.release).not.toHaveBeenCalled();
+    expect(manualFollowUps.createFromMessageEvent).not.toHaveBeenCalled();
+  });
+
+  it("happy: finalizes the SMS body before reserving segment credits", async () => {
+    seedDb();
+    const { service, smsMetering, smsProvider } = makeService({
       ok: true,
-      provider: "semaphore",
-      providerMessageId: "SEM1",
+      providerMessageId: "SM1",
     });
 
     await service.dispatch(input);
 
-    expect(manualFollowUps.createFromMessageEvent).not.toHaveBeenCalled();
+    expect(smsMetering.reserve).toHaveBeenCalledWith("org-1", 2);
+    expect(smsProvider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("Reply STOP to opt out."),
+      }),
+    );
   });
 
-  it("retries safe transient failures at most once and consumes credits once on retry success", async () => {
+  it("happy: records usage for calculated segments once after a successful send and stores provider metadata", async () => {
+    seedDb();
+    const { service, smsMetering } = makeService({
+      ok: true,
+      provider: "semaphore",
+      providerMessageId: "SM1",
+      providerMetadata: { num_segments: "3", status: "queued" },
+    });
+
+    await service.dispatch(input);
+
+    expect(smsMetering.release).not.toHaveBeenCalled();
+    expect(smsMetering.recordUsage).toHaveBeenCalledWith(
+      "org-1",
+      "biz-1",
+      "evt-1",
+      2,
+    );
+    expect(dbState.updates).toContainEqual(
+      expect.objectContaining({
+        provider: "semaphore",
+        providerMetadata: expect.objectContaining({
+          estimatedSegments: 2,
+          providerNumSegments: 3,
+        }),
+      }),
+    );
+  });
+
+  it("happy: retries safe transient failures at most once and records usage once on retry success", async () => {
     seedDb();
     const { service, smsMetering, smsProvider } = makeService({
       ok: false,
@@ -314,8 +329,8 @@ describe("MessageDispatchService SMS hardening", () => {
     await service.dispatch(input);
 
     expect(smsProvider.send).toHaveBeenCalledTimes(2);
-    expect(smsMetering.consume).toHaveBeenCalledTimes(1);
-    expect(smsMetering.consume).toHaveBeenCalledWith(
+    expect(smsMetering.recordUsage).toHaveBeenCalledTimes(1);
+    expect(smsMetering.recordUsage).toHaveBeenCalledWith(
       "org-1",
       "biz-1",
       "evt-1",
@@ -327,6 +342,19 @@ describe("MessageDispatchService SMS hardening", () => {
         retryCount: 1,
       }),
     );
+  });
+
+  it("happy: sent SMS creates no manual task", async () => {
+    seedDb();
+    const { service, manualFollowUps } = makeService({
+      ok: true,
+      provider: "semaphore",
+      providerMessageId: "SEM1",
+    });
+
+    await service.dispatch(input);
+
+    expect(manualFollowUps.createFromMessageEvent).not.toHaveBeenCalled();
   });
 
   it("omits STOP footer when the selected SMS provider is Semaphore", async () => {

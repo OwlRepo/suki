@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { ConflictException, ServiceUnavailableException } from "@nestjs/common";
-import type { SQL } from "drizzle-orm";
+import { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
   aiUsageEvents,
@@ -96,6 +96,9 @@ function createDbHarness(input?: {
   organizations?: Array<Record<string, unknown>>;
   processedEvents?: Array<Record<string, unknown>>;
   reconciliation?: Array<Record<string, unknown>>;
+  // latest earlier month rows returned to the add-on carry-over query
+  previousSmsCredits?: Array<Record<string, number>>;
+  previousVerifiedCredits?: Array<Record<string, number>>;
   // opt-in: keep one verified-credit row per month and resolve selects/updates by the month in the where clause
   creditsByMonth?: boolean;
   // opt-in: keep every subscription row and resolve selects/updates by the rendered where clause
@@ -227,6 +230,8 @@ function createDbHarness(input?: {
         return {
         orderBy: (...ordering: unknown[]) => ({
           limit: async () => {
+            if (table === smsCredits) return input?.previousSmsCredits ?? [];
+            if (table === verifiedOnlineBookingCredits) return input?.previousVerifiedCredits ?? [];
             if (table === subscriptions) {
               const matched = matchSubscriptions(condition);
               if (!matched) return state.subscriptions.slice(0, 1);
@@ -364,9 +369,31 @@ function createDbHarness(input?: {
     },
   }));
 
+  // Grant services increment counters in SQL (`col + n`); resolve those against the stored row.
+  const applySet = <T extends Record<string, unknown>>(row: T, value: Record<string, unknown>): T => {
+    const next: Record<string, unknown> = { ...row };
+    for (const [key, raw] of Object.entries(value)) {
+      next[key] =
+        raw instanceof SQL
+          ? Number(row[key] ?? 0) + Number(raw.queryChunks.find((chunk) => typeof chunk === "number") ?? 0)
+          : raw;
+    }
+    return next as T;
+  };
+
   const update = vi.fn((table: unknown) => ({
     set: (value: Record<string, unknown>) => ({
-      where: async (condition: unknown) => {
+      where: (condition: unknown) => {
+        const applied = applyUpdate(table, value, condition);
+        return {
+          returning: async () => applied,
+          then: (resolve: (v: unknown) => void) => resolve(undefined),
+        };
+      },
+    }),
+  }));
+
+  const applyUpdate = (table: unknown, value: Record<string, unknown>, condition: unknown): unknown[] => {
         if (table === subscriptions) {
           state.updated.subscriptions.push(value);
           const matched = matchSubscriptions(condition);
@@ -378,19 +405,26 @@ function createDbHarness(input?: {
             state.subscriptions[0] = { ...state.subscriptions[0], ...value };
           }
         } else if (table === verifiedOnlineBookingCredits) {
-          state.updated.credits.push(value);
           if (input?.creditsByMonth) {
             const values = sqlValues(condition);
             state.verifiedCredits = state.verifiedCredits.map((row) =>
-              values.includes(row.month) ? ({ ...row, ...value } as CreditRow) : row,
+              values.includes(row.month) ? applySet(row, value) : row,
             );
           } else if (state.verifiedCredits[0]) {
-            state.verifiedCredits[0] = { ...state.verifiedCredits[0], ...value } as CreditRow;
+            state.verifiedCredits[0] = applySet(state.verifiedCredits[0], value);
           }
+          const changed = input?.creditsByMonth
+            ? state.verifiedCredits.filter((row) => sqlValues(condition).includes(row.month))
+            : state.verifiedCredits.slice(0, 1);
+          state.updated.credits.push(
+            Object.values(value).some((v) => v instanceof SQL) ? { ...value, ...changed[0] } : value,
+          );
+          return changed;
         } else if (table === smsCredits) {
           if (state.smsCredits[0]) {
-            state.smsCredits[0] = { ...state.smsCredits[0], ...value } as never;
+            state.smsCredits[0] = applySet(state.smsCredits[0] as Record<string, unknown>, value) as never;
           }
+          return state.smsCredits.slice(0, 1);
         } else if (table === emailCredits) {
           if (state.emailCredits[0]) {
             state.emailCredits[0] = { ...state.emailCredits[0], ...value } as never;
@@ -412,9 +446,8 @@ function createDbHarness(input?: {
           state.updated[key].push(value);
           state[key] = state[key].map((row) => (ids.includes(row.id as string) ? { ...row, ...value } : row));
         }
-      },
-    }),
-  }));
+        return [];
+  };
 
   const tx = { select, insert, update };
   const db = {
@@ -931,6 +964,46 @@ describe("BillingService", () => {
       addon: 0,
       used: 0,
     });
+  });
+
+  it("regression: subscription sync that creates this month's sms ledger carries unused add-on units", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      previousSmsCredits: [{ included: 300, addon: 100, used: 350 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent(growthCreatedPayload());
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({ included: 800, addon: 50, used: 0 });
+  });
+
+  it("regression: subscription sync that creates this month's booking ledger carries unused add-on units", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      previousVerifiedCredits: [{ included: 30, addon: 25, used: 40 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent(growthCreatedPayload());
+
+    expect(state.inserted.credits[0]).toMatchObject({ addonGranted: 15, used: 0 });
+  });
+
+  it("edge: subscription sync keys this month's sms ledger by the Asia/Manila month", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-31T16:30:00.000Z"), toFake: ["Date"] });
+    try {
+      const { state } = createDbHarness({
+        organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(growthCreatedPayload());
+
+      expect(state.inserted.smsCredits[0]).toMatchObject({ month: "2026-11" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("edge: a scheduled downgrade leaves this month's included sms allowance unchanged", async () => {
@@ -1731,6 +1804,42 @@ describe("BillingService", () => {
     });
 
     expect(state.inserted.smsCredits[0]).toMatchObject({ organizationId: "org-1", included: 800, addon: 0, used: 0 });
+  });
+
+  it("regression: a refund that creates this month's sms ledger carries unused add-on units", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+      previousSmsCredits: [{ included: 800, addon: 40, used: 810 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "sms_segment_topup", sku: "sms-segment-topup-25" },
+      },
+      data: { id: "order_missing_carry", attributes: {} },
+    });
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({ addon: 30, used: 0 });
+  });
+
+  it("regression: a refund that creates this month's booking ledger carries unused add-on units", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "starter", billingStatus: "subscription_active" }],
+      previousVerifiedCredits: [{ included: 30, addon: 25, used: 40 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "online_booking_topup", sku: "online-booking-topup-25" },
+      },
+      data: { id: "order_missing_booking", attributes: {} },
+    });
+
+    expect(state.inserted.credits[0]).toMatchObject({ addonGranted: 15, used: 0 });
   });
 
   it("records a refund review instead of creating negative balances when refunded booking credits were already consumed", async () => {

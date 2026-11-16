@@ -6,7 +6,11 @@ import {
   verifiedOnlineBookingCredits,
 } from "@suki/database";
 import type { AddonFulfillmentSource, BillingAddonSku } from "@suki/types";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { billingMonthKey } from "../common/billing-month";
+import { OrgBillingStateService } from "../common/org-billing-state.service";
+import { verifiedBookingAddonCarryover } from "./addon-carryover";
+import { getPlanCatalogEntry } from "./plan-catalog";
 
 type BillingTx = {
   select: ReturnType<typeof getDb>["select"];
@@ -42,6 +46,10 @@ export interface VerifiedBookingAddonGrantResult {
 
 @Injectable()
 export class VerifiedBookingAddonGrantService {
+  constructor(
+    private readonly orgBillingState: OrgBillingStateService = new OrgBillingStateService(),
+  ) {}
+
   async grant(
     input: VerifiedBookingAddonGrantInput,
     tx: BillingTx = getDb(),
@@ -67,16 +75,10 @@ export class VerifiedBookingAddonGrantService {
       };
     }
 
-    const ledgerAfter = {
-      ...ledger,
-      addonGranted: ledger.addonGranted + input.units,
-    };
-
-    await tx
+    const [updated] = await tx
       .update(verifiedOnlineBookingCredits)
       .set({
-        addonGranted: ledgerAfter.addonGranted,
-        used: ledger.used,
+        addonGranted: sql`${verifiedOnlineBookingCredits.addonGranted} + ${input.units}`,
         updatedAt: new Date(),
       })
       .where(
@@ -84,7 +86,13 @@ export class VerifiedBookingAddonGrantService {
           eq(verifiedOnlineBookingCredits.organizationId, input.organizationId),
           eq(verifiedOnlineBookingCredits.month, ledger.month),
         ),
-      );
+      )
+      .returning({
+        includedGranted: verifiedOnlineBookingCredits.includedGranted,
+        addonGranted: verifiedOnlineBookingCredits.addonGranted,
+        used: verifiedOnlineBookingCredits.used,
+      });
+    const ledgerAfter = { ...ledger, ...updated };
 
     await tx.insert(verifiedOnlineBookingAddons).values({
       organizationId: input.organizationId,
@@ -104,11 +112,11 @@ export class VerifiedBookingAddonGrantService {
       month: ledger.month,
       eventType: input.source,
       includedBefore: ledger.includedGranted,
-      includedAfter: ledger.includedGranted,
+      includedAfter: ledgerAfter.includedGranted,
       addonBefore: ledger.addonGranted,
       addonAfter: ledgerAfter.addonGranted,
       usedBefore: ledger.used,
-      usedAfter: ledger.used,
+      usedAfter: ledgerAfter.used,
       providerEventId:
         input.source === "lemonsqueezy" ? input.sourceReference : null,
       metadata: {
@@ -132,7 +140,7 @@ export class VerifiedBookingAddonGrantService {
     tx: BillingTx,
     organizationId: string,
   ): Promise<VerifiedBookingLedger> {
-    const month = this.currentMonthKey();
+    const month = billingMonthKey();
     const [existingLedger] = await tx
       .select()
       .from(verifiedOnlineBookingCredits)
@@ -155,19 +163,19 @@ export class VerifiedBookingAddonGrantService {
       };
     }
 
+    // Grace-aware: an org whose payment is failing gets the free included allowance.
+    const includedPlan =
+      (await this.orgBillingState.getOrgBillingState(organizationId))?.includedCreditsPlan ?? "free";
+    const sourcePlan = includedPlan;
     const ledger: VerifiedBookingLedger = {
       organizationId,
       month,
-      includedGranted: 0,
-      addonGranted: 0,
+      includedGranted: getPlanCatalogEntry(sourcePlan).limits.verifiedOnlineBookingsPerMonth,
+      addonGranted: await verifiedBookingAddonCarryover(tx, organizationId, month),
       used: 0,
-      sourcePlan: "free",
+      sourcePlan,
     };
     await tx.insert(verifiedOnlineBookingCredits).values(ledger);
     return ledger;
-  }
-
-  private currentMonthKey(date = new Date()): string {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   }
 }

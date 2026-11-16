@@ -25,6 +25,8 @@ import { AutomationSendService } from "../automation/automation-send.service";
 import { appointmentDurationMinutesForBusinessType } from "../common/appointment-timing";
 import { OrgBillingStateService } from "../common/org-billing-state.service";
 import { getPlanCatalogEntry } from "../billing/plan-catalog";
+import { verifiedBookingAddonCarryover } from "../billing/addon-carryover";
+import { billingMonthKey } from "../common/billing-month";
 import { OtpFailoverService } from "./otp/otp-failover.service";
 import { OtpProviderSettingsService } from "./otp/otp-provider-settings.service";
 import { SemaphoreOtpProvider } from "./otp/semaphore-otp.provider";
@@ -389,11 +391,70 @@ export class IntakeBookingService {
       );
     }
 
-    const creditLedger = await this.ensureVerifiedBookingCredits(
-      business.organizationId,
-      state?.currentPlan ?? "free",
-    );
-    if (creditLedger.used >= creditLedger.includedGranted + creditLedger.addonGranted) {
+    await this.assertOtpSendAllowed({
+      hold,
+      clientIp,
+      organizationId: business.organizationId,
+      otpConfig,
+    });
+
+    const charge = await db.transaction(async (tx) => {
+      // Row lock on the hold serialises concurrent sends so a hold is charged at most once.
+      await tx
+        .select({ id: bookingHolds.id })
+        .from(bookingHolds)
+        .where(eq(bookingHolds.id, hold.id))
+        .for("update");
+      const [charged] = await tx
+        .select({ id: verifiedOnlineBookingUsageEvents.id })
+        .from(verifiedOnlineBookingUsageEvents)
+        .where(
+          and(
+            eq(verifiedOnlineBookingUsageEvents.bookingHoldId, hold.id),
+            eq(verifiedOnlineBookingUsageEvents.status, "consumed"),
+          ),
+        )
+        .limit(1);
+      if (charged) {
+        return { status: "already_charged" as const };
+      }
+      const ledger = await this.ensureVerifiedBookingCredits(
+        tx,
+        business.organizationId,
+        state?.currentPlan ?? "free",
+      );
+      const [reserved] = await tx
+        .update(verifiedOnlineBookingCredits)
+        .set({ used: sql`${verifiedOnlineBookingCredits.used} + 1`, updatedAt: new Date() })
+        .where(
+          and(
+            eq(verifiedOnlineBookingCredits.organizationId, business.organizationId),
+            eq(verifiedOnlineBookingCredits.month, ledger.month),
+            sql`${verifiedOnlineBookingCredits.used} + 1 <= ${verifiedOnlineBookingCredits.includedGranted} + ${verifiedOnlineBookingCredits.addonGranted}`,
+          ),
+        )
+        .returning({ id: verifiedOnlineBookingCredits.id });
+      if (!reserved) {
+        return { status: "exhausted" as const };
+      }
+      const [usageEvent] = await tx
+        .insert(verifiedOnlineBookingUsageEvents)
+        .values({
+          organizationId: business.organizationId,
+          businessId: hold.businessId,
+          bookingHoldId: hold.id,
+          units: 1,
+          status: "consumed",
+        })
+        .returning({ id: verifiedOnlineBookingUsageEvents.id });
+      return {
+        status: "charged" as const,
+        month: ledger.month,
+        usageEventId: usageEvent!.id,
+      };
+    });
+
+    if (charge.status === "exhausted") {
       await this.recordBlockedOtpSendEvent({
         organizationId: business.organizationId,
         hold,
@@ -406,19 +467,29 @@ export class IntakeBookingService {
       );
     }
 
-    await this.assertOtpSendAllowed({
-      hold,
-      clientIp,
-      organizationId: business.organizationId,
-      otpConfig,
-    });
-
-    const otpResult = await this.otpFailover.sendOtp({
-      organizationId: business.organizationId,
-      mobile: hold.mobile,
-    });
+    let otpResult: SendOtpResult;
+    try {
+      otpResult = await this.otpFailover.sendOtp({
+        organizationId: business.organizationId,
+        mobile: hold.mobile,
+      });
+    } catch (err) {
+      try {
+        await this.releaseBookingCharge(charge, business.organizationId);
+      } catch (releaseErr) {
+        // The send failure is the error the caller must see; a failed release only loses this one credit.
+        this.logger.error({
+          message: "Failed to release verified booking credit after OTP send error",
+          organizationId: business.organizationId,
+          bookingHoldId: hold.id,
+          error: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
+        });
+      }
+      throw err;
+    }
 
     if (!otpResult.ok) {
+      await this.releaseBookingCharge(charge, business.organizationId);
       await this.recordBlockedOtpSendEvent({
         organizationId: business.organizationId,
         hold,
@@ -443,28 +514,15 @@ export class IntakeBookingService {
       .set(holdUpdate)
       .where(eq(bookingHolds.id, hold.id));
 
-    await db
-      .update(verifiedOnlineBookingCredits)
-      .set({
-        used: creditLedger.used + 1,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(verifiedOnlineBookingCredits.organizationId, business.organizationId),
-          eq(verifiedOnlineBookingCredits.month, creditLedger.month),
-        ),
-      );
-
-    await db.insert(verifiedOnlineBookingUsageEvents).values({
-      organizationId: business.organizationId,
-      businessId: hold.businessId,
-      bookingHoldId: hold.id,
-      units: 1,
-      status: "consumed",
-      provider: this.toOtpAuditProvider(otpResult.provider),
-      providerVerificationSid: otpResult.providerMessageId ?? null,
-    });
+    if (charge.status === "charged") {
+      await db
+        .update(verifiedOnlineBookingUsageEvents)
+        .set({
+          provider: this.toOtpAuditProvider(otpResult.provider),
+          providerVerificationSid: otpResult.providerMessageId ?? null,
+        })
+        .where(eq(verifiedOnlineBookingUsageEvents.id, charge.usageEventId));
+    }
 
     await this.recordOtpSendEvent({
       organizationId: business.organizationId,
@@ -663,13 +721,45 @@ export class IntakeBookingService {
     };
   }
 
+  private async releaseBookingCharge(
+    charge:
+      | { status: "charged"; month: string; usageEventId: string }
+      | { status: "already_charged" },
+    organizationId: string,
+  ) {
+    if (charge.status !== "charged") {
+      return;
+    }
+    await getDb().transaction(async (tx) => {
+      await tx
+        .update(verifiedOnlineBookingCredits)
+        .set({
+          used: sql`GREATEST(${verifiedOnlineBookingCredits.used} - 1, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(verifiedOnlineBookingCredits.organizationId, organizationId),
+            eq(verifiedOnlineBookingCredits.month, charge.month),
+          ),
+        );
+      await tx
+        .update(verifiedOnlineBookingUsageEvents)
+        .set({ status: "released" })
+        .where(eq(verifiedOnlineBookingUsageEvents.id, charge.usageEventId));
+    });
+  }
+
   private async ensureVerifiedBookingCredits(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      insert: ReturnType<typeof getDb>["insert"];
+    },
     organizationId: string,
     planType: "free" | "starter" | "growth" | "pro",
   ) {
-    const db = getDb();
-    const month = this.getCurrentMonthUtcKey();
-    const [ledger] = await db
+    const month = billingMonthKey();
+    const [ledger] = await tx
       .select()
       .from(verifiedOnlineBookingCredits)
       .where(
@@ -690,18 +780,14 @@ export class IntakeBookingService {
       organizationId,
       month,
       includedGranted,
-      addonGranted: 0,
+      addonGranted: await verifiedBookingAddonCarryover(tx, organizationId, month),
       used: 0,
       sourcePlan: planType,
       lastReconciledAt: new Date(),
     };
 
-    await db.insert(verifiedOnlineBookingCredits).values(nextLedger);
+    await tx.insert(verifiedOnlineBookingCredits).values(nextLedger);
     return nextLedger;
-  }
-
-  private getCurrentMonthUtcKey(): string {
-    return this.toMonthKey(new Date());
   }
 
   private async assertOtpSendAllowed(input: {
@@ -942,9 +1028,5 @@ export class IntakeBookingService {
         Number(process.env.OTP_PER_BUSINESS_DAILY_LIMIT ?? 100) || 100,
       ),
     };
-  }
-
-  private toMonthKey(date: Date): string {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   }
 }
