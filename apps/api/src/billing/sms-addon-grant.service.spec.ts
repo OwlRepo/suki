@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   creditReconciliationEvents,
   getDb,
+  organizations,
   smsAddons,
   smsCredits,
 } from "@suki/database";
@@ -27,11 +28,12 @@ type SmsLedger = {
 };
 
 function createGrantHarness(input?: {
-  ledger?: SmsLedger;
+  ledger?: SmsLedger | null;
   addons?: Array<Record<string, unknown>>;
+  organizations?: Array<Record<string, unknown>>;
 }) {
   const state = {
-    ledger: input?.ledger ?? {
+    ledger: input?.ledger === null ? null : input?.ledger ?? {
       organizationId: "org-1",
       month: "2026-06",
       included: 300,
@@ -41,6 +43,7 @@ function createGrantHarness(input?: {
     },
     addons: [...(input?.addons ?? [])],
     inserted: {
+      smsCredits: [] as Array<Record<string, unknown>>,
       smsAddons: [] as Array<Record<string, unknown>>,
       reconciliation: [] as Array<Record<string, unknown>>,
     },
@@ -55,6 +58,7 @@ function createGrantHarness(input?: {
         limit: async () => {
           if (table === smsAddons) return state.addons.slice(0, 1);
           if (table === smsCredits) return state.ledger ? [state.ledger] : [];
+          if (table === organizations) return (input?.organizations ?? []).slice(0, 1);
           return [];
         },
       }),
@@ -63,6 +67,10 @@ function createGrantHarness(input?: {
 
   const insert = vi.fn((table: unknown) => ({
     values: async (value: Record<string, unknown>) => {
+      if (table === smsCredits) {
+        state.inserted.smsCredits.push(value);
+        state.ledger = value as SmsLedger;
+      }
       if (table === smsAddons) {
         state.inserted.smsAddons.push(value);
         state.addons.push(value);
@@ -78,7 +86,7 @@ function createGrantHarness(input?: {
       where: async () => {
         if (table === smsCredits) {
           state.updated.ledgers.push(value);
-          state.ledger = { ...state.ledger, ...value };
+          state.ledger = { ...state.ledger, ...value } as SmsLedger;
         }
       },
     }),
@@ -98,6 +106,32 @@ describe("SmsAddonGrantService", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("edge: a grant that creates this month's ledger seeds the org plan's included allowance", async () => {
+    const state = createGrantHarness({
+      ledger: null,
+      organizations: [{ currentPlan: "growth" }],
+    });
+    const service = new SmsAddonGrantService();
+
+    const result = await service.grant({
+      organizationId: "org-1",
+      units: 25,
+      pricePhp: 599,
+      source: "manual_payment",
+      sourceReference: "manual-payment:item-2",
+      purchasedByUserId: "user-1",
+    });
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({
+      organizationId: "org-1",
+      month: "2026-06",
+      included: 800,
+      addon: 0,
+      used: 0,
+    });
+    expect(result.ledgerAfter).toMatchObject({ included: 800, addon: 25, used: 0 });
   });
 
   it("increments the current-month addon ledger and writes reconciliation", async () => {

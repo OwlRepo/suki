@@ -888,6 +888,72 @@ describe("BillingService", () => {
     });
   });
 
+  it("regression: raises this month's included sms allowance to the new plan without touching add-on or usage", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+      smsCredits: [
+        { organizationId: "org-1", month: "2026-11", included: 0, addon: 25, used: 3, pausedReason: "none" },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent(growthCreatedPayload());
+
+    expect(state.smsCredits[0]).toMatchObject({ included: 800, addon: 25, used: 3, pausedReason: "none" });
+    expect(state.inserted.smsCredits).toHaveLength(0);
+  });
+
+  it("edge: creates this month's sms allowance for the new plan when no sms ledger exists yet", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent(growthCreatedPayload());
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({
+      organizationId: "org-1",
+      included: 800,
+      addon: 0,
+      used: 0,
+    });
+  });
+
+  it("edge: a scheduled downgrade leaves this month's included sms allowance unchanged", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+      subscriptions: [
+        {
+          id: "local-sub-1",
+          organizationId: "org-1",
+          planType: "growth",
+          status: "active",
+          billingInterval: "monthly",
+          currentPeriodStart: new Date("2026-11-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-11-30T23:59:59.000Z"),
+          cancelled: "false",
+        },
+      ],
+      smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 800, addon: 0, used: 10 }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "subscription_updated",
+        custom_data: { organization_id: "org-1", plan_type: "starter", billing_interval: "monthly" },
+      },
+      data: {
+        id: "sub_email",
+        attributes: { status: "active", renews_at: "2026-12-16T00:00:00.000Z", ends_at: null, cancelled: false, urls: {} },
+      },
+    });
+
+    expect(state.subscriptions[0]).toMatchObject({ planType: "growth", scheduledPlanType: "starter" });
+    expect(state.smsCredits[0]).toMatchObject({ included: 800, addon: 0, used: 10 });
+    expect(state.inserted.smsCredits).toHaveLength(0);
+  });
+
   it("regression: reconciles subscription_created into subscription, org state, and included booking credits", async () => {
     const { state } = createDbHarness({
       organizations: [
@@ -1634,6 +1700,23 @@ describe("BillingService", () => {
 
     expect(state.updated.smsAddons).toHaveLength(0);
     expect(state.inserted.reconciliation[0]).toMatchObject({ creditType: "sms_segment", eventType: "refund_applied", addonAfter: 0 });
+  });
+
+  it("edge: a refund that creates this month's sms ledger seeds the org plan's included allowance", async () => {
+    const { state } = createDbHarness({
+      organizations: [{ id: "org-1", currentPlan: "growth", billingStatus: "subscription_active" }],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "sms_segment_topup", sku: "sms-segment-topup-25" },
+      },
+      data: { id: "order_missing", attributes: {} },
+    });
+
+    expect(state.inserted.smsCredits[0]).toMatchObject({ organizationId: "org-1", included: 800, addon: 0, used: 0 });
   });
 
   it("records a refund review instead of creating negative balances when refunded booking credits were already consumed", async () => {

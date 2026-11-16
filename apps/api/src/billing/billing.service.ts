@@ -34,6 +34,7 @@ import {
   getPlanCatalogEntry,
   resolveAddonSku,
   resolveSubscriptionVariantEnvKey,
+  SMS_INCLUDED_BY_PLAN,
 } from "./plan-catalog";
 import { FeatureFlagsService } from "../common/feature-flags.service";
 import { isLemonGraceExpired, LEMON_PAYMENT_GRACE_MS } from "../common/org-billing-state.service";
@@ -848,7 +849,7 @@ export class BillingService {
         planType: nextOrgPlan,
         currentPeriodStart,
       });
-      await this.syncIncludedEmailCredits(tx, organizationId, nextOrgPlan);
+      await this.syncIncludedMonthlyAllowances(tx, organizationId, nextOrgPlan);
     }
 
     return { status: "processed" };
@@ -1114,8 +1115,8 @@ export class BillingService {
     return { status: "processed", reason: "refund_cancelled_subscription" };
   }
 
-  // The email ledger row is created with the plan active at first send; a plan change must update it or the old allowance sticks for the month.
-  private async syncIncludedEmailCredits(
+  // Email and SMS ledger rows are created with the plan active at first use; a plan change must update them or the old allowance sticks for the month.
+  private async syncIncludedMonthlyAllowances(
     tx: {
       select: ReturnType<typeof getDb>["select"];
       insert: ReturnType<typeof getDb>["insert"];
@@ -1134,13 +1135,42 @@ export class BillingService {
 
     if (!existing) {
       await tx.insert(emailCredits).values({ organizationId, month, included, used: 0 });
-      return;
-    }
-    if (existing.included !== included) {
+    } else if (existing.included !== included) {
       await tx
         .update(emailCredits)
         .set({ included, updatedAt: new Date() })
         .where(eq(emailCredits.id, existing.id));
+    }
+
+    await this.syncIncludedSmsCredits(tx, organizationId, month, SMS_INCLUDED_BY_PLAN[planType]);
+  }
+
+  // Only `included` follows the plan; addon, used, and pausedReason are left as-is.
+  private async syncIncludedSmsCredits(
+    tx: {
+      select: ReturnType<typeof getDb>["select"];
+      insert: ReturnType<typeof getDb>["insert"];
+      update: ReturnType<typeof getDb>["update"];
+    },
+    organizationId: string,
+    month: string,
+    included: number,
+  ): Promise<void> {
+    const [existing] = await tx
+      .select({ id: smsCredits.id, included: smsCredits.included })
+      .from(smsCredits)
+      .where(and(eq(smsCredits.organizationId, organizationId), eq(smsCredits.month, month)))
+      .limit(1);
+
+    if (!existing) {
+      await tx.insert(smsCredits).values({ organizationId, month, included, addon: 0, used: 0 });
+      return;
+    }
+    if (existing.included !== included) {
+      await tx
+        .update(smsCredits)
+        .set({ included, updatedAt: new Date() })
+        .where(eq(smsCredits.id, existing.id));
     }
   }
 
@@ -1407,10 +1437,15 @@ export class BillingService {
       .limit(1);
     if (ledger) return ledger;
 
+    const [org] = await tx
+      .select({ currentPlan: organizations.currentPlan })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
     const nextLedger = {
       organizationId,
       month: this.getCurrentMonthUtcKey(),
-      included: 0,
+      included: SMS_INCLUDED_BY_PLAN[org?.currentPlan ?? "free"],
       addon: 0,
       used: 0,
       pausedReason: "none" as const,
