@@ -188,8 +188,11 @@ function createDbHarness(input?: {
           if (table === organizations) return state.organizations.slice(0, 1);
           if (table === processedWebhookEvents) return state.processedEvents.slice(0, 1);
           if (table === creditReconciliationEvents) return state.reconciliation.slice(0, 1);
-          if (table === verifiedOnlineBookingAddons) return state.bookingAddons.slice(0, 1);
-          if (table === smsAddons) return state.smsAddons.slice(0, 1);
+          if (table === verifiedOnlineBookingAddons || table === smsAddons) {
+            const rows = table === smsAddons ? state.smsAddons : state.bookingAddons;
+            const values = sqlValues(condition);
+            return rows.filter((row) => values.includes(row.sourceReference as string)).slice(0, 1);
+          }
           return [];
         },
       };
@@ -315,16 +318,11 @@ function createDbHarness(input?: {
           state.processedEvents = state.processedEvents.map((event) =>
             values.includes(event.eventId) ? { ...event, ...value } : event,
           );
-        } else if (table === verifiedOnlineBookingAddons) {
-          state.updated.bookingAddons.push(value);
-          if (state.bookingAddons[0]) {
-            state.bookingAddons[0] = { ...state.bookingAddons[0], ...value };
-          }
-        } else if (table === smsAddons) {
-          state.updated.smsAddons.push(value);
-          if (state.smsAddons[0]) {
-            state.smsAddons[0] = { ...state.smsAddons[0], ...value };
-          }
+        } else if (table === verifiedOnlineBookingAddons || table === smsAddons) {
+          const key = table === smsAddons ? "smsAddons" : "bookingAddons";
+          const ids = sqlValues(condition);
+          state.updated[key].push(value);
+          state[key] = state[key].map((row) => (ids.includes(row.id as string) ? { ...row, ...value } : row));
         }
       },
     }),
@@ -1388,7 +1386,7 @@ describe("BillingService", () => {
     });
   });
 
-  it("refunds unused verified booking top-up credits deterministically", async () => {
+  it("regression: refunds unused verified booking top-up credits deterministically", async () => {
     const { state } = createDbHarness({
       verifiedCredits: [
         {
@@ -1404,6 +1402,8 @@ describe("BillingService", () => {
         {
           id: "addon-1",
           organizationId: "org-1",
+          source: "lemonsqueezy",
+          sourceReference: "refund_booking_123",
           sku: "online-booking-topup-25",
           units: 25,
           refundedUnits: 0,
@@ -1444,7 +1444,7 @@ describe("BillingService", () => {
     });
   });
 
-  it("refunds unused sms top-up credits and records refunded add-on units", async () => {
+  it("regression: refunds unused sms top-up credits and records refunded add-on units", async () => {
     const { state } = createDbHarness({
       smsCredits: [
         {
@@ -1459,6 +1459,8 @@ describe("BillingService", () => {
         {
           id: "sms-addon-1",
           organizationId: "org-1",
+          source: "lemonsqueezy",
+          sourceReference: "refund_sms_123",
           packSize: 50,
           refundedUnits: 0,
         },
@@ -1490,6 +1492,73 @@ describe("BillingService", () => {
       addonBefore: 50,
       addonAfter: 0,
     });
+  });
+
+  it("regression: marks only the refunded order's sms add-on when several packs share a size", async () => {
+    const { state } = createDbHarness({
+      smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 50, used: 0 }],
+      smsAddons: [
+        { id: "sms-old", organizationId: "org-1", source: "lemonsqueezy", sourceReference: "order_old", packSize: 25, refundedUnits: 0 },
+        { id: "sms-new", organizationId: "org-1", source: "lemonsqueezy", sourceReference: "order_new", packSize: 25, refundedUnits: 0 },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "sms_segment_topup", sku: "sms-segment-topup-25" },
+      },
+      data: { id: "order_new", attributes: {} },
+    });
+
+    expect(state.smsAddons.find((row) => row.id === "sms-new")).toMatchObject({ refundedUnits: 25 });
+    expect(state.smsAddons.find((row) => row.id === "sms-old")).toMatchObject({ refundedUnits: 0 });
+  });
+
+  it("regression: marks only the refunded order's booking add-on when several packs share a sku", async () => {
+    const { state } = createDbHarness({
+      verifiedCredits: [
+        { organizationId: "org-1", month: "2026-11", includedGranted: 30, addonGranted: 50, used: 0, sourcePlan: "starter" },
+      ],
+      bookingAddons: [
+        { id: "bk-old", organizationId: "org-1", source: "lemonsqueezy", sourceReference: "order_old", sku: "online-booking-topup-25", units: 25, refundedUnits: 0 },
+        { id: "bk-new", organizationId: "org-1", source: "lemonsqueezy", sourceReference: "order_new", sku: "online-booking-topup-25", units: 25, refundedUnits: 0 },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "online_booking_topup", sku: "online-booking-topup-25" },
+      },
+      data: { id: "order_new", attributes: {} },
+    });
+
+    expect(state.bookingAddons.find((row) => row.id === "bk-new")).toMatchObject({ refundedUnits: 25 });
+    expect(state.bookingAddons.find((row) => row.id === "bk-old")).toMatchObject({ refundedUnits: 0 });
+  });
+
+  it("edge: a refund with no matching add-on record still reverses credits and marks no other pack", async () => {
+    const { state } = createDbHarness({
+      smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 25, used: 0 }],
+      smsAddons: [
+        { id: "sms-other", organizationId: "org-1", source: "lemonsqueezy", sourceReference: "order_other", packSize: 25, refundedUnits: 0 },
+      ],
+    });
+    const service = new BillingService({} as never);
+
+    await service.reconcileWebhookEvent({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "sms_segment_topup", sku: "sms-segment-topup-25" },
+      },
+      data: { id: "order_missing", attributes: {} },
+    });
+
+    expect(state.updated.smsAddons).toHaveLength(0);
+    expect(state.inserted.reconciliation[0]).toMatchObject({ creditType: "sms_segment", eventType: "refund_applied", addonAfter: 0 });
   });
 
   it("records a refund review instead of creating negative balances when refunded booking credits were already consumed", async () => {

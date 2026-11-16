@@ -832,7 +832,7 @@ export class BillingService {
             eq(verifiedOnlineBookingCredits.month, ledger.month),
           ),
         );
-      await this.markVerifiedBookingAddonRefunded(tx, organizationId, addon.sku, addon.units);
+      await this.markVerifiedBookingAddonRefunded(tx, organizationId, eventId, addon.units);
 
       await tx.insert(creditReconciliationEvents).values({
         organizationId,
@@ -886,7 +886,7 @@ export class BillingService {
             eq(smsCredits.month, ledger.month),
           ),
         );
-      await this.markSmsAddonRefunded(tx, organizationId, addon.units);
+      await this.markSmsAddonRefunded(tx, organizationId, eventId, addon.units);
 
       await tx.insert(creditReconciliationEvents).values({
         organizationId,
@@ -1331,16 +1331,19 @@ export class BillingService {
       update: ReturnType<typeof getDb>["update"];
     },
     organizationId: string,
-    sku: string,
+    orderId: string | null,
     units: number,
   ) {
+    // Match the refunded order itself; several packs can share a sku, so sku alone marks the wrong purchase.
+    if (!orderId) return;
     const [addon] = await tx
-      .select()
+      .select({ id: verifiedOnlineBookingAddons.id })
       .from(verifiedOnlineBookingAddons)
       .where(
         and(
           eq(verifiedOnlineBookingAddons.organizationId, organizationId),
-          eq(verifiedOnlineBookingAddons.sku, sku),
+          eq(verifiedOnlineBookingAddons.source, "lemonsqueezy"),
+          eq(verifiedOnlineBookingAddons.sourceReference, orderId),
         ),
       )
       .limit(1);
@@ -1349,7 +1352,7 @@ export class BillingService {
     await tx
       .update(verifiedOnlineBookingAddons)
       .set({
-        refundedUnits: Number(addon.refundedUnits ?? 0) + units,
+        refundedUnits: units,
       })
       .where(eq(verifiedOnlineBookingAddons.id, addon.id));
   }
@@ -1360,15 +1363,19 @@ export class BillingService {
       update: ReturnType<typeof getDb>["update"];
     },
     organizationId: string,
+    orderId: string | null,
     units: number,
   ) {
+    // Match the refunded order itself; several packs can share a size, so size alone marks the wrong purchase.
+    if (!orderId) return;
     const [addon] = await tx
-      .select()
+      .select({ id: smsAddons.id })
       .from(smsAddons)
       .where(
         and(
           eq(smsAddons.organizationId, organizationId),
-          eq(smsAddons.packSize, units),
+          eq(smsAddons.source, "lemonsqueezy"),
+          eq(smsAddons.sourceReference, orderId),
         ),
       )
       .limit(1);
@@ -1377,7 +1384,7 @@ export class BillingService {
     await tx
       .update(smsAddons)
       .set({
-        refundedUnits: Number(addon.refundedUnits ?? 0) + units,
+        refundedUnits: units,
       })
       .where(eq(smsAddons.id, addon.id));
   }

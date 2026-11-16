@@ -2535,8 +2535,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_spec",
-      "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community": 202,
+      "community_name": "ai-usage.service.spec.ts",
       "norm_label": "ai-usage.service.spec.ts"
     },
     {
@@ -2546,8 +2546,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_spec_mockselect",
-      "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community": 202,
+      "community_name": "ai-usage.service.spec.ts",
       "norm_label": "mockselect"
     },
     {
@@ -2557,8 +2557,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_spec_mockfrom",
-      "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community": 202,
+      "community_name": "ai-usage.service.spec.ts",
       "norm_label": "mockfrom"
     },
     {
@@ -2568,8 +2568,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_spec_mockwhere",
-      "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community": 202,
+      "community_name": "ai-usage.service.spec.ts",
       "norm_label": "mockwhere"
     },
     {
@@ -2579,8 +2579,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_spec_mocklimit",
-      "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community": 202,
+      "community_name": "ai-usage.service.spec.ts",
       "norm_label": "mocklimit"
     },
     {
@@ -2590,8 +2590,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_spec_queuedwhereresults",
-      "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community": 202,
+      "community_name": "ai-usage.service.spec.ts",
       "norm_label": "queuedwhereresults"
     },
     {
@@ -2601,8 +2601,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service",
-      "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community": 30,
+      "community_name": "PlanCapacityService",
       "norm_label": "ai-usage.service.ts"
     },
     {
@@ -2614,7 +2614,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_getcurrentmonthutc",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "getcurrentmonthutc()"
     },
     {
@@ -2626,7 +2626,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_getmonthboundariesutc",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "getmonthboundariesutc()"
     },
     {
@@ -2638,7 +2638,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_getdaystartutc",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "getdaystartutc()"
     },
     {
@@ -2650,7 +2650,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_getnextdaystartutc",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "getnextdaystartutc()"
     },
     {
@@ -2662,7 +2662,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_getenvint",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "getenvint()"
     },
     {
@@ -2675,7 +2675,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_aiusageservice",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "aiusageservice"
     },
     {
@@ -2686,7 +2686,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_ts_injectable",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "injectable"
     },
     {
@@ -2698,7 +2698,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_aiusageservice_constructor",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".constructor()"
     },
     {
@@ -2710,7 +2710,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_aiusageservice_getsummary",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".getsummary()"
     },
     {
@@ -2722,7 +2722,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_aiusageservice_getbreakdown",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".getbreakdown()"
     },
     {
@@ -2734,7 +2734,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_aiusageservice_updatepolicies",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".updatepolicies()"
     },
     {
@@ -2746,7 +2746,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_aiusageservice_getresetdate",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".getresetdate()"
     },
     {
@@ -2758,7 +2758,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_usage_service_aiusageservice_checkbudget",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".checkbudget()"
     },
     {
@@ -2827,7 +2827,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_ts_post",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "post"
     },
     {
@@ -2838,7 +2838,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_ts_body",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "body"
     },
     {
@@ -2849,7 +2849,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_ts_get",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "get"
     },
     {
@@ -2860,7 +2860,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_ts_query",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "query"
     },
     {
@@ -2871,7 +2871,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_ts_patch",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": "patch"
     },
     {
@@ -2895,7 +2895,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_aicontroller_check",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".check()"
     },
     {
@@ -2907,7 +2907,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_aicontroller_usagesummary",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".usagesummary()"
     },
     {
@@ -2919,7 +2919,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_aicontroller_usagebreakdown",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".usagebreakdown()"
     },
     {
@@ -2931,7 +2931,7 @@
       "_origin": "ast",
       "id": "apps_api_src_ai_ai_controller_aicontroller_usagepolicies",
       "community": 29,
-      "community_name": "ai-usage.service.ts",
+      "community_name": "AiUsageService",
       "norm_label": ".usagepolicies()"
     },
     {
@@ -3884,8 +3884,8 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_appointments_appointments_service_appointmentsservice_constructor",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 92,
+      "community_name": "IntakeBookingService",
       "norm_label": ".constructor()"
     },
     {
@@ -5025,8 +5025,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_message_composer_service_spec",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 100,
+      "community_name": "automation-send.service.ts",
       "norm_label": "automation-message-composer.service.spec.ts"
     },
     {
@@ -5036,8 +5036,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_message_composer_service",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 100,
+      "community_name": "automation-send.service.ts",
       "norm_label": "automation-message-composer.service.ts"
     },
     {
@@ -5049,8 +5049,8 @@
       "_callable_class": true,
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_message_composer_service_automationmessagecomposerservice",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 100,
+      "community_name": "automation-send.service.ts",
       "norm_label": "automationmessagecomposerservice"
     },
     {
@@ -5060,8 +5060,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_message_composer_service_ts_injectable",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 100,
+      "community_name": "automation-send.service.ts",
       "norm_label": "injectable"
     },
     {
@@ -5072,8 +5072,8 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_message_composer_service_automationmessagecomposerservice_applytemplate",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 100,
+      "community_name": "automation-send.service.ts",
       "norm_label": ".applytemplate()"
     },
     {
@@ -5342,8 +5342,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_send_service_spec",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 100,
+      "community_name": "automation-send.service.ts",
       "norm_label": "automation-send.service.spec.ts"
     },
     {
@@ -5354,8 +5354,8 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_send_service_spec_installdbharness",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 100,
+      "community_name": "automation-send.service.ts",
       "norm_label": "installdbharness()"
     },
     {
@@ -5401,8 +5401,8 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_send_service_automationsendservice_constructor",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 100,
+      "community_name": "automation-send.service.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -5746,8 +5746,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_trigger_service",
-      "community": 100,
-      "community_name": "automation-send.service.ts",
+      "community": 214,
+      "community_name": "automation-trigger.service.ts",
       "norm_label": "automation-trigger.service.ts"
     },
     {
@@ -5759,8 +5759,8 @@
       "_callable_class": true,
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_trigger_service_recordmessageeventinput",
-      "community": 100,
-      "community_name": "automation-send.service.ts",
+      "community": 214,
+      "community_name": "automation-trigger.service.ts",
       "norm_label": "recordmessageeventinput"
     },
     {
@@ -5772,8 +5772,8 @@
       "_callable_class": true,
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_trigger_service_automationtriggerservice",
-      "community": 100,
-      "community_name": "automation-send.service.ts",
+      "community": 214,
+      "community_name": "automation-trigger.service.ts",
       "norm_label": "automationtriggerservice"
     },
     {
@@ -5783,8 +5783,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_trigger_service_ts_injectable",
-      "community": 100,
-      "community_name": "automation-send.service.ts",
+      "community": 214,
+      "community_name": "automation-trigger.service.ts",
       "norm_label": "injectable"
     },
     {
@@ -5795,8 +5795,8 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_automation_automation_trigger_service_automationtriggerservice_recordmessageevent",
-      "community": 100,
-      "community_name": "automation-send.service.ts",
+      "community": 214,
+      "community_name": "automation-trigger.service.ts",
       "norm_label": ".recordmessageevent()"
     },
     {
@@ -6468,7 +6468,7 @@
       "label": "expectBillingDisabled()",
       "file_type": "code",
       "source_file": "apps/api/src/billing/billing.service.spec.ts",
-      "source_location": "L361",
+      "source_location": "L359",
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_billing_billing_service_spec_expectbillingdisabled",
@@ -6480,7 +6480,7 @@
       "label": "growthCreatedPayload()",
       "file_type": "code",
       "source_file": "apps/api/src/billing/billing.service.spec.ts",
-      "source_location": "L771",
+      "source_location": "L769",
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_billing_billing_service_spec_growthcreatedpayload",
@@ -7057,7 +7057,7 @@
       "label": ".markSmsAddonRefunded()",
       "file_type": "code",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1357",
+      "source_location": "L1360",
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_billing_billing_service_billingservice_marksmsaddonrefunded",
@@ -7069,7 +7069,7 @@
       "label": ".markPendingSync()",
       "file_type": "code",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1385",
+      "source_location": "L1392",
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_billing_billing_service_billingservice_markpendingsync",
@@ -7081,7 +7081,7 @@
       "label": ".resolveSubscriptionInterval()",
       "file_type": "code",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1406",
+      "source_location": "L1413",
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_billing_billing_service_billingservice_resolvesubscriptioninterval",
@@ -7093,7 +7093,7 @@
       "label": ".isScheduledDowngrade()",
       "file_type": "code",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1413",
+      "source_location": "L1420",
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_billing_billing_service_billingservice_isscheduleddowngrade",
@@ -7105,7 +7105,7 @@
       "label": ".priceForPlan()",
       "file_type": "code",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1422",
+      "source_location": "L1429",
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_billing_billing_service_billingservice_priceforplan",
@@ -11439,8 +11439,8 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_customers_customers_controller_customerscontroller_constructor",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 128,
+      "community_name": "CustomerTemplatesService",
       "norm_label": ".constructor()"
     },
     {
@@ -11895,8 +11895,8 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_customers_customers_service_customersservice_constructor",
-      "community": 60,
-      "community_name": ".dispatch",
+      "community": 61,
+      "community_name": "CustomersService",
       "norm_label": ".constructor()"
     },
     {
@@ -12240,7 +12240,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_spec",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": "answer-source.controller.spec.ts"
     },
     {
@@ -12264,7 +12264,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_answersourcecontroller",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": "answersourcecontroller"
     },
     {
@@ -12275,7 +12275,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_ts_controller",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": "controller"
     },
     {
@@ -12286,7 +12286,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_ts_useguards",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": "useguards"
     },
     {
@@ -12297,7 +12297,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_ts_get",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": "get"
     },
     {
@@ -12308,7 +12308,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_ts_query",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": "query"
     },
     {
@@ -12320,7 +12320,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_answersourcecontroller_constructor",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -12332,7 +12332,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_answersourcecontroller_getbusinesssummary",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": ".getbusinesssummary()"
     },
     {
@@ -12344,7 +12344,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_answersourcecontroller_getsmsusage",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": ".getsmsusage()"
     },
     {
@@ -12356,7 +12356,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_answersourcecontroller_getbillingstatus",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": ".getbillingstatus()"
     },
     {
@@ -12368,7 +12368,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_controller_answersourcecontroller_getaiusage",
       "community": 38,
-      "community_name": "AnswerSourceController",
+      "community_name": "answer-source.service.ts",
       "norm_label": ".getaiusage()"
     },
     {
@@ -12378,7 +12378,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_spec",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "answer-source.service.spec.ts"
     },
@@ -12389,7 +12389,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_spec_insights",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "insights"
     },
@@ -12400,7 +12400,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_spec_smsmetering",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "smsmetering"
     },
@@ -12411,7 +12411,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_spec_billing",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "billing"
     },
@@ -12422,7 +12422,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_spec_aiusage",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "aiusage"
     },
@@ -12433,7 +12433,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "answer-source.service.ts"
     },
@@ -12446,7 +12446,7 @@
       "_callable_class": true,
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_answersourceservice",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "answersourceservice"
     },
@@ -12457,7 +12457,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_ts_injectable",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "injectable"
     },
@@ -12481,7 +12481,7 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_answersourceservice_getbusinesssummary",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": ".getbusinesssummary()"
     },
@@ -12505,7 +12505,7 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_service_answersourceservice_getbillingstatus",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": ".getbillingstatus()"
     },
@@ -12528,7 +12528,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_types",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "answer-source.types.ts"
     },
@@ -12541,7 +12541,7 @@
       "_callable_class": true,
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_types_answersourcedomain",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "answersourcedomain"
     },
@@ -12554,7 +12554,7 @@
       "_callable_class": true,
       "_origin": "ast",
       "id": "apps_api_src_help_answer_source_types_answersourceresponse",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": "answersourceresponse"
     },
@@ -13640,7 +13640,7 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_help_assistant_openai_tools_service_assistantopenaitoolsservice_constructor",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": ".constructor()"
     },
@@ -13946,7 +13946,7 @@
       "_origin": "ast",
       "id": "apps_api_src_help_assistant_read_model_service_assistantreadmodelservice_constructor",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": ".constructor()"
     },
     {
@@ -14808,7 +14808,7 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_help_assistant_service_assistantservice_executeintenttools",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": ".executeintenttools()"
     },
@@ -16685,7 +16685,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_controller_insightscontroller",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "insightscontroller"
     },
     {
@@ -16696,7 +16696,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_controller_ts_controller",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "controller"
     },
     {
@@ -16707,7 +16707,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_controller_ts_useguards",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "useguards"
     },
     {
@@ -16718,7 +16718,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_controller_ts_get",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "get"
     },
     {
@@ -16729,7 +16729,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_controller_ts_query",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "query"
     },
     {
@@ -16741,7 +16741,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_controller_insightscontroller_constructor",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": ".constructor()"
     },
     {
@@ -16753,7 +16753,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_controller_insightscontroller_getmonthly",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": ".getmonthly()"
     },
     {
@@ -16765,7 +16765,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_controller_insightscontroller_getmonitoring",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": ".getmonitoring()"
     },
     {
@@ -16811,7 +16811,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_spec",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "insights.service.spec.ts"
     },
     {
@@ -16822,7 +16822,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_spec_mockselect",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "mockselect"
     },
     {
@@ -16833,7 +16833,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_spec_mockfrom",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "mockfrom"
     },
     {
@@ -16844,7 +16844,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_spec_mockwhere",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "mockwhere"
     },
     {
@@ -16855,7 +16855,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_spec_mocklimit",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "mocklimit"
     },
     {
@@ -16866,7 +16866,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_spec_queuedwhereresults",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "queuedwhereresults"
     },
     {
@@ -16890,7 +16890,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_insightsservice",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "insightsservice"
     },
     {
@@ -16901,7 +16901,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_ts_injectable",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": "injectable"
     },
     {
@@ -16912,7 +16912,7 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_insightsservice_getmonthlymetrics",
-      "community": 130,
+      "community": 38,
       "community_name": "answer-source.service.ts",
       "norm_label": ".getmonthlymetrics()"
     },
@@ -16925,7 +16925,7 @@
       "_origin": "ast",
       "id": "apps_api_src_insights_insights_service_insightsservice_getmonitoringmetrics",
       "community": 130,
-      "community_name": "answer-source.service.ts",
+      "community_name": "InsightsService",
       "norm_label": ".getmonitoringmetrics()"
     },
     {
@@ -19855,8 +19855,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "apps_api_src_messaging_manual_follow_ups_manual_follow_up_constants_manual_follow_up_automation_key_set",
-      "community": 16,
-      "community_name": "manual-follow-up.service.ts",
+      "community": 52,
+      "community_name": "semaphore-message-reconciliation.service.ts",
       "norm_label": "manual_follow_up_automation_key_set"
     },
     {
@@ -19877,8 +19877,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "apps_api_src_messaging_manual_follow_ups_manual_follow_up_constants_manual_follow_up_digest_cron",
-      "community": 52,
-      "community_name": "semaphore-message-reconciliation.service.ts",
+      "community": 71,
+      "community_name": "manual-follow-up-digest.service.ts",
       "norm_label": "manual_follow_up_digest_cron"
     },
     {
@@ -20105,8 +20105,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "apps_api_src_messaging_manual_follow_ups_manual_follow_up_service_spec",
-      "community": 16,
-      "community_name": "manual-follow-up.service.ts",
+      "community": 52,
+      "community_name": "semaphore-message-reconciliation.service.ts",
       "norm_label": "manual-follow-up.service.spec.ts"
     },
     {
@@ -20152,8 +20152,8 @@
       "_callable": true,
       "_origin": "ast",
       "id": "apps_api_src_messaging_manual_follow_ups_manual_follow_up_service_manualfollowupservice_createfrommessageevent",
-      "community": 16,
-      "community_name": "manual-follow-up.service.ts",
+      "community": 52,
+      "community_name": "semaphore-message-reconciliation.service.ts",
       "norm_label": ".createfrommessageevent()"
     },
     {
@@ -52948,8 +52948,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 53,
-      "community_name": "planning.md",
+      "community": 228,
+      "community_name": "Planning Standards",
       "norm_label": "planning standards",
       "_origin": "semantic",
       "id": "planning_standards"
@@ -53053,8 +53053,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 53,
-      "community_name": "planning.md",
+      "community": 228,
+      "community_name": "Planning Standards",
       "norm_label": "non-bypassable evidence gate",
       "_origin": "semantic",
       "id": "planning_standards_evidence_gate"
@@ -53068,8 +53068,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 53,
-      "community_name": "planning.md",
+      "community": 228,
+      "community_name": "Planning Standards",
       "norm_label": "non-bypassable graphify gate",
       "_origin": "semantic",
       "id": "planning_standards_graphify_gate"
@@ -54736,8 +54736,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 114,
-      "community_name": "Strict TDD",
+      "community": 159,
+      "community_name": "infra-workflow-gap-close.md (plan)",
       "norm_label": "infra-workflow-gap-close.md (plan)",
       "_origin": "semantic",
       "id": "docs_plans_infra_workflow_gap_close"
@@ -54873,8 +54873,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 159,
-      "community_name": "Core principles",
+      "community": 90,
+      "community_name": "AGENTS.md",
       "norm_label": "core principles",
       "_origin": "ast",
       "id": "agents_core_principles"
@@ -54889,8 +54889,8 @@
       "author": null,
       "contributor": null,
       "rationale": "Removing/renaming public surface requires BREAKING CHANGE label + explicit user approval; additive alternatives first.",
-      "community": 159,
-      "community_name": "Core principles",
+      "community": 53,
+      "community_name": "planning.md",
       "norm_label": "backwards compatibility is mandatory (principle 3)",
       "_origin": "ast",
       "id": "agents_backwards_compatibility"
@@ -54904,8 +54904,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 159,
-      "community_name": "Core principles",
+      "community": 90,
+      "community_name": "AGENTS.md",
       "norm_label": "strict tdd (principle 8)",
       "_origin": "ast",
       "id": "agents_strict_tdd_principle"
@@ -54965,8 +54965,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 159,
-      "community_name": "Core principles",
+      "community": 53,
+      "community_name": "planning.md",
       "norm_label": "node l: write plan rules",
       "_origin": "ast",
       "id": "agents_node_l_write_plan"
@@ -55720,8 +55720,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 114,
-      "community_name": "Strict TDD",
+      "community": 159,
+      "community_name": "infra-workflow-gap-close.md (plan)",
       "norm_label": "tarraula-command-center (ref source of truth)",
       "_origin": "ast",
       "id": "docs_plans_infra_workflow_gap_close_ref_tarraula_command_center"
@@ -55735,8 +55735,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 114,
-      "community_name": "Strict TDD",
+      "community": 159,
+      "community_name": "infra-workflow-gap-close.md (plan)",
       "norm_label": "pr #5 workflow port (63be5b7)",
       "_origin": "ast",
       "id": "docs_plans_infra_workflow_gap_close_pr5_workflow_port"
@@ -55750,8 +55750,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 114,
-      "community_name": "Strict TDD",
+      "community": 159,
+      "community_name": "infra-workflow-gap-close.md (plan)",
       "norm_label": "gap matrix (ref artifact -> here)",
       "_origin": "ast",
       "id": "docs_plans_infra_workflow_gap_close_gap_matrix"
@@ -55765,8 +55765,8 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 114,
-      "community_name": "Strict TDD",
+      "community": 159,
+      "community_name": "infra-workflow-gap-close.md (plan)",
       "norm_label": "phase 0 - setup + baseline",
       "_origin": "ast",
       "id": "docs_plans_infra_workflow_gap_close_phase0_setup_baseline"
@@ -55843,8 +55843,8 @@
       "author": null,
       "contributor": null,
       "rationale": "REF skip let a fork PR named main bypass the gate; security fix, regression test tdd-gate.test.mjs:90.",
-      "community": 114,
-      "community_name": "Strict TDD",
+      "community": 159,
+      "community_name": "infra-workflow-gap-close.md (plan)",
       "norm_label": "tdd_gate_head_ref skip removal (kept stricter than ref)",
       "_origin": "ast",
       "id": "docs_plans_infra_workflow_gap_close_tdd_gate_head_ref_skip"
@@ -55859,8 +55859,8 @@
       "author": null,
       "contributor": null,
       "rationale": "Needs persistent self-hosted runner dir; HERE uses ephemeral ubuntu-latest with one main.",
-      "community": 114,
-      "community_name": "Strict TDD",
+      "community": 159,
+      "community_name": "infra-workflow-gap-close.md (plan)",
       "norm_label": "verified-tree.mjs not ported",
       "_origin": "ast",
       "id": "docs_plans_infra_workflow_gap_close_verified_tree_skip"
@@ -77946,7 +77946,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.spec.ts",
-      "source_location": "L361",
+      "source_location": "L359",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_spec",
@@ -77968,7 +77968,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.spec.ts",
-      "source_location": "L771",
+      "source_location": "L769",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_spec",
@@ -78783,7 +78783,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1413",
+      "source_location": "L1420",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice",
@@ -78827,7 +78827,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1385",
+      "source_location": "L1392",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice",
@@ -78838,7 +78838,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1357",
+      "source_location": "L1360",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice",
@@ -78871,7 +78871,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1422",
+      "source_location": "L1429",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice",
@@ -79003,7 +79003,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1406",
+      "source_location": "L1413",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice",
@@ -80605,7 +80605,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1357",
+      "source_location": "L1360",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_marksmsaddonrefunded",
@@ -80618,7 +80618,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1393",
+      "source_location": "L1400",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_markpendingsync",
@@ -80629,7 +80629,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1385",
+      "source_location": "L1392",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_markpendingsync",
@@ -80641,7 +80641,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1385",
+      "source_location": "L1392",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_markpendingsync",
@@ -80653,7 +80653,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1406",
+      "source_location": "L1413",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_resolvesubscriptioninterval",
@@ -80665,7 +80665,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1419",
+      "source_location": "L1426",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_isscheduleddowngrade",
@@ -80677,7 +80677,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1413",
+      "source_location": "L1420",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_isscheduleddowngrade",
@@ -80689,7 +80689,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1413",
+      "source_location": "L1420",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_isscheduleddowngrade",
@@ -80702,7 +80702,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1424",
+      "source_location": "L1431",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_priceforplan",
@@ -80713,7 +80713,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1422",
+      "source_location": "L1429",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_priceforplan",
@@ -80725,7 +80725,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "apps/api/src/billing/billing.service.ts",
-      "source_location": "L1422",
+      "source_location": "L1429",
       "weight": 1.0,
       "_origin": "ast",
       "source": "apps_api_src_billing_billing_service_billingservice_priceforplan",
@@ -185577,5 +185577,5 @@
       "source_file": "apps/web/public/next.svg"
     }
   ],
-  "built_at_commit": "af850661912f683f2282cff9091c13674d52e0a8"
+  "built_at_commit": "333f43dcf938e75922e99a797a57846c09e38986"
 }
