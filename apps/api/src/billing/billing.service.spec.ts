@@ -134,6 +134,7 @@ function createDbHarness(input?: {
       smsAddons: [] as Array<Record<string, unknown>>,
     },
     whereConditions: [] as Array<{ table: unknown; condition: unknown }>,
+    lockedTables: [] as unknown[],
   };
 
   const sqlValueCount = (condition: unknown): number => {
@@ -253,7 +254,18 @@ function createDbHarness(input?: {
             return [];
           },
         }),
-        limit: async () => {
+        limit: () => {
+          const rows = resolveLimit();
+          // drizzle's .for("update") row lock; record which table was locked
+          return Object.assign(rows, {
+            for: () => {
+              state.lockedTables.push(table);
+              return rows;
+            },
+          });
+        },
+      };
+      async function resolveLimit() {
           if (table === subscriptions) {
             return (matchSubscriptions(condition) ?? state.subscriptions).slice(0, 1);
           }
@@ -274,8 +286,7 @@ function createDbHarness(input?: {
             return rows.filter((row) => values.includes(row.sourceReference as string)).slice(0, 1);
           }
           return [];
-        },
-      };
+      }
       },
     }),
   }));
@@ -1882,6 +1893,199 @@ describe("BillingService", () => {
       usedBefore: 55,
       usedAfter: 55,
       providerEventId: "refund_booking_456",
+    });
+  });
+
+  describe("top-up order_refunded", () => {
+    const smsRefund = (orderId: string, sku: string, attributes: Record<string, unknown>) => ({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "sms_segment_topup", sku },
+      },
+      data: { id: orderId, attributes },
+    });
+    const bookingRefund = (orderId: string, attributes: Record<string, unknown>) => ({
+      meta: {
+        event_name: "order_refunded",
+        custom_data: { organization_id: "org-1", purchase_kind: "online_booking_topup", sku: "online-booking-topup-25" },
+      },
+      data: { id: orderId, attributes },
+    });
+    const smsPack = (refundedUnits: number, packSize = 50) => ({
+      id: "sms-pack",
+      organizationId: "org-1",
+      source: "lemonsqueezy",
+      sourceReference: "order_1",
+      packSize,
+      refundedUnits,
+    });
+    const lastMetadata = (state: ReturnType<typeof createDbHarness>["state"]) =>
+      state.processedEvents[state.processedEvents.length - 1]?.metadata as Record<string, unknown> | undefined;
+
+    it("error: a partial top-up refund with no readable amount deducts nothing", async () => {
+      const { state } = createDbHarness({
+        smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 50, used: 0 }],
+        smsAddons: [smsPack(0)],
+      });
+      const service = new BillingService({} as never);
+
+      await expect(
+        service.reconcileWebhookEvent(smsRefund("order_1", "sms-segment-topup-50", { status: "partial_refund" })),
+      ).resolves.toBe("ignored");
+
+      expect(state.smsCredits[0]).toMatchObject({ addon: 50 });
+      expect(state.updated.smsAddons).toHaveLength(0);
+      expect(state.inserted.reconciliation).toHaveLength(0);
+      expect(lastMetadata(state)).toMatchObject({ reason: "refund_amount_unreadable" });
+    });
+
+    it("edge: a second order_refunded for a fully refunded sms pack deducts nothing", async () => {
+      const { state } = createDbHarness({
+        smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 50, used: 0 }],
+        smsAddons: [smsPack(50)],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        smsRefund("order_1", "sms-segment-topup-50", { status: "refunded", refunded_amount: 999, total: 999 }),
+      );
+
+      expect(state.smsCredits[0]).toMatchObject({ addon: 50 });
+      expect(state.updated.smsAddons).toHaveLength(0);
+      expect(state.inserted.reconciliation).toHaveLength(0);
+      expect(lastMetadata(state)).toMatchObject({ reason: "refund_no_units_due" });
+    });
+
+    it("edge: a partial sms top-up refund deducts the floored pro rata share", async () => {
+      const { state } = createDbHarness({
+        smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 50, used: 0 }],
+        smsAddons: [smsPack(0)],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        smsRefund("order_1", "sms-segment-topup-50", { status: "partial_refund", refunded_amount: 333, total: 999 }),
+      );
+
+      expect(state.smsCredits[0]).toMatchObject({ addon: 34 });
+      expect(state.updated.smsAddons[0]).toMatchObject({ refundedUnits: 16 });
+      expect(state.inserted.reconciliation[0]).toMatchObject({
+        eventType: "refund_applied",
+        addonBefore: 50,
+        addonAfter: 34,
+        metadata: { refundedUnits: 16 },
+      });
+    });
+
+    it("edge: a full refund after a partial one deducts only the remaining units", async () => {
+      const { state } = createDbHarness({
+        smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 34, used: 0 }],
+        smsAddons: [smsPack(16)],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        smsRefund("order_1", "sms-segment-topup-50", { status: "refunded", refunded_amount: 999, total: 999 }),
+      );
+
+      expect(state.smsCredits[0]).toMatchObject({ addon: 0 });
+      expect(state.updated.smsAddons[0]).toMatchObject({ refundedUnits: 50 });
+      expect(state.inserted.reconciliation[0]).toMatchObject({ eventType: "refund_applied", metadata: { refundedUnits: 34 } });
+    });
+
+    it("edge: a partial refund that floors to zero units deducts nothing", async () => {
+      const { state } = createDbHarness({
+        smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 25, used: 0 }],
+        smsAddons: [smsPack(0, 25)],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        smsRefund("order_1", "sms-segment-topup-25", { status: "partial_refund", refunded_amount: 1, total: 999 }),
+      );
+
+      expect(state.smsCredits[0]).toMatchObject({ addon: 25 });
+      expect(state.updated.smsAddons).toHaveLength(0);
+      expect(state.inserted.reconciliation).toHaveLength(0);
+      expect(lastMetadata(state)).toMatchObject({ reason: "refund_no_units_due" });
+    });
+
+    it("edge: a partial booking top-up refund deducts the floored pro rata share", async () => {
+      const { state } = createDbHarness({
+        verifiedCredits: [
+          { organizationId: "org-1", month: "2026-11", includedGranted: 0, addonGranted: 25, used: 0, sourcePlan: "free" },
+        ],
+        bookingAddons: [
+          {
+            id: "bk-pack",
+            organizationId: "org-1",
+            source: "lemonsqueezy",
+            sourceReference: "order_1",
+            sku: "online-booking-topup-25",
+            units: 25,
+            refundedUnits: 0,
+          },
+        ],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        bookingRefund("order_1", { status: "partial_refund", refunded_amount: 500, total: 1000 }),
+      );
+
+      expect(state.updated.credits[0]).toMatchObject({ addonGranted: 13 });
+      expect(state.updated.bookingAddons[0]).toMatchObject({ refundedUnits: 12 });
+      expect(state.lockedTables).toContain(verifiedOnlineBookingAddons);
+    });
+
+    it("edge: a top-up refund with no matching pack records refund_addon_not_found", async () => {
+      const { state } = createDbHarness({
+        smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 25, used: 0 }],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(smsRefund("order_missing", "sms-segment-topup-25", {}));
+
+      expect(state.smsCredits[0]).toMatchObject({ addon: 0 });
+      expect(state.updated.smsAddons).toHaveLength(0);
+      expect(state.inserted.reconciliation[0]).toMatchObject({
+        eventType: "refund_applied",
+        metadata: { addonRecord: "not_found" },
+      });
+      expect(lastMetadata(state)).toMatchObject({ reason: "refund_addon_not_found" });
+    });
+
+    it("regression: a top-up refund locks the refunded pack row before deducting", async () => {
+      const { state } = createDbHarness({
+        smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 50, used: 0 }],
+        smsAddons: [smsPack(0)],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(smsRefund("order_1", "sms-segment-topup-50", { status: "refunded" }));
+
+      expect(state.lockedTables).toContain(smsAddons);
+    });
+
+    it("regression: a partial refund larger than the unused add-on units opens a review for the due units only", async () => {
+      const { state } = createDbHarness({
+        smsCredits: [{ organizationId: "org-1", month: "2026-11", included: 0, addon: 50, used: 40 }],
+        smsAddons: [smsPack(0)],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        smsRefund("order_1", "sms-segment-topup-50", { status: "partial_refund", refunded_amount: 600, total: 1000 }),
+      );
+
+      expect(state.smsCredits[0]).toMatchObject({ addon: 50 });
+      expect(state.updated.smsAddons).toHaveLength(0);
+      expect(state.inserted.reconciliation[0]).toMatchObject({
+        eventType: "refund_review",
+        addonBefore: 50,
+        addonAfter: 50,
+        metadata: { refundedUnits: 30 },
+      });
     });
   });
 

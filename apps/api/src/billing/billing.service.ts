@@ -45,7 +45,7 @@ import {
 } from "../common/org-billing-state.service";
 import { SmsAddonGrantService } from "./sms-addon-grant.service";
 import { VerifiedBookingAddonGrantService } from "./verified-booking-addon-grant.service";
-import { smsAddonCarryover, verifiedBookingAddonCarryover } from "./addon-carryover";
+import { smsAddonCarryover, unusedAddonUnits, verifiedBookingAddonCarryover } from "./addon-carryover";
 import { billingMonthKey } from "../common/billing-month";
 
 type SubscriptionStatus =
@@ -933,113 +933,103 @@ export class BillingService {
     }
 
     const addon = resolveAddonSku(sku as BillingAddonSku);
-    if (purchaseKind === "online_booking_topup") {
-      const ledger = await this.getOrCreateVerifiedBookingLedger(tx, organizationId);
-      const addonUsed = Math.max(0, ledger.used - ledger.includedGranted);
-      const unusedAddonUnits = Math.max(0, ledger.addonGranted - addonUsed);
-      if (unusedAddonUnits < addon.units) {
-        await tx.insert(creditReconciliationEvents).values({
-          organizationId,
-          creditType: "verified_online_booking",
-          month: ledger.month,
-          eventType: "refund_review",
-          includedBefore: ledger.includedGranted,
-          includedAfter: ledger.includedGranted,
-          addonBefore: ledger.addonGranted,
-          addonAfter: ledger.addonGranted,
-          usedBefore: ledger.used,
-          usedAfter: ledger.used,
-          providerEventId: eventId,
-          metadata: { sku: addon.sku, refundedUnits: addon.units },
-        });
-        return { status: "processed" };
-      }
+    if (purchaseKind !== "online_booking_topup" && purchaseKind !== "sms_segment_topup") {
+      return { status: "processed" };
+    }
+    const isBooking = purchaseKind === "online_booking_topup";
+    const packTable = isBooking ? verifiedOnlineBookingAddons : smsAddons;
+    // Lock the refunded order's pack: concurrent deliveries for one order must not both deduct.
+    const [pack] = eventId
+      ? await tx
+          .select({
+            id: packTable.id,
+            units: isBooking ? verifiedOnlineBookingAddons.units : smsAddons.packSize,
+            refundedUnits: packTable.refundedUnits,
+          })
+          .from(packTable)
+          .where(
+            and(
+              eq(packTable.organizationId, organizationId),
+              eq(packTable.source, "lemonsqueezy"),
+              eq(packTable.sourceReference, eventId),
+            ),
+          )
+          .limit(1)
+          .for("update")
+      : [];
+    const target = this.refundTargetUnits(payload.data?.attributes ?? {}, pack?.units ?? addon.units);
+    if (target === null) return { status: "ignored", reason: "refund_amount_unreadable" };
+    const due = target - (pack?.refundedUnits ?? 0);
+    if (due <= 0) return { status: "processed", reason: "refund_no_units_due" };
+    // shortcut: without a pack row (legacy grant) a replay cannot be detected; every LS grant since #11 has one.
+    const notFound = pack ? {} : { reason: "refund_addon_not_found" };
+    const metadata = { sku: addon.sku, refundedUnits: due, ...(pack ? {} : { addonRecord: "not_found" }) };
 
+    const ledger = isBooking
+      ? await this.getOrCreateVerifiedBookingLedger(tx, organizationId)
+      : await this.getOrCreateSmsLedger(tx, organizationId);
+    const included = "includedGranted" in ledger ? ledger.includedGranted : ledger.included;
+    const addonBefore = "addonGranted" in ledger ? ledger.addonGranted : ledger.addon;
+    const base = {
+      organizationId,
+      creditType: isBooking ? ("verified_online_booking" as const) : ("sms_segment" as const),
+      month: ledger.month,
+      includedBefore: included,
+      includedAfter: included,
+      addonBefore,
+      usedBefore: ledger.used,
+      usedAfter: ledger.used,
+      providerEventId: eventId,
+      metadata,
+    };
+    if (unusedAddonUnits({ included, addon: addonBefore, used: ledger.used }) < due) {
+      await tx.insert(creditReconciliationEvents).values({ ...base, eventType: "refund_review", addonAfter: addonBefore });
+      return { status: "processed", ...notFound };
+    }
+
+    // unused <= addonBefore and unused >= due, so this never goes negative
+    const addonAfter = addonBefore - due;
+    if (isBooking) {
       await tx
         .update(verifiedOnlineBookingCredits)
-        .set({
-          addonGranted: Math.max(0, ledger.addonGranted - addon.units),
-          used: ledger.used,
-          updatedAt: new Date(),
-        })
+        .set({ addonGranted: addonAfter, used: ledger.used, updatedAt: new Date() })
         .where(
           and(
             eq(verifiedOnlineBookingCredits.organizationId, organizationId),
             eq(verifiedOnlineBookingCredits.month, ledger.month),
           ),
         );
-      await this.markVerifiedBookingAddonRefunded(tx, organizationId, eventId, addon.units);
-
-      await tx.insert(creditReconciliationEvents).values({
-        organizationId,
-        creditType: "verified_online_booking",
-        month: ledger.month,
-        eventType: "refund_applied",
-        includedBefore: ledger.includedGranted,
-        includedAfter: ledger.includedGranted,
-        addonBefore: ledger.addonGranted,
-        addonAfter: Math.max(0, ledger.addonGranted - addon.units),
-        usedBefore: ledger.used,
-        usedAfter: ledger.used,
-        providerEventId: eventId,
-        metadata: { sku: addon.sku, refundedUnits: addon.units },
-      });
-      return { status: "processed" };
-    }
-
-    if (purchaseKind === "sms_segment_topup") {
-      const ledger = await this.getOrCreateSmsLedger(tx, organizationId);
-      const addonUsed = Math.max(0, ledger.used - ledger.included);
-      const unusedAddonUnits = Math.max(0, ledger.addon - addonUsed);
-      if (unusedAddonUnits < addon.units) {
-        await tx.insert(creditReconciliationEvents).values({
-          organizationId,
-          creditType: "sms_segment",
-          month: ledger.month,
-          eventType: "refund_review",
-          includedBefore: ledger.included,
-          includedAfter: ledger.included,
-          addonBefore: ledger.addon,
-          addonAfter: ledger.addon,
-          usedBefore: ledger.used,
-          usedAfter: ledger.used,
-          providerEventId: eventId,
-          metadata: { sku: addon.sku, refundedUnits: addon.units },
-        });
-        return { status: "processed" };
-      }
-
+    } else {
       await tx
         .update(smsCredits)
-        .set({
-          addon: Math.max(0, ledger.addon - addon.units),
-          used: ledger.used,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(smsCredits.organizationId, organizationId),
-            eq(smsCredits.month, ledger.month),
-          ),
-        );
-      await this.markSmsAddonRefunded(tx, organizationId, eventId, addon.units);
-
-      await tx.insert(creditReconciliationEvents).values({
-        organizationId,
-        creditType: "sms_segment",
-        month: ledger.month,
-        eventType: "refund_applied",
-        includedBefore: ledger.included,
-        includedAfter: ledger.included,
-        addonBefore: ledger.addon,
-        addonAfter: Math.max(0, ledger.addon - addon.units),
-        usedBefore: ledger.used,
-        usedAfter: ledger.used,
-        providerEventId: eventId,
-        metadata: { sku: addon.sku, refundedUnits: addon.units },
-      });
+        .set({ addon: addonAfter, used: ledger.used, updatedAt: new Date() })
+        .where(and(eq(smsCredits.organizationId, organizationId), eq(smsCredits.month, ledger.month)));
     }
-    return { status: "processed" };
+    if (pack) {
+      await tx.update(packTable).set({ refundedUnits: target }).where(eq(packTable.id, pack.id));
+    }
+    await tx.insert(creditReconciliationEvents).values({ ...base, eventType: "refund_applied", addonAfter });
+    return { status: "processed", ...notFound };
+  }
+
+  // LS order: status "refunded" = full; refunded_amount/total are integer cents. Floor never deducts past the refunded share.
+  private refundTargetUnits(attributes: Record<string, unknown>, packUnits: number): number | null {
+    const status = this.readString(attributes.status);
+    if (status === "refunded") return packUnits;
+    const refunded = attributes.refunded_amount;
+    const total = attributes.total;
+    if (
+      typeof refunded === "number" &&
+      typeof total === "number" &&
+      Number.isInteger(refunded) &&
+      Number.isInteger(total) &&
+      refunded > 0 &&
+      total > 0
+    ) {
+      return Math.min(packUnits, Math.floor((packUnits * refunded) / total));
+    }
+    // legacy payloads without status/amounts keep the full-pack reversal; an unsized partial refund is never guessed
+    return status === "partial_refund" ? null : packUnits;
   }
 
   private async reconcileSubscriptionPaymentRefundedEvent(
@@ -1616,70 +1606,6 @@ export class BillingService {
       pendingSyncTargetPlanType: null,
       pendingSyncTargetBillingInterval: null,
     };
-  }
-
-  private async markVerifiedBookingAddonRefunded(
-    tx: {
-      select: ReturnType<typeof getDb>["select"];
-      update: ReturnType<typeof getDb>["update"];
-    },
-    organizationId: string,
-    orderId: string | null,
-    units: number,
-  ) {
-    // Match the refunded order itself; several packs can share a sku, so sku alone marks the wrong purchase.
-    if (!orderId) return;
-    const [addon] = await tx
-      .select({ id: verifiedOnlineBookingAddons.id })
-      .from(verifiedOnlineBookingAddons)
-      .where(
-        and(
-          eq(verifiedOnlineBookingAddons.organizationId, organizationId),
-          eq(verifiedOnlineBookingAddons.source, "lemonsqueezy"),
-          eq(verifiedOnlineBookingAddons.sourceReference, orderId),
-        ),
-      )
-      .limit(1);
-    if (!addon?.id) return;
-
-    await tx
-      .update(verifiedOnlineBookingAddons)
-      .set({
-        refundedUnits: units,
-      })
-      .where(eq(verifiedOnlineBookingAddons.id, addon.id));
-  }
-
-  private async markSmsAddonRefunded(
-    tx: {
-      select: ReturnType<typeof getDb>["select"];
-      update: ReturnType<typeof getDb>["update"];
-    },
-    organizationId: string,
-    orderId: string | null,
-    units: number,
-  ) {
-    // Match the refunded order itself; several packs can share a size, so size alone marks the wrong purchase.
-    if (!orderId) return;
-    const [addon] = await tx
-      .select({ id: smsAddons.id })
-      .from(smsAddons)
-      .where(
-        and(
-          eq(smsAddons.organizationId, organizationId),
-          eq(smsAddons.source, "lemonsqueezy"),
-          eq(smsAddons.sourceReference, orderId),
-        ),
-      )
-      .limit(1);
-    if (!addon?.id) return;
-
-    await tx
-      .update(smsAddons)
-      .set({
-        refundedUnits: units,
-      })
-      .where(eq(smsAddons.id, addon.id));
   }
 
   private async markPendingSync(
