@@ -710,10 +710,14 @@ describe("SukiAssistant orchestration UI", () => {
     expect(
       await screen.findByRole("link", { name: /open insights/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/status:\s*streaming/i)).toBeInTheDocument();
-    expect(
-      screen.queryByText(/open insights to review everything\./i),
-    ).not.toBeInTheDocument();
+    // The header status is lifted from the reveal hook through an effect, so it
+    // reaches "Streaming" one commit after the link renders; wait for that commit.
+    await waitFor(() => {
+      expect(screen.getByText(/status:\s*streaming/i)).toBeInTheDocument();
+      expect(
+        screen.queryByText(/open insights to review everything\./i),
+      ).not.toBeInTheDocument();
+    });
 
     expect(
       await screen.findByText(/status:\s*read/i, {}, { timeout: 10000 }),
