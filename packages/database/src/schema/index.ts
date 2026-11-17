@@ -9,6 +9,7 @@ import {
   unique,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // Enums
 export const planTypeEnum = pgEnum("plan_type", ["free", "starter", "growth", "pro"]);
@@ -1458,6 +1459,12 @@ export const processedWebhookEvents = pgTable(
     receivedAt: timestamp("received_at").defaultNow().notNull(),
     processedAt: timestamp("processed_at").defaultNow().notNull(),
   },
+  // Serves the LS stale-event lookup (latest processed event per subscription); the ASC column is read backward for ORDER BY processed_at DESC.
+  (t) => [
+    index("processed_webhook_events_subscription_id_processed_at_idx")
+      .on(sql`(${t.metadata} ->> 'subscriptionId')`, t.processedAt)
+      .where(sql`(${t.metadata} ->> 'subscriptionId') IS NOT NULL`),
+  ],
 );
 
 export const automationJobRuns = pgTable(
