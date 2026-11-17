@@ -134,6 +134,10 @@ export class BillingService {
     const plan = getPlanCatalogEntry(fallbackPlanType);
     const ledger = await this.getVerifiedBookingLedger(organizationId);
     const smsLedger = await this.getSmsLedger(organizationId);
+    // No row yet this Manila month: show the add-on units the first write will carry over, without creating the row.
+    const month = billingMonthKey();
+    const verifiedCarryover = ledger ? 0 : await verifiedBookingAddonCarryover(getDb(), organizationId, month);
+    const smsCarryover = smsLedger ? 0 : await smsAddonCarryover(getDb(), organizationId, month);
     const emailLedger = await this.getEmailLedger(organizationId);
     const aiRequestsUsed = await this.getAiRequestsUsed(organizationId);
     const ownerWarnings = await this.buildOwnerWarnings(organizationId, subscription);
@@ -147,10 +151,10 @@ export class BillingService {
         }
       : {
           included: plan.limits.verifiedOnlineBookingsPerMonth,
-          addon: 0,
+          addon: verifiedCarryover,
           used: 0,
-          total: plan.limits.verifiedOnlineBookingsPerMonth,
-          remaining: plan.limits.verifiedOnlineBookingsPerMonth,
+          total: plan.limits.verifiedOnlineBookingsPerMonth + verifiedCarryover,
+          remaining: plan.limits.verifiedOnlineBookingsPerMonth + verifiedCarryover,
         };
     const smsSegmentCredits = smsLedger
       ? {
@@ -162,10 +166,10 @@ export class BillingService {
         }
       : {
           included: 0,
-          addon: 0,
+          addon: smsCarryover,
           used: 0,
-          total: 0,
-          remaining: 0,
+          total: smsCarryover,
+          remaining: smsCarryover,
         };
     const emailCreditsStatus = emailLedger
       ? {
@@ -1545,6 +1549,8 @@ export class BillingService {
     eventName: string,
     attributeStatus: string | null,
   ): SubscriptionStatus {
+    // LS on_trial gets paid-plan access; "trialing" is the in-app signup trial that expires on organizations.trialEndsAt.
+    if (attributeStatus === "on_trial") return "active";
     if (attributeStatus === "active" || attributeStatus === "cancelled" || attributeStatus === "past_due" || attributeStatus === "trialing" || attributeStatus === "paused" || attributeStatus === "expired" || attributeStatus === "unpaid") {
       return attributeStatus;
     }
