@@ -3245,9 +3245,9 @@
     "semantic_hash": "f63cc99d9f37bff446e23bac2f15b3ec"
   },
   "packages/database/drizzle/meta/_journal.json": {
-    "mtime": 1794842578.8149648,
-    "ast_hash": "2e234bb0a27a09309303f4bcb5d0790f",
-    "semantic_hash": "2e234bb0a27a09309303f4bcb5d0790f"
+    "mtime": 1794892544.761328,
+    "ast_hash": "7ac3a007b4ac8a657bee71a7a99cd69a",
+    "semantic_hash": ""
   },
   "packages/database/package.json": {
     "mtime": 1794842578.8154516,
@@ -3300,9 +3300,9 @@
     "semantic_hash": "563b8b8ebeca71e144f7e9871e40043c"
   },
   "packages/database/src/schema/index.ts": {
-    "mtime": 1794842578.8190236,
-    "ast_hash": "89f2e166043004ed693d8230951f9e61",
-    "semantic_hash": "89f2e166043004ed693d8230951f9e61"
+    "mtime": 1794892544.7621422,
+    "ast_hash": "af7dfc795c1f58495c9d6d54a180b4ec",
+    "semantic_hash": ""
   },
   "packages/database/tsconfig.json": {
     "mtime": 1794842578.8192546,
@@ -4392,6 +4392,21 @@
   "docs/plans/ls-topup-refunds.md": {
     "mtime": 1794891309.2613287,
     "ast_hash": "6c9c7366041ad9a6520c1e4d200879dd",
+    "semantic_hash": ""
+  },
+  "packages/database/drizzle/0037_melted_paibok.sql": {
+    "mtime": 1794892544.7596197,
+    "ast_hash": "c9130ee55b88b3dad0f7fa3a8f1354cb",
+    "semantic_hash": ""
+  },
+  "packages/database/drizzle/meta/0037_snapshot.json": {
+    "mtime": 1794892544.7601461,
+    "ast_hash": "73829e76933475a7229d26c3be0bdb06",
+    "semantic_hash": ""
+  },
+  "docs/plans/ls-stale-event-index.md": {
+    "mtime": 1794892544.7523298,
+    "ast_hash": "3d33180097a31f25650e99763770e415",
     "semantic_hash": ""
   },
   "docs/plans/ls-status-addon-trial.md": {
