@@ -1,0 +1,1 @@
+CREATE INDEX "processed_webhook_events_subscription_id_processed_at_idx" ON "processed_webhook_events" USING btree (("metadata" ->> 'subscriptionId'),"processed_at") WHERE ("processed_webhook_events"."metadata" ->> 'subscriptionId') IS NOT NULL;
