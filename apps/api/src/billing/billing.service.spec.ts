@@ -16,6 +16,7 @@ import {
   verifiedOnlineBookingCredits,
 } from "@suki/database";
 import { BillingService } from "./billing.service";
+import { billingMonthKey } from "../common/billing-month";
 
 vi.mock("@suki/database", async () => {
   const actual = await vi.importActual<typeof import("@suki/database")>("@suki/database");
@@ -630,6 +631,53 @@ describe("BillingService", () => {
         remaining: 51,
       },
     });
+  });
+
+  it("edge: billing status reports carried-over sms add-on units before this month's ledger row exists", async () => {
+    createDbHarness({ previousSmsCredits: [{ included: 300, addon: 100, used: 350 }] });
+    const service = new BillingService({} as never);
+    vi.spyOn(service, "getSubscription").mockResolvedValue(null as never);
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      smsSegmentCredits: { included: 0, addon: 50, used: 0, total: 50, remaining: 50 },
+    });
+  });
+
+  it("edge: billing status reports carried-over verified booking add-on units before this month's ledger row exists", async () => {
+    createDbHarness({ previousVerifiedCredits: [{ included: 30, addon: 25, used: 40 }] });
+    const service = new BillingService({} as never);
+    vi.spyOn(service, "getSubscription").mockResolvedValue(null as never);
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      verifiedOnlineBookingCredits: { included: 5, addon: 15, used: 0, total: 20, remaining: 20 },
+    });
+  });
+
+  it("regression: billing status reads add-ons from an existing current-month row and does not add carry-over again", async () => {
+    createDbHarness({
+      smsCredits: [{ organizationId: "org-1", month: billingMonthKey(), included: 0, addon: 10, used: 0 }],
+      previousSmsCredits: [{ included: 0, addon: 100, used: 0 }],
+    });
+    const service = new BillingService({} as never);
+    vi.spyOn(service, "getSubscription").mockResolvedValue(null as never);
+
+    await expect(service.getBillingStatus("org-1")).resolves.toMatchObject({
+      smsSegmentCredits: { addon: 10, total: 10, remaining: 10 },
+    });
+  });
+
+  it("regression: billing status never inserts ledger rows", async () => {
+    const { state } = createDbHarness({
+      previousSmsCredits: [{ included: 300, addon: 100, used: 350 }],
+      previousVerifiedCredits: [{ included: 30, addon: 25, used: 40 }],
+    });
+    const service = new BillingService({} as never);
+    vi.spyOn(service, "getSubscription").mockResolvedValue(null as never);
+
+    await service.getBillingStatus("org-1");
+
+    expect(state.inserted.smsCredits).toHaveLength(0);
+    expect(state.inserted.credits).toHaveLength(0);
   });
 
   it("returns email, ai, and owner warning status fields from current ledgers", async () => {
@@ -3075,6 +3123,39 @@ describe("BillingService", () => {
 
       expect(state.subscriptions[0]).toMatchObject({ status: "active", graceUntil: null });
       expect(state.updated.organizations[0]).toMatchObject({ billingStatus: "subscription_active" });
+    });
+
+    it("edge: on_trial attribute wins over the subscription_paused event-name fallback", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+        subscriptions: [lsRow()],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(subscriptionEvent("subscription_paused", { status: "on_trial" }));
+
+      expect(state.subscriptions[0]).toMatchObject({ status: "active" });
+      expect(state.updated.organizations[0]).toMatchObject({ billingStatus: "subscription_active" });
+    });
+
+    it("happy: subscription_created with on_trial grants the paid plan like active", async () => {
+      const { state } = createDbHarness({
+        subscriptionsBySql: true,
+        organizations: [{ id: "org-1", currentPlan: "free", billingStatus: "free_active" }],
+        subscriptions: [],
+      });
+      const service = new BillingService({} as never);
+
+      await service.reconcileWebhookEvent(
+        subscriptionEvent("subscription_created", { status: "on_trial", trial_ends_at: "2026-11-30T00:00:00.000Z" }),
+      );
+
+      expect(state.inserted.subscriptions[0]).toMatchObject({
+        status: "active",
+        trialEndsAt: new Date("2026-11-30T00:00:00.000Z"),
+      });
+      expect(state.updated.organizations[0]).toMatchObject({ currentPlan: "growth", billingStatus: "subscription_active" });
     });
 
     it("regression: getBillingStatus reports unpaid as subscription_past_due and trialing as trial_active", async () => {

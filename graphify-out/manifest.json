@@ -370,13 +370,13 @@
     "semantic_hash": "0cbbe988eeb293d7018c75b91ab50c95"
   },
   "apps/api/src/billing/billing.service.spec.ts": {
-    "mtime": 1794891310.5177076,
-    "ast_hash": "520eb304c3bc49eb79a5b605307a953e",
+    "mtime": 1794893103.4701238,
+    "ast_hash": "3dcc233a97a284d388cd5d4ec31447c8",
     "semantic_hash": ""
   },
   "apps/api/src/billing/billing.service.ts": {
-    "mtime": 1794891310.527355,
-    "ast_hash": "6b859d8f9b9bf93f6f9b4769e8072971",
+    "mtime": 1794893103.4704828,
+    "ast_hash": "c1e82083cedf7e102575b3437238464e",
     "semantic_hash": ""
   },
   "apps/api/src/billing/client-billing-request.controller.ts": {
@@ -4407,6 +4407,11 @@
   "docs/plans/ls-stale-event-index.md": {
     "mtime": 1794892919.2544198,
     "ast_hash": "3d33180097a31f25650e99763770e415",
+    "semantic_hash": ""
+  },
+  "docs/plans/ls-status-addon-trial.md": {
+    "mtime": 1794893103.4707696,
+    "ast_hash": "2299efe85460eff7634ba978c99eb9dc",
     "semantic_hash": ""
   },
   "docs/plans/orchestration-test-flake.md": {
