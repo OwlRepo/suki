@@ -260,6 +260,13 @@
       "when": 1782213370993,
       "tag": "0036_swift_medusa",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794891550163,
+      "tag": "0037_melted_paibok",
+      "breakpoints": true
     }
   ]
 }
